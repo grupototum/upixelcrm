@@ -4,7 +4,7 @@ import { mockColumns, mockLeads, mockTasks } from "@/lib/mock-data";
 import {
   TrendingUp, ArrowDownRight, BarChart3, PieChart as PieChartIcon,
   Download, Calendar, Target, Users, DollarSign,
-  Clock, Zap,
+  Clock, Zap, ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,6 @@ const tooltipStyle = {
 export default function ReportsPage() {
   const [period, setPeriod] = useState("all");
 
-  // ─── Computed data ───
   const conversionData = useMemo(() =>
     mockColumns.map((col, i) => {
       const count = mockLeads.filter((l) => l.column_id === col.id).length;
@@ -91,15 +90,20 @@ export default function ReportsPage() {
     () => mockLeads.length > 0 ? Math.round(totalValue / mockLeads.length) : 0, [totalValue]
   );
 
+  const overdueCount = useMemo(() => mockTasks.filter((t) => t.status === "overdue").length, []);
   const overdueRate = useMemo(() => {
-    const overdue = mockTasks.filter((t) => t.status === "overdue").length;
-    return mockTasks.length > 0 ? Math.round((overdue / mockTasks.length) * 100) : 0;
+    return mockTasks.length > 0 ? Math.round((overdueCount / mockTasks.length) * 100) : 0;
+  }, [overdueCount]);
+
+  const conversionRate = useMemo(() => {
+    const wonCount = mockLeads.filter((l) => l.column_id === mockColumns[mockColumns.length - 1]?.id).length;
+    return mockLeads.length > 0 ? ((wonCount / mockLeads.length) * 100).toFixed(1) : "0";
   }, []);
 
   return (
     <AppLayout
       title="Relatórios"
-      subtitle="Analytics e métricas"
+      subtitle="Analytics e métricas da operação"
       actions={
         <div className="flex items-center gap-2">
           <Select value={period} onValueChange={setPeriod}>
@@ -125,10 +129,11 @@ export default function ReportsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KPICard
             label="Taxa de Conversão"
-            value="23.5%"
+            value={`${conversionRate}%`}
             change="+3.2%"
             positive
             icon={Target}
+            accent="primary"
           />
           <KPICard
             label="Leads Totais"
@@ -136,6 +141,7 @@ export default function ReportsPage() {
             change="+12%"
             positive
             icon={Users}
+            accent="success"
           />
           <KPICard
             label="Ticket Médio"
@@ -143,13 +149,15 @@ export default function ReportsPage() {
             change="-2.1%"
             positive={false}
             icon={DollarSign}
+            accent="accent"
           />
           <KPICard
             label="Tarefas Atrasadas"
             value={`${overdueRate}%`}
-            change={`${mockTasks.filter((t) => t.status === "overdue").length} tarefas`}
+            change={`${overdueCount} tarefa${overdueCount !== 1 ? "s" : ""}`}
             positive={false}
             icon={Clock}
+            accent="destructive"
           />
         </div>
 
@@ -173,11 +181,10 @@ export default function ReportsPage() {
           {/* ─── Conversão por Etapa ─── */}
           <TabsContent value="conversion" className="mt-5 space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Funnel bars */}
-              <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Funil de Conversão</h3>
+              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Funil de Conversão</h3>
                 <div className="space-y-3">
-                  {conversionData.map((col, i) => (
+                  {conversionData.map((col) => (
                     <div key={col.name} className="space-y-1">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -200,9 +207,8 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              {/* Funnel chart visual */}
-              <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Visualização do Funil</h3>
+              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Visualização do Funil</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={funnelData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
@@ -224,8 +230,8 @@ export default function ReportsPage() {
 
           {/* ─── Leads por Período ─── */}
           <TabsContent value="leads" className="mt-5">
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Volume de Leads por Mês</h3>
+            <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Volume de Leads por Mês</h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={leadsByPeriod} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
@@ -255,8 +261,8 @@ export default function ReportsPage() {
           {/* ─── Por Origem ─── */}
           <TabsContent value="origin" className="mt-5">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Distribuição por Origem</h3>
+              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Distribuição por Origem</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -288,8 +294,8 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Detalhamento por Origem</h3>
+              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Detalhamento por Origem</h3>
                 <div className="space-y-3">
                   {leadsByOrigin
                     .sort((a, b) => b.value - a.value)
@@ -360,21 +366,28 @@ export default function ReportsPage() {
 
 /* ─── KPI Card ─── */
 function KPICard({
-  label, value, change, positive, icon: Icon,
+  label, value, change, positive, icon: Icon, accent,
 }: {
-  label: string; value: string; change: string; positive: boolean; icon: typeof Target;
+  label: string; value: string; change: string; positive: boolean; icon: typeof Target; accent: string;
 }) {
+  const colorMap: Record<string, string> = {
+    primary: "text-primary",
+    success: "text-success",
+    accent: "text-accent",
+    destructive: "text-destructive",
+  };
+
   return (
-    <div className="bg-card border border-border rounded-lg p-4">
+    <div className="bg-card border border-border rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all hover:border-border-hover">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
         <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center">
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          <Icon className={`h-4 w-4 ${colorMap[accent] ?? "text-muted-foreground"}`} />
         </div>
       </div>
       <p className="text-2xl font-bold text-foreground">{value}</p>
       <p className={`text-xs flex items-center gap-1 mt-1 ${positive ? "text-success" : "text-destructive"}`}>
-        {positive ? <TrendingUp className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+        {positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
         {change}
       </p>
     </div>
@@ -388,7 +401,7 @@ function ComingSoonCard({
   icon: typeof Target; title: string; description: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-lg p-6 flex flex-col items-center text-center">
+    <div className="bg-card border border-border rounded-lg p-6 flex flex-col items-center text-center shadow-card opacity-70">
       <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center mb-3">
         <Icon className="h-6 w-6 text-accent" />
       </div>
