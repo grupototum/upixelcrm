@@ -13,12 +13,15 @@ const leadsInProgress = mockLeads.filter(l =>
   ["col2", "col3", "col4"].includes(l.column_id || "")
 ).length;
 
+const leadsWon = mockLeads.filter(l => l.column_id === "col5").length;
+const leadsLost = 1; // mock
+
 const stats = [
-  { label: "Total de Leads", value: mockLeads.length.toString(), change: "+12%", up: true, icon: Users, color: "text-primary" },
-  { label: "Em andamento", value: leadsInProgress.toString(), change: "+4%", up: true, icon: Loader2, color: "text-accent" },
-  { label: "Leads Ganhos", value: "3", change: "+8%", up: true, icon: TrendingUp, color: "text-success" },
-  { label: "Leads Perdidos", value: "1", change: "-5%", up: false, icon: TrendingDown, color: "text-destructive" },
-  { label: "Tarefas Pendentes", value: mockTasks.filter(t => t.status === "pending").length.toString(), change: "3 atrasadas", up: false, icon: CheckSquare, color: "text-warning" },
+  { label: "Total de Leads", value: mockLeads.length.toString(), change: "+12%", up: true, icon: Users, accent: "primary" },
+  { label: "Em andamento", value: leadsInProgress.toString(), change: "+4%", up: true, icon: Loader2, accent: "accent" },
+  { label: "Leads Ganhos", value: String(leadsWon), change: "+8%", up: true, icon: TrendingUp, accent: "success" },
+  { label: "Leads Perdidos", value: String(leadsLost), change: "-5%", up: false, icon: TrendingDown, accent: "destructive" },
+  { label: "Tarefas Pendentes", value: mockTasks.filter(t => t.status === "pending").length.toString(), change: `${mockTasks.filter(t => t.status === "overdue").length} atrasadas`, up: false, icon: CheckSquare, accent: "warning" },
 ];
 
 const comingSoonCards = [
@@ -42,6 +45,14 @@ const typeColors: Record<string, string> = {
   automation: "bg-warning",
 };
 
+const accentColorMap: Record<string, string> = {
+  primary: "text-primary",
+  success: "text-success",
+  accent: "text-accent",
+  destructive: "text-destructive",
+  warning: "text-warning",
+};
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
@@ -56,7 +67,7 @@ export default function DashboardPage() {
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4 space-y-3">
+              <div key={i} className="bg-card border border-border rounded-lg p-4 shadow-card space-y-3">
                 <Skeleton className="h-3 w-20" />
                 <Skeleton className="h-7 w-14" />
                 <Skeleton className="h-3 w-12" />
@@ -64,7 +75,7 @@ export default function DashboardPage() {
             ))}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5 space-y-4">
+            <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5 shadow-card space-y-4">
               <Skeleton className="h-4 w-40" />
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
@@ -75,7 +86,7 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+            <div className="bg-card border border-border rounded-lg p-5 shadow-card space-y-4">
               <Skeleton className="h-4 w-36" />
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex gap-3">
@@ -96,33 +107,31 @@ export default function DashboardPage() {
   return (
     <AppLayout title="Dashboard" subtitle="Visão geral da operação">
       <div className="p-6 space-y-6 animate-fade-in">
-        {/* Metric Cards */}
+        {/* ─── KPI Cards ─── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {stats.map((s) => (
-            <div key={s.label} className="bg-card border border-border rounded-lg p-4 hover:border-border-hover transition-colors group">
+            <div key={s.label} className="bg-card border border-border rounded-lg p-4 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">{s.label}</span>
-                <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <s.icon className={`h-4 w-4 ${s.color}`} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{s.label}</span>
+                <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center">
+                  <s.icon className={`h-4 w-4 ${accentColorMap[s.accent] ?? "text-muted-foreground"}`} />
                 </div>
               </div>
               <span className="text-2xl font-bold text-foreground block">{s.value}</span>
-              {s.change && (
-                <span className={`text-[11px] font-medium flex items-center gap-0.5 mt-1 ${s.up ? "text-success" : "text-muted-foreground"}`}>
-                  {s.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                  {s.change}
-                </span>
-              )}
+              <span className={`text-[11px] font-medium flex items-center gap-0.5 mt-1 ${s.up ? "text-success" : "text-muted-foreground"}`}>
+                {s.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                {s.change}
+              </span>
             </div>
           ))}
         </div>
 
-        {/* Coming Soon Cards */}
+        {/* ─── Coming Soon Cards ─── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {comingSoonCards.map((c) => (
-            <div key={c.label} className="bg-card border border-border rounded-lg p-4 relative overflow-hidden opacity-70">
+            <div key={c.label} className="bg-card border border-border rounded-lg p-4 shadow-card relative overflow-hidden opacity-70">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">{c.label}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{c.label}</span>
                 <ComingSoonBadge />
               </div>
               <div className="flex items-center gap-3">
@@ -138,15 +147,15 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Charts */}
+        {/* ─── Charts ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <LeadsByPeriodChart />
           <LeadsByOriginChart />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Pipeline Summary */}
-          <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
+          {/* ─── Pipeline Summary ─── */}
+          <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5 shadow-card">
             <h2 className="text-sm font-semibold text-foreground mb-4">Resumo do Pipeline</h2>
             <div className="space-y-3">
               {mockColumns.map((col) => {
@@ -174,8 +183,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Recent Activity */}
-          <div className="bg-card border border-border rounded-lg p-5">
+          {/* ─── Recent Activity ─── */}
+          <div className="bg-card border border-border rounded-lg p-5 shadow-card">
             <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" /> Atividades Recentes
             </h2>
@@ -200,8 +209,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Pending Tasks */}
-        <div className="bg-card border border-border rounded-lg p-5">
+        {/* ─── Pending Tasks ─── */}
+        <div className="bg-card border border-border rounded-lg p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground">Tarefas Pendentes</h2>
             <span className="text-[11px] text-muted-foreground">{mockTasks.filter(t => t.status !== "completed").length} pendentes</span>

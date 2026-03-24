@@ -39,7 +39,7 @@ export function LeadsByPeriodChart() {
   }, []);
 
   return (
-    <div className="bg-card border border-border rounded-lg p-5">
+    <div className="bg-card border border-border rounded-lg p-5 shadow-card">
       <h2 className="text-sm font-semibold text-foreground mb-4">Leads por Período</h2>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
@@ -76,7 +76,7 @@ export function LeadsByOriginChart() {
   }, []);
 
   return (
-    <div className="bg-card border border-border rounded-lg p-5">
+    <div className="bg-card border border-border rounded-lg p-5 shadow-card">
       <h2 className="text-sm font-semibold text-foreground mb-4">Distribuição por Origem</h2>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
