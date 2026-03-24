@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { mockLeads as initialLeads, mockColumns as initialColumns } from "@/lib/mock-data";
 import { Plus, Filter, Search, X, Columns } from "lucide-react";
