@@ -15,6 +15,7 @@ import ReportsPage from "./pages/ReportsPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import ImportPage from "./pages/ImportPage";
 import UsersPage from "./pages/UsersPage";
+import LeadProfilePage from "./pages/LeadProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
