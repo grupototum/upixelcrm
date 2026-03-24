@@ -30,9 +30,9 @@
     --popover-foreground: 0 0% 7%;
 
     /* Primary accent — brand red */
-    --primary: 1 97% 58%;
+    --primary: 22 93% 56%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 1 80% 52%;
+    --primary-hover: 22 85% 48%;
 
     /* Surfaces */
     --secondary: 0 0% 97%;
@@ -58,19 +58,19 @@
     --border: 0 0% 91%;
     --border-hover: 0 0% 83%;
     --input: 0 0% 91%;
-    --ring: 1 97% 58%;
+    --ring: 22 93% 56%;
 
     --radius: 0.5rem;
 
     /* Sidebar — light glass */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 0 0% 33%;
-    --sidebar-primary: 1 97% 58%;
+    --sidebar-primary: 22 93% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 96%;
     --sidebar-accent-foreground: 0 0% 7%;
     --sidebar-border: 0 0% 93%;
-    --sidebar-ring: 1 97% 58%;
+    --sidebar-ring: 22 93% 56%;
 
     --text-secondary: 0 0% 33%;
 
@@ -108,9 +108,9 @@
     --popover: 0 0% 6%;
     --popover-foreground: 0 0% 100%;
 
-    --primary: 1 97% 58%;
+    --primary: 22 93% 56%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 1 80% 52%;
+    --primary-hover: 22 85% 48%;
 
     --secondary: 0 0% 9%;
     --secondary-foreground: 0 0% 100%;
@@ -134,17 +134,17 @@
     --border: 0 0% 11%;
     --border-hover: 0 0% 18%;
     --input: 0 0% 11%;
-    --ring: 1 97% 58%;
+    --ring: 22 93% 56%;
 
     /* Sidebar — deep surface */
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 60%;
-    --sidebar-primary: 1 97% 58%;
+    --sidebar-primary: 22 93% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 9%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 11%;
-    --sidebar-ring: 1 97% 58%;
+    --sidebar-ring: 22 93% 56%;
 
     --bg-tertiary: 0 0% 8%;
     --text-secondary: 0 0% 60%;
