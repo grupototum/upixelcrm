@@ -16,14 +16,14 @@ export const mockColumns: PipelineColumn[] = [
 ];
 
 export const mockLeads: Lead[] = [
-  { id: "l1", client_id: "c1", name: "Maria Silva", phone: "+55 11 99999-0001", email: "maria@empresa.com", company: "Tech Solutions", position: "CEO", city: "São Paulo", tags: ["hot", "enterprise"], column_id: "col1", value: 15000, origin: "Meta Ads", created_at: "2024-03-20T10:00:00Z", updated_at: "2024-03-20T10:00:00Z" },
-  { id: "l2", client_id: "c1", name: "João Santos", phone: "+55 11 99999-0002", email: "joao@startup.io", company: "Startup.io", tags: ["warm"], column_id: "col1", value: 8000, origin: "Google Ads", created_at: "2024-03-19T14:00:00Z", updated_at: "2024-03-19T14:00:00Z" },
-  { id: "l3", client_id: "c1", name: "Ana Oliveira", phone: "+55 21 99999-0003", email: "ana@corp.com", company: "CorpBrasil", position: "CMO", tags: ["enterprise"], column_id: "col2", value: 25000, origin: "Indicação", created_at: "2024-03-18T09:00:00Z", updated_at: "2024-03-18T09:00:00Z" },
-  { id: "l4", client_id: "c1", name: "Carlos Mendes", email: "carlos@digital.com", company: "Digital First", tags: ["hot"], column_id: "col2", value: 12000, origin: "Website", created_at: "2024-03-17T16:00:00Z", updated_at: "2024-03-17T16:00:00Z" },
-  { id: "l5", client_id: "c1", name: "Fernanda Lima", phone: "+55 31 99999-0005", company: "AgênciaMax", tags: ["warm", "agency"], column_id: "col3", value: 30000, origin: "Meta Ads", created_at: "2024-03-16T11:00:00Z", updated_at: "2024-03-16T11:00:00Z" },
-  { id: "l6", client_id: "c1", name: "Roberto Alves", email: "roberto@industria.com", company: "Indústria SA", position: "Diretor", tags: ["enterprise"], column_id: "col3", value: 45000, origin: "Evento", created_at: "2024-03-15T08:00:00Z", updated_at: "2024-03-15T08:00:00Z" },
-  { id: "l7", client_id: "c1", name: "Patricia Costa", phone: "+55 41 99999-0007", company: "EduTech", tags: ["hot"], column_id: "col4", value: 18000, origin: "Google Ads", created_at: "2024-03-14T13:00:00Z", updated_at: "2024-03-14T13:00:00Z" },
-  { id: "l8", client_id: "c1", name: "Lucas Ferreira", email: "lucas@saas.com", company: "SaaSPro", tags: ["warm"], column_id: "col5", value: 22000, origin: "Outbound", created_at: "2024-03-13T15:00:00Z", updated_at: "2024-03-13T15:00:00Z" },
+  { id: "l1", client_id: "c1", name: "Maria Silva", phone: "+55 11 99999-0001", email: "maria@empresa.com", company: "Tech Solutions", position: "CEO", city: "São Paulo", tags: ["hot", "enterprise"], column_id: "col1", value: 15000, origin: "Meta Ads", created_at: "2024-01-10T10:00:00Z", updated_at: "2024-03-20T10:00:00Z" },
+  { id: "l2", client_id: "c1", name: "João Santos", phone: "+55 11 99999-0002", email: "joao@startup.io", company: "Startup.io", tags: ["warm"], column_id: "col1", value: 8000, origin: "Google Ads", created_at: "2024-01-22T14:00:00Z", updated_at: "2024-03-19T14:00:00Z" },
+  { id: "l3", client_id: "c1", name: "Ana Oliveira", phone: "+55 21 99999-0003", email: "ana@corp.com", company: "CorpBrasil", position: "CMO", tags: ["enterprise"], column_id: "col2", value: 25000, origin: "Indicação", created_at: "2024-02-05T09:00:00Z", updated_at: "2024-03-18T09:00:00Z" },
+  { id: "l4", client_id: "c1", name: "Carlos Mendes", email: "carlos@digital.com", company: "Digital First", tags: ["hot"], column_id: "col2", value: 12000, origin: "Website", created_at: "2024-02-18T16:00:00Z", updated_at: "2024-03-17T16:00:00Z" },
+  { id: "l5", client_id: "c1", name: "Fernanda Lima", phone: "+55 31 99999-0005", company: "AgênciaMax", tags: ["warm", "agency"], column_id: "col3", value: 30000, origin: "Meta Ads", created_at: "2024-02-28T11:00:00Z", updated_at: "2024-03-16T11:00:00Z" },
+  { id: "l6", client_id: "c1", name: "Roberto Alves", email: "roberto@industria.com", company: "Indústria SA", position: "Diretor", tags: ["enterprise"], column_id: "col3", value: 45000, origin: "Evento", created_at: "2024-03-05T08:00:00Z", updated_at: "2024-03-15T08:00:00Z" },
+  { id: "l7", client_id: "c1", name: "Patricia Costa", phone: "+55 41 99999-0007", company: "EduTech", tags: ["hot"], column_id: "col4", value: 18000, origin: "Google Ads", created_at: "2024-03-10T13:00:00Z", updated_at: "2024-03-14T13:00:00Z" },
+  { id: "l8", client_id: "c1", name: "Lucas Ferreira", email: "lucas@saas.com", company: "SaaSPro", tags: ["warm"], column_id: "col5", value: 22000, origin: "Outbound", created_at: "2024-03-20T15:00:00Z", updated_at: "2024-03-20T15:00:00Z" },
 ];
 
 export const mockTasks: Task[] = [
