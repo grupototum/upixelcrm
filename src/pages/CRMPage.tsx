@@ -22,6 +22,7 @@ import { DragOverlayCard } from "@/components/crm/SortableLeadCard";
 import { LeadDetailModal } from "@/components/crm/LeadDetailModal";
 import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
+import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 
 export default function CRMPage() {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
