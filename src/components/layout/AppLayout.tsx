@@ -18,7 +18,7 @@ export function AppLayout({ children, title, subtitle, actions }: AppLayoutProps
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-card shrink-0">
+          <header className="h-14 flex items-center justify-between border-b border-border dark:border-b-[rgba(255,255,255,0.06)] px-4 bg-card dark:bg-[rgba(10,10,10,0.6)] dark:backdrop-blur-md shrink-0">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground" />
               {title && (

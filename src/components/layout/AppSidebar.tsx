@@ -37,8 +37,8 @@ export function AppSidebar() {
   const iconLogo = theme === "dark" ? upixelIconDark : upixelIconLight;
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <div className="flex items-center h-14 px-3 border-b border-sidebar-border justify-between">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border dark:border-r-[rgba(255,255,255,0.06)]">
+      <div className="flex items-center h-14 px-3 border-b border-sidebar-border dark:border-b-[rgba(255,255,255,0.06)] justify-between">
         <img
           src={collapsed ? iconLogo : logo}
           alt="uPixel"
@@ -75,7 +75,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border dark:border-t-[rgba(255,255,255,0.06)] p-3">
         {!collapsed && (
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
