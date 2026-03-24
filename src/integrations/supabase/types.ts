@@ -14,7 +14,180 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leads: {
+        Row: {
+          city: string | null
+          client_id: string
+          column_id: string | null
+          company: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          origin: string | null
+          phone: string | null
+          position: string | null
+          responsible_id: string | null
+          tags: string[]
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          city?: string | null
+          client_id?: string
+          column_id?: string | null
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          origin?: string | null
+          phone?: string | null
+          position?: string | null
+          responsible_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          city?: string | null
+          client_id?: string
+          column_id?: string | null
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          origin?: string | null
+          phone?: string | null
+          position?: string | null
+          responsible_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_columns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_columns: {
+        Row: {
+          client_id: string
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          order: number
+          pipeline_id: string
+        }
+        Insert: {
+          client_id?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          order?: number
+          pipeline_id?: string
+        }
+        Update: {
+          client_id?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          order?: number
+          pipeline_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          client_id: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          lead_id: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          assigned_to?: string | null
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timeline_events: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          type: string
+          user_name: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          type: string
+          user_name?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          type?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeline_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
