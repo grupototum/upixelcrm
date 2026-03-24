@@ -227,6 +227,12 @@ export default function CRMPage() {
         columns={columns}
         defaultColumnId={formColumnId}
       />
+
+      <ColumnConfigModal
+        column={configColumn}
+        open={!!configColumn}
+        onClose={() => setConfigColumn(null)}
+      />
     </AppLayout>
   );
 }
