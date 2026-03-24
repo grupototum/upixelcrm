@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LeadsByPeriodChart, LeadsByOriginChart } from "@/components/dashboard/DashboardCharts";
 import { useState, useEffect } from "react";
 
 const leadsInProgress = mockLeads.filter(l =>
