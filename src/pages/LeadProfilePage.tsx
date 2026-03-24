@@ -76,9 +76,9 @@ export default function LeadProfilePage() {
     setNewNote("");
   }, [newNote, id, notes, addTimelineEvent]);
 
-  const handleCreateTask = useCallback(() => {
+  const handleCreateTask = useCallback(async () => {
     if (!newTaskTitle.trim() || !id) return;
-    addTask({ title: newTaskTitle, lead_id: id, due_date: newTaskDue || undefined });
+    await addTask({ title: newTaskTitle, lead_id: id, due_date: newTaskDue || undefined });
     setNewTaskTitle("");
     setNewTaskDue("");
     setShowNewTask(false);
