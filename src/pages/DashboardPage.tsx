@@ -138,6 +138,12 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <LeadsByPeriodChart />
+          <LeadsByOriginChart />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Pipeline Summary */}
           <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5">
