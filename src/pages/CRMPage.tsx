@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { mockLeads as initialLeads, mockColumns as initialColumns } from "@/lib/mock-data";
 import { Plus, Filter, Search, X, Columns } from "lucide-react";
@@ -25,6 +26,7 @@ import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 
 export default function CRMPage() {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [columns] = useState<PipelineColumn[]>(initialColumns);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -191,7 +193,7 @@ export default function CRMPage() {
                   key={col.id}
                   column={col}
                   leads={colLeads}
-                  onLeadClick={setSelectedLead}
+                  onLeadClick={(lead) => navigate(`/leads/${lead.id}`)}
                   onAddLead={handleAddLead}
                   onConfigColumn={setConfigColumn}
                 />

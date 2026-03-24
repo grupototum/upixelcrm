@@ -15,6 +15,7 @@ import ReportsPage from "./pages/ReportsPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import ImportPage from "./pages/ImportPage";
 import UsersPage from "./pages/UsersPage";
+import LeadProfilePage from "./pages/LeadProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/" element={<DashboardPage />} />
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/crm" element={<CRMPage />} />
+            <Route path="/leads/:id" element={<LeadProfilePage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/automations" element={<AutomationsPage />} />
             <Route path="/intelligence" element={<IntelligencePage />} />
