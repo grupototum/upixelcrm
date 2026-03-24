@@ -35,6 +35,7 @@ export default function CRMPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
 
   // Fix: useEffect instead of misused useState
   useEffect(() => {
