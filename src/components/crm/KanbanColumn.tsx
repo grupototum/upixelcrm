@@ -11,9 +11,10 @@ interface KanbanColumnProps {
   leads: Lead[];
   onLeadClick: (lead: Lead) => void;
   onAddLead: (columnId: string) => void;
+  onConfigColumn: (column: PipelineColumn) => void;
 }
 
-export function KanbanColumn({ column, leads, onLeadClick, onAddLead }: KanbanColumnProps) {
+export function KanbanColumn({ column, leads, onLeadClick, onAddLead, onConfigColumn }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id, data: { type: "column" } });
 
   return (
@@ -33,10 +34,14 @@ export function KanbanColumn({ column, leads, onLeadClick, onAddLead }: KanbanCo
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem className="text-xs gap-2"><Settings className="h-3 w-3" /> Editar coluna</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column)}>
+              <Settings className="h-3 w-3" /> Editar coluna
+            </DropdownMenuItem>
             <DropdownMenuItem className="text-xs gap-2"><ArrowRight className="h-3 w-3" /> Transferir leads</DropdownMenuItem>
             <DropdownMenuItem className="text-xs gap-2"><Download className="h-3 w-3" /> Exportar CSV</DropdownMenuItem>
-            <DropdownMenuItem className="text-xs gap-2"><Zap className="h-3 w-3" /> Automações</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column)}>
+              <Zap className="h-3 w-3" /> Automações
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
