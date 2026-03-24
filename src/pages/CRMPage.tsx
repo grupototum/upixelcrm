@@ -30,7 +30,7 @@ export default function CRMPage() {
 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [formColumnId, setFormColumnId] = useState("col1");
+  const [formColumnId, setFormColumnId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
