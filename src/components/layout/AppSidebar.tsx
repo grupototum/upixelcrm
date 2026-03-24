@@ -42,7 +42,7 @@ export function AppSidebar() {
         <img
           src={collapsed ? iconLogo : logo}
           alt="uPixel"
-          className={collapsed ? "h-8 w-8" : "h-8"}
+          className={collapsed ? "h-10 w-10" : "h-10"}
         />
         {!collapsed && (
           <button onClick={toggleSidebar} className="p-1 rounded-md hover:bg-sidebar-accent text-sidebar-foreground">
