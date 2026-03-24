@@ -22,6 +22,7 @@ import { DragOverlayCard } from "@/components/crm/SortableLeadCard";
 import { LeadDetailModal } from "@/components/crm/LeadDetailModal";
 import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
+import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 
 export default function CRMPage() {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -34,6 +35,7 @@ export default function CRMPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
 
   // Fix: useEffect instead of misused useState
   useEffect(() => {
@@ -191,6 +193,7 @@ export default function CRMPage() {
                   leads={colLeads}
                   onLeadClick={setSelectedLead}
                   onAddLead={handleAddLead}
+                  onConfigColumn={setConfigColumn}
                 />
               );
             })}
@@ -223,6 +226,12 @@ export default function CRMPage() {
         lead={editingLead}
         columns={columns}
         defaultColumnId={formColumnId}
+      />
+
+      <ColumnConfigModal
+        column={configColumn}
+        open={!!configColumn}
+        onClose={() => setConfigColumn(null)}
       />
     </AppLayout>
   );
