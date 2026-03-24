@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { mockColumns, mockLeads, mockTasks } from "@/lib/mock-data";
 import {
   TrendingUp, ArrowDownRight, BarChart3, PieChart as PieChartIcon,
-  Filter, Download, Calendar, Target, Users, DollarSign,
+  Download, Calendar, Target, Users, DollarSign,
   Clock, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
