@@ -21,6 +21,8 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        "bg-primary": "hsl(var(--bg-primary))",
+        "bg-secondary": "hsl(var(--bg-secondary))",
         "bg-tertiary": "hsl(var(--bg-tertiary))",
         "text-secondary": "hsl(var(--text-secondary))",
         primary: {
@@ -72,6 +74,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+      },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        "card-hover": "var(--shadow-card-hover)",
+        premium: "var(--shadow-md)",
+        "premium-lg": "var(--shadow-lg)",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -8,26 +8,40 @@
   :root {
     --font-sans: 'Sora', system-ui, sans-serif;
 
+    /* ═══════════════════════════════════════════
+       LIGHT MODE — Premium, clean, with depth
+       Not an inversion — a native light system
+    ═══════════════════════════════════════════ */
+
     --background: 0 0% 100%;
     --foreground: 0 0% 7%;
 
+    /* Layered backgrounds for depth */
+    --bg-primary: 0 0% 100%;
+    --bg-secondary: 0 0% 97%;
+    --bg-tertiary: 0 0% 95%;
+
+    /* Cards — white with shadow for depth (not borders) */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 7%;
-    --card-hover: 0 0% 97%;
+    --card-hover: 0 0% 98%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 7%;
 
+    /* Primary accent — brand red */
     --primary: 1 97% 58%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 1 80% 52%;
 
+    /* Surfaces */
     --secondary: 0 0% 97%;
     --secondary-foreground: 0 0% 7%;
 
-    --muted: 0 0% 93%;
-    --muted-foreground: 0 0% 53%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
 
+    /* Accent — warm amber */
     --accent: 44 99% 50%;
     --accent-foreground: 0 0% 7%;
     --accent-hover: 44 98% 44%;
@@ -40,46 +54,69 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 7%;
 
-    --border: 0 0% 90%;
+    /* Borders — subtle black opacity */
+    --border: 0 0% 91%;
     --border-hover: 0 0% 83%;
-    --input: 0 0% 90%;
+    --input: 0 0% 91%;
     --ring: 1 97% 58%;
 
     --radius: 0.5rem;
 
+    /* Sidebar — light glass */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 7%;
+    --sidebar-foreground: 0 0% 33%;
     --sidebar-primary: 1 97% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 97%;
+    --sidebar-accent: 0 0% 96%;
     --sidebar-accent-foreground: 0 0% 7%;
-    --sidebar-border: 0 0% 90%;
+    --sidebar-border: 0 0% 93%;
     --sidebar-ring: 1 97% 58%;
 
-    --bg-tertiary: 0 0% 93%;
     --text-secondary: 0 0% 33%;
+
+    /* Shadows for light mode depth */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 30px -6px rgba(0, 0, 0, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.04);
+    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+    --shadow-card-hover: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+
+    /* Glass — light mode uses white glass with subtle blur */
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.05);
+    --glass-hover: rgba(0, 0, 0, 0.03);
   }
 
   .dark {
-    --background: 20 15% 14%;
+    /* ═══════════════════════════════════════════
+       DARK MODE — Lumina-inspired, #050505 base
+       Deep black, white/5 surfaces, glass effects
+    ═══════════════════════════════════════════ */
+
+    --background: 0 0% 2%;
     --foreground: 0 0% 100%;
 
-    --card: 20 12% 17%;
-    --card-foreground: 0 0% 100%;
-    --card-hover: 24 10% 21%;
+    --bg-primary: 0 0% 2%;
+    --bg-secondary: 0 0% 5%;
+    --bg-tertiary: 0 0% 8%;
 
-    --popover: 20 12% 17%;
+    /* Cards — subtle white overlays on deep black */
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 100%;
+    --card-hover: 0 0% 9%;
+
+    --popover: 0 0% 6%;
     --popover-foreground: 0 0% 100%;
 
     --primary: 1 97% 58%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 1 80% 52%;
 
-    --secondary: 24 10% 21%;
+    --secondary: 0 0% 9%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 24 10% 21%;
-    --muted-foreground: 20 3% 53%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
 
     --accent: 44 99% 50%;
     --accent-foreground: 0 0% 7%;
@@ -93,22 +130,36 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 7%;
 
-    --border: 24 10% 21%;
-    --border-hover: 22 8% 27%;
-    --input: 24 10% 21%;
+    /* Borders — very subtle white */
+    --border: 0 0% 11%;
+    --border-hover: 0 0% 18%;
+    --input: 0 0% 11%;
     --ring: 1 97% 58%;
 
-    --sidebar-background: 20 12% 17%;
-    --sidebar-foreground: 20 3% 69%;
+    /* Sidebar — deep surface */
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 60%;
     --sidebar-primary: 1 97% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 24 10% 21%;
+    --sidebar-accent: 0 0% 9%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 24 10% 21%;
+    --sidebar-border: 0 0% 11%;
     --sidebar-ring: 1 97% 58%;
 
-    --bg-tertiary: 24 10% 21%;
-    --text-secondary: 20 3% 69%;
+    --bg-tertiary: 0 0% 8%;
+    --text-secondary: 0 0% 60%;
+
+    /* Shadows — minimal in dark, glow-based */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 30px -6px rgba(0, 0, 0, 0.5);
+    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+    --shadow-card-hover: 0 4px 16px -4px rgba(0, 0, 0, 0.4);
+
+    /* Glass — dark mode uses white transparency */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --glass-hover: rgba(255, 255, 255, 0.05);
   }
 }
 
@@ -119,6 +170,33 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Utility classes for glass & surfaces
+═══════════════════════════════════════════ */
+
+@layer utilities {
+  /* Glass surface */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-color: var(--glass-border);
+  }
+
+  .glass-hover:hover {
+    background: var(--glass-hover);
+  }
+
+  /* Card shadows */
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-card-hover:hover {
+    box-shadow: var(--shadow-card-hover);
   }
 }
 
