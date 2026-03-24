@@ -26,6 +26,7 @@ import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 
 export default function CRMPage() {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [columns] = useState<PipelineColumn[]>(initialColumns);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
