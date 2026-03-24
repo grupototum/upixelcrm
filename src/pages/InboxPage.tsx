@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { mockThreads, mockMessages } from "@/lib/mock-data";
-import { Search, Phone, Video, MoreVertical, Send, Paperclip, Mic, Play, FileText, MessageSquare } from "lucide-react";
+import { Search, Phone, Video, MoreVertical, Send, Paperclip, Mic, Play, FileText, MessageSquare, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { InboxThread } from "@/types";
 
