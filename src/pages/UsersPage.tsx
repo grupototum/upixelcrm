@@ -103,14 +103,14 @@ export default function UsersPage() {
       );
       toast.success("Usuário atualizado com sucesso.");
     } else {
-      setUsers((currentUsers) => [
-        ...currentUsers,
-        {
-          id: `u${Date.now()}`,
-          client_id: "c1",
-          ...sanitizedValues,
-        },
-      ]);
+      const newUser: User = {
+        id: `u${Date.now()}`,
+        client_id: "c1",
+        name: sanitizedValues.name,
+        email: sanitizedValues.email,
+        role: sanitizedValues.role,
+      };
+      setUsers((currentUsers) => [...currentUsers, newUser]);
       toast.success("Usuário criado com sucesso.");
     }
 
