@@ -2,8 +2,7 @@ import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
   BarChart3, Plug, Upload, Users, ChevronLeft,
 } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -38,15 +37,15 @@ export function AppSidebar() {
   const iconLogo = theme === "dark" ? upixelIconDark : upixelIconLight;
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border">
-      <div className="flex items-center h-14 px-3 border-b border-border justify-between">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <div className="flex items-center h-14 px-3 border-b border-sidebar-border justify-between">
         <img
           src={collapsed ? iconLogo : logo}
           alt="uPixel"
           className={collapsed ? "h-8 w-8" : "h-8"}
         />
         {!collapsed && (
-          <button onClick={toggleSidebar} className="p-1 rounded-md hover:bg-secondary text-muted-foreground">
+          <button onClick={toggleSidebar} className="p-1 rounded-md hover:bg-sidebar-accent text-sidebar-foreground">
             <ChevronLeft className="h-4 w-4" />
           </button>
         )}
@@ -57,21 +56,16 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = item.url === "/" 
-                  ? location.pathname === "/" 
+                const isActive = item.url === "/"
+                  ? location.pathname === "/"
                   : location.pathname.startsWith(item.url);
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive}>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === "/"}
-                        className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        activeClassName="bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary"
-                      >
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                      <Link to={item.url} className="flex items-center gap-3">
                         <item.icon className="h-4 w-4 shrink-0" />
                         {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -81,14 +75,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && (
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
               UP
             </div>
             <div className="text-xs">
-              <p className="font-medium text-foreground">uPixel Admin</p>
+              <p className="font-medium text-sidebar-foreground">uPixel Admin</p>
               <p className="text-muted-foreground">admin@upixel.com</p>
             </div>
           </div>
