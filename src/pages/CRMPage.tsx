@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { mockLeads as initialLeads, mockColumns as initialColumns } from "@/lib/mock-data";
+import { useAppState } from "@/contexts/AppContext";
 import { Plus, Filter, Search, X, Columns } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,16 +20,14 @@ import type { Lead, PipelineColumn } from "@/types";
 
 import { KanbanColumn } from "@/components/crm/KanbanColumn";
 import { DragOverlayCard } from "@/components/crm/SortableLeadCard";
-import { LeadDetailModal } from "@/components/crm/LeadDetailModal";
 import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 
 export default function CRMPage() {
   const navigate = useNavigate();
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
-  const [columns] = useState<PipelineColumn[]>(initialColumns);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const { leads, columns, addLead, updateLead, deleteLead, moveLead } = useAppState();
+
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formColumnId, setFormColumnId] = useState("col1");
@@ -39,7 +37,6 @@ export default function CRMPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
 
-  // Fix: useEffect instead of misused useState
   useEffect(() => {
     const t = setTimeout(() => setIsLoading(false), 600);
     return () => clearTimeout(t);
@@ -80,13 +77,7 @@ export default function CRMPage() {
     const activeLead = leads.find((l) => l.id === activeLeadId);
     if (!activeLead || activeLead.column_id === targetColumnId) return;
 
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === activeLeadId
-          ? { ...l, column_id: targetColumnId, updated_at: new Date().toISOString() }
-          : l
-      )
-    );
+    moveLead(activeLeadId, targetColumnId);
   }
 
   function handleDragEnd(_event: DragEndEvent) {
@@ -105,34 +96,11 @@ export default function CRMPage() {
     setShowForm(true);
   }
 
-  function handleDeleteLead(leadId: string) {
-    setLeads((prev) => prev.filter((l) => l.id !== leadId));
-  }
-
   function handleSaveLead(data: Partial<Lead>) {
     if (editingLead) {
-      setLeads((prev) =>
-        prev.map((l) =>
-          l.id === editingLead.id ? { ...l, ...data, updated_at: new Date().toISOString() } : l
-        )
-      );
+      updateLead(editingLead.id, data);
     } else {
-      const newLead: Lead = {
-        id: `l${Date.now()}`,
-        client_id: "c1",
-        name: data.name ?? "",
-        phone: data.phone,
-        email: data.email,
-        company: data.company,
-        position: data.position,
-        tags: data.tags ?? [],
-        column_id: formColumnId,
-        value: data.value,
-        origin: data.origin || "Manual",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setLeads((prev) => [...prev, newLead]);
+      addLead(data, formColumnId);
     }
     setShowForm(false);
     setEditingLead(null);
@@ -211,15 +179,6 @@ export default function CRMPage() {
           </DragOverlay>
         </DndContext>
       )}
-
-      <LeadDetailModal
-        lead={selectedLead}
-        open={!!selectedLead}
-        onClose={() => setSelectedLead(null)}
-        columns={columns}
-        onEdit={handleEditLead}
-        onDelete={handleDeleteLead}
-      />
 
       <LeadFormModal
         open={showForm}
