@@ -84,9 +84,9 @@ export default function LeadProfilePage() {
     setShowNewTask(false);
   }, [newTaskTitle, newTaskDue, id, addTask]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!id) return;
-    deleteLead(id);
+    await deleteLead(id);
     navigate("/crm");
   }, [id, deleteLead, navigate]);
 
