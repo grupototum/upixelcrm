@@ -193,7 +193,7 @@ export default function CRMPage() {
                   key={col.id}
                   column={col}
                   leads={colLeads}
-                  onLeadClick={setSelectedLead}
+                  onLeadClick={(lead) => navigate(`/leads/${lead.id}`)}
                   onAddLead={handleAddLead}
                   onConfigColumn={setConfigColumn}
                 />
