@@ -4,24 +4,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
-import DashboardPage from "./pages/DashboardPage";
-import InboxPage from "./pages/InboxPage";
-import CRMPage from "./pages/CRMPage";
-import TasksPage from "./pages/TasksPage";
-import AutomationsPage from "./pages/AutomationsPage";
-import IntelligencePage from "./pages/IntelligencePage";
-import CampaignsPage from "./pages/CampaignsPage";
-import ReportsPage from "./pages/ReportsPage";
-import IntegrationsPage from "./pages/IntegrationsPage";
-import ImportPage from "./pages/ImportPage";
-import UsersPage from "./pages/UsersPage";
-import LeadProfilePage from "./pages/LeadProfilePage";
-import NotFound from "./pages/NotFound";
-
-const queryClient = new QueryClient();
+import { AppProvider } from "@/contexts/AppContext";
 
 const App = () => (
   <ThemeProvider>
+    <AppProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
