@@ -30,7 +30,7 @@ export default function CRMPage() {
 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [formColumnId, setFormColumnId] = useState("col1");
+  const [formColumnId, setFormColumnId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
@@ -137,7 +137,7 @@ export default function CRMPage() {
           <Button variant="outline" size="sm" className="text-xs gap-1 h-8">
             <Columns className="h-3 w-3" /> Coluna
           </Button>
-          <Button size="sm" className="text-xs gap-1 h-8" onClick={() => handleAddLead("col1")}>
+          <Button size="sm" className="text-xs gap-1 h-8" onClick={() => handleAddLead(columns[0]?.id ?? "")}>
             <Plus className="h-3 w-3" /> Novo Lead
           </Button>
         </div>
