@@ -71,11 +71,11 @@ export default function TasksPage() {
     completed: tasks.filter((t) => t.status === "completed").length,
   }), [tasks]);
 
-  const handleCreateTask = useCallback(() => {
+  const handleCreateTask = useCallback(async () => {
     if (!newTitle.trim()) return;
-    addTask({
+    await addTask({
       title: newTitle,
-      lead_id: newLeadId || undefined,
+      lead_id: newLeadId && newLeadId !== "none" ? newLeadId : undefined,
       due_date: newDueDate || undefined,
     });
     setNewTitle("");

@@ -96,11 +96,11 @@ export default function CRMPage() {
     setShowForm(true);
   }
 
-  function handleSaveLead(data: Partial<Lead>) {
+  async function handleSaveLead(data: Partial<Lead>) {
     if (editingLead) {
-      updateLead(editingLead.id, data);
+      await updateLead(editingLead.id, data);
     } else {
-      addLead(data, formColumnId);
+      await addLead(data, formColumnId);
     }
     setShowForm(false);
     setEditingLead(null);

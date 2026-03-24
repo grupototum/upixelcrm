@@ -60,7 +60,7 @@ export default function LeadProfilePage() {
   const threads = useMemo(() => mockThreads.filter((t) => t.lead_id === id), [id]);
   const leadNotes = useMemo(() => notes.filter((n) => n.lead_id === id), [id, notes]);
 
-  const handleAddNote = useCallback(() => {
+  const handleAddNote = useCallback(async () => {
     if (!newNote.trim() || !id) return;
     const note = {
       id: `n_${Date.now()}`,
@@ -72,21 +72,21 @@ export default function LeadProfilePage() {
     const updated = [note, ...notes];
     setNotes(updated);
     localStorage.setItem("totum_notes", JSON.stringify(updated));
-    addTimelineEvent({ lead_id: id, type: "note", content: `Nota adicionada: "${newNote.slice(0, 50)}..."`, user_name: "Você" });
+    await addTimelineEvent({ lead_id: id, type: "note", content: `Nota adicionada: "${newNote.slice(0, 50)}..."`, user_name: "Você" });
     setNewNote("");
   }, [newNote, id, notes, addTimelineEvent]);
 
-  const handleCreateTask = useCallback(() => {
+  const handleCreateTask = useCallback(async () => {
     if (!newTaskTitle.trim() || !id) return;
-    addTask({ title: newTaskTitle, lead_id: id, due_date: newTaskDue || undefined });
+    await addTask({ title: newTaskTitle, lead_id: id, due_date: newTaskDue || undefined });
     setNewTaskTitle("");
     setNewTaskDue("");
     setShowNewTask(false);
   }, [newTaskTitle, newTaskDue, id, addTask]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!id) return;
-    deleteLead(id);
+    await deleteLead(id);
     navigate("/crm");
   }, [id, deleteLead, navigate]);
 
