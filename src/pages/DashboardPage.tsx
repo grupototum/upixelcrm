@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LeadsByPeriodChart, LeadsByOriginChart } from "@/components/dashboard/DashboardCharts";
 import { useState, useEffect } from "react";
 
 const leadsInProgress = mockLeads.filter(l =>
@@ -135,6 +136,12 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <LeadsByPeriodChart />
+          <LeadsByOriginChart />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
