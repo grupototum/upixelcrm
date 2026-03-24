@@ -193,6 +193,7 @@ export default function CRMPage() {
                   leads={colLeads}
                   onLeadClick={setSelectedLead}
                   onAddLead={handleAddLead}
+                  onConfigColumn={setConfigColumn}
                 />
               );
             })}
