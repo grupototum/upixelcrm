@@ -23,7 +23,7 @@ import type { Task } from "@/types";
 
 export default function TasksPage() {
   const navigate = useNavigate();
-  const { tasks, leads, toggleTaskStatus, deleteTask, addTask } = useAppState();
+  const { tasks, leads, toggleTaskStatus, deleteTask, addTask, updateTask } = useAppState();
   const [subArea, setSubArea] = useState("mine");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -49,6 +49,10 @@ export default function TasksPage() {
     }
     await toggleTaskStatus(id);
   }, [tasks, toggleTaskStatus, fireConfetti]);
+
+  const handleUpdatePriority = useCallback(async (id: string, priority: Task["priority"]) => {
+    await updateTask(id, { priority });
+  }, [updateTask]);
 
   const filtered = useMemo(() => {
     let result = [...tasks];
@@ -206,7 +210,7 @@ export default function TasksPage() {
                   </button>
                   <div className="divide-y divide-border">
                     {groupTasks.map((t) => (
-                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} />
+                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
                     ))}
                   </div>
                 </div>
@@ -219,7 +223,7 @@ export default function TasksPage() {
             {filtered.length === 0 ? emptyState : (
               <div className="divide-y divide-border">
                 {filtered.map((t) => (
-                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} />
+                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
                 ))}
               </div>
             )}
