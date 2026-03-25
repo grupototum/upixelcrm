@@ -64,12 +64,15 @@ export default function TasksPage() {
     if ((subArea === "mine" || subArea === "by-lead") && statusFilter !== "all") {
       result = result.filter((t) => t.status === statusFilter);
     }
+    if (priorityFilter !== "all") {
+      result = result.filter((t) => (t.priority || "medium") === priorityFilter);
+    }
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((t) => t.title.toLowerCase().includes(q));
     }
     return result;
-  }, [tasks, subArea, statusFilter, search]);
+  }, [tasks, subArea, statusFilter, priorityFilter, search]);
 
   const groupedByLead = useMemo(() => {
     if (subArea !== "by-lead") return null;
