@@ -27,6 +27,7 @@ export default function TasksPage() {
   const [subArea, setSubArea] = useState("mine");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newLeadId, setNewLeadId] = useState("");
@@ -63,12 +64,15 @@ export default function TasksPage() {
     if ((subArea === "mine" || subArea === "by-lead") && statusFilter !== "all") {
       result = result.filter((t) => t.status === statusFilter);
     }
+    if (priorityFilter !== "all") {
+      result = result.filter((t) => (t.priority || "medium") === priorityFilter);
+    }
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((t) => t.title.toLowerCase().includes(q));
     }
     return result;
-  }, [tasks, subArea, statusFilter, search]);
+  }, [tasks, subArea, statusFilter, priorityFilter, search]);
 
   const groupedByLead = useMemo(() => {
     if (subArea !== "by-lead") return null;
@@ -181,6 +185,16 @@ export default function TasksPage() {
               </SelectContent>
             </Select>
           )}
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Todas prioridades</SelectItem>
+              <SelectItem value="low" className="text-xs">🟢 Baixa</SelectItem>
+              <SelectItem value="medium" className="text-xs">🔵 Média</SelectItem>
+              <SelectItem value="high" className="text-xs">🟡 Alta</SelectItem>
+              <SelectItem value="urgent" className="text-xs">🔴 Urgente</SelectItem>
+            </SelectContent>
+          </Select>
           <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
             {filtered.length} tarefa{filtered.length !== 1 ? "s" : ""}
           </Badge>
