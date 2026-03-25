@@ -219,7 +219,7 @@ export default function TasksPage() {
             {filtered.length === 0 ? emptyState : (
               <div className="divide-y divide-border">
                 {filtered.map((t) => (
-                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} />
+                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
                 ))}
               </div>
             )}
