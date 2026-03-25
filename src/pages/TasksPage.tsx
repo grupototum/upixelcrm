@@ -185,6 +185,16 @@ export default function TasksPage() {
               </SelectContent>
             </Select>
           )}
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Todas prioridades</SelectItem>
+              <SelectItem value="low" className="text-xs">🟢 Baixa</SelectItem>
+              <SelectItem value="medium" className="text-xs">🔵 Média</SelectItem>
+              <SelectItem value="high" className="text-xs">🟡 Alta</SelectItem>
+              <SelectItem value="urgent" className="text-xs">🔴 Urgente</SelectItem>
+            </SelectContent>
+          </Select>
           <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
             {filtered.length} tarefa{filtered.length !== 1 ? "s" : ""}
           </Badge>
