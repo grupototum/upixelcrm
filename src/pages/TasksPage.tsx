@@ -54,7 +54,7 @@ export default function TasksPage() {
     await updateTask(id, { priority });
   }, [updateTask]);
 
-
+  const filtered = useMemo(() => {
     let result = [...tasks];
     if (subArea === "mine") result = result.filter((t) => t.assigned_to === "Você");
     if (subArea === "by-lead") result = result.filter((t) => !!t.lead_id);
