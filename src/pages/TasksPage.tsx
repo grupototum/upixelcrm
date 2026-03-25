@@ -27,6 +27,7 @@ export default function TasksPage() {
   const [subArea, setSubArea] = useState("mine");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newLeadId, setNewLeadId] = useState("");
