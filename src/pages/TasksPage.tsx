@@ -23,7 +23,7 @@ import type { Task } from "@/types";
 
 export default function TasksPage() {
   const navigate = useNavigate();
-  const { tasks, leads, toggleTaskStatus, deleteTask, addTask } = useAppState();
+  const { tasks, leads, toggleTaskStatus, deleteTask, addTask, updateTask } = useAppState();
   const [subArea, setSubArea] = useState("mine");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
