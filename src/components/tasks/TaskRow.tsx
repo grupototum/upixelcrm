@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import type { Task, Lead } from "@/types";
 
@@ -22,15 +22,23 @@ const priorityLabels: Record<string, string> = {
   low: "Baixa",
 };
 
+const priorityEmojis: Record<string, string> = {
+  urgent: "🔴",
+  high: "🟡",
+  medium: "🔵",
+  low: "🟢",
+};
+
 interface TaskRowProps {
   task: Task;
   leads: Lead[];
   showLead?: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onUpdatePriority?: (id: string, priority: Task["priority"]) => void;
 }
 
-export function TaskRow({ task, leads, showLead = true, onToggle, onDelete }: TaskRowProps) {
+export function TaskRow({ task, leads, showLead = true, onToggle, onDelete, onUpdatePriority }: TaskRowProps) {
   const navigate = useNavigate();
   const lead = showLead ? leads.find((l) => l.id === task.lead_id) : null;
   const priority = task.priority || "medium";
@@ -69,14 +77,32 @@ export function TaskRow({ task, leads, showLead = true, onToggle, onDelete }: Ta
           <p className={`text-sm font-medium truncate ${task.status === "completed" ? "line-through text-muted-foreground" : "text-foreground"}`}>
             {task.title}
           </p>
-          <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-            priority === "urgent" ? "bg-destructive/10 text-destructive" :
-            priority === "high" ? "bg-warning/10 text-warning" :
-            priority === "medium" ? "bg-primary/10 text-primary" :
-            "bg-muted text-muted-foreground"
-          }`}>
-            {priorityLabels[priority]}
-          </span>
+          {/* Inline priority dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded cursor-pointer hover:ring-1 hover:ring-border transition-all ${
+                priority === "urgent" ? "bg-destructive/10 text-destructive" :
+                priority === "high" ? "bg-warning/10 text-warning" :
+                priority === "medium" ? "bg-primary/10 text-primary" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {priorityLabels[priority]}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-36">
+              <DropdownMenuLabel className="text-[10px] text-muted-foreground">Alterar prioridade</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {(["low", "medium", "high", "urgent"] as const).map((p) => (
+                <DropdownMenuItem
+                  key={p}
+                  className={`text-xs gap-2 ${priority === p ? "bg-secondary font-semibold" : ""}`}
+                  onClick={() => onUpdatePriority?.(task.id, p)}
+                >
+                  <span>{priorityEmojis[p]}</span> {priorityLabels[p]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {lead && (
           <button
