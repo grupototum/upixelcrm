@@ -1,26 +1,24 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
+import confetti from "canvas-confetti";
 import {
-  Plus, CheckCircle2, Circle, Clock, AlertTriangle,
-  Search, Calendar, User, MoreHorizontal, Trash2,
-  Edit, ListChecks, Users, ChevronRight,
+  Plus, CheckCircle2, Clock, AlertTriangle,
+  Search, Calendar, User, ListChecks, Users, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { TaskProgressHeader } from "@/components/tasks/TaskProgressHeader";
+import { TaskRow } from "@/components/tasks/TaskRow";
 import type { Task } from "@/types";
 
 export default function TasksPage() {
@@ -33,6 +31,24 @@ export default function TasksPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newLeadId, setNewLeadId] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newPriority, setNewPriority] = useState<string>("medium");
+
+  const fireConfetti = useCallback(() => {
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      origin: { y: 0.7 },
+      colors: ["#22c55e", "#f59e0b", "#3b82f6", "#ec4899"],
+    });
+  }, []);
+
+  const handleToggle = useCallback(async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (task && task.status !== "completed") {
+      fireConfetti();
+    }
+    await toggleTaskStatus(id);
+  }, [tasks, toggleTaskStatus, fireConfetti]);
 
   const filtered = useMemo(() => {
     let result = [...tasks];
@@ -77,79 +93,18 @@ export default function TasksPage() {
       title: newTitle,
       lead_id: newLeadId && newLeadId !== "none" ? newLeadId : undefined,
       due_date: newDueDate || undefined,
+      priority: newPriority as Task["priority"],
     });
     setNewTitle("");
     setNewLeadId("");
     setNewDueDate("");
+    setNewPriority("medium");
     setShowNewTask(false);
-  }, [newTitle, newLeadId, newDueDate, addTask]);
-
-  const statusBadge = (s: Task["status"]) => {
-    if (s === "completed")
-      return <Badge variant="outline" className="text-[10px] border-success/40 text-success">Concluída</Badge>;
-    if (s === "overdue")
-      return <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">Atrasada</Badge>;
-    return <Badge variant="outline" className="text-[10px] border-warning/40 text-warning">Pendente</Badge>;
-  };
-
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-
-  const renderTaskRow = (task: Task, showLead = true) => {
-    const lead = showLead ? leads.find((l) => l.id === task.lead_id) : null;
-    return (
-      <div
-        key={task.id}
-        className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 items-center px-4 py-3 hover:bg-card-hover transition-colors group"
-      >
-        <Checkbox
-          checked={task.status === "completed"}
-          onCheckedChange={() => toggleTaskStatus(task.id)}
-          className="h-4 w-4"
-        />
-        <div className="min-w-0">
-          <p className={`text-sm font-medium truncate ${task.status === "completed" ? "line-through text-muted-foreground" : "text-foreground"}`}>
-            {task.title}
-          </p>
-          {lead && (
-            <button
-              onClick={() => navigate(`/leads/${lead.id}`)}
-              className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 hover:text-primary transition-colors"
-            >
-              <User className="h-2.5 w-2.5" /> {lead.name}
-              {lead.company && <span className="text-muted-foreground/60">· {lead.company}</span>}
-            </button>
-          )}
-        </div>
-        <div className="w-24 flex justify-center">{statusBadge(task.status)}</div>
-        <div className="w-24 flex justify-center">
-          {task.due_date && (
-            <span className={`text-xs flex items-center gap-1 ${task.status === "overdue" ? "text-destructive" : "text-muted-foreground"}`}>
-              <Calendar className="h-3 w-3" /> {formatDate(task.due_date)}
-            </span>
-          )}
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem className="text-xs gap-2" onClick={() => toggleTaskStatus(task.id)}>
-              <CheckCircle2 className="h-3 w-3" /> {task.status === "completed" ? "Reabrir" : "Concluir"}
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs gap-2 text-destructive" onClick={() => deleteTask(task.id)}>
-              <Trash2 className="h-3 w-3" /> Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    );
-  };
+  }, [newTitle, newLeadId, newDueDate, newPriority, addTask]);
 
   const tableHeader = (
-    <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 items-center px-4 py-2.5 bg-secondary/50 border-b border-border">
+    <div className="grid grid-cols-[4px_auto_1fr_auto_auto_auto] gap-3 items-center pl-0 pr-4 py-2.5 bg-secondary/50 border-b border-border">
+      <span className="w-1" />
       <span className="w-5" />
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tarefa</span>
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground w-24 text-center">Status</span>
@@ -176,6 +131,9 @@ export default function TasksPage() {
       }
     >
       <div className="p-6 animate-fade-in space-y-5">
+        {/* Progress counter */}
+        <TaskProgressHeader total={tasks.length} completed={counts.completed} />
+
         {/* Summary cards */}
         <div className="grid grid-cols-4 gap-3">
           {[
@@ -187,10 +145,10 @@ export default function TasksPage() {
             <button
               key={key}
               onClick={() => { setSubArea(key); setStatusFilter("all"); }}
-              className={`rounded-lg border p-4 text-left transition-colors ${
+              className={`rounded-lg border p-4 text-left transition-all duration-200 ${
                 subArea === key
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-card hover:border-border-hover"
+                  ? "border-primary bg-primary/5 shadow-md"
+                  : "border-border bg-card hover:border-border-hover hover:shadow-sm"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -247,7 +205,9 @@ export default function TasksPage() {
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
                   <div className="divide-y divide-border">
-                    {groupTasks.map((t) => renderTaskRow(t, false))}
+                    {groupTasks.map((t) => (
+                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} />
+                    ))}
                   </div>
                 </div>
               ))}
@@ -258,7 +218,9 @@ export default function TasksPage() {
             {tableHeader}
             {filtered.length === 0 ? emptyState : (
               <div className="divide-y divide-border">
-                {filtered.map((t) => renderTaskRow(t))}
+                {filtered.map((t) => (
+                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} />
+                ))}
               </div>
             )}
           </div>
@@ -285,6 +247,18 @@ export default function TasksPage() {
             <div>
               <Label className="text-xs">Título *</Label>
               <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Descreva a tarefa" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Prioridade</Label>
+              <Select value={newPriority} onValueChange={setNewPriority}>
+                <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low" className="text-xs">🟢 Baixa</SelectItem>
+                  <SelectItem value="medium" className="text-xs">🔵 Média</SelectItem>
+                  <SelectItem value="high" className="text-xs">🟡 Alta</SelectItem>
+                  <SelectItem value="urgent" className="text-xs">🔴 Urgente</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs">Vincular ao Lead</Label>
