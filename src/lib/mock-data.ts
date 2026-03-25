@@ -27,11 +27,11 @@ export const mockLeads: Lead[] = [
 ];
 
 export const mockTasks: Task[] = [
-  { id: "t1", client_id: "c1", lead_id: "l1", title: "Ligar para Maria Silva", status: "pending", due_date: "2024-03-22", assigned_to: "Você", created_at: "2024-03-20T10:00:00Z" },
-  { id: "t2", client_id: "c1", lead_id: "l3", title: "Enviar proposta para Ana", status: "pending", due_date: "2024-03-21", assigned_to: "Você", created_at: "2024-03-19T14:00:00Z" },
-  { id: "t3", client_id: "c1", lead_id: "l5", title: "Follow-up Fernanda", status: "overdue", due_date: "2024-03-18", assigned_to: "Você", created_at: "2024-03-16T11:00:00Z" },
-  { id: "t4", client_id: "c1", lead_id: "l7", title: "Agendar reunião com Patricia", status: "completed", due_date: "2024-03-20", assigned_to: "Você", created_at: "2024-03-14T13:00:00Z" },
-  { id: "t5", client_id: "c1", title: "Revisar pipeline semanal", status: "pending", due_date: "2024-03-25", assigned_to: "Você", created_at: "2024-03-20T08:00:00Z" },
+  { id: "t1", client_id: "c1", lead_id: "l1", title: "Ligar para Maria Silva", status: "pending", priority: "high", due_date: "2024-03-22", assigned_to: "Você", created_at: "2024-03-20T10:00:00Z" },
+  { id: "t2", client_id: "c1", lead_id: "l3", title: "Enviar proposta para Ana", status: "pending", priority: "urgent", due_date: "2024-03-21", assigned_to: "Você", created_at: "2024-03-19T14:00:00Z" },
+  { id: "t3", client_id: "c1", lead_id: "l5", title: "Follow-up Fernanda", status: "overdue", priority: "high", due_date: "2024-03-18", assigned_to: "Você", created_at: "2024-03-16T11:00:00Z" },
+  { id: "t4", client_id: "c1", lead_id: "l7", title: "Agendar reunião com Patricia", status: "completed", priority: "medium", due_date: "2024-03-20", assigned_to: "Você", created_at: "2024-03-14T13:00:00Z" },
+  { id: "t5", client_id: "c1", title: "Revisar pipeline semanal", status: "pending", priority: "low", due_date: "2024-03-25", assigned_to: "Você", created_at: "2024-03-20T08:00:00Z" },
 ];
 
 export const mockThreads: InboxThread[] = [
