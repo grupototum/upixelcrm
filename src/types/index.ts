@@ -53,6 +53,7 @@ export interface Task {
   title: string;
   description?: string;
   status: "pending" | "completed" | "overdue";
+  priority?: "low" | "medium" | "high" | "urgent";
   due_date?: string;
   assigned_to?: string;
   created_at: string;
