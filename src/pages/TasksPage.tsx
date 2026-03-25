@@ -50,7 +50,11 @@ export default function TasksPage() {
     await toggleTaskStatus(id);
   }, [tasks, toggleTaskStatus, fireConfetti]);
 
-  const filtered = useMemo(() => {
+  const handleUpdatePriority = useCallback(async (id: string, priority: Task["priority"]) => {
+    await updateTask(id, { priority });
+  }, [updateTask]);
+
+
     let result = [...tasks];
     if (subArea === "mine") result = result.filter((t) => t.assigned_to === "Você");
     if (subArea === "by-lead") result = result.filter((t) => !!t.lead_id);
