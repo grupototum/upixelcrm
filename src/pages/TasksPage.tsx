@@ -206,7 +206,7 @@ export default function TasksPage() {
                   </button>
                   <div className="divide-y divide-border">
                     {groupTasks.map((t) => (
-                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} />
+                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
                     ))}
                   </div>
                 </div>
