@@ -5,7 +5,7 @@ import { useAppState } from "@/contexts/AppContext";
 import confetti from "canvas-confetti";
 import {
   Plus, CheckCircle2, Clock, AlertTriangle,
-  Search, Calendar, User, ListChecks, Users, ChevronRight,
+  Search, Calendar, User, ListChecks, Users, ChevronRight, CalendarDays, Inbox,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,10 +24,11 @@ import type { Task } from "@/types";
 export default function TasksPage() {
   const navigate = useNavigate();
   const { tasks, leads, toggleTaskStatus, deleteTask, addTask, updateTask } = useAppState();
-  const [subArea, setSubArea] = useState("mine");
+  const [subArea, setSubArea] = useState("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newLeadId, setNewLeadId] = useState("");
@@ -55,24 +56,36 @@ export default function TasksPage() {
     await updateTask(id, { priority });
   }, [updateTask]);
 
+  const assignees = useMemo(() => {
+    const set = new Set<string>();
+    tasks.forEach((t) => { if (t.assigned_to) set.add(t.assigned_to); });
+    return Array.from(set).sort();
+  }, [tasks]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   const filtered = useMemo(() => {
     let result = [...tasks];
     if (subArea === "mine") result = result.filter((t) => t.assigned_to === "Você");
     if (subArea === "by-lead") result = result.filter((t) => !!t.lead_id);
     if (subArea === "overdue") result = result.filter((t) => t.status === "overdue");
     if (subArea === "completed") result = result.filter((t) => t.status === "completed");
-    if ((subArea === "mine" || subArea === "by-lead") && statusFilter !== "all") {
+    if (subArea === "today") result = result.filter((t) => t.due_date && t.due_date.slice(0, 10) === todayStr);
+    if ((subArea === "mine" || subArea === "by-lead" || subArea === "all" || subArea === "today") && statusFilter !== "all") {
       result = result.filter((t) => t.status === statusFilter);
     }
     if (priorityFilter !== "all") {
       result = result.filter((t) => (t.priority || "medium") === priorityFilter);
+    }
+    if (userFilter !== "all") {
+      result = result.filter((t) => t.assigned_to === userFilter);
     }
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((t) => t.title.toLowerCase().includes(q));
     }
     return result;
-  }, [tasks, subArea, statusFilter, priorityFilter, search]);
+  }, [tasks, subArea, statusFilter, priorityFilter, userFilter, search, todayStr]);
 
   const groupedByLead = useMemo(() => {
     if (subArea !== "by-lead") return null;
@@ -89,11 +102,13 @@ export default function TasksPage() {
   }, [subArea, filtered, leads]);
 
   const counts = useMemo(() => ({
+    all: tasks.length,
+    today: tasks.filter((t) => t.due_date && t.due_date.slice(0, 10) === todayStr).length,
     mine: tasks.filter((t) => t.assigned_to === "Você").length,
     byLead: tasks.filter((t) => !!t.lead_id).length,
     overdue: tasks.filter((t) => t.status === "overdue").length,
     completed: tasks.filter((t) => t.status === "completed").length,
-  }), [tasks]);
+  }), [tasks, todayStr]);
 
   const handleCreateTask = useCallback(async () => {
     if (!newTitle.trim()) return;
@@ -143,9 +158,11 @@ export default function TasksPage() {
         <TaskProgressHeader total={tasks.length} completed={counts.completed} />
 
         {/* Summary cards */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
           {[
-            { key: "mine", label: "Minhas Tarefas", count: counts.mine, icon: ListChecks },
+            { key: "all", label: "Todas", count: counts.all, icon: Inbox },
+            { key: "today", label: "Hoje", count: counts.today, icon: CalendarDays },
+            { key: "mine", label: "Minhas", count: counts.mine, icon: ListChecks },
             { key: "by-lead", label: "Por Lead", count: counts.byLead, icon: Users },
             { key: "overdue", label: "Atrasadas", count: counts.overdue, icon: AlertTriangle },
             { key: "completed", label: "Concluídas", count: counts.completed, icon: CheckCircle2 },
@@ -155,15 +172,23 @@ export default function TasksPage() {
               onClick={() => { setSubArea(key); setStatusFilter("all"); }}
               className={`rounded-lg border p-4 text-left transition-all duration-200 ${
                 subArea === key
-                  ? "border-primary bg-primary/5 shadow-md"
+                  ? key === "overdue" && count > 0
+                    ? "border-destructive bg-destructive/5 shadow-md"
+                    : "border-primary bg-primary/5 shadow-md"
                   : "border-border bg-card hover:border-border-hover hover:shadow-sm"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-                <Icon className={`h-4 w-4 ${subArea === key ? "text-primary" : "text-muted-foreground"}`} />
+                <Icon className={`h-4 w-4 ${
+                  subArea === key
+                    ? key === "overdue" && count > 0 ? "text-destructive" : "text-primary"
+                    : key === "overdue" && count > 0 ? "text-destructive" : "text-muted-foreground"
+                }`} />
               </div>
-              <p className={`text-2xl font-bold ${subArea === key ? "text-primary" : "text-foreground"}`}>{count}</p>
+              <p className={`text-2xl font-bold ${
+                key === "overdue" && count > 0 ? "text-destructive" : subArea === key ? "text-primary" : "text-foreground"
+              }`}>{count}</p>
             </button>
           ))}
         </div>
@@ -174,7 +199,7 @@ export default function TasksPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-xs" />
           </div>
-          {(subArea === "mine" || subArea === "by-lead") && (
+          {(subArea === "mine" || subArea === "by-lead" || subArea === "all" || subArea === "today") && (
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
@@ -185,6 +210,15 @@ export default function TasksPage() {
               </SelectContent>
             </Select>
           )}
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Todos</SelectItem>
+              {assignees.map((a) => (
+                <SelectItem key={a} value={a} className="text-xs">{a}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
             <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent>

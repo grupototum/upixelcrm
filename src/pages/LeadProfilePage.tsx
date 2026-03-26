@@ -21,7 +21,7 @@ import {
   Globe, Briefcase, DollarSign, Calendar, Edit3, Trash2,
   Plus, CheckCircle2, Circle, AlertTriangle, Clock,
   MessageSquare, ArrowRight, Zap, ClipboardList, StickyNote,
-  MoreHorizontal, Send, ChevronRight,
+  MoreHorizontal, Send, ChevronRight, Smartphone, Monitor, X, Check, Settings2,
 } from "lucide-react";
 import type { Lead, Task, TimelineEvent } from "@/types";
 
@@ -52,6 +52,17 @@ export default function LeadProfilePage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
+
+  // Custom fields
+  const [customFields, setCustomFields] = useState<Array<{ key: string; value: string }>>(() => {
+    try {
+      const raw = localStorage.getItem(`totum_custom_fields_${id}`);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const [showAddField, setShowAddField] = useState(false);
+  const [newFieldKey, setNewFieldKey] = useState("");
+  const [newFieldValue, setNewFieldValue] = useState("");
 
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
@@ -168,10 +179,16 @@ export default function LeadProfilePage() {
           <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => setShowNewTask(true)}>
             <Plus className="h-3 w-3" /> Criar tarefa
           </Button>
-          <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8">
+          <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => navigate("/inbox")}>
             <MessageSquare className="h-3 w-3" /> Enviar mensagem
           </Button>
-          <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8">
+          <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => {
+            const newTag = prompt("Nome da tag:");
+            if (newTag && newTag.trim()) {
+              const updatedTags = [...lead.tags, newTag.trim()];
+              updateLead(lead.id, { tags: updatedTags });
+            }
+          }}>
             <Tag className="h-3 w-3" /> Adicionar tag
           </Button>
         </div>
@@ -184,6 +201,7 @@ export default function LeadProfilePage() {
             <TabsTrigger value="conversas" className="text-xs gap-1.5"><MessageSquare className="h-3 w-3" /> Conversas</TabsTrigger>
             <TabsTrigger value="tarefas" className="text-xs gap-1.5"><ClipboardList className="h-3 w-3" /> Tarefas</TabsTrigger>
             <TabsTrigger value="notas" className="text-xs gap-1.5"><StickyNote className="h-3 w-3" /> Notas</TabsTrigger>
+            <TabsTrigger value="automacoes" className="text-xs gap-1.5"><Zap className="h-3 w-3" /> Ações Automáticas</TabsTrigger>
           </TabsList>
 
           {/* Dados */}
@@ -192,19 +210,19 @@ export default function LeadProfilePage() {
               <div className="bg-card border border-border rounded-lg p-5 space-y-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Informações de contato</h3>
                 <div className="space-y-3">
-                  <DataRow icon={User} label="Nome" value={lead.name} />
-                  <DataRow icon={Phone} label="Telefone" value={lead.phone} />
-                  <DataRow icon={Mail} label="Email" value={lead.email} />
-                  <DataRow icon={Building} label="Empresa" value={lead.company} />
-                  <DataRow icon={Briefcase} label="Cargo" value={lead.position} />
-                  <DataRow icon={MapPin} label="Cidade" value={lead.city} />
+                  <EditableDataRow icon={User} label="Nome" value={lead.name} onSave={(v) => updateLead(lead.id, { name: v })} />
+                  <EditableDataRow icon={Phone} label="Telefone" value={lead.phone} onSave={(v) => updateLead(lead.id, { phone: v })} />
+                  <EditableDataRow icon={Mail} label="Email" value={lead.email} onSave={(v) => updateLead(lead.id, { email: v })} />
+                  <EditableDataRow icon={Building} label="Empresa" value={lead.company} onSave={(v) => updateLead(lead.id, { company: v })} />
+                  <EditableDataRow icon={Briefcase} label="Cargo" value={lead.position} onSave={(v) => updateLead(lead.id, { position: v })} />
+                  <EditableDataRow icon={MapPin} label="Cidade" value={lead.city} onSave={(v) => updateLead(lead.id, { city: v })} />
                 </div>
               </div>
               <div className="space-y-4">
                 <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem e campanha</h3>
-                  <DataRow icon={Globe} label="Origem" value={lead.origin} />
-                  <DataRow icon={DollarSign} label="Valor" value={lead.value ? `R$ ${lead.value.toLocaleString("pt-BR")}` : undefined} />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem e campanha</h3>
+                  <EditableDataRow icon={Globe} label="Origem" value={lead.origin} onSave={(v) => updateLead(lead.id, { origin: v })} />
+                  <EditableDataRow icon={DollarSign} label="Valor" value={lead.value ? String(lead.value) : undefined} onSave={(v) => updateLead(lead.id, { value: parseFloat(v) || 0 })} />
                 </div>
                 <div className="bg-card border border-border rounded-lg p-5 space-y-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tags</h3>
@@ -215,19 +233,102 @@ export default function LeadProfilePage() {
                   </div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-5">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Pipeline</h3>
-                  <div className="flex items-center gap-2">
-                    {columns.map((col, i) => (
-                      <div key={col.id} className="flex items-center gap-1">
-                        <div className={`h-7 px-3 rounded-md text-[10px] font-medium flex items-center gap-1.5 border transition-colors ${
-                          col.id === lead.column_id ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary/50 text-muted-foreground"
-                        }`}>
-                          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
-                          {col.name}
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Funil de vendas</h3>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Etapas do Funil</Label>
+                    <Select value={lead.column_id} onValueChange={async (val) => { await updateLead(lead.id, { column_id: val }); }}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Selecione uma etapa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {columns.map((col) => (
+                          <SelectItem key={col.id} value={col.id} className="text-xs">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />
+                              {col.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                </div>
+
+                {/* Custom fields */}
+                <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campos personalizados</h3>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAddField(true)}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {showAddField && (
+                    <div className="flex gap-2">
+                      <Input placeholder="Campo" value={newFieldKey} onChange={(e) => setNewFieldKey(e.target.value)} className="h-7 text-xs flex-1" />
+                      <Input placeholder="Valor" value={newFieldValue} onChange={(e) => setNewFieldValue(e.target.value)} className="h-7 text-xs flex-1" />
+                      <Button size="icon" className="h-7 w-7 shrink-0" onClick={() => {
+                        if (newFieldKey.trim()) {
+                          const updated = [...customFields, { key: newFieldKey.trim(), value: newFieldValue.trim() }];
+                          setCustomFields(updated);
+                          localStorage.setItem(`totum_custom_fields_${id}`, JSON.stringify(updated));
+                          setNewFieldKey(""); setNewFieldValue(""); setShowAddField(false);
+                        }
+                      }}><Check className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { setShowAddField(false); setNewFieldKey(""); setNewFieldValue(""); }}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  {customFields.length > 0 ? (
+                    <div className="space-y-2">
+                      {customFields.map((f, idx) => (
+                        <div key={idx} className="flex items-center gap-2 group">
+                          <Settings2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-muted-foreground">{f.key}</p>
+                            <p className="text-sm text-foreground truncate">{f.value || "—"}</p>
+                          </div>
+                          <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                            const updated = customFields.filter((_, i) => i !== idx);
+                            setCustomFields(updated);
+                            localStorage.setItem(`totum_custom_fields_${id}`, JSON.stringify(updated));
+                          }}>
+                            <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                          </button>
                         </div>
-                        {i < columns.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground/40" />}
+                      ))}
+                    </div>
+                  ) : !showAddField && (
+                    <p className="text-xs text-muted-foreground italic">Nenhum campo personalizado</p>
+                  )}
+                </div>
+
+                {/* Device/Browser info */}
+                <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dispositivo / Navegador</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <Monitor className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-[10px] text-muted-foreground">Navegador</p>
+                        <p className="text-sm text-foreground">Chrome 122 / Windows 11</p>
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Smartphone className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-[10px] text-muted-foreground">Dispositivo</p>
+                        <p className="text-sm text-foreground">Desktop • 1920×1080</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-[10px] text-muted-foreground">IP / Localização</p>
+                        <p className="text-sm text-foreground">189.xxx.xx.xx • São Paulo, BR</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -354,6 +455,50 @@ export default function LeadProfilePage() {
               </div>
             )}
           </TabsContent>
+
+          {/* Ações Automáticas */}
+          <TabsContent value="automacoes" className="mt-5 space-y-4">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center justify-between">
+                <p className="text-xs font-semibold">Automações vinculadas</p>
+                <Button variant="outline" size="sm" className="text-xs gap-1 h-7"><Plus className="h-3 w-3" /> Nova automação</Button>
+              </div>
+              {[
+                { name: "Boas-vindas automática", trigger: "Ao entrar na coluna", active: true },
+                { name: "Follow-up 24h", trigger: "Após 24h sem resposta", active: true },
+                { name: "Alerta de inatividade", trigger: "Após 72h sem interação", active: false },
+                { name: "Mover para Perdido", trigger: "Após 7 dias sem resposta", active: false },
+              ].map((auto, i) => (
+                <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0 hover:bg-card-hover transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Zap className={`h-4 w-4 ${auto.active ? "text-warning" : "text-muted-foreground"}`} />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{auto.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{auto.trigger}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={`text-[10px] ${auto.active ? "border-success/40 text-success" : "border-border text-muted-foreground"}`}>
+                      {auto.active ? "Ativa" : "Inativa"}
+                    </Badge>
+                    <button className="h-5 w-9 rounded-full transition-colors relative flex items-center px-0.5" style={{ backgroundColor: auto.active ? "hsl(var(--success))" : "hsl(var(--secondary))" }}>
+                      <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${auto.active ? "translate-x-4" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-4">
+              <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                <Zap className="h-4 w-4 text-accent" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-foreground">Automações avançadas em breve</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Webhooks, integração com IA, sequências multi-etapas e regras condicionais.</p>
+              </div>
+              <Badge variant="outline" className="text-[10px] border-accent/40 text-accent shrink-0">Em breve</Badge>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -381,14 +526,38 @@ export default function LeadProfilePage() {
   );
 }
 
-function DataRow({ icon: Icon, label, value }: { icon: typeof User; label: string; value?: string }) {
+function EditableDataRow({ icon: Icon, label, value, onSave }: { icon: typeof User; label: string; value?: string; onSave?: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+
+  const save = () => {
+    if (onSave && draft !== (value || "")) onSave(draft);
+    setEditing(false);
+  };
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 group">
       <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-[10px] text-muted-foreground">{label}</p>
-        <p className="text-sm text-foreground truncate">{value || "—"}</p>
+        {editing ? (
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+            className="h-7 text-sm mt-0.5"
+          />
+        ) : (
+          <p className="text-sm text-foreground truncate">{value || "—"}</p>
+        )}
       </div>
+      {!editing && onSave && (
+        <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setDraft(value || ""); setEditing(true); }}>
+          <Edit3 className="h-3 w-3 text-muted-foreground hover:text-primary" />
+        </button>
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
-import { Plus, Filter, Search, X, Columns } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,8 @@ import { DragOverlayCard } from "@/components/crm/SortableLeadCard";
 import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
+import { FilterPopover, EMPTY_FILTERS, type CRMFilters } from "@/components/crm/FilterPopover";
+import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopover";
 
 export default function CRMPage() {
   const navigate = useNavigate();
@@ -36,6 +38,8 @@ export default function CRMPage() {
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
+  const [crmFilters, setCrmFilters] = useState<CRMFilters>(EMPTY_FILTERS);
+  const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setIsLoading(false), 600);
@@ -44,17 +48,40 @@ export default function CRMPage() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    leads.forEach((l) => l.tags.forEach((t) => tagSet.add(t)));
+    return Array.from(tagSet).sort();
+  }, [leads]);
+
   const filteredLeads = useMemo(() => {
-    if (!searchQuery.trim()) return leads;
-    const q = searchQuery.toLowerCase();
-    return leads.filter(
-      (l) =>
-        l.name.toLowerCase().includes(q) ||
-        l.company?.toLowerCase().includes(q) ||
-        l.email?.toLowerCase().includes(q) ||
-        l.tags.some((t) => t.toLowerCase().includes(q))
-    );
-  }, [leads, searchQuery]);
+    let result = leads;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (l) =>
+          l.name.toLowerCase().includes(q) ||
+          l.company?.toLowerCase().includes(q) ||
+          l.email?.toLowerCase().includes(q) ||
+          l.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+    if (crmFilters.origins.length > 0) {
+      result = result.filter((l) => l.origin && crmFilters.origins.includes(l.origin));
+    }
+    if (crmFilters.tags.length > 0) {
+      result = result.filter((l) => l.tags.some((t) => crmFilters.tags.includes(t)));
+    }
+    if (crmFilters.minValue) {
+      const min = parseFloat(crmFilters.minValue);
+      result = result.filter((l) => (l.value ?? 0) >= min);
+    }
+    if (crmFilters.maxValue) {
+      const max = parseFloat(crmFilters.maxValue);
+      result = result.filter((l) => (l.value ?? 0) <= max);
+    }
+    return result;
+  }, [leads, searchQuery, crmFilters]);
 
   function handleDragStart(event: DragStartEvent) {
     const lead = leads.find((l) => l.id === event.active.id);
@@ -109,7 +136,7 @@ export default function CRMPage() {
   return (
     <AppLayout
       title="CRM"
-      subtitle="Pipeline de vendas"
+      subtitle="Funil de vendas"
       actions={
         <div className="flex items-center gap-2">
           {showSearch ? (
@@ -131,12 +158,16 @@ export default function CRMPage() {
               <Search className="h-4 w-4" />
             </Button>
           )}
-          <Button variant="outline" size="sm" className="text-xs gap-1 h-8">
-            <Filter className="h-3 w-3" /> Filtrar
-          </Button>
-          <Button variant="outline" size="sm" className="text-xs gap-1 h-8">
-            <Columns className="h-3 w-3" /> Coluna
-          </Button>
+          <FilterPopover
+            filters={crmFilters}
+            onFiltersChange={setCrmFilters}
+            availableTags={availableTags}
+          />
+          <ColumnVisibilityPopover
+            columns={columns}
+            hiddenColumnIds={hiddenColumnIds}
+            onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+          />
           <Button size="sm" className="text-xs gap-1 h-8" onClick={() => handleAddLead(columns[0]?.id ?? "")}>
             <Plus className="h-3 w-3" /> Novo Lead
           </Button>
@@ -154,16 +185,18 @@ export default function CRMPage() {
           onDragEnd={handleDragEnd}
         >
           <div className="flex h-[calc(100vh-3.5rem)] overflow-x-auto p-4 gap-4 animate-fade-in">
-            {columns.map((col) => {
+            {columns.filter((col) => !hiddenColumnIds.includes(col.id)).map((col) => {
               const colLeads = filteredLeads.filter((l) => l.column_id === col.id);
               return (
                 <KanbanColumn
                   key={col.id}
                   column={col}
                   leads={colLeads}
+                  allColumns={columns}
                   onLeadClick={(lead) => navigate(`/leads/${lead.id}`)}
                   onAddLead={handleAddLead}
                   onConfigColumn={setConfigColumn}
+                  onMoveLead={moveLead}
                 />
               );
             })}

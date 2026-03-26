@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { MessageTemplatePopover } from "@/components/inbox/MessageTemplatePopover";
 import type { InboxThread } from "@/types";
 
 const channelColors: Record<string, string> = {
@@ -32,6 +34,8 @@ export default function InboxPage() {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [inboxTab, setInboxTab] = useState<string>("todas");
 
   const messages = mockMessages.filter((m) => m.thread_id === selectedThread.id);
 
@@ -46,14 +50,26 @@ export default function InboxPage() {
   );
 
   const filteredThreads = useMemo(() => {
-    if (!searchQuery.trim()) return mockThreads;
-    const q = searchQuery.toLowerCase();
-    return mockThreads.filter(
-      (t) =>
-        t.lead_name.toLowerCase().includes(q) ||
-        t.last_message.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+    let result = mockThreads;
+    // Inbox tab filter
+    if (inboxTab === "minhas") {
+      result = result.filter((t) => t.status === "open");
+    } else if (inboxTab === "nao-respondidas") {
+      result = result.filter((t) => t.unread_count > 0);
+    }
+    if (channelFilter !== "all") {
+      result = result.filter((t) => t.channel === channelFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.lead_name.toLowerCase().includes(q) ||
+          t.last_message.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [searchQuery, channelFilter, inboxTab]);
 
   const initials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").slice(0, 2);
@@ -68,6 +84,26 @@ export default function InboxPage() {
         {/* ─── Thread list ─── */}
         <div className="w-80 border-r border-border flex flex-col shrink-0">
           <div className="p-3 border-b border-border space-y-2">
+            {/* Inbox tabs */}
+            <div className="flex gap-1">
+              {[
+                { key: "todas", label: "Todas" },
+                { key: "minhas", label: "Minhas" },
+                { key: "nao-respondidas", label: "Não respondidas" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setInboxTab(tab.key)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                    inboxTab === tab.key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -82,7 +118,12 @@ export default function InboxPage() {
               {["all", "whatsapp", "instagram", "email"].map((ch) => (
                 <button
                   key={ch}
-                  className="px-2 py-1 rounded-full text-[10px] font-medium bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setChannelFilter(ch)}
+                  className={`px-2 py-1 rounded-full text-[10px] font-medium transition-colors ${
+                    channelFilter === ch
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
                 >
                   {ch === "all" ? "Todos" : channelLabels[ch]}
                 </button>
@@ -182,8 +223,8 @@ export default function InboxPage() {
                   <div
                     className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
                       isOutbound
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-secondary text-foreground rounded-bl-md"
+                        ? "bg-secondary text-foreground rounded-br-md"
+                        : "bg-primary text-primary-foreground rounded-bl-md"
                     }`}
                   >
                     {msg.type === "audio" ? (
@@ -192,13 +233,13 @@ export default function InboxPage() {
                           <button
                             onClick={() => setPlayingAudio(playingAudio === msg.id ? null : msg.id)}
                             className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                              isOutbound ? "bg-primary-foreground/20 hover:bg-primary-foreground/30" : "bg-primary/15 hover:bg-primary/25"
+                              isOutbound ? "bg-primary/15 hover:bg-primary/25" : "bg-primary-foreground/20 hover:bg-primary-foreground/30"
                             }`}
                           >
                             {playingAudio === msg.id ? (
-                              <Pause className={`h-4 w-4 ${isOutbound ? "text-primary-foreground" : "text-primary"}`} />
+                              <Pause className={`h-4 w-4 ${isOutbound ? "text-primary" : "text-primary-foreground"}`} />
                             ) : (
-                              <Play className={`h-4 w-4 ${isOutbound ? "text-primary-foreground" : "text-primary"}`} />
+                              <Play className={`h-4 w-4 ${isOutbound ? "text-primary" : "text-primary-foreground"}`} />
                             )}
                           </button>
                           <div className="flex-1">
@@ -208,13 +249,13 @@ export default function InboxPage() {
                                 <div
                                   key={i}
                                   className={`w-1 rounded-full transition-colors ${
-                                    isOutbound ? "bg-primary-foreground/40" : "bg-muted-foreground/30"
-                                  } ${i < 7 && playingAudio === msg.id ? (isOutbound ? "bg-primary-foreground" : "bg-primary") : ""}`}
+                                    isOutbound ? "bg-muted-foreground/30" : "bg-primary-foreground/40"
+                                  } ${i < 7 && playingAudio === msg.id ? (isOutbound ? "bg-primary" : "bg-primary-foreground") : ""}`}
                                   style={{ height: `${Math.random() * 14 + 4}px` }}
                                 />
                               ))}
                             </div>
-                            <p className={`text-[10px] mt-1 ${isOutbound ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                            <p className={`text-[10px] mt-1 ${isOutbound ? "text-muted-foreground" : "text-primary-foreground/60"}`}>
                               0:15
                             </p>
                           </div>
@@ -222,8 +263,8 @@ export default function InboxPage() {
                         <button
                           className={`text-[10px] flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium transition-colors ${
                             isOutbound
-                              ? "text-primary-foreground/90 hover:bg-primary-foreground/10 border border-primary-foreground/20"
-                              : "text-primary hover:bg-primary/10 border border-primary/20"
+                              ? "text-primary hover:bg-primary/10 border border-primary/20"
+                              : "text-primary-foreground/90 hover:bg-primary-foreground/10 border border-primary-foreground/20"
                           }`}
                         >
                           <FileText className="h-3 w-3" /> Transcrever áudio
@@ -234,7 +275,7 @@ export default function InboxPage() {
                     )}
                     <p
                       className={`text-[10px] mt-1.5 ${
-                        isOutbound ? "text-primary-foreground/60" : "text-muted-foreground"
+                        isOutbound ? "text-muted-foreground" : "text-primary-foreground/60"
                       }`}
                     >
                       {msg.sender_name && !isOutbound && <span className="font-medium">{msg.sender_name} · </span>}
@@ -261,6 +302,7 @@ export default function InboxPage() {
               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground shrink-0">
                 <Paperclip className="h-4 w-4" />
               </Button>
+              <MessageTemplatePopover onSelect={(body) => { setMessage(body); toast.info("Template inserido"); }} />
               <Input
                 className="flex-1 rounded-full px-4 h-9 text-sm"
                 placeholder="Digite uma mensagem..."
@@ -365,16 +407,16 @@ export default function InboxPage() {
           <div className="p-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Ações Rápidas</p>
             <div className="space-y-1.5">
-              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8">
+              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => toast.success("Tarefa criada para " + selectedThread.lead_name)}>
                 <CheckSquare className="h-3 w-3" /> Criar tarefa
               </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8">
+              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => toast.success("Lead movido para próximo estágio")}>
                 <ArrowRight className="h-3 w-3" /> Mover estágio
               </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8">
+              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => toast.success("Tag adicionada ao lead")}>
                 <Plus className="h-3 w-3" /> Adicionar tag
               </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8">
+              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => { setMessage("Olá! Obrigado pelo contato. Como posso ajudar?"); toast.info("Sugestão inserida"); }}>
                 <Sparkles className="h-3 w-3" /> Sugerir resposta
               </Button>
             </div>

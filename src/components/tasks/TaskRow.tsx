@@ -58,7 +58,7 @@ export function TaskRow({ task, leads, showLead = true, onToggle, onDelete, onUp
   return (
     <div
       className={`grid grid-cols-[4px_auto_1fr_auto_auto_auto] gap-3 items-center pl-0 pr-4 py-3 hover:bg-card-hover transition-all duration-200 group ${
-        isOverdue ? "animate-overdue-pulse" : ""
+        isOverdue ? "bg-destructive/5 border-l-2 border-l-destructive" : ""
       }`}
     >
       {/* Priority indicator */}

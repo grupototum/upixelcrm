@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Plus, Mail, Shield, PencilLine, Users as UsersIcon } from "lucide-react";
+import { Plus, Mail, Shield, PencilLine, Users as UsersIcon, Clock, FileText } from "lucide-react";
 import type { User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -143,6 +144,14 @@ export default function UsersPage() {
           ))}
         </div>
 
+        <Tabs defaultValue="users">
+          <TabsList className="bg-secondary mb-4">
+            <TabsTrigger value="users" className="text-xs gap-1.5"><UsersIcon className="h-3 w-3" /> Usuários</TabsTrigger>
+            <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3 w-3" /> Roles / Permissões</TabsTrigger>
+            <TabsTrigger value="audit" className="text-xs gap-1.5"><FileText className="h-3 w-3" /> Auditoria</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users">
         <section className="rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
@@ -188,6 +197,80 @@ export default function UsersPage() {
             ))}
           </div>
         </section>
+          </TabsContent>
+
+          <TabsContent value="roles">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-sm font-semibold text-foreground">Matriz de Permissões — RBAC</h2>
+                <p className="text-xs text-muted-foreground">Quem pode acessar cada módulo do sistema</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-secondary/50">
+                      <th className="text-left px-4 py-2 font-semibold text-muted-foreground">Permissão</th>
+                      <th className="text-center px-3 py-2 font-semibold text-primary">Supervisor</th>
+                      <th className="text-center px-3 py-2 font-semibold text-accent">Atendente</th>
+                      <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Vendedor</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {[
+                      { perm: "CRM — Visualizar", sup: true, att: true, ven: true },
+                      { perm: "CRM — Editar", sup: true, att: false, ven: true },
+                      { perm: "CRM — Excluir", sup: true, att: false, ven: false },
+                      { perm: "CRM — Exportar", sup: true, att: false, ven: true },
+                      { perm: "CRM — Transferir", sup: true, att: false, ven: false },
+                      { perm: "Inbox — Visualizar", sup: true, att: true, ven: true },
+                      { perm: "Inbox — Responder", sup: true, att: true, ven: false },
+                      { perm: "Tarefas — Criar", sup: true, att: true, ven: true },
+                      { perm: "Tarefas — Excluir", sup: true, att: false, ven: false },
+                      { perm: "Automações", sup: true, att: false, ven: false },
+                      { perm: "Relatórios", sup: true, att: false, ven: false },
+                      { perm: "Usuários", sup: true, att: false, ven: false },
+                      { perm: "Inteligência", sup: true, att: false, ven: true },
+                      { perm: "Configurações", sup: true, att: false, ven: false },
+                    ].map((row) => (
+                      <tr key={row.perm} className="hover:bg-card-hover transition-colors">
+                        <td className="px-4 py-2 font-medium text-foreground">{row.perm}</td>
+                        <td className="text-center px-3 py-2">{row.sup ? "✅" : "❌"}</td>
+                        <td className="text-center px-3 py-2">{row.att ? "✅" : "❌"}</td>
+                        <td className="text-center px-3 py-2">{row.ven ? "✅" : "❌"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-sm font-semibold text-foreground">Log de Auditoria</h2>
+                <p className="text-xs text-muted-foreground">Histórico de ações administrativas</p>
+              </div>
+              <div className="divide-y divide-border">
+                {[
+                  { user: "Admin Totum", action: "Criou usuário Maria Gerente", date: "2026-03-25 14:30" },
+                  { user: "Admin Totum", action: "Alterou role de João para Vendedor", date: "2026-03-25 10:15" },
+                  { user: "Admin Totum", action: "Exportou relatório de leads", date: "2026-03-24 16:45" },
+                  { user: "Sistema", action: "Backup automático realizado", date: "2026-03-24 03:00" },
+                  { user: "Admin Totum", action: "Ativou automação Follow-up 24h", date: "2026-03-23 11:20" },
+                ].map((log, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-card-hover transition-colors">
+                    <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground">{log.action}</p>
+                      <p className="text-[10px] text-muted-foreground">{log.user} · {log.date}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <section className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
           <div>
