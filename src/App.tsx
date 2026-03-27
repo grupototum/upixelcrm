@@ -21,6 +21,7 @@ import UsersPage from "./pages/UsersPage";
 import LeadProfilePage from "./pages/LeadProfilePage";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
+import AutomationBuilderPage from "./pages/AutomationBuilderPage";
 
 const queryClient = new QueryClient();
 

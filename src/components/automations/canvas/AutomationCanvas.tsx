@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef, DragEvent } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -11,6 +11,8 @@ import ReactFlow, {
   NodeTypes,
   Panel,
   MarkerType,
+  MiniMap,
+  useReactFlow,
 } from 'reactflow';
 import dagre from 'dagre';
 import 'reactflow/dist/style.css';
@@ -18,67 +20,39 @@ import 'reactflow/dist/style.css';
 import { TriggerNode } from './nodes/TriggerNode';
 import { ActionNode } from './nodes/ActionNode';
 import { ConditionNode } from './nodes/ConditionNode';
-import { AutomationSidebar } from './AutomationSidebar';
-import { Save, LayoutGrid } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { MessageNode } from './nodes/MessageNode';
+import { DelayNode } from './nodes/DelayNode';
+import { RandomizerNode } from './nodes/RandomizerNode';
+import { WebhookNode } from './nodes/WebhookNode';
 
-// Definição dos tipos de nós customizados
+import { AutomationSidebar } from './AutomationSidebar';
+import { NodesPalette } from './NodesPalette';
+import { LayoutGrid } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+
+// Mapeamento Extendido
 const nodeTypes: NodeTypes = {
   trigger: TriggerNode,
   action: ActionNode,
   condition: ConditionNode,
+  message: MessageNode,
+  delay: DelayNode,
+  randomizer: RandomizerNode,
+  webhook: WebhookNode,
 };
 
-// Nós iniciais de exemplo
+// Limpo para o Drag & Drop Test
 const initialNodes = [
   {
     id: '1',
     type: 'trigger',
-    position: { x: 50, y: 150 },
-    data: { label: 'Novo Lead no Funil', type: 'new_lead' },
-  },
-  {
-    id: '2',
-    type: 'condition',
-    position: { x: 400, y: 120 },
-    data: { label: 'Possui Celular Válido?', type: 'check_phone' },
-  },
-  {
-    id: '3',
-    type: 'action',
-    position: { x: 750, y: 50 },
-    data: { label: 'Enviar WhatsApp (Boas Vindas)', type: 'send_whatsapp' },
-  },
-  {
-    id: '4',
-    type: 'action',
-    position: { x: 750, y: 250 },
-    data: { label: 'Enviar Email (Fallback)', type: 'send_email' },
-  },
+    position: { x: 250, y: 150 },
+    data: { label: 'Início do Fluxo', type: 'new_lead' },
+  }
 ];
 
-const initialEdges = [
-  { 
-    id: 'e1-2', 
-    source: '1', 
-    target: '2',
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  { 
-    id: 'e2-3', 
-    source: '2', 
-    target: '3', 
-    sourceHandle: 'true',
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  { 
-    id: 'e2-4', 
-    source: '2', 
-    target: '4', 
-    sourceHandle: 'false',
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-];
+const initialEdges: Edge[] = [];
 
 // Instância do Dagre para Auto-layout
 const dagreGraph = new dagre.graphlib.Graph();
@@ -89,7 +63,6 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
-    // Definimos tamanho padrão aproximado dos cards criados
     dagreGraph.setNode(node.id, { width: 260, height: 140 });
   });
 
@@ -104,8 +77,8 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
     return {
       ...node,
       position: {
-        x: nodeWithPosition.x - 130, // x - width / 2
-        y: nodeWithPosition.y - 70,  // y - height / 2
+        x: nodeWithPosition.x - 130,
+        y: nodeWithPosition.y - 70,
       },
     };
   });
@@ -113,17 +86,17 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
   return { nodes: layoutedNodes, edges };
 };
 
-// Componente Wrapper para injetar hooks do ReactFlow no escopo correto
 function CanvasFlow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const { screenToFlowPosition, getNode, getNodes, deleteElements } = useReactFlow();
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
-      // Evitar loops em si mesmo
       if (params.source === params.target) return;
-      
       setEdges((eds) => addEdge({
         ...params, 
         markerEnd: { type: MarkerType.ArrowClosed },
@@ -136,10 +109,11 @@ function CanvasFlow() {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
       nodes,
       edges,
-      'LR' // Da esquerda para a direita (Left->Right)
+      'LR'
     );
     setNodes([...layoutedNodes]);
     setEdges([...layoutedEdges]);
+    toast.success("Fluxo organizado automaticamente!");
   }, [nodes, edges, setNodes, setEdges]);
 
   const onSelectionChange = useCallback((params: any) => {
@@ -150,27 +124,54 @@ function CanvasFlow() {
     }
   }, []);
 
-  const exportJSON = () => {
-    const schema = {
-      nodes: nodes.map(n => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: n.data,
-      })),
-      edges: edges.map(e => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle,
-      }))
-    };
-    console.log("JSON Schema Exportado:", JSON.stringify(schema, null, 2));
-    alert("Fluxo exportado e impresso no Console!");
-  };
+  const onDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData('application/reactflow');
+      const label = event.dataTransfer.getData('application/reactflow-label');
+
+      // Verifica se o tipo lançado é válido
+      if (typeof type === 'undefined' || !type) {
+        return;
+      }
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      
+      const newNode = {
+        id: crypto.randomUUID(),
+        type,
+        position,
+        data: { label: label || 'Novo Módulo' },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+      toast.info(`Módulo '${label}' adicionado. Conecte-o!`);
+    },
+    [screenToFlowPosition, setNodes]
+  );
+  
+  const handleKeyboardDelete = useCallback((nodeId: string) => {
+      const nodeToRemove = getNode(nodeId);
+      if(nodeToRemove) {
+          deleteElements({ nodes: [nodeToRemove] });
+          setSelectedNodeId(null);
+          toast.success("Módulo excluído.");
+      }
+  }, [getNode, deleteElements]);
 
   return (
-    <div className="flex w-full h-full">
+    <div className="flex w-full h-full bg-slate-100" ref={reactFlowWrapper}>
+      <NodesPalette />
+      
       <div className="flex-1 relative">
         <ReactFlow
           nodes={nodes}
@@ -179,10 +180,12 @@ function CanvasFlow() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onSelectionChange={onSelectionChange}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
           nodeTypes={nodeTypes}
           fitView
           snapToGrid
-          snapGrid={[20, 20]} // Mantém alinhamento no drag manual
+          snapGrid={[20, 20]}
           defaultEdgeOptions={{
             type: 'smoothstep',
             animated: true,
@@ -191,28 +194,28 @@ function CanvasFlow() {
         >
           <Background color="#cbd5e1" gap={20} size={1.5} />
           <Controls />
+          <MiniMap style={{ borderRadius: 8, overflow: 'hidden' }} zoomable pannable />
           
-          <Panel position="top-right" className="flex gap-2">
-            <Button onClick={organizeLayout} variant="secondary" size="sm" className="gap-2 shadow-sm font-medium">
-              <LayoutGrid className="w-4 h-4" />
-              Auto-Layout
-            </Button>
-            <Button onClick={exportJSON} size="sm" className="gap-2 shadow-sm bg-indigo-600 hover:bg-indigo-700 font-medium">
-              <Save className="w-4 h-4" />
-              Salvar Fluxo
+          <Panel position="top-center" className="flex gap-2 bg-white/50 p-1.5 rounded-full backdrop-blur-md shadow-sm border border-white/60">
+            <Button onClick={organizeLayout} variant="secondary" size="sm" className="gap-2 shadow-sm font-medium rounded-full px-4 text-xs h-8">
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Auto-Mágica
             </Button>
           </Panel>
         </ReactFlow>
       </div>
 
-      <AutomationSidebar selectedNodeId={selectedNodeId} />
+      <AutomationSidebar 
+         selectedNodeId={selectedNodeId} 
+         onDeleteNode={() => selectedNodeId && handleKeyboardDelete(selectedNodeId)}
+      />
     </div>
   );
 }
 
 export function AutomationCanvas() {
   return (
-    <div className="w-full h-[800px] border border-slate-200 rounded-lg overflow-hidden bg-slate-50 relative flex shadow-sm">
+    <div className="w-full h-full overflow-hidden flex relative">
       <ReactFlowProvider>
         <CanvasFlow />
       </ReactFlowProvider>
