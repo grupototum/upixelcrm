@@ -42,7 +42,7 @@ export default function IntegrationsPage() {
       <div className="p-6 space-y-8 animate-fade-in">
         {/* Canais */}
         <div>
-          <h2 className="text-sm font-semibold text-foreground mb-3">Canais de comunicação</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Canais de comunicação</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {channels.map((int) => (
               <IntegrationCard key={int.id} integration={int} active={activeToggles[int.id] ?? false} onToggle={(v) => setActiveToggles(p => ({ ...p, [int.id]: v }))} />
