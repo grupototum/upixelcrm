@@ -42,7 +42,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
     );
   }
 
-  const handleUpdate = (updates: any) => {
+  const handleUpdate = (updates: Record<string, unknown>) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === selectedNodeId) {

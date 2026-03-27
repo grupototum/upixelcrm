@@ -8,6 +8,7 @@ import ReactFlow, {
   useEdgesState,
   Connection,
   Edge,
+  Node,
   NodeTypes,
   Panel,
   MarkerType,
@@ -43,7 +44,7 @@ const nodeTypes: NodeTypes = {
 };
 
 // Limpo para o Drag & Drop Test
-const initialNodes = [
+const initialNodes: Node[] = [
   {
     id: '1',
     type: 'trigger',
@@ -58,7 +59,7 @@ const initialEdges: Edge[] = [];
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
   const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
@@ -116,7 +117,7 @@ function CanvasFlow() {
     toast.success("Fluxo organizado automaticamente!");
   }, [nodes, edges, setNodes, setEdges]);
 
-  const onSelectionChange = useCallback((params: any) => {
+  const onSelectionChange = useCallback((params: { nodes: Node[]; edges: Edge[] }) => {
     if (params.nodes.length > 0) {
       setSelectedNodeId(params.nodes[0].id);
     } else {
@@ -146,7 +147,7 @@ function CanvasFlow() {
         y: event.clientY,
       });
       
-      const newNode = {
+      const newNode: Node = {
         id: crypto.randomUUID(),
         type,
         position,

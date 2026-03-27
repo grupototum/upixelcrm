@@ -45,7 +45,9 @@ export default function LeadProfilePage() {
     try {
       const raw = localStorage.getItem("totum_notes");
       return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
+    } catch { 
+      return []; 
+    }
   });
 
   // New task dialog
@@ -58,14 +60,21 @@ export default function LeadProfilePage() {
     try {
       const raw = localStorage.getItem(`totum_custom_fields_${id}`);
       return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
+    } catch { 
+      return []; 
+    }
   });
+  const [showAddField, setShowAddField] = useState(false);
+  const [newFieldKey, setNewFieldKey] = useState("");
+  const [newFieldValue, setNewFieldValue] = useState("");
+
   // Automations
   const [automations, setAutomations] = useState<Array<{ id: string; name: string; trigger: string; active: boolean }>>(() => {
     try {
       const raw = localStorage.getItem(`totum_automations_${id}`);
-      if (raw) return JSON.parse(raw);
-    } catch { }
+    } catch (e) { 
+      console.warn("Failed to load automations", e);
+    }
     return [
       { id: "a1", name: "Boas-vindas automática", trigger: "Ao entrar na coluna", active: true },
       { id: "a2", name: "Follow-up 24h", trigger: "Após 24h sem resposta", active: true },

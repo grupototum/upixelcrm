@@ -1,7 +1,7 @@
 import { Handle, Position } from 'reactflow';
 import { Clock } from 'lucide-react';
 
-export function DelayNode({ data }: { data: any }) {
+export function DelayNode({ data }: { data: { label?: string; configType?: string } }) {
   return (
     <div className="w-[200px] shadow-lg rounded-md bg-white border border-slate-200 overflow-hidden relative">
       <Handle 

@@ -1,7 +1,7 @@
 import { Handle, Position } from 'reactflow';
 import { Zap } from 'lucide-react';
 
-export function ActionNode({ data }: { data: any }) {
+export function ActionNode({ data }: { data: { label?: string; configType?: string } }) {
   return (
     <div className="w-[250px] shadow-lg rounded-md bg-white border border-slate-200 overflow-hidden">
       <Handle 

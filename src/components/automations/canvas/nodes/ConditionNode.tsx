@@ -1,7 +1,7 @@
 import { Handle, Position } from 'reactflow';
 import { GitBranch } from 'lucide-react';
 
-export function ConditionNode({ data }: { data: any }) {
+export function ConditionNode({ data }: { data: { label?: string; configType?: string } }) {
   return (
     <div className="w-[250px] shadow-lg rounded-md bg-white border border-slate-200 overflow-hidden relative">
       <Handle 
