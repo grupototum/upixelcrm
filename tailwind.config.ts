@@ -12,7 +12,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["'Sora'", "system-ui", "sans-serif"],
+        sans: ["'Manrope'", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -80,6 +80,7 @@ export default {
         "card-hover": "var(--shadow-card-hover)",
         premium: "var(--shadow-md)",
         "premium-lg": "var(--shadow-lg)",
+        editorial: "0 20px 40px rgba(93, 63, 59, 0.06)",
       },
       borderRadius: {
         lg: "var(--radius)",
