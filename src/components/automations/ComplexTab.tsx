@@ -1,4 +1,3 @@
-import { forwardRef } from "react";
 import { Workflow, Plus, Play, MoreHorizontal, Edit, Trash2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +10,7 @@ import { useAppState } from "@/contexts/AppContext";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export const ComplexTab = forwardRef<HTMLDivElement, object>(function ComplexTab(_props, ref) {
+export function ComplexTab() {
   const navigate = useNavigate();
   const { complexAutomations, createAutomation, deleteAutomation } = useAppState();
 
@@ -21,7 +20,7 @@ export const ComplexTab = forwardRef<HTMLDivElement, object>(function ComplexTab
   };
 
   return (
-    <div ref={ref} className="space-y-4">
+    <div className="space-y-4">
       {/* Container de listagem */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         
@@ -91,4 +90,4 @@ export const ComplexTab = forwardRef<HTMLDivElement, object>(function ComplexTab
       </div>
     </div>
   );
-});
+}
