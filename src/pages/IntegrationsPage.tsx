@@ -68,7 +68,7 @@ function IntegrationCard({ integration: int, active, onToggle }: { integration: 
   const isAvailable = int.status !== "coming_soon";
 
   return (
-    <div className="bg-card ghost-border rounded-xl p-5 hover:border-border-hover transition-colors flex flex-col">
+    <div className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200 flex flex-col">
       <div className="flex items-start justify-between mb-3">
         <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center">
           <int.icon className={`h-5 w-5 ${int.color}`} />
