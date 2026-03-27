@@ -125,3 +125,24 @@ export interface InboxMessage {
   created_at: string;
   sender_name?: string;
 }
+
+export interface ApiKey {
+  id: string;
+  client_id: string;
+  name: string;
+  token_preview: string;
+  last_used_at?: string;
+  created_at: string;
+  active: boolean;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  client_id: string;
+  url: string;
+  description?: string;
+  events: string[];
+  secret: string;
+  active: boolean;
+  created_at: string;
+}

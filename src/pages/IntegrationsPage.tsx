@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
+import { ApiSettingsModal } from "@/components/integrations/ApiSettingsModal";
+import { WebhookSettingsModal } from "@/components/integrations/WebhookSettingsModal";
 
 interface Integration {
   id: string;
@@ -33,9 +35,16 @@ function StatusBadge({ status }: { status: Integration["status"] }) {
 
 export default function IntegrationsPage() {
   const [activeToggles, setActiveToggles] = useState<Record<string, boolean>>({ webhook: true, api: true });
+  const [apiModalOpen, setApiModalOpen] = useState(false);
+  const [webhookModalOpen, setWebhookModalOpen] = useState(false);
 
   const channels = integrations.filter(i => i.category === "channel");
   const devTools = integrations.filter(i => i.category !== "channel");
+
+  const handleConfigure = (id: string) => {
+    if (id === "api") setApiModalOpen(true);
+    if (id === "webhook") setWebhookModalOpen(true);
+  };
 
   return (
     <AppLayout title="Integrações" subtitle="Conecte seus canais e ferramentas ao uPixel">
@@ -45,7 +54,7 @@ export default function IntegrationsPage() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Canais de comunicação</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {channels.map((int) => (
-              <IntegrationCard key={int.id} integration={int} active={activeToggles[int.id] ?? false} onToggle={(v) => setActiveToggles(p => ({ ...p, [int.id]: v }))} />
+              <IntegrationCard key={int.id} integration={int} active={activeToggles[int.id] ?? false} onToggle={(v) => setActiveToggles(p => ({ ...p, [int.id]: v }))} onConfigure={() => handleConfigure(int.id)} />
             ))}
           </div>
         </div>
@@ -55,16 +64,19 @@ export default function IntegrationsPage() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Ferramentas e APIs</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {devTools.map((int) => (
-              <IntegrationCard key={int.id} integration={int} active={activeToggles[int.id] ?? false} onToggle={(v) => setActiveToggles(p => ({ ...p, [int.id]: v }))} />
+              <IntegrationCard key={int.id} integration={int} active={activeToggles[int.id] ?? false} onToggle={(v) => setActiveToggles(p => ({ ...p, [int.id]: v }))} onConfigure={() => handleConfigure(int.id)} />
             ))}
           </div>
         </div>
       </div>
+
+      <ApiSettingsModal open={apiModalOpen} onOpenChange={setApiModalOpen} />
+      <WebhookSettingsModal open={webhookModalOpen} onOpenChange={setWebhookModalOpen} />
     </AppLayout>
   );
 }
 
-function IntegrationCard({ integration: int, active, onToggle }: { integration: Integration; active: boolean; onToggle: (v: boolean) => void }) {
+function IntegrationCard({ integration: int, active, onToggle, onConfigure }: { integration: Integration; active: boolean; onToggle: (v: boolean) => void; onConfigure: () => void }) {
   const isAvailable = int.status !== "coming_soon";
 
   return (
@@ -86,7 +98,7 @@ function IntegrationCard({ integration: int, active, onToggle }: { integration: 
               <Switch checked={active} onCheckedChange={onToggle} className="scale-90" />
               <span className="text-xs text-muted-foreground">{active ? "Ativo" : "Inativo"}</span>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary">
+            <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary" onClick={onConfigure}>
               Configurar <ExternalLink className="h-3 w-3" />
             </Button>
           </>
