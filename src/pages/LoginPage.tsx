@@ -43,9 +43,11 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo area */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-primary/10 mb-4">
-            <Lock className="h-7 w-7 text-primary" />
-          </div>
+          <img
+            src={theme === "dark" ? upixelIconDark : upixelIconLight}
+            alt="uPixel"
+            className="h-14 w-14"
+          />
           <h1 className="text-2xl font-bold text-foreground">uPixel CRM</h1>
           <p className="text-sm text-muted-foreground mt-1">Faça login para acessar o sistema</p>
         </div>
