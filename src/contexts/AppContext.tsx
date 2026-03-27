@@ -60,7 +60,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
         supabase.from("timeline_events").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("automations").select("*").order("created_at", { ascending: false }),
+        (supabase.from as any)("automations").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
@@ -240,7 +240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createAutomation = useCallback(async (name: string): Promise<string | null> => {
     // client_id é gerenciado pelo trigger do Supabase RLS ou é optional.
-    const { data: row, error } = await supabase.from("automations").insert({
+    const { data: row, error } = await (supabase.from as any)("automations").insert({
       name,
       status: "draft",
       nodes: [],
@@ -259,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
     
-    const { error } = await supabase.from("automations").update({
+    const { error } = await (supabase.from as any)("automations").update({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       nodes: nodes as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -275,7 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteAutomation = useCallback(async (id: string) => {
-    const { error } = await supabase.from("automations").delete().eq("id", id);
+    const { error } = await (supabase.from as any)("automations").delete().eq("id", id);
     if (error) { console.error(error); toast.error("Erro ao excluir"); return; }
     setComplexAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação excluída");
