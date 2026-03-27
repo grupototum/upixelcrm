@@ -83,7 +83,7 @@ export default function InboxPage() {
       <div className="flex h-[calc(100vh-4rem)] animate-fade-in">
         {/* ─── Thread list ─── */}
         <div className="w-80 ghost-border border-r flex flex-col shrink-0">
-          <div className="p-3 border-b border-border space-y-2">
+          <div className="p-3 ghost-border border-b space-y-2">
             {/* Inbox tabs */}
             <div className="flex gap-1">
               {[
