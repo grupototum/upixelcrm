@@ -55,7 +55,7 @@ export function RulesTab() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-12 text-center">
+        <div className="bg-card ghost-border rounded-xl p-12 text-center">
           <Zap className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">Nenhuma automação encontrada</p>
         </div>
@@ -65,12 +65,12 @@ export function RulesTab() {
           return (
             <div
               key={auto.id}
-              className="bg-card border border-border rounded-lg p-5 hover:border-border-hover transition-colors"
+              className="bg-card ghost-border rounded-xl p-5 hover:border-border-hover transition-colors"
             >
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${auto.active ? "bg-primary/10" : "bg-secondary"}`}>
+                  <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${auto.active ? "bg-primary/10" : "bg-secondary"}`}>
                     <Zap className={`h-4 w-4 ${auto.active ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
                   <div>
@@ -105,7 +105,7 @@ export function RulesTab() {
 
               {/* Trigger / Actions / Exceptions */}
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg border border-success/30 bg-success/5 p-3">
+                <div className="rounded-xl border border-success/30 bg-success/5 p-3">
                   <p className="text-[10px] font-semibold text-success uppercase tracking-wider mb-1.5 flex items-center gap-1">
                     <Target className="h-3 w-3" /> Gatilho
                   </p>
@@ -117,7 +117,7 @@ export function RulesTab() {
                   )}
                 </div>
 
-                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
                   <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
                     <Cog className="h-3 w-3" /> Ações
                   </p>
@@ -132,7 +132,7 @@ export function RulesTab() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
                   <p className="text-[10px] font-semibold text-destructive uppercase tracking-wider mb-1.5 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" /> Exceções
                   </p>

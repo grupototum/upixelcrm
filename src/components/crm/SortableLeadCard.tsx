@@ -19,7 +19,7 @@ export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () =>
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <div
         onClick={onClick}
-        className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all group"
+        className="bg-card ghost-border rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all group"
       >
         <div className="flex items-start justify-between mb-1.5">
           <h4 className="text-sm font-medium text-foreground truncate flex-1">{lead.name}</h4>
@@ -63,7 +63,7 @@ export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () =>
 
 export function DragOverlayCard({ lead }: { lead: Lead }) {
   return (
-    <div className="bg-card border-2 border-primary rounded-lg p-3 shadow-lg w-72 rotate-2">
+    <div className="bg-card border-2 border-primary rounded-xl p-3 shadow-lg w-72 rotate-2">
       <h4 className="text-sm font-medium text-foreground truncate">{lead.name}</h4>
       {lead.company && <p className="text-xs text-muted-foreground mt-1">{lead.company}</p>}
     </div>

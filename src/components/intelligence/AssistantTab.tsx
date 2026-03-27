@@ -22,7 +22,7 @@ export function AssistantTab() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Chat principal */}
       <div className="lg:col-span-2 space-y-4">
-        <div className="bg-card border border-border rounded-lg p-4 min-h-[420px] flex flex-col">
+        <div className="bg-card ghost-border rounded-xl p-4 min-h-[420px] flex flex-col">
           <div className="flex-1 space-y-4 mb-4 overflow-auto">
             <div className="flex gap-3">
               <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
@@ -71,7 +71,7 @@ export function AssistantTab() {
       {/* Painel lateral */}
       <div className="space-y-4">
         {/* Sugestões rápidas */}
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-card ghost-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-accent" />
             <h3 className="text-sm font-semibold text-foreground">Sugestões Rápidas</h3>
@@ -81,7 +81,7 @@ export function AssistantTab() {
               <button
                 key={s.label}
                 onClick={() => setQuery(s.label)}
-                className="w-full flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary transition-colors text-left group"
+                className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-secondary transition-colors text-left group"
               >
                 <s.icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0 group-hover:text-primary" />
                 <div>
@@ -94,14 +94,14 @@ export function AssistantTab() {
         </div>
 
         {/* Dicas do sistema */}
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-card ghost-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Dicas do Sistema</h3>
           </div>
           <div className="space-y-2">
             {systemTips.map((tip, i) => (
-              <div key={i} className="flex gap-2 p-2 rounded-lg bg-secondary/50">
+              <div key={i} className="flex gap-2 p-2 rounded-xl bg-secondary/50">
                 <span className="text-xs font-bold text-primary shrink-0">{i + 1}.</span>
                 <p className="text-xs text-muted-foreground">{tip}</p>
               </div>

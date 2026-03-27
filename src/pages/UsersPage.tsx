@@ -134,8 +134,8 @@ export default function UsersPage() {
       <div className="animate-fade-in space-y-6 p-6">
         <div className="grid gap-4 md:grid-cols-3">
           {stats.map((stat) => (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
-              <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+            <div key={stat.label} className="rounded-xl ghost-border bg-card p-4">
+              <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-muted">
                 <UsersIcon className="h-4 w-4 text-muted-foreground" />
               </div>
               <p className="text-2xl font-semibold text-foreground">{stat.value}</p>
@@ -152,8 +152,8 @@ export default function UsersPage() {
           </TabsList>
 
           <TabsContent value="users">
-        <section className="rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <section className="rounded-xl ghost-border bg-card">
+          <div className="flex items-center justify-between ghost-border border-b px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Lista de usuários</h2>
               <p className="text-xs text-muted-foreground">Cadastre e edite usuários com nome, e-mail e função.</p>
@@ -200,8 +200,8 @@ export default function UsersPage() {
           </TabsContent>
 
           <TabsContent value="roles">
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-4 py-3 border-b border-border">
+            <div className="bg-card ghost-border rounded-xl overflow-hidden">
+              <div className="px-4 py-3 ghost-border border-b">
                 <h2 className="text-sm font-semibold text-foreground">Matriz de Permissões — RBAC</h2>
                 <p className="text-xs text-muted-foreground">Quem pode acessar cada módulo do sistema</p>
               </div>
@@ -246,8 +246,8 @@ export default function UsersPage() {
           </TabsContent>
 
           <TabsContent value="audit">
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-4 py-3 border-b border-border">
+            <div className="bg-card ghost-border rounded-xl overflow-hidden">
+              <div className="px-4 py-3 ghost-border border-b">
                 <h2 className="text-sm font-semibold text-foreground">Log de Auditoria</h2>
                 <p className="text-xs text-muted-foreground">Histórico de ações administrativas</p>
               </div>
@@ -272,7 +272,7 @@ export default function UsersPage() {
           </TabsContent>
         </Tabs>
 
-        <section className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+        <section className="flex items-center justify-between rounded-xl ghost-border bg-card p-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Permissões avançadas</h3>
             <p className="text-xs text-muted-foreground">Controle granular por módulo, recurso e equipe ficará disponível em breve.</p>

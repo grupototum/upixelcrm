@@ -3,7 +3,7 @@ import { ComingSoonBadge } from "@/components/ui/coming-soon";
 
 export function ComplexTab() {
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <div className="bg-card ghost-border rounded-xl overflow-hidden">
       <div className="h-96 relative bg-secondary/30 flex flex-col items-center justify-center">
         {/* Grid pattern */}
         <div
@@ -25,15 +25,15 @@ export function ComplexTab() {
         </div>
 
         {/* Decorative nodes */}
-        <div className="absolute top-12 left-16 h-10 w-28 bg-card border border-border rounded-lg flex items-center gap-2 px-3 opacity-40">
+        <div className="absolute top-12 left-16 h-10 w-28 bg-card ghost-border rounded-xl flex items-center gap-2 px-3 opacity-40">
           <Zap className="h-3 w-3 text-success" />
           <span className="text-[10px] text-foreground">Gatilho</span>
         </div>
-        <div className="absolute top-32 left-56 h-10 w-28 bg-card border border-border rounded-lg flex items-center gap-2 px-3 opacity-40">
+        <div className="absolute top-32 left-56 h-10 w-28 bg-card ghost-border rounded-xl flex items-center gap-2 px-3 opacity-40">
           <Cog className="h-3 w-3 text-primary" />
           <span className="text-[10px] text-foreground">Ação</span>
         </div>
-        <div className="absolute bottom-20 right-24 h-10 w-28 bg-card border border-border rounded-lg flex items-center gap-2 px-3 opacity-40">
+        <div className="absolute bottom-20 right-24 h-10 w-28 bg-card ghost-border rounded-xl flex items-center gap-2 px-3 opacity-40">
           <MessageSquare className="h-3 w-3 text-accent" />
           <span className="text-[10px] text-foreground">Mensagem</span>
         </div>

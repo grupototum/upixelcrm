@@ -23,18 +23,18 @@ export function KnowledgeBaseTab() {
       <ComingSoonOverlay label="Base de Conhecimento">
         <div className="space-y-4">
           {/* Upload area */}
-          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center bg-card">
+          <div className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-card">
             <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-foreground mb-1">Arraste arquivos ou clique para enviar</h3>
             <p className="text-xs text-muted-foreground">PDF, DOCX, TXT — máx. 10MB por arquivo</p>
           </div>
 
           {/* File list */}
-          <div className="bg-card border border-border rounded-lg divide-y divide-border">
+          <div className="bg-card ghost-border rounded-xl divide-y divide-border">
             {mockFiles.map((file) => (
               <div key={file.name} className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-xl bg-secondary flex items-center justify-center">
                     <FileText className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div>

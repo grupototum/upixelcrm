@@ -50,10 +50,10 @@ export function BotsTab() {
           {filtered.map((bot) => (
             <div
               key={bot.id}
-              className="bg-card border border-border rounded-lg p-5 hover:border-border-hover transition-colors cursor-pointer group"
+              className="bg-card ghost-border rounded-xl p-5 hover:border-border-hover transition-colors cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center">
                   <Bot className="h-5 w-5 text-accent" />
                 </div>
                 <Badge
@@ -71,7 +71,7 @@ export function BotsTab() {
           ))}
 
           {/* Add bot */}
-          <div className="border border-dashed border-border rounded-lg p-5 flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer">
+          <div className="border border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer">
             <Plus className="h-6 w-6 mb-1" />
             <span className="text-xs">Novo Bot</span>
           </div>

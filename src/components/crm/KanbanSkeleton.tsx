@@ -7,7 +7,7 @@ export function KanbanSkeleton() {
         <div key={i} className="w-72 shrink-0 space-y-3">
           <Skeleton className="h-6 w-32" />
           {Array.from({ length: 3 - i }).map((_, j) => (
-            <Skeleton key={j} className="h-24 w-full rounded-lg" />
+            <Skeleton key={j} className="h-24 w-full rounded-xl" />
           ))}
         </div>
       ))}

@@ -25,7 +25,7 @@ export function CampaignChart({ campaigns, dataKey = "leads", title }: CampaignC
   }));
 
   return (
-    <div className="bg-card border border-border rounded-lg p-5">
+    <div className="bg-card ghost-border rounded-xl p-5">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">{title}</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">

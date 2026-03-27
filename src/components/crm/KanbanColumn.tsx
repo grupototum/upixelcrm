@@ -98,7 +98,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
 
       <div
         ref={setNodeRef}
-        className={`flex-1 space-y-2 overflow-auto pb-4 rounded-lg p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
+        className={`flex-1 space-y-2 overflow-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
       >
         <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => (
@@ -107,7 +107,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
         </SortableContext>
         <button
           onClick={() => onAddLead(column.id)}
-          className="w-full py-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1"
+          className="w-full py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1"
         >
           <Plus className="h-3 w-3" /> Adicionar lead
         </button>

@@ -97,11 +97,11 @@ export default function ImportPage() {
 
         {/* Step 2: Pipeline & Stage */}
         {step === 2 && (
-          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+          <div className="bg-card ghost-border rounded-xl p-6 space-y-5">
             <h3 className="text-sm font-semibold text-foreground">Selecione o Pipeline e Etapa Inicial</h3>
 
             {file && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-muted">
                 <FileSpreadsheet className="h-5 w-5 text-success" />
                 <span className="text-sm font-medium text-foreground">{file.name}</span>
                 <Badge variant="outline" className="text-[10px] ml-auto">{file.rows} leads</Badge>
@@ -141,7 +141,7 @@ export default function ImportPage() {
 
         {/* Step 3: Mapping */}
         {step === 3 && (
-          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+          <div className="bg-card ghost-border rounded-xl p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground">Mapeamento de Colunas</h3>
               <p className="text-[11px] text-muted-foreground">Associe as colunas do CSV aos campos do sistema</p>
@@ -172,7 +172,7 @@ export default function ImportPage() {
                 <Table className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs font-medium text-muted-foreground">Preview dos dados</span>
               </div>
-              <div className="border border-border rounded-lg overflow-x-auto">
+              <div className="ghost-border rounded-xl overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-muted">
@@ -192,7 +192,7 @@ export default function ImportPage() {
             </div>
 
             {/* Dedup coming soon */}
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 ghost-border">
               <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-xs text-muted-foreground flex-1">Deduplicação inteligente e parsing avançado</span>
               <ComingSoonBadge />
@@ -215,7 +215,7 @@ export default function ImportPage() {
 
         {/* Step 4: Success */}
         {step === 4 && (
-          <div className="bg-card border border-border rounded-lg p-12 text-center">
+          <div className="bg-card ghost-border rounded-xl p-12 text-center">
             <CheckCircle2 className="h-16 w-16 text-success mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-1">Importação Concluída!</h3>
             <p className="text-sm text-muted-foreground mb-1">

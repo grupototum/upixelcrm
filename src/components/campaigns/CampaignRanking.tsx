@@ -11,8 +11,8 @@ export function CampaignRanking({ campaigns, sortBy = "roi" }: CampaignRankingPr
   const labels: Record<string, string> = { roi: "ROI", leads: "Leads", revenue: "Receita" };
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-border bg-secondary/50">
+    <div className="bg-card ghost-border rounded-xl overflow-hidden">
+      <div className="px-4 py-3 ghost-border border-b bg-secondary/50">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ranking por {labels[sortBy]}</h3>
       </div>
       <div className="divide-y divide-border">
@@ -23,7 +23,7 @@ export function CampaignRanking({ campaigns, sortBy = "roi" }: CampaignRankingPr
               <div className="w-8 text-center shrink-0">
                 {medal ? <span className="text-lg">{medal}</span> : <span className="text-sm font-bold text-muted-foreground">#{i + 1}</span>}
               </div>
-              <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${c.platform === "Meta Ads" ? "bg-primary/10" : "bg-accent/10"}`}>
+              <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${c.platform === "Meta Ads" ? "bg-primary/10" : "bg-accent/10"}`}>
                 <Megaphone className={`h-5 w-5 ${c.platform === "Meta Ads" ? "text-primary" : "text-accent"}`} />
               </div>
               <div className="flex-1 min-w-0">
