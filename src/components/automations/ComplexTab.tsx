@@ -11,7 +11,7 @@ import { useAppState } from "@/contexts/AppContext";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export function ComplexTab() {
+export const ComplexTab = forwardRef<HTMLDivElement, object>(function ComplexTab(_props, ref) {
   const navigate = useNavigate();
   const { complexAutomations, createAutomation, deleteAutomation } = useAppState();
 
