@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Bot, Folder, FolderOpen, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
+import { toast } from "sonner";
 
 const mockBots = [
   { id: "bot1", name: "Qualificação Inicial", folder: "Vendas", status: "published" },
@@ -50,6 +51,7 @@ export function BotsTab() {
           {filtered.map((bot) => (
             <div
               key={bot.id}
+              onClick={() => toast.info(`Configurar ${bot.name}`)}
               className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200 cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-3">
@@ -71,7 +73,10 @@ export function BotsTab() {
           ))}
 
           {/* Add bot */}
-          <div className="border border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer">
+          <div 
+            onClick={() => toast.success("Criar novo bot em breve.")}
+            className="border border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
+          >
             <Plus className="h-6 w-6 mb-1" />
             <span className="text-xs">Novo Bot</span>
           </div>

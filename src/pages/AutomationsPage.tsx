@@ -10,6 +10,7 @@ import { RulesTab } from "@/components/automations/RulesTab";
 import { SequencesTab } from "@/components/automations/SequencesTab";
 import { BotsTab } from "@/components/automations/BotsTab";
 import { ComplexTab } from "@/components/automations/ComplexTab";
+import { toast } from "sonner";
 
 const tabLabels: Record<string, string> = {
   rules: "Nova Automação",
@@ -26,7 +27,11 @@ export default function AutomationsPage() {
       title="Automações"
       subtitle="Regras, sequências e bots"
       actions={
-        <Button size="sm" className="text-xs gap-1 bg-primary hover:bg-primary-hover text-primary-foreground">
+        <Button 
+          size="sm" 
+          onClick={() => toast.success(`${tabLabels[activeTab]} criada com sucesso! (Demonstração)`)}
+          className="text-xs gap-1 bg-primary hover:bg-primary-hover text-primary-foreground"
+        >
           <Plus className="h-3 w-3" /> {tabLabels[activeTab]}
         </Button>
       }
@@ -44,7 +49,7 @@ export default function AutomationsPage() {
               <Bot className="h-3 w-3" /> Bots <ComingSoonBadge />
             </TabsTrigger>
             <TabsTrigger value="complex" className="text-xs gap-1.5">
-              <Workflow className="h-3 w-3" /> Automações Complexas <ComingSoonBadge />
+              <Workflow className="h-3 w-3" /> Automações Complexas
             </TabsTrigger>
           </TabsList>
 

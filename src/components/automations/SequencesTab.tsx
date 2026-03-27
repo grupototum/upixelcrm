@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -75,10 +76,34 @@ const stepTypeConfig: Record<StepType, { icon: typeof MessageSquare; label: stri
 
 export function SequencesTab() {
   const [expandedId, setExpandedId] = useState<string | null>("seq1");
+  const [sequences, setSequences] = useState<Sequence[]>(mockSequences);
+
+  const toggleSequence = (id: string, current: boolean) => {
+    setSequences(prev => prev.map(s => s.id === id ? { ...s, active: !current } : s));
+    toast.success(`Sequência ${current ? "desativada" : "ativada"} com sucesso.`);
+  };
+
+  const deleteSequence = (id: string) => {
+    setSequences(prev => prev.filter(s => s.id !== id));
+    toast.success("Sequência excluída.");
+  };
+
+  const addStep = (seqId: string) => {
+    setSequences(prev => prev.map(s => {
+      if (s.id === seqId) {
+        return {
+          ...s,
+          steps: [...s.steps, { id: `new_${Date.now()}`, type: "text", content: "Nova mensagem...", delay: "Imediato" }]
+        };
+      }
+      return s;
+    }));
+    toast.success("Etapa adicionada.");
+  };
 
   return (
     <div className="space-y-3">
-      {mockSequences.map((seq) => {
+      {sequences.map((seq) => {
         const isExpanded = expandedId === seq.id;
         return (
           <div key={seq.id} className="bg-card ghost-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200">
@@ -112,7 +137,7 @@ export function SequencesTab() {
                     );
                   })}
                 </div>
-                <Switch checked={seq.active} onClick={(e) => e.stopPropagation()} />
+                <Switch checked={seq.active} onCheckedChange={() => toggleSequence(seq.id, seq.active)} onClick={(e) => e.stopPropagation()} />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -124,10 +149,10 @@ export function SequencesTab() {
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem className="text-xs gap-2"><Edit className="h-3 w-3" /> Editar</DropdownMenuItem>
-                    <DropdownMenuItem className="text-xs gap-2"><Copy className="h-3 w-3" /> Duplicar</DropdownMenuItem>
-                    <DropdownMenuItem className="text-xs gap-2 text-destructive"><Trash2 className="h-3 w-3" /> Excluir</DropdownMenuItem>
+                  <DropdownMenuContent align="end" className="w-40" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuItem className="text-xs gap-2" onClick={() => toast.info("Abrindo editor...")}><Edit className="h-3 w-3" /> Editar</DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs gap-2" onClick={() => toast.success("Sequência duplicada.")}><Copy className="h-3 w-3" /> Duplicar</DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs gap-2 text-destructive" onClick={() => deleteSequence(seq.id)}><Trash2 className="h-3 w-3" /> Excluir</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {isExpanded ? (
@@ -178,7 +203,7 @@ export function SequencesTab() {
                       <Plus className="h-3 w-3 text-muted-foreground" />
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground h-7 px-2 gap-1">
+                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground h-7 px-2 gap-1" onClick={() => addStep(seq.id)}>
                     <Plus className="h-3 w-3" /> Adicionar etapa
                   </Button>
                 </div>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
+import { toast } from "sonner";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -31,11 +32,22 @@ const actionLabels: Record<string, string> = {
 
 export function RulesTab() {
   const [search, setSearch] = useState("");
+  const [automations, setAutomations] = useState(mockAutomations);
 
   const filtered = useMemo(
-    () => mockAutomations.filter((a) => a.name.toLowerCase().includes(search.toLowerCase())),
-    [search]
+    () => automations.filter((a) => a.name.toLowerCase().includes(search.toLowerCase())),
+    [search, automations]
   );
+
+  const toggleAuto = (id: string, current: boolean) => {
+    setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !current } : a));
+    toast.success(`Automação ${current ? "desativada" : "ativada"} com sucesso.`);
+  };
+
+  const deleteAuto = (id: string) => {
+    setAutomations(prev => prev.filter(a => a.id !== id));
+    toast.success("Automação excluída da lista.");
+  };
 
   return (
     <div className="space-y-4">
@@ -87,7 +99,7 @@ export function RulesTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Switch checked={auto.active} />
+                  <Switch checked={auto.active} onCheckedChange={() => toggleAuto(auto.id, auto.active)} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
@@ -95,9 +107,9 @@ export function RulesTab() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem className="text-xs gap-2"><Settings className="h-3 w-3" /> Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-xs gap-2"><Copy className="h-3 w-3" /> Duplicar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-xs gap-2 text-destructive"><Trash2 className="h-3 w-3" /> Excluir</DropdownMenuItem>
+                      <DropdownMenuItem className="text-xs gap-2" onClick={() => toast.info("Abrindo editor...")}><Settings className="h-3 w-3" /> Editar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-xs gap-2" onClick={() => toast.success("Automação duplicada.")}><Copy className="h-3 w-3" /> Duplicar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-xs gap-2 text-destructive" onClick={() => deleteAuto(auto.id)}><Trash2 className="h-3 w-3" /> Excluir</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
