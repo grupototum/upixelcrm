@@ -9,41 +9,41 @@
     --font-sans: 'Sora', system-ui, sans-serif;
 
     /* ═══════════════════════════════════════════
-       LIGHT MODE — Premium, clean, with depth
-       Not an inversion — a native light system
+       LIGHT MODE — Warm off-white, editorial depth
+       Surface: #fff8f7, on-surface: #1d1b1b
     ═══════════════════════════════════════════ */
 
-    --background: 0 0% 100%;
-    --foreground: 0 0% 7%;
+    --background: 15 100% 99%;
+    --foreground: 0 2% 11%;
 
-    /* Layered backgrounds for depth */
-    --bg-primary: 0 0% 100%;
-    --bg-secondary: 0 0% 97%;
-    --bg-tertiary: 0 0% 95%;
+    /* Layered backgrounds — warm tonal depth */
+    --bg-primary: 15 100% 99%;
+    --bg-secondary: 15 14% 97%;
+    --bg-tertiary: 15 9% 95%;
 
-    /* Cards — white with shadow for depth (not borders) */
+    /* Cards — white floating on warm surface */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 7%;
-    --card-hover: 0 0% 98%;
+    --card-foreground: 0 2% 11%;
+    --card-hover: 15 14% 97%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 7%;
+    --popover-foreground: 0 2% 11%;
 
-    /* Primary accent — brand red */
+    /* Primary accent — brand orange #f76926 */
     --primary: 22 93% 56%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 22 85% 48%;
 
     /* Surfaces */
-    --secondary: 0 0% 97%;
-    --secondary-foreground: 0 0% 7%;
+    --secondary: 15 9% 95%;
+    --secondary-foreground: 0 2% 11%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 15 6% 93%;
+    --muted-foreground: 15 20% 30%;
 
-    /* Accent — warm amber */
+    /* Accent — warm amber #feba02 */
     --accent: 44 99% 50%;
-    --accent-foreground: 0 0% 7%;
+    --accent-foreground: 0 2% 11%;
     --accent-hover: 44 98% 44%;
 
     --destructive: 0 84% 60%;
@@ -52,114 +52,119 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 7%;
+    --warning-foreground: 0 2% 11%;
 
-    /* Borders — subtle black opacity */
-    --border: 0 0% 91%;
-    --border-hover: 0 0% 83%;
-    --input: 0 0% 91%;
+    /* Borders — warm ghost borders */
+    --border: 15 18% 90%;
+    --border-hover: 15 16% 83%;
+    --input: 15 18% 90%;
     --ring: 22 93% 56%;
 
-    --radius: 0.5rem;
+    /* Ghost border token */
+    --ghost-border: 15 35% 80%;
 
-    /* Sidebar — light glass */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 33%;
+    --radius: 0.625rem;
+
+    /* Sidebar — warm surface layer */
+    --sidebar-background: 15 14% 97%;
+    --sidebar-foreground: 15 20% 30%;
     --sidebar-primary: 22 93% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 7%;
-    --sidebar-border: 0 0% 93%;
+    --sidebar-accent: 15 9% 93%;
+    --sidebar-accent-foreground: 0 2% 11%;
+    --sidebar-border: 15 18% 92%;
     --sidebar-ring: 22 93% 56%;
 
-    --text-secondary: 0 0% 33%;
+    --text-secondary: 15 20% 30%;
 
-    /* Shadows for light mode depth */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 10px 30px -6px rgba(0, 0, 0, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.04);
-    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-    --shadow-card-hover: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    /* Shadows — warm-tinted, premium diffused */
+    --shadow-sm: 0 1px 2px 0 rgba(93, 63, 59, 0.04);
+    --shadow-md: 0 4px 12px -2px rgba(93, 63, 59, 0.06), 0 2px 4px -1px rgba(93, 63, 59, 0.04);
+    --shadow-lg: 0 12px 32px -6px rgba(93, 63, 59, 0.08), 0 4px 8px -2px rgba(93, 63, 59, 0.04);
+    --shadow-card: 0 1px 3px 0 rgba(93, 63, 59, 0.04), 0 1px 2px -1px rgba(93, 63, 59, 0.03);
+    --shadow-card-hover: 0 8px 24px -6px rgba(93, 63, 59, 0.1), 0 2px 4px -1px rgba(93, 63, 59, 0.04);
 
-    /* Glass — light mode uses white glass with subtle blur */
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(0, 0, 0, 0.05);
+    /* Glass — light mode warm glass */
+    --glass-bg: rgba(255, 248, 247, 0.7);
+    --glass-border: rgba(231, 189, 183, 0.2);
     --glass-hover: rgba(0, 0, 0, 0.03);
   }
 
   .dark {
     /* ═══════════════════════════════════════════
-       DARK MODE — Lumina-inspired, #050505 base
-       Deep black, white/5 surfaces, glass effects
+       DARK MODE — Kinetic Noir, #0e0e0e base
+       Surface tiers, ghost borders, neon accents
     ═══════════════════════════════════════════ */
 
-    --background: 0 0% 2%;
+    --background: 0 0% 5%;
     --foreground: 0 0% 100%;
 
-    --bg-primary: 0 0% 2%;
-    --bg-secondary: 0 0% 5%;
-    --bg-tertiary: 0 0% 8%;
+    --bg-primary: 0 0% 5%;
+    --bg-secondary: 0 0% 7%;
+    --bg-tertiary: 0 0% 10%;
 
-    /* Cards — subtle white overlays on deep black */
-    --card: 0 0% 6%;
+    /* Cards — surface-container-low on deep void */
+    --card: 0 0% 7%;
     --card-foreground: 0 0% 100%;
-    --card-hover: 0 0% 9%;
+    --card-hover: 0 0% 10%;
 
-    --popover: 0 0% 6%;
+    --popover: 0 0% 10%;
     --popover-foreground: 0 0% 100%;
 
-    --primary: 22 93% 56%;
+    /* Primary — warmer in dark: #ff906d */
+    --primary: 17 100% 71%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 22 85% 48%;
+    --primary-hover: 14 100% 60%;
 
-    --secondary: 0 0% 9%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 55%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 67%;
 
     --accent: 44 99% 50%;
-    --accent-foreground: 0 0% 7%;
+    --accent-foreground: 0 2% 11%;
     --accent-hover: 44 98% 44%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 2 100% 72%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 7%;
+    --warning-foreground: 0 2% 11%;
 
-    /* Borders — very subtle white */
-    --border: 0 0% 11%;
-    --border-hover: 0 0% 18%;
-    --input: 0 0% 11%;
-    --ring: 22 93% 56%;
+    /* Borders — ghost borders (outline-variant #484847) */
+    --border: 60 1% 28%;
+    --border-hover: 60 1% 38%;
+    --input: 60 1% 28%;
+    --ring: 17 100% 71%;
 
-    /* Sidebar — deep surface */
-    --sidebar-background: 0 0% 4%;
-    --sidebar-foreground: 0 0% 60%;
-    --sidebar-primary: 22 93% 56%;
+    --ghost-border: 60 1% 28%;
+
+    /* Sidebar — deepest surface layer */
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 67%;
+    --sidebar-primary: 17 100% 71%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 9%;
+    --sidebar-accent: 0 0% 10%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 11%;
-    --sidebar-ring: 22 93% 56%;
+    --sidebar-border: 60 1% 28%;
+    --sidebar-ring: 17 100% 71%;
 
-    --bg-tertiary: 0 0% 8%;
-    --text-secondary: 0 0% 60%;
+    --text-secondary: 0 0% 67%;
 
-    /* Shadows — minimal in dark, glow-based */
+    /* Shadows — ambient glow, not drop shadow */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 10px 30px -6px rgba(0, 0, 0, 0.5);
-    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
-    --shadow-card-hover: 0 4px 16px -4px rgba(0, 0, 0, 0.4);
+    --shadow-card: none;
+    --shadow-card-hover: 0 0 20px -5px rgba(255, 144, 109, 0.08);
 
-    /* Glass — dark mode uses white transparency */
-    --glass-bg: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.06);
-    --glass-hover: rgba(255, 255, 255, 0.05);
+    /* Glass — dark mode uses surface-container-highest at 60% */
+    --glass-bg: rgba(38, 38, 38, 0.6);
+    --glass-border: rgba(72, 72, 71, 0.15);
+    --glass-hover: rgba(255, 255, 255, 0.03);
   }
 }
 
@@ -181,8 +186,8 @@
   /* Glass surface */
   .glass {
     background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-color: var(--glass-border);
   }
 
@@ -190,30 +195,36 @@
     background: var(--glass-hover);
   }
 
-  /* Card shadows */
-  .shadow-card {
-    box-shadow: var(--shadow-card);
+  /* Ghost border — whisper of structure */
+  .ghost-border {
+    border: 1px solid hsl(var(--ghost-border) / 0.15);
   }
 
-  .shadow-card-hover:hover {
-    box-shadow: var(--shadow-card-hover);
+  /* Neon glow for primary actions */
+  .neon-glow {
+    box-shadow: 0 0 30px -8px hsl(var(--primary) / 0.3);
+  }
+
+  /* Kinetic pulse for hover states */
+  .kinetic-pulse {
+    box-shadow: 0 0 20px rgba(255, 144, 109, 0.15);
   }
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 3px;
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: hsl(var(--muted-foreground) / 0.4);
 }
 
 /* Overdue pulse animation */
@@ -239,4 +250,13 @@
 /* React Flow overrides */
 .react-flow__background {
   background-color: hsl(var(--background)) !important;
+}
+
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

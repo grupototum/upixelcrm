@@ -18,25 +18,26 @@ export function AppLayout({ children, title, subtitle, actions }: AppLayoutProps
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center justify-between border-b border-border dark:border-b-[rgba(255,255,255,0.06)] px-4 bg-card dark:bg-[rgba(10,10,10,0.6)] dark:backdrop-blur-md shrink-0">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="text-muted-foreground" />
+          <header className="h-16 flex items-center justify-between px-6 bg-background/80 dark:bg-background/80 backdrop-blur-xl sticky top-0 z-40 ghost-border border-b shrink-0">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               {title && (
                 <div>
-                  <h1 className="text-sm font-semibold text-foreground">{title}</h1>
-                  {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+                  <h1 className="text-sm font-bold text-foreground tracking-tight">{title}</h1>
+                  {subtitle && <p className="text-[11px] text-muted-foreground">{subtitle}</p>}
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               {actions}
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full">
                 <Search className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground relative">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full relative">
                 <Bell className="h-4 w-4" />
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />
               </Button>
+              <div className="h-6 w-px bg-border mx-1" />
               <ThemeToggle />
             </div>
           </header>
