@@ -259,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
     
-    const { error } = await supabase.from("automations").update({
+    const { error } = await (supabase.from as any)("automations").update({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       nodes: nodes as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
