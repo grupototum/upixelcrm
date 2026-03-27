@@ -135,7 +135,7 @@ export default function InboxPage() {
               <button
                 key={t.id}
                 onClick={() => setSelectedThread(t)}
-                className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-colors border-b border-border ${
+                className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-colors ghost-border border-b ${
                   selectedThread.id === t.id ? "bg-primary/5 border-l-2 border-l-primary" : ""
                 }`}
               >
@@ -172,7 +172,7 @@ export default function InboxPage() {
         {/* ─── Chat area ─── */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Chat header */}
-          <div className="h-14 px-4 border-b border-border flex items-center justify-between shrink-0 bg-card">
+          <div className="h-14 px-4 ghost-border border-b flex items-center justify-between shrink-0 bg-card">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
                 {initials(selectedThread.lead_name)}
@@ -288,7 +288,7 @@ export default function InboxPage() {
           </div>
 
           {/* AI suggestion bar */}
-          <div className="px-4 py-2 border-t border-border bg-accent/5 flex items-center gap-2">
+          <div className="px-4 py-2 ghost-border border-t bg-accent/5 flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-accent shrink-0" />
             <p className="text-[10px] text-muted-foreground flex-1">Sugestão IA: "Olá Maria! Sim, atendemos empresas de todos os tamanhos..."</p>
             <Button variant="ghost" size="sm" className="h-6 text-[10px] text-accent hover:text-accent px-2">
@@ -297,7 +297,7 @@ export default function InboxPage() {
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-border bg-card">
+          <div className="p-3 ghost-border border-t bg-card">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground shrink-0">
                 <Paperclip className="h-4 w-4" />
@@ -326,9 +326,9 @@ export default function InboxPage() {
         </div>
 
         {/* ─── Lead context panel ─── */}
-        <div className="w-72 border-l border-border shrink-0 overflow-auto hidden xl:block bg-card">
+        <div className="w-72 ghost-border border-l shrink-0 overflow-auto hidden xl:block bg-card">
           {/* Lead header */}
-          <div className="p-4 border-b border-border">
+          <div className="p-4 ghost-border border-b">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center text-sm font-semibold text-primary">
                 {initials(selectedThread.lead_name)}
@@ -353,7 +353,7 @@ export default function InboxPage() {
           </div>
 
           {/* Lead data */}
-          <div className="p-4 border-b border-border space-y-2.5">
+          <div className="p-4 ghost-border border-b space-y-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dados</p>
             {selectedLead?.phone && (
               <div className="flex items-center gap-2 text-xs">
@@ -389,7 +389,7 @@ export default function InboxPage() {
 
           {/* Tags */}
           {selectedLead && selectedLead.tags.length > 0 && (
-            <div className="p-4 border-b border-border">
+            <div className="p-4 ghost-border border-b">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
                 <Tag className="h-3 w-3" /> Tags
               </p>
