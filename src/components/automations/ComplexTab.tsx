@@ -1,5 +1,4 @@
 import { Workflow, Plus, Play, MoreHorizontal, Edit, Trash2, Clock } from "lucide-react";
-import { Workflow, Plus, Play, MoreHorizontal, Edit, Trash2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +10,7 @@ import { useAppState } from "@/contexts/AppContext";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export const ComplexTab = forwardRef<HTMLDivElement, object>(function ComplexTab(_props, ref) {
+export function ComplexTab() {
   const navigate = useNavigate();
   const { complexAutomations, createAutomation, deleteAutomation } = useAppState();
 
