@@ -81,7 +81,7 @@ export function SequencesTab() {
       {mockSequences.map((seq) => {
         const isExpanded = expandedId === seq.id;
         return (
-          <div key={seq.id} className="bg-card ghost-border rounded-xl overflow-hidden hover:border-border-hover transition-colors">
+          <div key={seq.id} className="bg-card ghost-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200">
             {/* Header */}
             <button
               onClick={() => setExpandedId(isExpanded ? null : seq.id)}

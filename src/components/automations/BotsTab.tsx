@@ -50,7 +50,7 @@ export function BotsTab() {
           {filtered.map((bot) => (
             <div
               key={bot.id}
-              className="bg-card ghost-border rounded-xl p-5 hover:border-border-hover transition-colors cursor-pointer group"
+              className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200 cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center">
