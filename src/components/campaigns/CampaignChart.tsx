@@ -25,8 +25,8 @@ export function CampaignChart({ campaigns, dataKey = "leads", title }: CampaignC
   }));
 
   return (
-    <div className="bg-card ghost-border rounded-xl p-5">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">{title}</h3>
+    <div className="bg-card ghost-border rounded-xl p-5 shadow-card">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">{title}</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 0, right: 10, left: -10, bottom: 0 }}>
