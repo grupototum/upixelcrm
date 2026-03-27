@@ -408,8 +408,8 @@ function ComingSoonCard({
   icon: typeof Target; title: string; description: string;
 }) {
   return (
-    <div className="bg-card ghost-border rounded-xl p-6 flex flex-col items-center text-center shadow-card opacity-70">
-      <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center mb-3">
+    <div className="bg-card ghost-border rounded-xl p-6 flex flex-col items-center text-center shadow-card opacity-70 hover:opacity-80 transition-all duration-200">
+      <div className="h-12 w-12 rounded-lg bg-accent/10 flex items-center justify-center mb-3">
         <Icon className="h-6 w-6 text-accent" />
       </div>
       <h3 className="text-sm font-semibold text-foreground mb-1">{title}</h3>
