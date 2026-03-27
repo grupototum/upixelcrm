@@ -42,6 +42,7 @@ const App = () => (
                 <Route path="/leads/:id" element={<ProtectedRoute><LeadProfilePage /></ProtectedRoute>} />
                 <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
                 <Route path="/automations" element={<ProtectedRoute requiredPermission="automations.view"><AutomationsPage /></ProtectedRoute>} />
+                <Route path="/automations/builder/:id" element={<ProtectedRoute requiredPermission="automations.view"><AutomationBuilderPage /></ProtectedRoute>} />
                 <Route path="/intelligence" element={<ProtectedRoute requiredPermission="intelligence.view"><IntelligencePage /></ProtectedRoute>} />
                 <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><ReportsPage /></ProtectedRoute>} />
