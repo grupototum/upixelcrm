@@ -126,7 +126,7 @@ export default function ReportsPage() {
     >
       <div className="p-6 space-y-6 animate-fade-in">
         {/* ─── KPI Cards ─── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             label="Taxa de Conversão"
             value={`${conversionRate}%`}
