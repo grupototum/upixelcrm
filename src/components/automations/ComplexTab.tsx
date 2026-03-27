@@ -91,4 +91,4 @@ export const ComplexTab = forwardRef<HTMLDivElement, object>(function ComplexTab
       </div>
     </div>
   );
-}
+});
