@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
-  BarChart3, Plug, Upload, Users, ChevronLeft,
+  BarChart3, Plug, Upload, Users, Plus, HelpCircle, LogOut,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
@@ -37,22 +37,17 @@ export function AppSidebar() {
   const iconLogo = theme === "dark" ? upixelIconDark : upixelIconLight;
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0 ghost-border">
-      {/* Logo area */}
-      <div className="flex items-center h-16 px-4 justify-between">
+    <Sidebar collapsible="icon" className="border-r-0">
+      {/* Logo */}
+      <div className="flex items-center h-16 px-4 justify-center">
         <img
           src={collapsed ? iconLogo : logo}
           alt="uPixel"
-          className={collapsed ? "h-10 w-10" : "h-10"}
+          className={collapsed ? "h-12 w-12" : "h-12"}
         />
-        {!collapsed && (
-          <button onClick={toggleSidebar} className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground transition-colors">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-        )}
       </div>
 
-      <SidebarContent className="pt-3 px-2">
+      <SidebarContent className="pt-2 px-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
@@ -67,7 +62,7 @@ export function AppSidebar() {
                         to={item.url}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ${
                           isActive
-                            ? "bg-gradient-to-r from-primary to-primary-hover text-primary-foreground shadow-lg shadow-primary/10 translate-x-0.5"
+                            ? "bg-primary text-primary-foreground"
                             : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
                         }`}
                       >
@@ -83,17 +78,22 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="ghost-border border-t p-4">
+      <SidebarFooter className="p-3 space-y-1">
         {!collapsed && (
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
-              UP
-            </div>
-            <div className="text-xs">
-              <p className="font-semibold text-foreground">uPixel Admin</p>
-              <p className="text-muted-foreground">admin@upixel.com</p>
-            </div>
-          </div>
+          <>
+            <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold text-primary-foreground bg-primary hover:bg-primary-hover transition-colors">
+              <Plus className="h-[18px] w-[18px]" />
+              <span>+ New Record</span>
+            </button>
+            <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">
+              <HelpCircle className="h-[18px] w-[18px]" />
+              <span>Help</span>
+            </button>
+            <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">
+              <LogOut className="h-[18px] w-[18px]" />
+              <span>Logout</span>
+            </button>
+          </>
         )}
       </SidebarFooter>
     </Sidebar>

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,44 +6,45 @@
 
 @layer base {
   :root {
-    --font-sans: 'Sora', system-ui, sans-serif;
+    --font-sans: 'Manrope', system-ui, sans-serif;
 
     /* ═══════════════════════════════════════════
-       LIGHT MODE — Warm off-white, editorial depth
-       Surface: #fff8f7, on-surface: #1d1b1b
+       LIGHT MODE — The Curated Kinetic
+       Warm off-white #fff8f7, on-surface #1d1b1b
+       Primary #f76926
     ═══════════════════════════════════════════ */
 
     --background: 15 100% 99%;
-    --foreground: 0 2% 11%;
+    --foreground: 0 6% 11%;
 
-    /* Layered backgrounds — warm tonal depth */
+    /* Tonal surface tiers */
     --bg-primary: 15 100% 99%;
-    --bg-secondary: 15 14% 97%;
-    --bg-tertiary: 15 9% 95%;
+    --bg-secondary: 8 40% 96%;
+    --bg-tertiary: 8 21% 94%;
 
-    /* Cards — white floating on warm surface */
+    /* Cards — surface-container-lowest #ffffff */
     --card: 0 0% 100%;
-    --card-foreground: 0 2% 11%;
-    --card-hover: 15 14% 97%;
+    --card-foreground: 0 6% 11%;
+    --card-hover: 8 40% 96%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 2% 11%;
+    --popover-foreground: 0 6% 11%;
 
-    /* Primary accent — brand orange #f76926 */
-    --primary: 22 93% 56%;
+    /* Primary — brand orange #f76926 */
+    --primary: 19 93% 56%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 22 85% 48%;
+    --primary-hover: 19 85% 46%;
 
-    /* Surfaces */
-    --secondary: 15 9% 95%;
-    --secondary-foreground: 0 2% 11%;
+    /* Secondary — #e2e2e5 */
+    --secondary: 8 40% 96%;
+    --secondary-foreground: 0 6% 11%;
 
-    --muted: 15 6% 93%;
-    --muted-foreground: 15 20% 30%;
+    --muted: 8 13% 92%;
+    --muted-foreground: 7 23% 30%;
 
-    /* Accent — warm amber #feba02 */
+    /* Accent — warm amber */
     --accent: 44 99% 50%;
-    --accent-foreground: 0 2% 11%;
+    --accent-foreground: 0 6% 11%;
     --accent-hover: 44 98% 44%;
 
     --destructive: 0 84% 60%;
@@ -52,78 +53,79 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 2% 11%;
+    --warning-foreground: 0 6% 11%;
 
-    /* Borders — warm ghost borders */
-    --border: 15 18% 90%;
-    --border-hover: 15 16% 83%;
-    --input: 15 18% 90%;
-    --ring: 22 93% 56%;
+    /* Borders — ghost borders only, outline-variant #e7bdb7 */
+    --border: 8 46% 81%;
+    --border-hover: 8 30% 70%;
+    --input: 8 21% 94%;
+    --ring: 19 93% 56%;
 
     /* Ghost border token */
-    --ghost-border: 15 35% 80%;
+    --ghost-border: 8 46% 81%;
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
-    /* Sidebar — warm surface layer */
-    --sidebar-background: 15 14% 97%;
-    --sidebar-foreground: 15 20% 30%;
-    --sidebar-primary: 22 93% 56%;
+    /* Sidebar — surface-container-low #f9f2f1 */
+    --sidebar-background: 8 40% 96%;
+    --sidebar-foreground: 7 23% 30%;
+    --sidebar-primary: 19 93% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 15 9% 93%;
-    --sidebar-accent-foreground: 0 2% 11%;
-    --sidebar-border: 15 18% 92%;
-    --sidebar-ring: 22 93% 56%;
+    --sidebar-accent: 8 21% 94%;
+    --sidebar-accent-foreground: 0 6% 11%;
+    --sidebar-border: 8 46% 81%;
+    --sidebar-ring: 19 93% 56%;
 
-    --text-secondary: 15 20% 30%;
+    --text-secondary: 7 23% 30%;
 
-    /* Shadows — warm-tinted, premium diffused */
+    /* Shadows — warm-tinted, editorial diffused */
     --shadow-sm: 0 1px 2px 0 rgba(93, 63, 59, 0.04);
     --shadow-md: 0 4px 12px -2px rgba(93, 63, 59, 0.06), 0 2px 4px -1px rgba(93, 63, 59, 0.04);
-    --shadow-lg: 0 12px 32px -6px rgba(93, 63, 59, 0.08), 0 4px 8px -2px rgba(93, 63, 59, 0.04);
-    --shadow-card: 0 1px 3px 0 rgba(93, 63, 59, 0.04), 0 1px 2px -1px rgba(93, 63, 59, 0.03);
-    --shadow-card-hover: 0 8px 24px -6px rgba(93, 63, 59, 0.1), 0 2px 4px -1px rgba(93, 63, 59, 0.04);
+    --shadow-lg: 0 20px 40px rgba(93, 63, 59, 0.06);
+    --shadow-card: none;
+    --shadow-card-hover: 0 12px 32px -6px rgba(93, 63, 59, 0.08);
 
-    /* Glass — light mode warm glass */
-    --glass-bg: rgba(255, 248, 247, 0.7);
+    /* Glass */
+    --glass-bg: rgba(255, 248, 247, 0.8);
     --glass-border: rgba(231, 189, 183, 0.2);
-    --glass-hover: rgba(0, 0, 0, 0.03);
+    --glass-hover: rgba(0, 0, 0, 0.02);
   }
 
   .dark {
     /* ═══════════════════════════════════════════
-       DARK MODE — Kinetic Noir, #0e0e0e base
-       Surface tiers, ghost borders, neon accents
+       DARK MODE — Kinetic Noir
+       Base #0e0e0e, primary #f76926
+       Tonal surface tiers, ghost borders
     ═══════════════════════════════════════════ */
 
-    --background: 0 0% 5%;
+    --background: 0 0% 5.5%;
     --foreground: 0 0% 100%;
 
-    --bg-primary: 0 0% 5%;
-    --bg-secondary: 0 0% 7%;
+    --bg-primary: 0 0% 5.5%;
+    --bg-secondary: 0 0% 7.5%;
     --bg-tertiary: 0 0% 10%;
 
-    /* Cards — surface-container-low on deep void */
-    --card: 0 0% 7%;
+    /* Cards — surface-container #1a1919 */
+    --card: 0 2% 10%;
     --card-foreground: 0 0% 100%;
-    --card-hover: 0 0% 10%;
+    --card-hover: 0 0% 15%;
 
-    --popover: 0 0% 10%;
+    --popover: 0 0% 15%;
     --popover-foreground: 0 0% 100%;
 
-    /* Primary — warmer in dark: #ff906d */
-    --primary: 17 100% 71%;
+    /* Primary — SAME orange #f76926 */
+    --primary: 19 93% 56%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 14 100% 60%;
+    --primary-hover: 19 85% 46%;
 
     --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 67%;
+    --muted-foreground: 0 1% 67%;
 
     --accent: 44 99% 50%;
-    --accent-foreground: 0 2% 11%;
+    --accent-foreground: 0 6% 11%;
     --accent-hover: 44 98% 44%;
 
     --destructive: 2 100% 72%;
@@ -132,36 +134,36 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 2% 11%;
+    --warning-foreground: 0 6% 11%;
 
-    /* Borders — ghost borders (outline-variant #484847) */
+    /* Borders — ghost borders, outline-variant #484847 */
     --border: 60 1% 28%;
     --border-hover: 60 1% 38%;
     --input: 60 1% 28%;
-    --ring: 17 100% 71%;
+    --ring: 19 93% 56%;
 
     --ghost-border: 60 1% 28%;
 
-    /* Sidebar — deepest surface layer */
-    --sidebar-background: 0 0% 7%;
-    --sidebar-foreground: 0 0% 67%;
-    --sidebar-primary: 17 100% 71%;
+    /* Sidebar — surface-container-low #131313 */
+    --sidebar-background: 0 0% 7.5%;
+    --sidebar-foreground: 0 1% 67%;
+    --sidebar-primary: 19 93% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 10%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 60 1% 28%;
-    --sidebar-ring: 17 100% 71%;
+    --sidebar-ring: 19 93% 56%;
 
-    --text-secondary: 0 0% 67%;
+    --text-secondary: 0 1% 67%;
 
-    /* Shadows — ambient glow, not drop shadow */
+    /* Shadows — ambient, no drop shadow */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 10px 30px -6px rgba(0, 0, 0, 0.5);
     --shadow-card: none;
-    --shadow-card-hover: 0 0 20px -5px rgba(255, 144, 109, 0.08);
+    --shadow-card-hover: 0 0 20px -5px rgba(247, 105, 38, 0.08);
 
-    /* Glass — dark mode uses surface-container-highest at 60% */
+    /* Glass — surface-container-highest at 60% */
     --glass-bg: rgba(38, 38, 38, 0.6);
     --glass-border: rgba(72, 72, 71, 0.15);
     --glass-hover: rgba(255, 255, 255, 0.03);
@@ -179,11 +181,10 @@
 }
 
 /* ═══════════════════════════════════════════
-   Utility classes for glass & surfaces
+   Utility classes — glass, surfaces, borders
 ═══════════════════════════════════════════ */
 
 @layer utilities {
-  /* Glass surface */
   .glass {
     background: var(--glass-bg);
     backdrop-filter: blur(20px);
@@ -200,18 +201,22 @@
     border: 1px solid hsl(var(--ghost-border) / 0.15);
   }
 
+  /* Editorial shadow for floating cards */
+  .editorial-shadow {
+    box-shadow: 0 20px 40px rgba(93, 63, 59, 0.06);
+  }
+
   /* Neon glow for primary actions */
   .neon-glow {
     box-shadow: 0 0 30px -8px hsl(var(--primary) / 0.3);
   }
 
-  /* Kinetic pulse for hover states */
   .kinetic-pulse {
-    box-shadow: 0 0 20px rgba(255, 144, 109, 0.15);
+    box-shadow: 0 0 20px rgba(247, 105, 38, 0.15);
   }
 }
 
-/* Scrollbar styling */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -227,7 +232,7 @@
   background: hsl(var(--muted-foreground) / 0.4);
 }
 
-/* Overdue pulse animation */
+/* Overdue pulse */
 @keyframes overdue-pulse {
   0%, 100% { box-shadow: 0 0 0 0 hsl(var(--destructive) / 0); border-color: hsl(var(--destructive) / 0.4); }
   50% { box-shadow: 0 0 8px 2px hsl(var(--destructive) / 0.15); border-color: hsl(var(--destructive) / 0.7); }
@@ -252,7 +257,7 @@
   background-color: hsl(var(--background)) !important;
 }
 
-/* Hide scrollbar utility */
+/* Hide scrollbar */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
