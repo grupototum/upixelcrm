@@ -92,9 +92,6 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {stats.map((s) => (
             <div key={s.label} className="bg-card rounded-xl ghost-border p-5 hover:shadow-card-hover transition-all duration-200 group relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-                <s.icon className="h-16 w-16" />
-              </div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{s.label}</span>
                 <div className={`h-8 w-8 rounded-lg ${accentBgMap[s.accent]} flex items-center justify-center`}>
