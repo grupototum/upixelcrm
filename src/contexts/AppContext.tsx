@@ -60,7 +60,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
         supabase.from("timeline_events").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("automations").select("*").order("created_at", { ascending: false }),
+        (supabase.from as any)("automations").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
