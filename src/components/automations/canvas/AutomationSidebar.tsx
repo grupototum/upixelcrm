@@ -28,14 +28,14 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
 
   if (!selectedNodeId || !selectedNode) {
     return (
-      <div className="w-[320px] bg-white border-l shadow-xl p-5 flex flex-col z-10 shrink-0">
-        <h3 className="text-lg font-semibold mb-4 border-b pb-2 flex items-center gap-2">
-          <TerminalSquare className="w-5 h-5 text-slate-500" /> Propriedades
+      <div className="w-[320px] bg-card border-l border-border shadow-xl p-5 flex flex-col z-10 shrink-0">
+        <h3 className="text-lg font-semibold mb-4 border-b border-border pb-2 flex items-center gap-2 text-foreground">
+          <TerminalSquare className="w-5 h-5 text-muted-foreground" /> Propriedades
         </h3>
-        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+        <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
           Selecione um módulo no canvas para editar suas configurações e parâmetros.
         </p>
-        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-6 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-lg bg-secondary/50 p-6 text-center">
           Nenhum módulo selecionado
         </div>
       </div>
@@ -145,7 +145,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                   </SelectContent>
               </Select>
               {nodeConfigType === 'whatsapp' && (
-                 <div className="mt-4 space-y-2 border-t pt-4">
+                 <div className="mt-4 space-y-2 border-t border-border pt-4">
                     <Label className="text-xs">Texto da Mensagem</Label>
                     <Textarea 
                        placeholder="Olá {{lead.name}}..." 
@@ -181,12 +181,12 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
              <Label>Distribuição de Tráfego (%)</Label>
              <div className="mt-2 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs bg-slate-100 px-2 py-1 rounded w-20 text-center font-medium">Lado A</span>
+                  <span className="text-xs bg-secondary px-2 py-1 rounded w-20 text-center font-medium text-foreground">Lado A</span>
                   <Input type="number" defaultValue="50" className="w-16 h-8 text-center text-xs" />
                   <span className="text-xs text-muted-foreground">%</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs bg-slate-100 px-2 py-1 rounded w-20 text-center font-medium">Lado B</span>
+                  <span className="text-xs bg-secondary px-2 py-1 rounded w-20 text-center font-medium text-foreground">Lado B</span>
                   <Input type="number" defaultValue="50" className="w-16 h-8 text-center text-xs" />
                   <span className="text-xs text-muted-foreground">%</span>
                 </div>
@@ -205,13 +205,13 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
   };
 
   return (
-    <div className="w-[320px] bg-white border-l shadow-xl flex flex-col z-10 shrink-0 h-full">
+    <div className="w-[320px] bg-card border-l border-border shadow-xl flex flex-col z-10 shrink-0 h-full">
       <div className="p-5 overflow-y-auto flex-1">
-        <div className="flex items-center justify-between border-b pb-2 mb-4">
-          <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800">
+        <div className="flex items-center justify-between border-b border-border pb-2 mb-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
             <TerminalSquare className="w-4 h-4 text-primary" /> Configurar Módulo
           </h3>
-          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
             {selectedNode.type}
           </span>
         </div>
@@ -230,23 +230,23 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
             />
           </div>
 
-          <div className="space-y-2 pt-2 border-t mt-4">
+          <div className="space-y-2 pt-2 border-t border-border mt-4">
             <TypeOptions />
           </div>
 
           {['action', 'message', 'webhook'].includes(selectedNode.type as string) && (
-            <div className="space-y-2 pt-4 mt-4 border-t">
-              <Label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Variáveis Dinâmicas</Label>
+            <div className="space-y-2 pt-4 mt-4 border-t border-border">
+              <Label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Variáveis Dinâmicas</Label>
               <div className="flex gap-2 flex-wrap">
                 <span 
                   onClick={() => injectVariable(' {{lead.name}}')}
-                  className="text-[10px] bg-indigo-50 border-indigo-100 border text-indigo-700 rounded px-1.5 py-0.5 cursor-pointer hover:bg-indigo-100 transition-colors"
+                  className="text-[10px] bg-primary/10 border-primary/20 border text-primary rounded px-1.5 py-0.5 cursor-pointer hover:bg-primary/20 transition-colors"
                 >
                   {'{'}{'{'}lead.name{'}'}{'}'}
                 </span>
                 <span 
                   onClick={() => injectVariable(' {{lead.phone}}')}
-                  className="text-[10px] bg-indigo-50 border-indigo-100 border text-indigo-700 rounded px-1.5 py-0.5 cursor-pointer hover:bg-indigo-100 transition-colors"
+                  className="text-[10px] bg-primary/10 border-primary/20 border text-primary rounded px-1.5 py-0.5 cursor-pointer hover:bg-primary/20 transition-colors"
                 >
                   {'{'}{'{'}lead.phone{'}'}{'}'}
                 </span>
@@ -256,8 +256,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
         </div>
       </div>
       
-      {/* Botões Bottom */}
-      <div className="p-4 border-t bg-slate-50 shrink-0">
+      <div className="p-4 border-t border-border bg-secondary shrink-0">
         <Button 
           variant="destructive" 
           size="sm" 
