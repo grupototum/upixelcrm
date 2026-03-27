@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      automations: {
+        Row: {
+          client_id: string
+          created_at: string
+          edges: Json
+          id: string
+          name: string
+          nodes: Json
+          status: string
+          trigger_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string
+          created_at?: string
+          edges?: Json
+          id?: string
+          name: string
+          nodes?: Json
+          status?: string
+          trigger_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          edges?: Json
+          id?: string
+          name?: string
+          nodes?: Json
+          status?: string
+          trigger_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           city: string | null
