@@ -240,7 +240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createAutomation = useCallback(async (name: string): Promise<string | null> => {
     // client_id é gerenciado pelo trigger do Supabase RLS ou é optional.
-    const { data: row, error } = await supabase.from("automations").insert({
+    const { data: row, error } = await (supabase.from as any)("automations").insert({
       name,
       status: "draft",
       nodes: [],
