@@ -1,3 +1,5 @@
+import type { Node, Edge } from 'reactflow';
+
 export interface Client {
   id: string;
   name: string;
@@ -69,6 +71,18 @@ export interface Automation {
   trigger: AutomationTrigger;
   actions: AutomationAction[];
   exceptions: AutomationException[];
+}
+
+export interface ComplexAutomation {
+  id: string;
+  client_id: string;
+  name: string;
+  status: string;
+  trigger_type?: string;
+  nodes: Node[];
+  edges: Edge[];
+  created_at: string;
+  updated_at: string;
 }
 
 export type AutomationTrigger = {

@@ -2,7 +2,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mockAutomations } from "@/lib/mock-data";
-import type { Lead, PipelineColumn, Task, Automation, TimelineEvent } from "@/types";
+import type { Lead, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
+import type { Node, Edge } from "reactflow";
 import { toast } from "sonner";
 
 interface AppState {
@@ -10,6 +11,7 @@ interface AppState {
   columns: PipelineColumn[];
   tasks: Task[];
   automations: Automation[];
+  complexAutomations: ComplexAutomation[];
   timeline: TimelineEvent[];
   loading: boolean;
 
@@ -27,6 +29,10 @@ interface AppState {
 
   addTimelineEvent: (event: Omit<TimelineEvent, "id" | "created_at">) => Promise<void>;
 
+  createAutomation: (name: string) => Promise<string | null>;
+  updateAutomationNodes: (id: string, nodes: Node[], edges: Edge[]) => Promise<void>;
+  deleteAutomation: (id: string) => Promise<void>;
+
   refreshData: () => Promise<void>;
 }
 
@@ -43,22 +49,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [automations] = useState<Automation[]>(mockAutomations);
+  const [complexAutomations, setComplexAutomations] = useState<ComplexAutomation[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [colRes, leadRes, taskRes, tlRes] = await Promise.all([
+      const [colRes, leadRes, taskRes, tlRes, autoRes] = await Promise.all([
         supabase.from("pipeline_columns").select("*").order("order"),
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
         supabase.from("timeline_events").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("automations").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
       if (leadRes.data) setLeads(leadRes.data.map(mapLead));
       if (taskRes.data) setTasks(taskRes.data.map(mapTask));
       if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
+      if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
     } catch (err) {
       console.error("Error fetching data:", err);
       toast.error("Erro ao carregar dados");
@@ -229,12 +238,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Coluna criada");
   }, [columns.length]);
 
+  const createAutomation = useCallback(async (name: string): Promise<string | null> => {
+    // client_id é gerenciado pelo trigger do Supabase RLS ou é optional.
+    const { data: row, error } = await supabase.from("automations").insert({
+      name,
+      status: "draft",
+      nodes: [],
+      edges: []
+    }).select().single();
+
+    if (error) { console.error(error); toast.error("Erro ao criar fluxo"); return null; }
+    if (row) {
+      const newAuto = mapComplexAutomation(row);
+      setComplexAutomations(prev => [newAuto, ...prev]);
+      return newAuto.id;
+    }
+    return null;
+  }, []);
+
+  const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
+    setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
+    
+    const { error } = await supabase.from("automations").update({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      nodes: nodes as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      edges: edges as any,
+      updated_at: new Date().toISOString()
+    }).eq("id", id);
+
+    if (error) {
+       console.error(error); toast.error("Erro ao salvar fluxo"); 
+    } else {
+       toast.success("Fluxo salvo com sucesso!");
+    }
+  }, []);
+
+  const deleteAutomation = useCallback(async (id: string) => {
+    const { error } = await supabase.from("automations").delete().eq("id", id);
+    if (error) { console.error(error); toast.error("Erro ao excluir"); return; }
+    setComplexAutomations(prev => prev.filter(a => a.id !== id));
+    toast.success("Automação excluída");
+  }, []);
+
   return (
     <AppContext.Provider value={{
-      leads, columns, tasks, automations, timeline, loading,
+      leads, columns, tasks, automations, complexAutomations, timeline, loading,
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
-      addColumn, addTimelineEvent, refreshData: fetchAll,
+      addColumn, addTimelineEvent, 
+      createAutomation, updateAutomationNodes, deleteAutomation,
+      refreshData: fetchAll,
     }}>
       {children}
     </AppContext.Provider>
@@ -295,5 +349,19 @@ function mapTimeline(row: Record<string, unknown>): TimelineEvent {
     content: row.content as string,
     created_at: row.created_at as string,
     user_name: (row.user_name as string) || undefined,
+  };
+}
+
+function mapComplexAutomation(row: Record<string, unknown>): ComplexAutomation {
+  return {
+    id: row.id as string,
+    client_id: row.client_id as string,
+    name: row.name as string,
+    status: row.status as string,
+    trigger_type: row.trigger_type as string | undefined,
+    nodes: Array.isArray(row.nodes) ? row.nodes : [],
+    edges: Array.isArray(row.edges) ? row.edges : [],
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
   };
 }

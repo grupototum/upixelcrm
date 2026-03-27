@@ -7,15 +7,18 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const mockWorkflows = [
-  { id: "wf_1", name: "Nutrição MDE - Novatos", status: "active", nodes: 12, updatedAt: "Há 2 horas" },
-  { id: "wf_2", name: "Recuperação de Carrinho Webhook", status: "active", nodes: 24, updatedAt: "Ontem às 14:00" },
-  { id: "wf_3", name: "Qualificação Pipeline B2B", status: "draft", nodes: 8, updatedAt: "Semana passada" },
-];
+import { useAppState } from "@/contexts/AppContext";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export function ComplexTab() {
   const navigate = useNavigate();
-  const [workflows, setWorkflows] = useState(mockWorkflows);
+  const { complexAutomations, createAutomation, deleteAutomation } = useAppState();
+
+  const handleCreateNew = async () => {
+    const newId = await createAutomation("Nova Automação " + (complexAutomations.length + 1));
+    if (newId) navigate(`/automations/builder/${newId}`);
+  };
 
   return (
     <div className="space-y-4">
@@ -24,7 +27,7 @@ export function ComplexTab() {
         
         {/* Card Criar Novo */}
         <div 
-          onClick={() => navigate("/automations/builder/novo")}
+          onClick={handleCreateNew}
           className="border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-all cursor-pointer min-h-[140px] hover:bg-primary/5"
         >
           <div className="h-10 w-10 bg-card rounded-full flex items-center justify-center shadow-sm mb-3">
@@ -37,7 +40,7 @@ export function ComplexTab() {
         </div>
 
         {/* Cards dinâmicos */}
-        {workflows.map((wf) => (
+        {complexAutomations.map((wf) => (
           <div
             key={wf.id}
             onClick={() => navigate(`/automations/builder/${wf.id}`)}
@@ -60,8 +63,8 @@ export function ComplexTab() {
             <div className="flex-1">
                <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">{wf.name}</h4>
                <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-                 <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {wf.nodes} nós</span>
-                 <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {wf.updatedAt}</span>
+                 <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {Array.isArray(wf.nodes) ? wf.nodes.length : 0} nós</span>
+                 <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Atualizado {wf.updated_at ? formatDistanceToNow(new Date(wf.updated_at), { addSuffix: true, locale: ptBR }) : "Agora"}</span>
                </div>
             </div>
 
@@ -77,7 +80,7 @@ export function ComplexTab() {
                   <DropdownMenuItem onClick={() => navigate(`/automations/builder/${wf.id}`)}>
                     <Edit className="h-3 w-3 mr-2" /> Editar Visualmente
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={() => setWorkflows(prev => prev.filter(w => w.id !== wf.id))}>
+                  <DropdownMenuItem className="text-destructive" onClick={() => deleteAutomation(wf.id)}>
                     <Trash2 className="h-3 w-3 mr-2" /> Excluir permanentemente
                   </DropdownMenuItem>
                 </DropdownMenuContent>

@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, DragEvent } from 'react';
+import { useCallback, useState, useRef, DragEvent, useEffect } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -31,6 +31,7 @@ import { NodesPalette } from './NodesPalette';
 import { LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useAppState } from '@/contexts/AppContext';
 
 const nodeTypes: NodeTypes = {
   trigger: TriggerNode,
@@ -83,9 +84,20 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
   return { nodes: layoutedNodes, edges };
 };
 
-function CanvasFlow() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+export function AutomationCanvas({ automationId }: { automationId: string }) {
+  const { complexAutomations } = useAppState();
+  const auto = complexAutomations.find((a) => a.id === automationId);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(auto?.nodes?.length ? auto.nodes : initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(auto?.edges?.length ? auto.edges : initialEdges);
+  
+  useEffect(() => {
+    if (auto) {
+      setNodes(auto.nodes.length ? auto.nodes : initialNodes);
+      setEdges(auto.edges.length ? auto.edges : initialEdges);
+    }
+  }, [auto, setNodes, setEdges]); // Sync state if auto changes
+  
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -197,16 +209,6 @@ function CanvasFlow() {
          selectedNodeId={selectedNodeId} 
          onDeleteNode={() => selectedNodeId && handleKeyboardDelete(selectedNodeId)}
       />
-    </div>
-  );
-}
-
-export function AutomationCanvas() {
-  return (
-    <div className="w-full h-full overflow-hidden flex relative">
-      <ReactFlowProvider>
-        <CanvasFlow />
-      </ReactFlowProvider>
     </div>
   );
 }
