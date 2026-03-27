@@ -80,9 +80,9 @@ export default function InboxPage() {
 
   return (
     <AppLayout title="Inbox" subtitle="Central de atendimento">
-      <div className="flex h-[calc(100vh-3.5rem)] animate-fade-in">
+      <div className="flex h-[calc(100vh-4rem)] animate-fade-in">
         {/* ─── Thread list ─── */}
-        <div className="w-80 border-r border-border flex flex-col shrink-0">
+        <div className="w-80 ghost-border border-r flex flex-col shrink-0">
           <div className="p-3 border-b border-border space-y-2">
             {/* Inbox tabs */}
             <div className="flex gap-1">
