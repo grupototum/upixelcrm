@@ -60,9 +60,25 @@ export default function LeadProfilePage() {
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   });
-  const [showAddField, setShowAddField] = useState(false);
-  const [newFieldKey, setNewFieldKey] = useState("");
-  const [newFieldValue, setNewFieldValue] = useState("");
+  // Automations
+  const [automations, setAutomations] = useState<Array<{ id: string; name: string; trigger: string; active: boolean }>>(() => {
+    try {
+      const raw = localStorage.getItem(`totum_automations_${id}`);
+      if (raw) return JSON.parse(raw);
+    } catch { }
+    return [
+      { id: "a1", name: "Boas-vindas automática", trigger: "Ao entrar na coluna", active: true },
+      { id: "a2", name: "Follow-up 24h", trigger: "Após 24h sem resposta", active: true },
+      { id: "a3", name: "Alerta de inatividade", trigger: "Após 72h sem interação", active: false },
+      { id: "a4", name: "Mover para Perdido", trigger: "Após 7 dias sem resposta", active: false },
+    ];
+  });
+
+  const toggleAutomation = (autoId: string) => {
+    const updated = automations.map(a => a.id === autoId ? { ...a, active: !a.active } : a);
+    setAutomations(updated);
+    localStorage.setItem(`totum_automations_${id}`, JSON.stringify(updated));
+  };
 
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
@@ -463,13 +479,8 @@ export default function LeadProfilePage() {
                 <p className="text-xs font-semibold">Automações vinculadas</p>
                 <Button variant="outline" size="sm" className="text-xs gap-1 h-7"><Plus className="h-3 w-3" /> Nova automação</Button>
               </div>
-              {[
-                { name: "Boas-vindas automática", trigger: "Ao entrar na coluna", active: true },
-                { name: "Follow-up 24h", trigger: "Após 24h sem resposta", active: true },
-                { name: "Alerta de inatividade", trigger: "Após 72h sem interação", active: false },
-                { name: "Mover para Perdido", trigger: "Após 7 dias sem resposta", active: false },
-              ].map((auto, i) => (
-                <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0 hover:bg-card-hover transition-colors">
+              {automations.map((auto) => (
+                <div key={auto.id} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0 hover:bg-card-hover transition-colors">
                   <div className="flex items-center gap-3">
                     <Zap className={`h-4 w-4 ${auto.active ? "text-warning" : "text-muted-foreground"}`} />
                     <div>
@@ -481,7 +492,11 @@ export default function LeadProfilePage() {
                     <Badge variant="outline" className={`text-[10px] ${auto.active ? "border-success/40 text-success" : "border-border text-muted-foreground"}`}>
                       {auto.active ? "Ativa" : "Inativa"}
                     </Badge>
-                    <button className="h-5 w-9 rounded-full transition-colors relative flex items-center px-0.5" style={{ backgroundColor: auto.active ? "hsl(var(--success))" : "hsl(var(--secondary))" }}>
+                    <button 
+                      className="h-5 w-9 rounded-full transition-colors relative flex items-center px-0.5" 
+                      style={{ backgroundColor: auto.active ? "hsl(var(--success))" : "hsl(var(--secondary))" }}
+                        onClick={() => toggleAutomation(auto.id)}
+                    >
                       <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${auto.active ? "translate-x-4" : "translate-x-0"}`} />
                     </button>
                   </div>

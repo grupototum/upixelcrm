@@ -39,20 +39,36 @@ const tooltipStyle = {
 export default function ReportsPage() {
   const [period, setPeriod] = useState("all");
 
+  const filteredLeads = useMemo(() => {
+    if (period === "all") return mockLeads;
+    const now = new Date();
+    const days = parseInt(period);
+    const limitDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return mockLeads.filter(l => new Date(l.created_at) >= limitDate);
+  }, [period]);
+
+  const filteredTasks = useMemo(() => {
+    if (period === "all") return mockTasks;
+    const now = new Date();
+    const days = parseInt(period);
+    const limitDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return mockTasks.filter(t => new Date(t.created_at) >= limitDate);
+  }, [period]);
+
   const conversionData = useMemo(() =>
     mockColumns.map((col, i) => {
-      const count = mockLeads.filter((l) => l.column_id === col.id).length;
+      const count = filteredLeads.filter((l) => l.column_id === col.id).length;
       const prevCount = i === 0
-        ? mockLeads.length
-        : mockLeads.filter((l) => l.column_id === mockColumns[i - 1].id).length;
+        ? filteredLeads.length
+        : filteredLeads.filter((l) => l.column_id === mockColumns[i - 1].id).length;
       const rate = prevCount > 0 ? Math.round((count / prevCount) * 100) : 100;
       return { name: col.name, count, rate, color: col.color || "hsl(var(--primary))" };
-    }), []
+    }), [filteredLeads]
   );
 
   const leadsByPeriod = useMemo(() => {
     const months: Record<string, number> = {};
-    mockLeads.forEach((lead) => {
+    filteredLeads.forEach((lead) => {
       const d = new Date(lead.created_at);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
       months[key] = (months[key] || 0) + 1;
@@ -66,39 +82,39 @@ export default function ReportsPage() {
           leads: count,
         };
       });
-  }, []);
+  }, [filteredLeads]);
 
   const leadsByOrigin = useMemo(() => {
     const origins: Record<string, number> = {};
-    mockLeads.forEach((l) => { origins[l.origin || "Outro"] = (origins[l.origin || "Outro"] || 0) + 1; });
+    filteredLeads.forEach((l) => { origins[l.origin || "Outro"] = (origins[l.origin || "Outro"] || 0) + 1; });
     return Object.entries(origins).map(([name, value]) => ({ name, value }));
-  }, []);
+  }, [filteredLeads]);
 
   const funnelData = useMemo(() =>
     mockColumns.map((col) => ({
       name: col.name,
-      value: mockLeads.filter((l) => l.column_id === col.id).length,
+      value: filteredLeads.filter((l) => l.column_id === col.id).length,
       fill: col.color || "hsl(var(--primary))",
-    })), []
+    })), [filteredLeads]
   );
 
   const totalValue = useMemo(
-    () => mockLeads.reduce((sum, l) => sum + (l.value || 0), 0), []
+    () => filteredLeads.reduce((sum, l) => sum + (l.value || 0), 0), [filteredLeads]
   );
 
   const avgTicket = useMemo(
-    () => mockLeads.length > 0 ? Math.round(totalValue / mockLeads.length) : 0, [totalValue]
+    () => filteredLeads.length > 0 ? Math.round(totalValue / filteredLeads.length) : 0, [totalValue, filteredLeads]
   );
 
-  const overdueCount = useMemo(() => mockTasks.filter((t) => t.status === "overdue").length, []);
+  const overdueCount = useMemo(() => filteredTasks.filter((t) => t.status === "overdue").length, [filteredTasks]);
   const overdueRate = useMemo(() => {
-    return mockTasks.length > 0 ? Math.round((overdueCount / mockTasks.length) * 100) : 0;
-  }, [overdueCount]);
+    return filteredTasks.length > 0 ? Math.round((overdueCount / filteredTasks.length) * 100) : 0;
+  }, [overdueCount, filteredTasks]);
 
   const conversionRate = useMemo(() => {
-    const wonCount = mockLeads.filter((l) => l.column_id === mockColumns[mockColumns.length - 1]?.id).length;
-    return mockLeads.length > 0 ? ((wonCount / mockLeads.length) * 100).toFixed(1) : "0";
-  }, []);
+    const wonCount = filteredLeads.filter((l) => l.column_id === mockColumns[mockColumns.length - 1]?.id).length;
+    return filteredLeads.length > 0 ? ((wonCount / filteredLeads.length) * 100).toFixed(1) : "0";
+  }, [filteredLeads]);
 
   return (
     <AppLayout
@@ -137,7 +153,7 @@ export default function ReportsPage() {
           />
           <KPICard
             label="Leads Totais"
-            value={String(mockLeads.length)}
+            value={String(filteredLeads.length)}
             change="+12%"
             positive
             icon={Users}
@@ -300,7 +316,7 @@ export default function ReportsPage() {
                   {leadsByOrigin
                     .sort((a, b) => b.value - a.value)
                     .map((origin, i) => {
-                      const pct = Math.round((origin.value / mockLeads.length) * 100);
+                      const pct = filteredLeads.length > 0 ? Math.round((origin.value / filteredLeads.length) * 100) : 0;
                       return (
                         <div key={origin.name} className="space-y-1">
                           <div className="flex items-center justify-between">
