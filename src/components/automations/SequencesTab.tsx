@@ -81,13 +81,13 @@ export function SequencesTab() {
       {mockSequences.map((seq) => {
         const isExpanded = expandedId === seq.id;
         return (
-          <div key={seq.id} className="bg-card border border-border rounded-lg overflow-hidden hover:border-border-hover transition-colors">
+          <div key={seq.id} className="bg-card ghost-border rounded-xl overflow-hidden hover:border-border-hover transition-colors">
             {/* Header */}
             <button
               onClick={() => setExpandedId(isExpanded ? null : seq.id)}
               className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
             >
-              <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
                 <MessageSquare className="h-4 w-4 text-accent" />
               </div>
               <div className="flex-1 min-w-0">
@@ -140,7 +140,7 @@ export function SequencesTab() {
 
             {/* Steps */}
             {isExpanded && (
-              <div className="border-t border-border px-4 py-3 space-y-0">
+              <div className="ghost-border border-t px-4 py-3 space-y-0">
                 {seq.steps.map((step, i) => {
                   const cfg = stepTypeConfig[step.type];
                   const Icon = cfg.icon;

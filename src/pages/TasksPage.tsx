@@ -126,12 +126,12 @@ export default function TasksPage() {
   }, [newTitle, newLeadId, newDueDate, newPriority, addTask]);
 
   const tableHeader = (
-    <div className="grid grid-cols-[4px_auto_1fr_auto_auto_auto] gap-3 items-center pl-0 pr-4 py-2.5 bg-secondary/50 border-b border-border">
+    <div className="grid grid-cols-[4px_auto_1fr_auto_auto_auto] gap-3 items-center pl-0 pr-4 py-3 bg-secondary/50 ghost-border border-b">
       <span className="w-1" />
       <span className="w-5" />
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tarefa</span>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground w-24 text-center">Status</span>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground w-24 text-center">Prazo</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tarefa</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground w-24 text-center">Status</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground w-24 text-center">Prazo</span>
       <span className="w-7" />
     </div>
   );
@@ -148,12 +148,12 @@ export default function TasksPage() {
       title="Tarefas"
       subtitle="Gerenciamento de tarefas"
       actions={
-        <Button size="sm" className="text-xs gap-1 bg-primary hover:bg-primary-hover text-primary-foreground" onClick={() => setShowNewTask(true)}>
-          <Plus className="h-3 w-3" /> Nova Tarefa
+        <Button size="sm" className="text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg neon-glow" onClick={() => setShowNewTask(true)}>
+          <Plus className="h-3.5 w-3.5" /> Nova Tarefa
         </Button>
       }
     >
-      <div className="p-6 animate-fade-in space-y-5">
+      <div className="p-8 animate-fade-in space-y-6">
         {/* Progress counter */}
         <TaskProgressHeader total={tasks.length} completed={counts.completed} />
 
@@ -170,23 +170,23 @@ export default function TasksPage() {
             <button
               key={key}
               onClick={() => { setSubArea(key); setStatusFilter("all"); }}
-              className={`rounded-lg border p-4 text-left transition-all duration-200 ${
+              className={`rounded-xl ghost-border p-4 text-left transition-all duration-200 ${
                 subArea === key
                   ? key === "overdue" && count > 0
                     ? "border-destructive bg-destructive/5 shadow-md"
-                    : "border-primary bg-primary/5 shadow-md"
-                  : "border-border bg-card hover:border-border-hover hover:shadow-sm"
+                    : "border-primary bg-primary/5 shadow-md neon-glow"
+                  : "bg-card hover:bg-card-hover"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
                 <Icon className={`h-4 w-4 ${
                   subArea === key
                     ? key === "overdue" && count > 0 ? "text-destructive" : "text-primary"
                     : key === "overdue" && count > 0 ? "text-destructive" : "text-muted-foreground"
                 }`} />
               </div>
-              <p className={`text-2xl font-bold ${
+              <p className={`text-2xl font-extrabold tracking-tight ${
                 key === "overdue" && count > 0 ? "text-destructive" : subArea === key ? "text-primary" : "text-foreground"
               }`}>{count}</p>
             </button>
@@ -194,14 +194,14 @@ export default function TasksPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-xs" />
+            <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-xs rounded-lg" />
           </div>
           {(subArea === "mine" || subArea === "by-lead" || subArea === "all" || subArea === "today") && (
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-36 h-9 text-xs rounded-lg"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs">Todos os status</SelectItem>
                 <SelectItem value="pending" className="text-xs">Pendentes</SelectItem>
@@ -211,7 +211,7 @@ export default function TasksPage() {
             </Select>
           )}
           <Select value={userFilter} onValueChange={setUserFilter}>
-            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+            <SelectTrigger className="w-36 h-9 text-xs rounded-lg"><SelectValue placeholder="Responsável" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">Todos</SelectItem>
               {assignees.map((a) => (
@@ -220,7 +220,7 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectTrigger className="w-36 h-9 text-xs rounded-lg"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">Todas prioridades</SelectItem>
               <SelectItem value="low" className="text-xs">🟢 Baixa</SelectItem>
@@ -229,7 +229,7 @@ export default function TasksPage() {
               <SelectItem value="urgent" className="text-xs">🔴 Urgente</SelectItem>
             </SelectContent>
           </Select>
-          <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
+          <Badge variant="outline" className="text-xs text-muted-foreground shrink-0 rounded-lg">
             {filtered.length} tarefa{filtered.length !== 1 ? "s" : ""}
           </Badge>
         </div>
@@ -237,14 +237,14 @@ export default function TasksPage() {
         {/* Task list */}
         {subArea === "by-lead" && groupedByLead ? (
           groupedByLead.length === 0 ? (
-            <div className="bg-card border border-border rounded-lg">{emptyState}</div>
+            <div className="bg-card rounded-xl ghost-border">{emptyState}</div>
           ) : (
             <div className="space-y-4">
               {groupedByLead.map(({ lead, tasks: groupTasks }) => (
-                <div key={lead.id} className="bg-card border border-border rounded-lg overflow-hidden">
+                <div key={lead.id} className="bg-card rounded-xl ghost-border overflow-hidden">
                   <button
                     onClick={() => navigate(`/leads/${lead.id}`)}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-secondary/50 border-b border-border hover:bg-secondary transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-secondary/50 ghost-border border-b hover:bg-secondary transition-colors"
                   >
                     <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
                       {lead.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
@@ -253,7 +253,7 @@ export default function TasksPage() {
                       <p className="text-sm font-semibold text-foreground">{lead.name}</p>
                       <p className="text-[10px] text-muted-foreground">{lead.company || "Sem empresa"}</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px]">{groupTasks.length} tarefa{groupTasks.length !== 1 ? "s" : ""}</Badge>
+                    <Badge variant="outline" className="text-[10px] rounded-lg">{groupTasks.length} tarefa{groupTasks.length !== 1 ? "s" : ""}</Badge>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
                   <div className="divide-y divide-border">
@@ -266,7 +266,7 @@ export default function TasksPage() {
             </div>
           )
         ) : (
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="bg-card rounded-xl ghost-border overflow-hidden">
             {tableHeader}
             {filtered.length === 0 ? emptyState : (
               <div className="divide-y divide-border">
@@ -279,15 +279,15 @@ export default function TasksPage() {
         )}
 
         {/* Coming soon */}
-        <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-4">
-          <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+        <div className="bg-card rounded-xl ghost-border p-5 flex items-center gap-4">
+          <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
             <Clock className="h-4 w-4 text-accent" />
           </div>
           <div className="flex-1">
-            <p className="text-xs font-semibold text-foreground">Recorrência, SLA e automação de tarefas</p>
+            <p className="text-xs font-bold text-foreground">Recorrência, SLA e automação de tarefas</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Em breve: tarefas recorrentes, regras de SLA e criação automática por automações.</p>
           </div>
-          <Badge variant="outline" className="text-[10px] border-accent/40 text-accent shrink-0">Em breve</Badge>
+          <Badge variant="outline" className="text-[10px] border-accent/40 text-accent shrink-0 rounded-lg">Em breve</Badge>
         </div>
       </div>
 
@@ -298,12 +298,12 @@ export default function TasksPage() {
           <div className="space-y-3 mt-2">
             <div>
               <Label className="text-xs">Título *</Label>
-              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Descreva a tarefa" className="mt-1" />
+              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Descreva a tarefa" className="mt-1 rounded-lg" />
             </div>
             <div>
               <Label className="text-xs">Prioridade</Label>
               <Select value={newPriority} onValueChange={setNewPriority}>
-                <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 text-xs rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low" className="text-xs">🟢 Baixa</SelectItem>
                   <SelectItem value="medium" className="text-xs">🔵 Média</SelectItem>
@@ -315,7 +315,7 @@ export default function TasksPage() {
             <div>
               <Label className="text-xs">Vincular ao Lead</Label>
               <Select value={newLeadId} onValueChange={setNewLeadId}>
-                <SelectTrigger className="mt-1 text-xs"><SelectValue placeholder="Selecionar lead (opcional)" /></SelectTrigger>
+                <SelectTrigger className="mt-1 text-xs rounded-lg"><SelectValue placeholder="Selecionar lead (opcional)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" className="text-xs">Nenhum</SelectItem>
                   {leads.map((l) => (
@@ -326,12 +326,12 @@ export default function TasksPage() {
             </div>
             <div>
               <Label className="text-xs">Prazo</Label>
-              <Input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="mt-1" />
+              <Input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="mt-1 rounded-lg" />
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowNewTask(false)}>Cancelar</Button>
-            <Button onClick={handleCreateTask} disabled={!newTitle.trim()}>Criar</Button>
+            <Button variant="outline" onClick={() => setShowNewTask(false)} className="rounded-lg">Cancelar</Button>
+            <Button onClick={handleCreateTask} disabled={!newTitle.trim()} className="rounded-lg">Criar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

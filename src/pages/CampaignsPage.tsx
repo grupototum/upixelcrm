@@ -128,7 +128,7 @@ export default function CampaignsPage() {
           <TabsContent value="roi" className="mt-5 space-y-4">
             <CampaignChart campaigns={filtered} dataKey="revenue" title="Receita por Campanha" />
             <ComingSoonOverlay label="ROI detalhado em breve">
-              <div className="bg-card border border-border rounded-lg p-8">
+              <div className="bg-card ghost-border rounded-xl p-8">
                 <div className="grid grid-cols-3 gap-6 text-center">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ROAS Geral</p>

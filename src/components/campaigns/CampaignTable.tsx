@@ -26,8 +26,8 @@ export function CampaignTable({ campaigns, columns }: CampaignTableProps) {
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-4 px-4 py-2.5 bg-secondary/50 border-b border-border">
+    <div className="bg-card ghost-border rounded-xl overflow-hidden">
+      <div className="flex items-center gap-4 px-4 py-2.5 bg-secondary/50 ghost-border border-b">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">Campanha</span>
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground w-20 text-center">Status</span>
         {show.spend && <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground w-24 text-right">Investido</span>}
@@ -43,7 +43,7 @@ export function CampaignTable({ campaigns, columns }: CampaignTableProps) {
         {campaigns.map((c) => (
           <div key={c.id} className="flex items-center gap-4 px-4 py-3 hover:bg-card-hover transition-colors">
             <div className="min-w-0 flex-1 flex items-center gap-3">
-              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${c.platform === "Meta Ads" ? "bg-primary/10" : "bg-accent/10"}`}>
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${c.platform === "Meta Ads" ? "bg-primary/10" : "bg-accent/10"}`}>
                 <Megaphone className={`h-4 w-4 ${c.platform === "Meta Ads" ? "text-primary" : "text-accent"}`} />
               </div>
               <div className="min-w-0">

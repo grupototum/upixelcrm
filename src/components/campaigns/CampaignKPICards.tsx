@@ -15,10 +15,10 @@ function KPICard({ label, value, icon: Icon, accent }: KPICardProps) {
     destructive: "text-destructive",
   };
   return (
-    <div className="bg-card border border-border rounded-lg p-4">
+    <div className="bg-card ghost-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center">
+        <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
           <Icon className={`h-4 w-4 ${colorMap[accent] ?? "text-muted-foreground"}`} />
         </div>
       </div>

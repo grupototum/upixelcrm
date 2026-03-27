@@ -10,8 +10,8 @@ export function TaskProgressHeader({ total, completed }: TaskProgressHeaderProps
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
-    <div className="flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-3">
-      <div className="h-9 w-9 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+    <div className="flex items-center gap-3 bg-card ghost-border rounded-xl px-4 py-3">
+      <div className="h-9 w-9 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
         <CheckCircle2 className="h-4 w-4 text-success" />
       </div>
       <div className="flex-1 min-w-0">

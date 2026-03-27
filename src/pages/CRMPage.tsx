@@ -141,20 +141,20 @@ export default function CRMPage() {
         <div className="flex items-center gap-2">
           {showSearch ? (
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar leads..."
-                className="h-8 w-56 pl-8 pr-8 text-xs"
+                className="h-8 w-56 pl-9 pr-8 text-xs rounded-full"
               />
               <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} className="absolute right-2 top-1/2 -translate-y-1/2">
                 <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
               </button>
             </div>
           ) : (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowSearch(true)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowSearch(true)}>
               <Search className="h-4 w-4" />
             </Button>
           )}
@@ -168,8 +168,8 @@ export default function CRMPage() {
             hiddenColumnIds={hiddenColumnIds}
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
-          <Button size="sm" className="text-xs gap-1 h-8" onClick={() => handleAddLead(columns[0]?.id ?? "")}>
-            <Plus className="h-3 w-3" /> Novo Lead
+          <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground neon-glow" onClick={() => handleAddLead(columns[0]?.id ?? "")}>
+            <Plus className="h-3.5 w-3.5" /> Novo Lead
           </Button>
         </div>
       }
@@ -184,7 +184,7 @@ export default function CRMPage() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex h-[calc(100vh-3.5rem)] overflow-x-auto p-4 gap-4 animate-fade-in">
+          <div className="flex h-[calc(100vh-4rem)] overflow-x-auto p-6 gap-5 animate-fade-in hide-scrollbar">
             {columns.filter((col) => !hiddenColumnIds.includes(col.id)).map((col) => {
               const colLeads = filteredLeads.filter((l) => l.column_id === col.id);
               return (
@@ -201,8 +201,8 @@ export default function CRMPage() {
               );
             })}
             <div className="shrink-0">
-              <button className="w-48 h-12 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1">
-                <Plus className="h-3 w-3" /> Nova Coluna
+              <button className="w-48 h-12 rounded-xl border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-1.5 font-medium">
+                <Plus className="h-3.5 w-3.5" /> Nova Coluna
               </button>
             </div>
           </div>

@@ -181,7 +181,7 @@ export default function ReportsPage() {
           {/* ─── Conversão por Etapa ─── */}
           <TabsContent value="conversion" className="mt-5 space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+              <div className="bg-card ghost-border rounded-xl p-5 shadow-card">
                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Funil de Conversão</h3>
                 <div className="space-y-3">
                   {conversionData.map((col) => (
@@ -207,7 +207,7 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+              <div className="bg-card ghost-border rounded-xl p-5 shadow-card">
                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Visualização do Funil</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
@@ -230,7 +230,7 @@ export default function ReportsPage() {
 
           {/* ─── Leads por Período ─── */}
           <TabsContent value="leads" className="mt-5">
-            <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+            <div className="bg-card ghost-border rounded-xl p-5 shadow-card">
               <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Volume de Leads por Mês</h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -261,7 +261,7 @@ export default function ReportsPage() {
           {/* ─── Por Origem ─── */}
           <TabsContent value="origin" className="mt-5">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+              <div className="bg-card ghost-border rounded-xl p-5 shadow-card">
                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Distribuição por Origem</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
@@ -294,7 +294,7 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-lg p-5 shadow-card">
+              <div className="bg-card ghost-border rounded-xl p-5 shadow-card">
                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Detalhamento por Origem</h3>
                 <div className="space-y-3">
                   {leadsByOrigin
@@ -378,10 +378,10 @@ function KPICard({
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all hover:border-border-hover">
+    <div className="bg-card ghost-border rounded-xl p-4 shadow-card hover:shadow-card-hover transition-all hover:border-border-hover">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center">
+        <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
           <Icon className={`h-4 w-4 ${colorMap[accent] ?? "text-muted-foreground"}`} />
         </div>
       </div>
@@ -401,7 +401,7 @@ function ComingSoonCard({
   icon: typeof Target; title: string; description: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-lg p-6 flex flex-col items-center text-center shadow-card opacity-70">
+    <div className="bg-card ghost-border rounded-xl p-6 flex flex-col items-center text-center shadow-card opacity-70">
       <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center mb-3">
         <Icon className="h-6 w-6 text-accent" />
       </div>

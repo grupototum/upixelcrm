@@ -107,7 +107,7 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
             <div>
               <Label className="text-xs">Cor</Label>
               <div className="flex items-center gap-2 mt-1">
-                <input type="color" value={columnColor} onChange={(e) => setColumnColor(e.target.value)} className="h-9 w-12 rounded border border-border cursor-pointer" />
+                <input type="color" value={columnColor} onChange={(e) => setColumnColor(e.target.value)} className="h-9 w-12 rounded ghost-border cursor-pointer" />
                 <span className="text-xs text-muted-foreground">{columnColor}</span>
               </div>
             </div>
@@ -187,7 +187,7 @@ function AutomationRuleCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="ghost-border rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-secondary/50">
         <div className="flex items-center gap-3">
@@ -209,7 +209,7 @@ function AutomationRuleCard({
           <p className="text-[10px] font-semibold uppercase tracking-wider text-success mb-2 flex items-center gap-1">
             <Zap className="h-3 w-3" /> Gatilho
           </p>
-          <div className="border border-success/30 bg-success/5 rounded-lg p-3">
+          <div className="border border-success/30 bg-success/5 rounded-xl p-3">
             <Select
               value={rule.trigger.type}
               onValueChange={(type) => onUpdate({ ...rule, trigger: { type } })}
@@ -249,7 +249,7 @@ function AutomationRuleCard({
           </p>
           <div className="space-y-2">
             {rule.actions.map((action, aIdx) => (
-              <div key={action.id} className="border border-primary/30 bg-primary/5 rounded-lg p-3 flex items-start gap-2">
+              <div key={action.id} className="border border-primary/30 bg-primary/5 rounded-xl p-3 flex items-start gap-2">
                 <div className="flex-1 space-y-2">
                   <Select
                     value={action.type}
@@ -358,7 +358,7 @@ function AutomationRuleCard({
           </p>
           <div className="space-y-2">
             {rule.exceptions.map((exc, eIdx) => (
-              <div key={exc.id} className="border border-destructive/30 bg-destructive/5 rounded-lg p-3 flex items-start gap-2">
+              <div key={exc.id} className="border border-destructive/30 bg-destructive/5 rounded-xl p-3 flex items-start gap-2">
                 <div className="flex-1 space-y-2">
                   <Select
                     value={exc.type}
