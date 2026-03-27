@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Play, Puzzle } from "lucide-react";
+import { ArrowLeft, Save, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AutomationCanvas } from "@/components/automations/canvas/AutomationCanvas";
 
@@ -7,19 +7,15 @@ export default function AutomationBuilderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // Em um cenário real, "id" carregaria o estado das automações 
-  // do BD e alimentaria os initialNodes e inicialEdges.
-
   return (
-    <div className="w-full h-screen flex flex-col bg-slate-50 overflow-hidden">
-      {/* Topbar: Modo Tela Cheia de Edição */}
-      <header className="h-16 shrink-0 bg-white border-b px-4 flex items-center justify-between z-20 shadow-sm relative">
+    <div className="w-full h-screen flex flex-col bg-background overflow-hidden">
+      <header className="h-16 shrink-0 bg-card border-b border-border px-4 flex items-center justify-between z-20 shadow-sm relative">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => navigate("/automations?tab=complex")}
-            className="text-muted-foreground hover:bg-slate-100"
+            className="text-muted-foreground hover:bg-secondary"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -38,19 +34,18 @@ export default function AutomationBuilderPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="h-8 gap-2 bg-white">
+          <Button variant="outline" size="sm" className="h-8 gap-2">
             <Play className="h-3.5 w-3.5" />
             Testar Fluxo
           </Button>
-          <Button size="sm" className="h-8 gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+          <Button size="sm" className="h-8 gap-2">
             <Save className="h-3.5 w-3.5" />
             Salvar e Publicar
           </Button>
         </div>
       </header>
 
-      {/* Editor Fullscreen */}
-      <div className="flex-1 w-full bg-slate-50 relative">
+      <div className="flex-1 w-full bg-secondary relative">
         <AutomationCanvas />
       </div>
     </div>

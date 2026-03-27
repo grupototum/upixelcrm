@@ -32,7 +32,6 @@ import { LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
-// Mapeamento Extendido
 const nodeTypes: NodeTypes = {
   trigger: TriggerNode,
   action: ActionNode,
@@ -43,7 +42,6 @@ const nodeTypes: NodeTypes = {
   webhook: WebhookNode,
 };
 
-// Limpo para o Drag & Drop Test
 const initialNodes: Node[] = [
   {
     id: '1',
@@ -55,12 +53,10 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [];
 
-// Instância do Dagre para Auto-layout
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
-  const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
@@ -93,7 +89,7 @@ function CanvasFlow() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, getNode, getNodes, deleteElements } = useReactFlow();
+  const { screenToFlowPosition, getNode, deleteElements } = useReactFlow();
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
@@ -107,11 +103,7 @@ function CanvasFlow() {
   );
 
   const organizeLayout = useCallback(() => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodes,
-      edges,
-      'LR'
-    );
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'LR');
     setNodes([...layoutedNodes]);
     setEdges([...layoutedEdges]);
     toast.success("Fluxo organizado automaticamente!");
@@ -133,14 +125,9 @@ function CanvasFlow() {
   const onDrop = useCallback(
     (event: DragEvent) => {
       event.preventDefault();
-
       const type = event.dataTransfer.getData('application/reactflow');
       const label = event.dataTransfer.getData('application/reactflow-label');
-
-      // Verifica se o tipo lançado é válido
-      if (typeof type === 'undefined' || !type) {
-        return;
-      }
+      if (typeof type === 'undefined' || !type) return;
 
       const position = screenToFlowPosition({
         x: event.clientX,
@@ -161,16 +148,16 @@ function CanvasFlow() {
   );
   
   const handleKeyboardDelete = useCallback((nodeId: string) => {
-      const nodeToRemove = getNode(nodeId);
-      if(nodeToRemove) {
-          deleteElements({ nodes: [nodeToRemove] });
-          setSelectedNodeId(null);
-          toast.success("Módulo excluído.");
-      }
+    const nodeToRemove = getNode(nodeId);
+    if (nodeToRemove) {
+      deleteElements({ nodes: [nodeToRemove] });
+      setSelectedNodeId(null);
+      toast.success("Módulo excluído.");
+    }
   }, [getNode, deleteElements]);
 
   return (
-    <div className="flex w-full h-full bg-slate-100" ref={reactFlowWrapper}>
+    <div className="flex w-full h-full bg-secondary" ref={reactFlowWrapper}>
       <NodesPalette />
       
       <div className="flex-1 relative">
@@ -193,11 +180,11 @@ function CanvasFlow() {
             style: { strokeWidth: 2 }
           }}
         >
-          <Background color="#cbd5e1" gap={20} size={1.5} />
+          <Background color="hsl(var(--muted-foreground) / 0.3)" gap={20} size={1.5} />
           <Controls />
           <MiniMap style={{ borderRadius: 8, overflow: 'hidden' }} zoomable pannable />
           
-          <Panel position="top-center" className="flex gap-2 bg-white/50 p-1.5 rounded-full backdrop-blur-md shadow-sm border border-white/60">
+          <Panel position="top-center" className="flex gap-2 bg-card/50 p-1.5 rounded-full backdrop-blur-md shadow-sm border border-border">
             <Button onClick={organizeLayout} variant="secondary" size="sm" className="gap-2 shadow-sm font-medium rounded-full px-4 text-xs h-8">
               <LayoutGrid className="w-3.5 h-3.5" />
               Auto-Mágica
