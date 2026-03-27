@@ -10,6 +10,7 @@ import upixelIconLight from "@/assets/upixel_icon_light.png";
 import upixelIconDark from "@/assets/upixel_icon_dark.png";
 
 export default function LoginPage() {
+  const { theme } = useTheme();
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
