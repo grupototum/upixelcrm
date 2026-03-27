@@ -59,16 +59,24 @@ export default function DashboardPage() {
     warning: "text-warning",
   };
 
+  const accentBgMap: Record<string, string> = {
+    primary: "bg-primary/10",
+    success: "bg-success/10",
+    accent: "bg-accent/10",
+    destructive: "bg-destructive/10",
+    warning: "bg-warning/10",
+  };
+
   if (loading) {
     return (
       <AppLayout title="Dashboard" subtitle="Visão geral da operação">
-        <div className="p-6 space-y-6">
+        <div className="p-8 space-y-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4 shadow-card space-y-3">
+              <div key={i} className="bg-card rounded-xl ghost-border p-5 space-y-3">
                 <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-7 w-14" />
-                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-3 w-14" />
               </div>
             ))}
           </div>
@@ -79,19 +87,22 @@ export default function DashboardPage() {
 
   return (
     <AppLayout title="Dashboard" subtitle="Visão geral da operação">
-      <div className="p-6 space-y-6 animate-fade-in">
+      <div className="p-8 space-y-8 animate-fade-in">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {stats.map((s) => (
-            <div key={s.label} className="bg-card border border-border rounded-lg p-4 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{s.label}</span>
-                <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center">
+            <div key={s.label} className="bg-card rounded-xl ghost-border p-5 hover:shadow-card-hover transition-all duration-200 group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                <s.icon className="h-16 w-16" />
+              </div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{s.label}</span>
+                <div className={`h-8 w-8 rounded-lg ${accentBgMap[s.accent]} flex items-center justify-center`}>
                   <s.icon className={`h-4 w-4 ${accentColorMap[s.accent] ?? "text-muted-foreground"}`} />
                 </div>
               </div>
-              <span className="text-2xl font-bold text-foreground block">{s.value}</span>
-              <span className={`text-[11px] font-medium flex items-center gap-0.5 mt-1 ${s.up ? "text-success" : "text-muted-foreground"}`}>
+              <span className="text-3xl font-extrabold text-foreground block tracking-tight">{s.value}</span>
+              <span className={`text-[11px] font-semibold flex items-center gap-0.5 mt-1.5 ${s.up ? "text-success" : "text-muted-foreground"}`}>
                 {s.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 {s.change}
               </span>
@@ -102,13 +113,13 @@ export default function DashboardPage() {
         {/* Coming Soon */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {comingSoonCards.map((c) => (
-            <div key={c.label} className="bg-card border border-border rounded-lg p-4 shadow-card relative overflow-hidden opacity-70">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{c.label}</span>
+            <div key={c.label} className="bg-card rounded-xl ghost-border p-5 relative overflow-hidden opacity-60">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{c.label}</span>
                 <ComingSoonBadge />
               </div>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
                   <c.icon className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
@@ -128,9 +139,9 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Pipeline Summary */}
-          <div className="lg:col-span-2 bg-card border border-border rounded-lg p-5 shadow-card">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Resumo do Pipeline</h2>
-            <div className="space-y-3">
+          <div className="lg:col-span-2 bg-card rounded-xl ghost-border p-6">
+            <h2 className="text-sm font-bold text-foreground mb-5 tracking-tight">Resumo do Pipeline</h2>
+            <div className="space-y-4">
               {columns.map((col) => {
                 const count = leads.filter((l) => l.column_id === col.id).length;
                 const total = leads.length;
@@ -138,24 +149,24 @@ export default function DashboardPage() {
                 return (
                   <div key={col.id} className="flex items-center gap-3">
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                    <span className="text-sm text-foreground w-32 truncate">{col.name}</span>
-                    <div className="flex-1 bg-secondary rounded-full h-2.5 overflow-hidden">
-                      <div className="h-2.5 rounded-full transition-all duration-700 ease-out" style={{ width: `${pct}%`, backgroundColor: col.color }} />
+                    <span className="text-sm text-foreground w-32 truncate font-medium">{col.name}</span>
+                    <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                      <div className="h-2 rounded-full transition-all duration-700 ease-out" style={{ width: `${pct}%`, backgroundColor: col.color }} />
                     </div>
-                    <span className="text-sm font-semibold text-foreground w-8 text-right">{count}</span>
+                    <span className="text-sm font-bold text-foreground w-8 text-right">{count}</span>
                   </div>
                 );
               })}
             </div>
-            <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+            <div className="mt-5 pt-4 ghost-border border-t flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Total no pipeline</span>
               <span className="text-sm font-bold text-foreground">{leads.length} leads</span>
             </div>
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-card border border-border rounded-lg p-5 shadow-card">
-            <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <div className="bg-card rounded-xl ghost-border p-6">
+            <h2 className="text-sm font-bold text-foreground mb-5 flex items-center gap-2 tracking-tight">
               <Activity className="h-4 w-4 text-primary" /> Atividades Recentes
             </h2>
             <div className="space-y-3">
@@ -180,9 +191,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Pending Tasks */}
-        <div className="bg-card border border-border rounded-lg p-5 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-foreground">Tarefas Pendentes</h2>
+        <div className="bg-card rounded-xl ghost-border p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-sm font-bold text-foreground tracking-tight">Tarefas Pendentes</h2>
             <span className="text-[11px] text-muted-foreground">{tasks.filter(t => t.status !== "completed").length} pendentes</span>
           </div>
           <div className="space-y-2">
@@ -193,7 +204,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className={`h-2 w-2 rounded-full shrink-0 ${task.status === "overdue" ? "bg-destructive animate-pulse" : "bg-accent"}`} />
                     <div>
-                      <span className="text-sm text-foreground">{task.title}</span>
+                      <span className="text-sm text-foreground font-medium">{task.title}</span>
                       {lead && <p className="text-[11px] text-muted-foreground mt-0.5">{lead.name} · {lead.company}</p>}
                     </div>
                   </div>
