@@ -65,7 +65,7 @@ export function RulesTab() {
           return (
             <div
               key={auto.id}
-              className="bg-card ghost-border rounded-xl p-5 hover:border-border-hover transition-colors"
+              className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200"
             >
               {/* Header */}
               <div className="flex items-start justify-between mb-4">

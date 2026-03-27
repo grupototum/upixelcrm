@@ -42,7 +42,7 @@ export default function IntegrationsPage() {
       <div className="p-6 space-y-8 animate-fade-in">
         {/* Canais */}
         <div>
-          <h2 className="text-sm font-semibold text-foreground mb-3">Canais de comunicação</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Canais de comunicação</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {channels.map((int) => (
               <IntegrationCard key={int.id} integration={int} active={activeToggles[int.id] ?? false} onToggle={(v) => setActiveToggles(p => ({ ...p, [int.id]: v }))} />
@@ -52,7 +52,7 @@ export default function IntegrationsPage() {
 
         {/* Developer & Email */}
         <div>
-          <h2 className="text-sm font-semibold text-foreground mb-3">Ferramentas e APIs</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Ferramentas e APIs</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {devTools.map((int) => (
               <IntegrationCard key={int.id} integration={int} active={activeToggles[int.id] ?? false} onToggle={(v) => setActiveToggles(p => ({ ...p, [int.id]: v }))} />
@@ -68,9 +68,9 @@ function IntegrationCard({ integration: int, active, onToggle }: { integration: 
   const isAvailable = int.status !== "coming_soon";
 
   return (
-    <div className="bg-card ghost-border rounded-xl p-5 hover:border-border-hover transition-colors flex flex-col">
+    <div className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200 flex flex-col">
       <div className="flex items-start justify-between mb-3">
-        <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center">
+        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
           <int.icon className={`h-5 w-5 ${int.color}`} />
         </div>
         <StatusBadge status={int.status} />
