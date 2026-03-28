@@ -47,6 +47,7 @@ export default function IntegrationsPage() {
     if (id === "api") setApiModalOpen(true);
     if (id === "webhook") setWebhookModalOpen(true);
     if (id === "google") navigate("/google");
+    if (id === "whatsapp") navigate("/whatsapp");
   };
 
   return (
