@@ -22,6 +22,7 @@ import LeadProfilePage from "./pages/LeadProfilePage";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import AutomationBuilderPage from "./pages/AutomationBuilderPage";
+import GooglePage from "./pages/GooglePage";
 
 const queryClient = new QueryClient();
 
