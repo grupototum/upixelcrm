@@ -35,6 +35,7 @@ function StatusBadge({ status }: { status: Integration["status"] }) {
 }
 
 export default function IntegrationsPage() {
+  const navigate = useNavigate();
   const [activeToggles, setActiveToggles] = useState<Record<string, boolean>>({ webhook: true, api: true });
   const [apiModalOpen, setApiModalOpen] = useState(false);
   const [webhookModalOpen, setWebhookModalOpen] = useState(false);
