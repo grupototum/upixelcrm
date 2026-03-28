@@ -22,6 +22,7 @@ const navItems = [
   { title: "Inteligência", url: "/intelligence", icon: Brain },
   { title: "Campanhas", url: "/campaigns", icon: Megaphone },
   { title: "Relatórios", url: "/reports", icon: BarChart3 },
+  { title: "Google", url: "/google", icon: Globe },
   { title: "Integrações", url: "/integrations", icon: Plug },
   { title: "Importação", url: "/import", icon: Upload },
   { title: "Usuários", url: "/users", icon: Users },
