@@ -22,7 +22,7 @@ interface Integration {
 const integrations: Integration[] = [
   { id: "whatsapp", name: "WhatsApp Business", description: "Conecte sua conta do WhatsApp Business para atender leads diretamente pelo uPixel.", icon: MessageCircle, color: "text-success", status: "coming_soon", category: "channel" },
   { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "coming_soon", category: "channel" },
-  { id: "google", name: "Google", description: "Integre com Google Ads, Sheets e Calendar para sincronizar dados.", icon: Globe, color: "text-blue-500", status: "coming_soon", category: "channel" },
+  { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "connected", category: "channel" },
   { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "connected", color: "text-accent", category: "developer" },
   { id: "api", name: "API uPixel", description: "Acesse a API REST do uPixel para integrações personalizadas.", icon: Code, status: "connected", color: "text-primary", category: "developer" },
   { id: "smtp", name: "E-mail (SMTP)", description: "Configure envio de e-mails transacionais e notificações pelo sistema.", icon: Mail, status: "coming_soon", color: "text-muted-foreground", category: "email" },
