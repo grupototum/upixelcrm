@@ -23,6 +23,7 @@ import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import AutomationBuilderPage from "./pages/AutomationBuilderPage";
 import GooglePage from "./pages/GooglePage";
+import WhatsAppPage from "./pages/WhatsAppPage";
 
 const queryClient = new QueryClient();
 
