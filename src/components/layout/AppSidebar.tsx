@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
-  BarChart3, Plug, Upload, Users, Plus, HelpCircle, LogOut,
+  BarChart3, Globe, Plug, Upload, Users, Plus, HelpCircle, LogOut,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
