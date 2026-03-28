@@ -46,6 +46,7 @@ export default function IntegrationsPage() {
   const handleConfigure = (id: string) => {
     if (id === "api") setApiModalOpen(true);
     if (id === "webhook") setWebhookModalOpen(true);
+    if (id === "google") navigate("/google");
   };
 
   return (
