@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
@@ -21,7 +22,7 @@ interface Integration {
 const integrations: Integration[] = [
   { id: "whatsapp", name: "WhatsApp Business", description: "Conecte sua conta do WhatsApp Business para atender leads diretamente pelo uPixel.", icon: MessageCircle, color: "text-success", status: "coming_soon", category: "channel" },
   { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "coming_soon", category: "channel" },
-  { id: "google", name: "Google", description: "Integre com Google Ads, Sheets e Calendar para sincronizar dados.", icon: Globe, color: "text-blue-500", status: "coming_soon", category: "channel" },
+  { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "connected", category: "channel" },
   { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "connected", color: "text-accent", category: "developer" },
   { id: "api", name: "API uPixel", description: "Acesse a API REST do uPixel para integrações personalizadas.", icon: Code, status: "connected", color: "text-primary", category: "developer" },
   { id: "smtp", name: "E-mail (SMTP)", description: "Configure envio de e-mails transacionais e notificações pelo sistema.", icon: Mail, status: "coming_soon", color: "text-muted-foreground", category: "email" },
@@ -34,6 +35,7 @@ function StatusBadge({ status }: { status: Integration["status"] }) {
 }
 
 export default function IntegrationsPage() {
+  const navigate = useNavigate();
   const [activeToggles, setActiveToggles] = useState<Record<string, boolean>>({ webhook: true, api: true });
   const [apiModalOpen, setApiModalOpen] = useState(false);
   const [webhookModalOpen, setWebhookModalOpen] = useState(false);
@@ -44,6 +46,7 @@ export default function IntegrationsPage() {
   const handleConfigure = (id: string) => {
     if (id === "api") setApiModalOpen(true);
     if (id === "webhook") setWebhookModalOpen(true);
+    if (id === "google") navigate("/google");
   };
 
   return (
