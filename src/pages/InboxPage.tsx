@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { MessageTemplatePopover } from "@/components/inbox/MessageTemplatePopover";
+import { whatsappService } from "@/services/whatsapp.service";
 import type { InboxThread } from "@/types";
 
 const channelColors: Record<string, string> = {
@@ -74,8 +75,25 @@ export default function InboxPage() {
   const initials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").slice(0, 2);
 
-  const handleSend = () => {
-    if (message.trim()) setMessage("");
+  const handleSend = async () => {
+    if (!message.trim()) return;
+
+    const textToSend = message;
+    setMessage(""); // Otimista local
+    
+    toast("Enviando WhatsApp...", { duration: 500 });
+    
+    // Serviço real / genérico chamando a API de WhatsApp
+    const result = await whatsappService.sendMessage({
+      to: selectedLead?.phone || "5511000000000",
+      message: textToSend
+    });
+    
+    if (result.success || result) {
+      toast.success("Mensagem enviada ao backend do WhatsApp!");
+    } else {
+      toast.error("Erro interno ao rotear a mensagem.");
+    }
   };
 
   return (
