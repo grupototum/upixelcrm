@@ -1,6 +1,6 @@
 import {
-  LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
-  BarChart3, Globe, Plug, Upload, Users, Plus, HelpCircle, LogOut,
+  LayoutDashboard, MessageSquare, Kanban, Users, CheckSquare, Zap, Brain, Megaphone,
+  BarChart3, Plug, Upload, Settings, Plus, HelpCircle, LogOut,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
@@ -17,15 +17,15 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "CRM", url: "/crm", icon: Kanban },
+  { title: "Contatos", url: "/contacts", icon: Users },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Automações", url: "/automations", icon: Zap },
   { title: "Inteligência", url: "/intelligence", icon: Brain },
   { title: "Campanhas", url: "/campaigns", icon: Megaphone },
   { title: "Relatórios", url: "/reports", icon: BarChart3 },
-  { title: "Google", url: "/google", icon: Globe },
   { title: "Integrações", url: "/integrations", icon: Plug },
   { title: "Importação", url: "/import", icon: Upload },
-  { title: "Usuários", url: "/users", icon: Users },
+  { title: "Usuários", url: "/users", icon: Settings },
 ];
 
 export function AppSidebar() {
