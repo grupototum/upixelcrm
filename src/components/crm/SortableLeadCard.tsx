@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Building, Phone, Mail, User, Tag } from "lucide-react";
+import { GripVertical, Building, Phone, Mail, User, Tag, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { Lead } from "@/types";
 
 export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  const navigate = useNavigate();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: { type: "lead", lead },
@@ -23,8 +26,18 @@ export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () =>
       >
         <div className="flex items-start justify-between mb-1.5">
           <h4 className="text-sm font-medium text-foreground truncate flex-1">{lead.name}</h4>
-          <div className="shrink-0 ml-1">
-            <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="shrink-0 flex items-center gap-1.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/automations", { state: { tab: "time_actions" } });
+              }}
+              className="text-muted-foreground hover:text-accent p-0.5"
+              title="Ações de Tempo"
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
         {lead.company && (
