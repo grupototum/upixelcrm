@@ -116,7 +116,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
                   </Label>
                   <Select
                     value={automation.trigger.type}
-                    onValueChange={(type) => handleUpdate({ trigger: { type } })}
+                    onValueChange={(type) => handleUpdate({ trigger: { type: type as AutomationTrigger["type"] } })}
                   >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue />
