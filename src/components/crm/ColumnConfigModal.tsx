@@ -337,7 +337,7 @@ function AutomationRuleCard({
                     value={action.type}
                     onValueChange={(type) => {
                       const updated = [...rule.actions];
-                      updated[aIdx] = { ...action, type };
+                      updated[aIdx] = { ...action, type: type as AutomationAction["type"] };
                       onUpdate({ ...rule, actions: updated });
                     }}
                   >
