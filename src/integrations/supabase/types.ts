@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      automation_rules: {
+        Row: {
+          actions: Json
+          active: boolean
+          client_id: string
+          column_id: string | null
+          created_at: string
+          exceptions: Json
+          id: string
+          name: string
+          pipeline_id: string | null
+          trigger: Json
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          active?: boolean
+          client_id?: string
+          column_id?: string | null
+          created_at?: string
+          exceptions?: Json
+          id?: string
+          name?: string
+          pipeline_id?: string | null
+          trigger?: Json
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          active?: boolean
+          client_id?: string
+          column_id?: string | null
+          created_at?: string
+          exceptions?: Json
+          id?: string
+          name?: string
+          pipeline_id?: string | null
+          trigger?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       automations: {
         Row: {
           client_id: string
