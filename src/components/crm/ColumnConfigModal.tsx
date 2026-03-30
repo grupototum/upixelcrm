@@ -360,7 +360,7 @@ function AutomationRuleCard({
 
                   {(action.type === "add_tag" || action.type === "remove_tag") && (
                     <Input
-                      value={action.config?.tag ?? ""}
+                      value={(action.config?.tag as string) ?? ""}
                       onChange={(e) => {
                         const updated = [...rule.actions];
                         updated[aIdx] = { ...action, config: { tag: e.target.value } };
