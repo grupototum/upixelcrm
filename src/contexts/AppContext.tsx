@@ -397,7 +397,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [automations]);
 
   const deleteBasicAutomation = useCallback(async (id: string) => {
-    const { error } = await supabase.from("automation_rules").delete().eq("id", id);
+    const { error } = await (supabase.from as any)("automation_rules").delete().eq("id", id);
     if (error) { console.error(error); toast.error("Erro ao excluir"); return; }
     setAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação removida");
