@@ -161,7 +161,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
 
                         {action.type === "add_tag" && (
                           <Input 
-                            value={action.config?.tag || ""} 
+                            value={(action.config?.tag as string) || ""} 
                             onChange={(e) => {
                               const newActions = [...automation.actions];
                               newActions[idx] = { ...action, config: { tag: e.target.value } };
