@@ -143,7 +143,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
                           value={action.type}
                           onValueChange={(type) => {
                             const newActions = [...automation.actions];
-                            newActions[idx] = { ...action, type };
+                            newActions[idx] = { ...action, type: type as AutomationAction["type"] };
                             handleUpdate({ actions: newActions });
                           }}
                         >
