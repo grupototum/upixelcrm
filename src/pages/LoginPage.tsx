@@ -11,7 +11,7 @@ import upixelIconDark from "@/assets/upixel_icon_dark.png";
 
 export default function LoginPage() {
   const { theme } = useTheme();
-  const { login, signup, loginAsDemo, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isSignup, setIsSignup] = useState(false);
   const [name, setName] = useState("");
@@ -170,30 +170,10 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="pt-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Acesso Rápido</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="text-[10px] h-9 rounded-xl border-primary/20 hover:bg-primary/5 gap-2"
-                onClick={() => loginAsDemo("demo").then(() => navigate("/"))}
-              >
-                <div className="h-1.5 w-1.5 rounded-full bg-primary" /> Login Demo
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="text-[10px] h-9 rounded-xl border-accent/20 hover:bg-accent/5 gap-2"
-                onClick={() => loginAsDemo("master").then(() => navigate("/"))}
-              >
-                <div className="h-1.5 w-1.5 rounded-full bg-accent" /> Login Master
-              </Button>
-            </div>
+          <div className="pt-4">
+            <p className="text-center text-[10px] text-muted-foreground">
+              Use suas credenciais para acessar o sistema
+            </p>
           </div>
         </form>
       </div>
