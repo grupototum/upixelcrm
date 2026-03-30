@@ -462,7 +462,7 @@ function AutomationRuleCard({
                   </Select>
                   {exc.type === "has_tag" && (
                     <Input
-                      value={exc.config?.tag ?? ""}
+                      value={(exc.config?.tag as string) ?? ""}
                       onChange={(e) => {
                         const updated = [...rule.exceptions];
                         updated[eIdx] = { ...exc, config: { tag: e.target.value } };

@@ -174,7 +174,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
 
                         {action.type === "move_column" && (
                           <Select
-                            value={action.config?.column || ""}
+                            value={(action.config?.column as string) || ""}
                             onValueChange={(val) => {
                                 const newActions = [...automation.actions];
                                 newActions[idx] = { ...action, config: { column: val } };

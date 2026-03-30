@@ -523,7 +523,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, updateColumn, deleteColumn, addTimelineEvent, 
       createAutomation, updateAutomationNodes, deleteAutomation,
-      toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation,
+      toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
       addGlobalTag, deleteGlobalTag,
       refreshData: fetchAll,
     }}>
