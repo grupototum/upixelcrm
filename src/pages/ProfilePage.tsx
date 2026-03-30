@@ -117,7 +117,7 @@ export default function ProfilePage() {
                     <p className="text-sm font-semibold">Excluir Conta</p>
                     <p className="text-xs text-muted-foreground">Isso apagará todos os seus dados e não poderá ser desfeito.</p>
                   </div>
-                  <Button variant="destructive" outline className="rounded-xl h-10 px-6">Excluir Conta</Button>
+                  <Button variant="outline" className="rounded-xl h-10 px-6 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">Excluir Conta</Button>
                 </div>
               </CardContent>
             </Card>
