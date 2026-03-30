@@ -373,7 +373,7 @@ function AutomationRuleCard({
 
                   {action.type === "move_column" && (
                     <Select
-                      value={action.config?.column ?? ""}
+                      value={(action.config?.column as string) ?? ""}
                       onValueChange={(column) => {
                         const updated = [...rule.actions];
                         updated[aIdx] = { ...action, config: { column } };
