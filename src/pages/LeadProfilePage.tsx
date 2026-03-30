@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
 import { mockThreads, mockMessages } from "@/lib/mock-data";
+import { AddTagModal } from "@/components/crm/AddTagModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,7 @@ const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string
 export default function LeadProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { leads, columns, tasks, timeline, updateLead, deleteLead, addTask, toggleTaskStatus, addTimelineEvent } = useAppState();
+  const { leads, columns, tasks, timeline, automations: contextAutomations, toggleBasicAutomation, updateLead, deleteLead, addTask, toggleTaskStatus, addTimelineEvent } = useAppState();
 
   const [activeTab, setActiveTab] = useState("dados");
   const [newNote, setNewNote] = useState("");
@@ -68,29 +69,15 @@ export default function LeadProfilePage() {
   const [newFieldKey, setNewFieldKey] = useState("");
   const [newFieldValue, setNewFieldValue] = useState("");
 
-  // Automations
-  const [automations, setAutomations] = useState<Array<{ id: string; name: string; trigger: string; active: boolean }>>(() => {
-    try {
-      const raw = localStorage.getItem(`totum_automations_${id}`);
-    } catch (e) { 
-      console.warn("Failed to load automations", e);
-    }
-    return [
-      { id: "a1", name: "Boas-vindas automática", trigger: "Ao entrar na coluna", active: true },
-      { id: "a2", name: "Follow-up 24h", trigger: "Após 24h sem resposta", active: true },
-      { id: "a3", name: "Alerta de inatividade", trigger: "Após 72h sem interação", active: false },
-      { id: "a4", name: "Mover para Perdido", trigger: "Após 7 dias sem resposta", active: false },
-    ];
-  });
-
-  const toggleAutomation = (autoId: string) => {
-    const updated = automations.map(a => a.id === autoId ? { ...a, active: !a.active } : a);
-    setAutomations(updated);
-    localStorage.setItem(`totum_automations_${id}`, JSON.stringify(updated));
-  };
+  const [showTagModal, setShowTagModal] = useState(false);
 
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
+  
+  // Real automations for this lead's pipeline/column
+  const leadAutomations = useMemo(() => {
+    return contextAutomations.filter(a => a.pipeline_id === column?.pipeline_id || a.column_id === column?.id);
+  }, [contextAutomations, column]);
   const leadTimeline = useMemo(() => timeline.filter((e) => e.lead_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [id, timeline]);
   const leadTasks = useMemo(() => tasks.filter((t) => t.lead_id === id), [id, tasks]);
   const threads = useMemo(() => mockThreads.filter((t) => t.lead_id === id), [id]);
@@ -207,13 +194,7 @@ export default function LeadProfilePage() {
           <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => navigate("/inbox")}>
             <MessageSquare className="h-3 w-3" /> Enviar mensagem
           </Button>
-          <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => {
-            const newTag = prompt("Nome da tag:");
-            if (newTag && newTag.trim()) {
-              const updatedTags = [...lead.tags, newTag.trim()];
-              updateLead(lead.id, { tags: updatedTags });
-            }
-          }}>
+          <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => setShowTagModal(true)}>
             <Tag className="h-3 w-3" /> Adicionar tag
           </Button>
         </div>
@@ -486,31 +467,44 @@ export default function LeadProfilePage() {
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center justify-between">
                 <p className="text-xs font-semibold">Automações vinculadas</p>
-                <Button variant="outline" size="sm" className="text-xs gap-1 h-7"><Plus className="h-3 w-3" /> Nova automação</Button>
+                <Button variant="outline" size="sm" className="text-xs gap-1 h-7" onClick={() => navigate("/settings?tab=automations")}><Plus className="h-3 w-3" /> Nova automação</Button>
               </div>
-              {automations.map((auto) => (
-                <div key={auto.id} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0 hover:bg-card-hover transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Zap className={`h-4 w-4 ${auto.active ? "text-warning" : "text-muted-foreground"}`} />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{auto.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{auto.trigger}</p>
+              {leadAutomations.map((auto) => {
+                let friendlyTrigger = "Gatilho customizado";
+                if (auto.trigger.type === "card_entered") friendlyTrigger = "Ao entrar na coluna";
+                if (auto.trigger.type === "time_in_column") friendlyTrigger = `Após ${auto.trigger.config?.hours || 24}h na coluna`;
+                if (auto.trigger.type === "stage_changed") friendlyTrigger = "Ao mudar de estágio";
+
+                return (
+                  <div key={auto.id} className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0 hover:bg-card-hover transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Zap className={`h-4 w-4 ${auto.active ? "text-warning" : "text-muted-foreground"}`} />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{auto.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{friendlyTrigger}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={`text-[10px] ${auto.active ? "border-success/40 text-success" : "border-border text-muted-foreground"}`}>
+                        {auto.active ? "Ativa" : "Inativa"}
+                      </Badge>
+                      <button 
+                        className="h-5 w-9 rounded-full transition-colors relative flex items-center px-0.5" 
+                        style={{ backgroundColor: auto.active ? "hsl(var(--success))" : "hsl(var(--secondary))" }}
+                        onClick={() => toggleBasicAutomation(auto.id)}
+                      >
+                        <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${auto.active ? "translate-x-4" : "translate-x-0"}`} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={`text-[10px] ${auto.active ? "border-success/40 text-success" : "border-border text-muted-foreground"}`}>
-                      {auto.active ? "Ativa" : "Inativa"}
-                    </Badge>
-                    <button 
-                      className="h-5 w-9 rounded-full transition-colors relative flex items-center px-0.5" 
-                      style={{ backgroundColor: auto.active ? "hsl(var(--success))" : "hsl(var(--secondary))" }}
-                        onClick={() => toggleAutomation(auto.id)}
-                    >
-                      <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${auto.active ? "translate-x-4" : "translate-x-0"}`} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+              {leadAutomations.length === 0 && (
+                 <div className="p-6 text-center text-muted-foreground">
+                   <Zap className="h-6 w-6 mx-auto mb-2 opacity-30" />
+                   <p className="text-xs font-medium">Nenhuma automação vinculada a essa etapa.</p>
+                 </div>
+              )}
             </div>
             <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-4">
               <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
@@ -546,6 +540,11 @@ export default function LeadProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Tag Modal */}
+      {id && (
+        <AddTagModal open={showTagModal} onOpenChange={setShowTagModal} leadId={id} />
+      )}
     </AppLayout>
   );
 }
