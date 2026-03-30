@@ -16,7 +16,7 @@ interface AddTagModalProps {
 }
 
 export function AddTagModal({ open, onOpenChange, leadId }: AddTagModalProps) {
-  const { leads, updateLead } = useAppState();
+  const { leads, updateLead, globalTags } = useAppState();
   const [newTag, setNewTag] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -99,6 +99,26 @@ export function AddTagModal({ open, onOpenChange, leadId }: AddTagModalProps) {
               ))}
               {currentTags.length === 0 && (
                 <p className="text-[11px] text-muted-foreground italic flex items-center justify-center w-full">Nenhuma tag cadastrada</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground pl-1">
+              Tags Sugeridas
+            </Label>
+            <div className="flex flex-wrap gap-1.5 p-3 rounded-xl bg-secondary/5 min-h-[40px]">
+              {globalTags.filter(t => !currentTags.includes(t)).map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => handleAddTag(tag)}
+                  className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-card border border-border/40 hover:bg-primary/10 hover:border-primary/30 transition-all text-muted-foreground hover:text-primary"
+                >
+                  + {tag}
+                </button>
+              ))}
+              {globalTags.filter(t => !currentTags.includes(t)).length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic flex items-center justify-center w-full">Sem sugestões</p>
               )}
             </div>
           </div>

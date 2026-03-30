@@ -24,6 +24,8 @@ import NotFound from "./pages/NotFound";
 import AutomationBuilderPage from "./pages/AutomationBuilderPage";
 import GooglePage from "./pages/GooglePage";
 import WhatsAppPage from "./pages/WhatsAppPage";
+import ProfilePage from "./pages/ProfilePage";
+import SecurityPage from "./pages/SecurityPage";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +55,8 @@ const App = () => (
                 <Route path="/whatsapp" element={<ProtectedRoute><WhatsAppPage /></ProtectedRoute>} />
                 <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
                 <Route path="/users" element={<ProtectedRoute requiredPermission="users.view"><UsersPage /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mockAutomations } from "@/lib/mock-data";
 import type { Lead, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
@@ -13,6 +13,7 @@ interface AppState {
   automations: Automation[];
   complexAutomations: ComplexAutomation[];
   timeline: TimelineEvent[];
+  globalTags: string[];
   loading: boolean;
 
   addLead: (data: Partial<Lead>, columnId: string) => Promise<Lead | null>;
@@ -37,6 +38,9 @@ interface AppState {
   deleteBasicAutomation: (id: string) => Promise<void>;
   addBasicAutomation: (data: Partial<Automation>) => Promise<void>;
 
+  addGlobalTag: (tag: string) => Promise<void>;
+  deleteGlobalTag: (tag: string) => Promise<void>;
+
   refreshData: () => Promise<void>;
 }
 
@@ -55,7 +59,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [automations, setAutomations] = useState<Automation[]>(mockAutomations);
   const [complexAutomations, setComplexAutomations] = useState<ComplexAutomation[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [globalTags, setGlobalTags] = useState<string[]>(["Hot", "Warm", "Cold", "Enterprise", "Agência"]);
   const [loading, setLoading] = useState(true);
+
+  const executeAutomationsRef = useRef<((leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => Promise<void>) | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -93,35 +100,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data) setTimeline((prev) => [mapTimeline(data), ...prev]);
   }, []);
 
-  const addLead = useCallback(async (data: Partial<Lead>, columnId: string): Promise<Lead | null> => {
-    const { data: row, error } = await supabase.from("leads").insert({
-      name: data.name ?? "",
-      phone: data.phone || null,
-      email: data.email || null,
-      company: data.company || null,
-      position: data.position || null,
-      city: data.city || null,
-      origin: data.origin || "Manual",
-      tags: data.tags ?? [],
-      column_id: columnId,
-      value: data.value ?? null,
-    }).select().single();
-
-    if (error) { console.error(error); toast.error("Erro ao criar lead"); return null; }
-    const newLead = mapLead(row);
-    setLeads((prev) => [newLead, ...prev]);
-
-    await addTimelineEvent({
-      lead_id: newLead.id,
-      type: "stage_change",
-      content: `Lead "${newLead.name}" criado e adicionado ao pipeline`,
-      user_name: "Sistema",
-    });
-
-    toast.success("Lead criado com sucesso");
-    return newLead;
-  }, [addTimelineEvent]);
-
   const updateLead = useCallback(async (id: string, data: Partial<Lead>) => {
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -141,41 +119,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     await addTimelineEvent({ lead_id: id, type: "note", content: "Lead atualizado", user_name: "Usuário" });
   }, [addTimelineEvent]);
-
-  const deleteLead = useCallback(async (id: string) => {
-    const { error } = await supabase.from("leads").delete().eq("id", id);
-    if (error) { console.error(error); toast.error("Erro ao excluir lead"); return; }
-    setLeads((prev) => prev.filter((l) => l.id !== id));
-    setTasks((prev) => prev.filter((t) => t.lead_id !== id));
-    toast.success("Lead excluído");
-  }, []);
-
-  const moveLead = useCallback(async (id: string, toColumnId: string) => {
-    const lead = leads.find((l) => l.id === id);
-    if (!lead || lead.column_id === toColumnId) return;
-
-    const fromCol = columns.find((c) => c.id === lead.column_id);
-    const toCol = columns.find((c) => c.id === toColumnId);
-
-    // Optimistic update
-    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: toColumnId, updated_at: new Date().toISOString() } : l));
-
-    const { error } = await supabase.from("leads").update({ column_id: toColumnId }).eq("id", id);
-    if (error) {
-      console.error(error);
-      // Rollback
-      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
-      toast.error("Erro ao mover lead");
-      return;
-    }
-
-    await addTimelineEvent({
-      lead_id: id,
-      type: "stage_change",
-      content: `"${lead.name}" movido de ${fromCol?.name ?? "?"} para ${toCol?.name ?? "?"}`,
-      user_name: "Usuário",
-    });
-  }, [leads, columns, addTimelineEvent]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
     const { data: row, error } = await supabase.from("tasks").insert({
@@ -202,6 +145,82 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Tarefa criada");
     return newTask;
   }, [addTimelineEvent]);
+
+  const moveLead = useCallback(async (id: string, toColumnId: string) => {
+    const lead = leads.find((l) => l.id === id);
+    if (!lead || lead.column_id === toColumnId) return;
+
+    const fromCol = columns.find((c) => c.id === lead.column_id);
+    const toCol = columns.find((c) => c.id === toColumnId);
+
+    // Optimistic update
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: toColumnId, updated_at: new Date().toISOString() } : l));
+
+    const { error } = await supabase.from("leads").update({ column_id: toColumnId }).eq("id", id);
+    if (error) {
+      console.error(error);
+      // Rollback
+      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
+      toast.error("Erro ao mover lead");
+      return;
+    }
+
+    await addTimelineEvent({
+      lead_id: id,
+      type: "stage_change",
+      content: `"${lead.name}" movido de ${fromCol?.name ?? "?"} para ${toCol?.name ?? "?"}`,
+      user_name: "Usuário",
+    });
+
+    // Trigger automations for transition
+    if (executeAutomationsRef.current) {
+      await executeAutomationsRef.current(id, "stage_changed", toColumnId);
+      await executeAutomationsRef.current(id, "card_entered", toColumnId);
+    }
+  }, [leads, columns, addTimelineEvent]);
+
+  const addLead = useCallback(async (data: Partial<Lead>, columnId: string): Promise<Lead | null> => {
+    const { data: row, error } = await supabase.from("leads").insert({
+      name: data.name ?? "",
+      phone: data.phone || null,
+      email: data.email || null,
+      company: data.company || null,
+      position: data.position || null,
+      city: data.city || null,
+      origin: data.origin || "Manual",
+      tags: data.tags ?? [],
+      column_id: columnId,
+      value: data.value ?? null,
+    }).select().single();
+
+    if (error) { console.error(error); toast.error("Erro ao criar lead"); return null; }
+    const newLead = mapLead(row);
+    setLeads((prev) => [newLead, ...prev]);
+
+    await addTimelineEvent({
+      lead_id: newLead.id,
+      type: "stage_change",
+      content: `Lead "${newLead.name}" criado e adicionado ao pipeline`,
+      user_name: "Sistema",
+    });
+
+    toast.success("Lead criado com sucesso");
+
+    // Trigger automations for entry
+    if (executeAutomationsRef.current) {
+      await executeAutomationsRef.current(newLead.id, "card_entered", columnId);
+    }
+
+    return newLead;
+  }, [addTimelineEvent]);
+
+  const deleteLead = useCallback(async (id: string) => {
+    const { error } = await supabase.from("leads").delete().eq("id", id);
+    if (error) { console.error(error); toast.error("Erro ao excluir lead"); return; }
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    setTasks((prev) => prev.filter((t) => t.lead_id !== id));
+    toast.success("Lead excluído");
+  }, []);
 
   const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
     const { error } = await supabase.from("tasks").update(data).eq("id", id);
@@ -310,14 +329,91 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Automação criada!");
   }, []);
 
+  const addGlobalTag = useCallback(async (tag: string) => {
+    if (!tag.trim() || globalTags.includes(tag.trim())) return;
+    setGlobalTags(prev => [...prev, tag.trim()]);
+    toast.success("Tag criada globalmente");
+  }, [globalTags]);
+
+  const deleteGlobalTag = useCallback(async (tag: string) => {
+    setGlobalTags(prev => prev.filter(t => t !== tag));
+    toast.success("Tag removida da lista global");
+  }, []);
+
+  // AUTOMATION ENGINE
+  const runAction = useCallback(async (leadId: string, action: Automation["actions"][0]) => {
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead) return;
+
+    switch (action.type) {
+      case "add_tag":
+        if (action.config?.tag) {
+          await updateLead(leadId, { tags: [...new Set([...lead.tags, action.config.tag as string])] });
+        }
+        break;
+      case "create_task":
+        if (action.config?.title) {
+          await addTask({
+            lead_id: leadId,
+            title: action.config.title as string,
+            due_date: new Date().toISOString().split("T")[0],
+          });
+        }
+        break;
+      case "move_column":
+        if (action.config?.column) {
+          await moveLead(leadId, action.config.column as string);
+        }
+        break;
+      default:
+        console.warn("Unhandled action type:", action.type);
+    }
+  }, [leads, updateLead, addTask, moveLead]);
+
+  const executeAutomations = useCallback(async (leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => {
+    const activeRules = automations.filter(a => 
+      a.active && 
+      a.trigger.type === triggerType && 
+      (!columnId || a.column_id === columnId)
+    );
+
+    for (const rule of activeRules) {
+      const lead = leads.find(l => l.id === leadId);
+      const hasException = rule.exceptions.some(ex => {
+        if (ex.type === "has_tag" && ex.config?.tag) {
+          return lead?.tags.includes(ex.config.tag as string);
+        }
+        return false;
+      });
+
+      if (hasException) continue;
+
+      for (const action of rule.actions) {
+        await runAction(leadId, action);
+      }
+      
+      await addTimelineEvent({
+        lead_id: leadId,
+        type: "automation",
+        content: `Automação executada: ${rule.name}`,
+        user_name: "Sistema",
+      });
+    }
+  }, [automations, leads, runAction, addTimelineEvent]);
+
+  useEffect(() => {
+    executeAutomationsRef.current = executeAutomations;
+  }, [executeAutomations]);
+
   return (
     <AppContext.Provider value={{
-      leads, columns, tasks, automations, complexAutomations, timeline, loading,
+      leads, columns, tasks, automations, complexAutomations, timeline, globalTags, loading,
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, addTimelineEvent, 
       createAutomation, updateAutomationNodes, deleteAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation,
+      addGlobalTag, deleteGlobalTag,
       refreshData: fetchAll,
     }}>
       {children}
@@ -325,7 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Mappers from DB rows to app types
+// Mappers
 function mapColumn(row: Record<string, unknown>): PipelineColumn {
   return {
     id: row.id as string,

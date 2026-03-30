@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
 import { AddTagModal } from "@/components/crm/AddTagModal";
+import { CreateTagModal } from "@/components/crm/CreateTagModal";
 import { useAppState } from "@/contexts/AppContext";
 import type { InboxThread, Task } from "@/types";
 
@@ -50,6 +51,7 @@ export default function InboxPage() {
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [createTagModalOpen, setCreateTagModalOpen] = useState(false);
 
   const { tasks, toggleTaskStatus, moveLead, columns } = useAppState();
 
@@ -514,6 +516,9 @@ export default function InboxPage() {
               <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => setTagModalOpen(true)}>
                 <Plus className="h-3 w-3" /> Adicionar tag
               </Button>
+              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => setCreateTagModalOpen(true)}>
+                <Tag className="h-3 w-3 text-primary" /> Gerenciar Tags
+              </Button>
               <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => { setMessage("Olá! Obrigado pelo contato. Como posso ajudar?"); toast.info("Sugestão inserida"); }}>
                 <Sparkles className="h-3 w-3" /> Sugerir resposta
               </Button>
@@ -531,6 +536,10 @@ export default function InboxPage() {
           open={tagModalOpen} 
           onOpenChange={setTagModalOpen} 
           leadId={selectedThread.lead_id}
+        />
+        <CreateTagModal
+          open={createTagModalOpen}
+          onOpenChange={setCreateTagModalOpen}
         />
       </div>
     </AppLayout>
