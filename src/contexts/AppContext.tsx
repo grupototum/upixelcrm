@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mockAutomations } from "@/lib/mock-data";
-import type { Lead, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
+import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
 import type { Node, Edge } from "reactflow";
 import { toast } from "sonner";
 

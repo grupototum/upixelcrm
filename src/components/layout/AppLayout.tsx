@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 interface AppLayoutProps {
   children: ReactNode;
   title?: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 }
 
