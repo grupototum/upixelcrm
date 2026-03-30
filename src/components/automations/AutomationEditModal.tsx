@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Automation, PipelineColumn } from "@/types";
+import { Automation, PipelineColumn, AutomationTrigger, AutomationAction } from "@/types";
 import { useAppState } from "@/contexts/AppContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
