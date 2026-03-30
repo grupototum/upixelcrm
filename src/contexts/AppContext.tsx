@@ -273,7 +273,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: userData } = await supabase.auth.getUser();
     const clientId = userData.user?.user_metadata?.client_id || "c1";
 
-    const { data: row, error } = await supabase.from("pipelines").insert({
+    const { data: row, error } = await (supabase.from as any)("pipelines").insert({
       name,
       client_id: clientId,
     }).select().single();
