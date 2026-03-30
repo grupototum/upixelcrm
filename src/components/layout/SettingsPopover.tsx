@@ -1,6 +1,7 @@
 import { Settings, Plug, Users, User, Shield, HelpCircle, LogOut, ChevronRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Popover,
   PopoverContent,
@@ -9,6 +10,16 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 export function SettingsPopover() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
+
+  const initials = user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "??";
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -19,12 +30,12 @@ export function SettingsPopover() {
       <PopoverContent className="w-64 p-0 shadow-2xl border-none" align="end">
         <div className="p-4 bg-card/50 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-              JS
+            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary uppercase">
+              {initials}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold truncate">João Silva</p>
-              <p className="text-[11px] text-muted-foreground truncate">Administrador</p>
+              <p className="text-sm font-bold truncate">{user?.name || "Usuário"}</p>
+              <p className="text-[11px] text-muted-foreground truncate capitalize">{user?.role || "Acesso"}</p>
             </div>
           </div>
         </div>
@@ -41,7 +52,10 @@ export function SettingsPopover() {
         </div>
         <Separator className="bg-border/20" />
         <div className="p-2">
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-xs font-medium">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-xs font-medium"
+          >
             <LogOut className="h-4 w-4 shrink-0" />
             Sair do sistema
           </button>

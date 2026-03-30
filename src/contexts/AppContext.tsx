@@ -8,7 +8,9 @@ import { toast } from "sonner";
 
 interface AppState {
   leads: Lead[];
+  pipelines: Pipeline[];
   columns: PipelineColumn[];
+  currentPipelineId: string;
   tasks: Task[];
   automations: Automation[];
   complexAutomations: ComplexAutomation[];
@@ -16,6 +18,8 @@ interface AppState {
   globalTags: string[];
   loading: boolean;
 
+  setPipeline: (id: string) => void;
+  addPipeline: (name: string) => Promise<void>;
   addLead: (data: Partial<Lead>, columnId: string) => Promise<Lead | null>;
   updateLead: (id: string, data: Partial<Lead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
@@ -54,7 +58,9 @@ export function useAppState() {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
+  const [currentPipelineId, setCurrentPipelineId] = useState<string>("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [automations, setAutomations] = useState<Automation[]>(mockAutomations);
   const [complexAutomations, setComplexAutomations] = useState<ComplexAutomation[]>([]);
@@ -66,7 +72,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [colRes, leadRes, taskRes, tlRes, autoRes] = await Promise.all([
+      const { data: userData } = await supabase.auth.getUser();
+      const clientId = userData.user?.user_metadata?.client_id || "c1";
+
+      const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes] = await Promise.all([
+        supabase.from("pipelines").select("*").order("name"),
         supabase.from("pipeline_columns").select("*").order("order"),
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
@@ -74,6 +84,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (supabase.from as any)("automations").select("*").order("created_at", { ascending: false }),
       ]);
 
+      if (pipeRes.data) {
+        setPipelines(pipeRes.data.map(mapPipeline));
+        if (pipeRes.data.length > 0 && !currentPipelineId) {
+          setCurrentPipelineId(pipeRes.data[0].id);
+        }
+      }
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
       if (leadRes.data) setLeads(leadRes.data.map(mapLead));
       if (taskRes.data) setTasks(taskRes.data.map(mapTask));
@@ -85,7 +101,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPipelineId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -180,6 +196,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [leads, columns, addTimelineEvent]);
 
   const addLead = useCallback(async (data: Partial<Lead>, columnId: string): Promise<Lead | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const clientId = userData.user?.user_metadata?.client_id || "c1";
+
     const { data: row, error } = await supabase.from("leads").insert({
       name: data.name ?? "",
       phone: data.phone || null,
@@ -191,6 +210,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       tags: data.tags ?? [],
       column_id: columnId,
       value: data.value ?? null,
+      client_id: clientId,
     }).select().single();
 
     if (error) { console.error(error); toast.error("Erro ao criar lead"); return null; }
@@ -249,17 +269,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [tasks]);
 
+  const addPipeline = useCallback(async (name: string) => {
+    const { data: userData } = await supabase.auth.getUser();
+    const clientId = userData.user?.user_metadata?.client_id || "c1";
+
+    const { data: row, error } = await supabase.from("pipelines").insert({
+      name,
+      client_id: clientId,
+    }).select().single();
+
+    if (error) { console.error(error); toast.error("Erro ao criar funil"); return; }
+    if (row) {
+      const newPipe = mapPipeline(row);
+      setPipelines((prev) => [...prev, newPipe]);
+      setCurrentPipelineId(newPipe.id);
+      
+      // Criar colunas padrão para o novo funil
+      const defaultCols = [
+        { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id },
+        { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id },
+        { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id },
+      ];
+      
+      const { data: colRows } = await supabase.from("pipeline_columns").insert(defaultCols).select();
+      if (colRows) setColumns((prev) => [...prev, ...colRows.map(mapColumn)]);
+      
+      toast.success("Funil criado com sucesso");
+    }
+  }, []);
+
   const addColumn = useCallback(async (name: string, color: string) => {
+    if (!currentPipelineId) { toast.error("Selecione um funil primeiro"); return; }
+    
+    // Get max order for current pipeline
+    const pipelineCols = columns.filter(c => c.pipeline_id === currentPipelineId);
+    const maxOrder = pipelineCols.length > 0 ? Math.max(...pipelineCols.map(c => c.order)) : -1;
+
     const { data: row, error } = await supabase.from("pipeline_columns").insert({
       name,
       color,
-      order: columns.length,
+      order: maxOrder + 1,
+      pipeline_id: currentPipelineId,
     }).select().single();
 
     if (error) { console.error(error); toast.error("Erro ao criar coluna"); return; }
     if (row) setColumns((prev) => [...prev, mapColumn(row)]);
     toast.success("Coluna criada");
-  }, [columns.length]);
+  }, [columns, currentPipelineId]);
 
   const createAutomation = useCallback(async (name: string): Promise<string | null> => {
     // client_id é gerenciado pelo trigger do Supabase RLS ou é optional.
@@ -407,7 +463,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      leads, columns, tasks, automations, complexAutomations, timeline, globalTags, loading,
+      leads, pipelines, columns, currentPipelineId, tasks, automations, complexAutomations, timeline, globalTags, loading,
+      setPipeline: setCurrentPipelineId, addPipeline,
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, addTimelineEvent, 
@@ -422,6 +479,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 }
 
 // Mappers
+function mapPipeline(row: Record<string, unknown>): Pipeline {
+  return {
+    id: row.id as string,
+    client_id: row.client_id as string,
+    name: row.name as string,
+    columns: [],
+  };
+}
+
 function mapColumn(row: Record<string, unknown>): PipelineColumn {
   return {
     id: row.id as string,

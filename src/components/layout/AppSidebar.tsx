@@ -1,9 +1,10 @@
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
-  BarChart3, Globe, Plug, Upload, Users, Plus, HelpCircle, LogOut,
+  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
@@ -32,7 +33,14 @@ export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme } = useTheme();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
 
   const logo = theme === "dark" ? upixelDark : upixelLight;
   const iconLogo = theme === "dark" ? upixelIconDark : upixelIconLight;
@@ -82,15 +90,14 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 space-y-1">
         {!collapsed && (
           <>
-            <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold text-primary-foreground bg-primary hover:bg-primary-hover transition-colors">
-              <Plus className="h-[18px] w-[18px]" />
-              <span>+ New Record</span>
-            </button>
             <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">
               <HelpCircle className="h-[18px] w-[18px]" />
               <span>Help</span>
             </button>
-            <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">
+            <button 
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+            >
               <LogOut className="h-[18px] w-[18px]" />
               <span>Logout</span>
             </button>

@@ -2,9 +2,24 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, X, ChevronDown, LayoutOutlined } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   DndContext,
   DragOverlay,
@@ -28,10 +43,18 @@ import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopove
 
 export default function CRMPage() {
   const navigate = useNavigate();
-  const { leads, columns, addLead, updateLead, deleteLead, moveLead } = useAppState();
+  const { 
+    leads, pipelines, columns, currentPipelineId, 
+    setPipeline, addPipeline, addColumn, 
+    addLead, updateLead, deleteLead, moveLead 
+  } = useAppState();
 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showNewPipeline, setShowNewPipeline] = useState(false);
+  const [newPipelineName, setNewPipelineName] = useState("");
+  const [showNewColumn, setShowNewColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
   const [formColumnId, setFormColumnId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -40,6 +63,14 @@ export default function CRMPage() {
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
   const [crmFilters, setCrmFilters] = useState<CRMFilters>(EMPTY_FILTERS);
   const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
+
+  const currentPipeline = useMemo(() => 
+    pipelines.find(p => p.id === currentPipelineId) || pipelines[0]
+  , [pipelines, currentPipelineId]);
+
+  const pipelineColumns = useMemo(() => 
+    columns.filter(c => c.pipeline_id === currentPipelineId).sort((a, b) => a.order - b.order)
+  , [columns, currentPipelineId]);
 
   useEffect(() => {
     const t = setTimeout(() => setIsLoading(false), 600);
@@ -95,7 +126,7 @@ export default function CRMPage() {
     const activeLeadId = active.id as string;
     const overId = over.id as string;
 
-    const overColumn = columns.find((c) => c.id === overId);
+    const overColumn = pipelineColumns.find((c) => c.id === overId);
     const overLead = leads.find((l) => l.id === overId);
     const targetColumnId = overColumn?.id ?? overLead?.column_id;
 
@@ -127,16 +158,68 @@ export default function CRMPage() {
     if (editingLead) {
       await updateLead(editingLead.id, data);
     } else {
-      await addLead(data, formColumnId);
+      await addLead(data, formColumnId || pipelineColumns[0]?.id || "");
     }
     setShowForm(false);
     setEditingLead(null);
   }
 
+  const handleCreatePipeline = async () => {
+    if (newPipelineName.trim()) {
+      await addPipeline(newPipelineName.trim());
+      setNewPipelineName("");
+      setShowNewPipeline(false);
+    }
+  };
+
+  const handleCreateColumn = async () => {
+    if (newColumnName.trim()) {
+      await addColumn(newColumnName.trim(), "#3b82f6");
+      setNewColumnName("");
+      setShowNewColumn(false);
+    }
+  };
+
   return (
     <AppLayout
       title="CRM"
-      subtitle="Funil de vendas"
+      subtitle={
+        <div className="flex items-center gap-2 mt-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/30 hover:bg-card/50 transition-all border border-border/40 group">
+                <LayoutOutlined className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-bold text-foreground">
+                  {currentPipeline?.name || "Selecionar Funil"}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform duration-200" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 rounded-2xl shadow-2xl border-none p-1.5 backdrop-blur-xl bg-card/80">
+              <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Seus Funis
+              </div>
+              {pipelines.map((p) => (
+                <DropdownMenuItem 
+                  key={p.id} 
+                  onClick={() => setPipeline(p.id)}
+                  className={`rounded-xl text-xs h-9 gap-3 cursor-pointer ${currentPipelineId === p.id ? "bg-primary/10 text-primary font-bold" : ""}`}
+                >
+                  <div className={`h-1.5 w-1.5 rounded-full ${currentPipelineId === p.id ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                  {p.name}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator className="bg-border/20" />
+              <DropdownMenuItem 
+                onClick={() => setShowNewPipeline(true)}
+                className="rounded-xl text-xs h-9 gap-3 text-primary font-bold cursor-pointer hover:bg-primary/5 hover:text-primary"
+              >
+                <Plus className="h-4 w-4" /> Novo Funil
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      }
       actions={
         <div className="flex items-center gap-2">
           {showSearch ? (
@@ -164,11 +247,11 @@ export default function CRMPage() {
             availableTags={availableTags}
           />
           <ColumnVisibilityPopover
-            columns={columns}
+            columns={pipelineColumns}
             hiddenColumnIds={hiddenColumnIds}
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
-          <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground neon-glow" onClick={() => handleAddLead(columns[0]?.id ?? "")}>
+          <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground neon-glow" onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}>
             <Plus className="h-3.5 w-3.5" /> Novo Lead
           </Button>
         </div>
@@ -185,14 +268,14 @@ export default function CRMPage() {
           onDragEnd={handleDragEnd}
         >
           <div className="flex h-[calc(100vh-4rem)] overflow-x-auto p-6 gap-5 animate-fade-in hide-scrollbar">
-            {columns.filter((col) => !hiddenColumnIds.includes(col.id)).map((col) => {
+            {pipelineColumns.filter((col) => !hiddenColumnIds.includes(col.id)).map((col) => {
               const colLeads = filteredLeads.filter((l) => l.column_id === col.id);
               return (
                 <KanbanColumn
                   key={col.id}
                   column={col}
                   leads={colLeads}
-                  allColumns={columns}
+                  allColumns={pipelineColumns}
                   onLeadClick={(lead) => navigate(`/leads/${lead.id}`)}
                   onAddLead={handleAddLead}
                   onConfigColumn={setConfigColumn}
@@ -201,7 +284,10 @@ export default function CRMPage() {
               );
             })}
             <div className="shrink-0">
-              <button className="w-48 h-12 rounded-xl border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-1.5 font-medium">
+              <button 
+                onClick={() => setShowNewColumn(true)}
+                className="w-48 h-12 rounded-xl border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-1.5 font-medium"
+              >
                 <Plus className="h-3.5 w-3.5" /> Nova Coluna
               </button>
             </div>
@@ -218,9 +304,69 @@ export default function CRMPage() {
         onClose={() => { setShowForm(false); setEditingLead(null); }}
         onSave={handleSaveLead}
         lead={editingLead}
-        columns={columns}
+        columns={pipelineColumns}
         defaultColumnId={formColumnId}
       />
+
+      <Dialog open={showNewPipeline} onOpenChange={setShowNewPipeline}>
+        <DialogContent className="max-w-sm rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-primary/20 flex items-center justify-center">
+                <Plus className="h-5 w-5 text-primary" />
+              </div>
+              Novo Funil de Vendas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="pipe-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Nome do Funil</Label>
+              <Input 
+                id="pipe-name"
+                value={newPipelineName}
+                onChange={(e) => setNewPipelineName(e.target.value)}
+                placeholder="Ex: Vendas High Ticket"
+                className="h-11 rounded-xl bg-secondary/20 border-none focus:ring-2 focus:ring-primary"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowNewPipeline(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleCreatePipeline} disabled={!newPipelineName.trim()} className="rounded-xl bg-primary hover:bg-primary-hover px-8">Criar Funil</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNewColumn} onOpenChange={setShowNewColumn}>
+        <DialogContent className="max-w-sm rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-accent/20 flex items-center justify-center">
+                <Plus className="h-5 w-5 text-accent" />
+              </div>
+              Nova Etapa do Funil
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="col-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Nome da Etapa</Label>
+              <Input 
+                id="col-name"
+                value={newColumnName}
+                onChange={(e) => setNewColumnName(e.target.value)}
+                placeholder="Ex: Reunião Agendada"
+                className="h-11 rounded-xl bg-secondary/20 border-none focus:ring-2 focus:ring-accent"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowNewColumn(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleCreateColumn} disabled={!newColumnName.trim()} className="rounded-xl bg-accent hover:bg-accent/80 text-white px-8">Adicionar Etapa</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ColumnConfigModal
         column={configColumn}
