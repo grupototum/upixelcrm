@@ -32,7 +32,7 @@ export default function SecurityPage() {
               <div className="flex items-center justify-between p-4 rounded-xl ghost-border bg-secondary/10 group hover:bg-secondary/20 transition-all cursor-pointer">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-accent/20 flex items-center justify-center">
-                    <DeviceMobile className="h-5 w-5 text-accent" />
+                    <Tablet className="h-5 w-5 text-accent" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold">App de Autenticação</h4>
