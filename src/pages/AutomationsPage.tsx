@@ -68,8 +68,12 @@ export default function AutomationsPage() {
       }
     >
       <div className="p-6 animate-fade-in">
+<<<<<<< HEAD
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+=======
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+>>>>>>> 05ede607a20c4c49c33960fd1701d5fcd897f1aa
           <TabsList className="bg-secondary">
             <TabsTrigger value="rules" className="text-xs gap-1.5">
               <Zap className="h-3 w-3" /> Regras e Automações
