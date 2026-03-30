@@ -312,7 +312,7 @@ function AutomationRuleCard({
                 <Label className="text-[10px]">Horas na coluna</Label>
                 <Input
                   type="number"
-                  value={rule.trigger.config?.hours ?? 24}
+                  value={(rule.trigger.config?.hours as number) ?? 24}
                   onChange={(e) =>
                     onUpdate({ ...rule, trigger: { ...rule.trigger, config: { hours: Number(e.target.value) } } })
                   }
