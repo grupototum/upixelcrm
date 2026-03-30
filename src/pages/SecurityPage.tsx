@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Shield, Key, DeviceMobile, HardDrive, Smartphone, Monitor, LogOut, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Shield, Key, Tablet, HardDrive, Smartphone, Monitor, LogOut, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
