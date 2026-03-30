@@ -85,7 +85,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
         supabase.from("timeline_events").select("*").order("created_at", { ascending: false }).limit(100),
         (supabase.from as any)("automations").select("*").order("created_at", { ascending: false }),
-        supabase.from("automation_rules").select("*").order("created_at", { ascending: false }),
+        (supabase.from as any)("automation_rules").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (pipeRes.data) {
