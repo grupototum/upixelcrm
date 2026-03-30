@@ -16,7 +16,7 @@ interface KanbanColumnProps {
   allColumns?: PipelineColumn[];
   onLeadClick: (lead: Lead) => void;
   onAddLead: (columnId: string) => void;
-  onConfigColumn: (column: PipelineColumn) => void;
+  onConfigColumn: (column: PipelineColumn, tab?: string) => void;
   onMoveLead?: (leadId: string, toColumnId: string) => void;
 }
 
@@ -89,7 +89,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
             <DropdownMenuItem className="text-xs gap-2" onClick={handleExportCSV}>
               <Download className="h-3 w-3" /> Exportar CSV
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column)}>
+            <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column, "automations")}>
               <Zap className="h-3 w-3" /> Automações
             </DropdownMenuItem>
           </DropdownMenuContent>

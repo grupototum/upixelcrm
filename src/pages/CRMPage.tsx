@@ -61,6 +61,7 @@ export default function CRMPage() {
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
+  const [configColumnTab, setConfigColumnTab] = useState<string>("general");
   const [crmFilters, setCrmFilters] = useState<CRMFilters>(EMPTY_FILTERS);
   const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
 
@@ -278,7 +279,10 @@ export default function CRMPage() {
                   allColumns={pipelineColumns}
                   onLeadClick={(lead) => navigate(`/leads/${lead.id}`)}
                   onAddLead={handleAddLead}
-                  onConfigColumn={setConfigColumn}
+                  onConfigColumn={(col, tab) => {
+                    setConfigColumn(col);
+                    setConfigColumnTab(tab || "general");
+                  }}
                   onMoveLead={moveLead}
                 />
               );
@@ -372,6 +376,7 @@ export default function CRMPage() {
         column={configColumn}
         open={!!configColumn}
         onClose={() => setConfigColumn(null)}
+        initialTab={configColumnTab}
       />
     </AppLayout>
   );

@@ -20,26 +20,77 @@ export default function WhatsAppPage() {
   const [qrStep, setQrStep] = useState<"scan" | "connecting" | "success">("scan");
   const [connectedNumber, setConnectedNumber] = useState("");
 
-  // QR Code simulation
+  // Integração Real - WhatsApp Web / Evolution API / Baileys
+  const apiUrl = "https://sua-api.com.br"; // Substitua pela URL da sua API WhatsApp Web
+  const instanceName = "upixel-instance";
+  const apiKey = "SUA_API_KEY"; // Substitua caso sua API exija autenticação
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!qrModalOpen) {
-      setQrStep("scan");
-      return;
+    let pollInterval: NodeJS.Timeout;
+
+    const checkStatus = async () => {
+      try {
+        // Exemplo de chamada real para checar o status da conexão
+        const res = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, {
+          headers: { apikey: apiKey }
+        });
+        if (!res.ok) throw new Error("API Indisponível");
+        const data = await res.json();
+        
+        if (data.instance?.state === "open") {
+          setQrStep("success");
+          setLiteStatus("connected");
+          setConnectedNumber(data.instance?.owner || "+55 11 98765-4321");
+          clearInterval(pollInterval);
+        } else if (data.instance?.state === "connecting") {
+           setQrStep("connecting");
+        }
+      } catch (e) {
+        // Fallback para Demonstração (Mock) se a API não estiver conectada
+        if (qrStep === "scan") {
+          pollInterval = setTimeout(() => setQrStep("connecting"), 4000);
+        } else if (qrStep === "connecting") {
+          pollInterval = setTimeout(() => {
+            setQrStep("success");
+            setLiteStatus("connected");
+            setConnectedNumber("+55 11 98765-4321 (Demonstração)");
+            toast.success("WhatsApp conectado (Modo Demo)!");
+          }, 2000);
+        }
+      }
+    };
+
+    if (qrModalOpen && qrStep !== "success") {
+      checkStatus();
+      pollInterval = setInterval(checkStatus, 3000); // Polling a cada 3s para ler status ou qr
     }
-    if (qrStep === "scan") {
-      const t = setTimeout(() => setQrStep("connecting"), 4000);
-      return () => clearTimeout(t);
-    }
-    if (qrStep === "connecting") {
-      const t = setTimeout(() => {
-        setQrStep("success");
-        setLiteStatus("connected");
-        setConnectedNumber("+55 11 98765-4321");
-        toast.success("WhatsApp conectado com sucesso!");
-      }, 2000);
-      return () => clearTimeout(t);
-    }
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(pollInterval);
+    };
   }, [qrModalOpen, qrStep]);
+
+  const initiateConnection = async () => {
+    setLiteStatus("connecting");
+    setQrModalOpen(true);
+    setQrStep("scan");
+    setQrCodeData(null);
+    try {
+      // Exemplo de chamada real para gerar o QRCode
+      const res = await fetch(`${apiUrl}/instance/connect/${instanceName}`, {
+        headers: { apikey: apiKey }
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.base64) {
+        setQrCodeData(data.base64); // Sua API retorna QRCode em Base64
+      }
+    } catch (e) {
+      console.warn("Usando QRCode Fake para demonstração");
+    }
+  };
 
   const handleConnectApi = () => {
     setApiStatus("connecting");
@@ -54,9 +105,13 @@ export default function WhatsAppPage() {
     toast.info("WhatsApp API desconectado.");
   };
 
-  const handleDisconnectLite = () => {
+  const handleDisconnectLite = async () => {
     setLiteStatus("disconnected");
     setConnectedNumber("");
+    try {
+      // Chamada real para desconectar
+      await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { apikey: apiKey } });
+    } catch(e) { /* ignore in demo */ }
     toast.info("WhatsApp Lite desconectado.");
   };
 
@@ -208,7 +263,7 @@ export default function WhatsAppPage() {
                   <Button
                     size="sm"
                     className="text-xs gap-1 w-full bg-accent hover:bg-accent-hover text-accent-foreground"
-                    onClick={() => { setLiteStatus("connecting"); setQrModalOpen(true); }}
+                    onClick={initiateConnection}
                   >
                     <QrCode className="h-3 w-3" /> Conectar via QR Code
                   </Button>
@@ -271,21 +326,24 @@ export default function WhatsAppPage() {
             {qrStep === "scan" && (
               <>
                 <div className="relative mb-4">
-                  <div className="h-48 w-48 bg-white rounded-xl p-3 flex items-center justify-center">
-                    {/* Fake QR Code pattern */}
-                    <svg viewBox="0 0 100 100" className="h-full w-full">
-                      {Array.from({ length: 10 }).map((_, row) =>
-                        Array.from({ length: 10 }).map((_, col) => {
-                          const isFilled = Math.random() > 0.4 ||
-                            (row < 3 && col < 3) || (row < 3 && col > 6) || (row > 6 && col < 3);
-                          return isFilled ? (
-                            <rect key={`${row}-${col}`} x={col * 10} y={row * 10} width="9" height="9" fill="#1a1a1a" rx="1" />
-                          ) : null;
-                        })
-                      )}
-                    </svg>
+                  <div className="h-48 w-48 bg-white rounded-xl p-3 flex items-center justify-center overflow-hidden">
+                    {qrCodeData ? (
+                      <img src={qrCodeData} alt="WhatsApp QR Code" className="h-full w-full object-contain" />
+                    ) : (
+                      <svg viewBox="0 0 100 100" className="h-full w-full opacity-60">
+                        {Array.from({ length: 10 }).map((_, row) =>
+                          Array.from({ length: 10 }).map((_, col) => {
+                            const isFilled = Math.random() > 0.4 ||
+                              (row < 3 && col < 3) || (row < 3 && col > 6) || (row > 6 && col < 3);
+                            return isFilled ? (
+                              <rect key={`${row}-${col}`} x={col * 10} y={row * 10} width="9" height="9" fill="#1a1a1a" rx="1" />
+                            ) : null;
+                          })
+                        )}
+                      </svg>
+                    )}
                   </div>
-                  <div className="absolute inset-0 rounded-xl border-2 border-success/50 animate-pulse" />
+                  <div className="absolute inset-0 rounded-xl border-2 border-success/50 animate-pulse pointer-events-none" />
                 </div>
                 <p className="text-xs text-foreground font-semibold mb-1">Escaneie o QR Code</p>
                 <p className="text-[11px] text-muted-foreground text-center max-w-xs">

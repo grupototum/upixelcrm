@@ -49,9 +49,10 @@ interface ColumnConfigModalProps {
   column: PipelineColumn | null;
   open: boolean;
   onClose: () => void;
+  initialTab?: string;
 }
 
-export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalProps) {
+export function ColumnConfigModal({ column, open, onClose, initialTab = "general" }: ColumnConfigModalProps) {
   const { 
     updateColumn, 
     deleteColumn, 
@@ -66,6 +67,7 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
 
   const [columnName, setColumnName] = useState(column?.name ?? "");
   const [columnColor, setColumnColor] = useState(column?.color ?? "#3b82f6");
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Filter automations for this specific column
   const columnRules = useMemo(() => 
@@ -78,8 +80,9 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
     if (column) {
       setColumnName(column.name);
       setColumnColor(column.color ?? "#3b82f6");
+      if (open) setActiveTab(initialTab);
     }
-  }, [column]);
+  }, [column, open, initialTab]);
 
   if (!column) return null;
 
@@ -115,7 +118,7 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="general" className="px-6 pb-6 pt-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6 pb-6 pt-4">
           <TabsList className="w-full grid grid-cols-5 h-9">
             <TabsTrigger value="general" className="text-xs gap-1"><Settings className="h-3 w-3" /> Geral</TabsTrigger>
             <TabsTrigger value="cadence" className="text-xs gap-1"><ListChecks className="h-3 w-3" /> Cadência</TabsTrigger>

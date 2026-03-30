@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { X, Plus } from "lucide-react";
 import type { Lead, PipelineColumn } from "@/types";
 
 interface LeadFormModalProps {
@@ -20,13 +22,25 @@ const emptyForm = (columnId: string): Partial<Lead> => ({
 
 export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultColumnId }: LeadFormModalProps) {
   const [form, setForm] = useState<Partial<Lead>>(lead ?? emptyForm(defaultColumnId));
+  const [tagInput, setTagInput] = useState("");
 
-  // Fix: properly reset form when lead or open state changes
   useEffect(() => {
     if (open) {
       setForm(lead ? { ...lead } : emptyForm(defaultColumnId));
+      setTagInput("");
     }
   }, [open, lead, defaultColumnId]);
+
+  const handleAddTag = () => {
+    if (!tagInput.trim()) return;
+    const newTags = [...new Set([...(form.tags || []), tagInput.trim()])];
+    setForm({ ...form, tags: newTags });
+    setTagInput("");
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setForm({ ...form, tags: (form.tags || []).filter(t => t !== tagToRemove) });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -69,14 +83,38 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
               <Input value={form.origin ?? ""} onChange={(e) => setForm({ ...form, origin: e.target.value })} placeholder="Meta Ads, Google..." className="mt-1" />
             </div>
           </div>
-          <div>
-            <Label className="text-xs">Tags (separadas por vírgula)</Label>
-            <Input
-              value={(form.tags ?? []).join(", ")}
-              onChange={(e) => setForm({ ...form, tags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })}
-              placeholder="hot, enterprise"
-              className="mt-1"
-            />
+          
+          <div className="space-y-2">
+            <Label className="text-xs">Tags</Label>
+            <div className="flex gap-2 isolate">
+              <Input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddTag();
+                  }
+                }}
+                placeholder="Ex: enterprise, quente"
+                className="mt-1"
+              />
+              <Button type="button" variant="secondary" size="icon" className="mt-1 shrink-0" onClick={handleAddTag}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {form.tags && form.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {form.tags.map(tag => (
+                  <Badge key={tag} variant="secondary" className="text-[10px] pl-2 pr-1 py-0.5 flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20">
+                    {tag}
+                    <button type="button" onClick={() => handleRemoveTag(tag)} className="hover:bg-primary/20 rounded-full p-0.5 transition-colors">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter className="mt-4">
