@@ -76,7 +76,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const clientId = userData.user?.user_metadata?.client_id || "c1";
 
       const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes] = await Promise.all([
-        supabase.from("pipelines").select("*").order("name"),
+        (supabase.from as any)("pipelines").select("*").order("name"),
         supabase.from("pipeline_columns").select("*").order("order"),
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
