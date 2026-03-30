@@ -386,7 +386,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: newStatus } : a));
     
-    const { error } = await supabase.from("automation_rules").update({ active: newStatus }).eq("id", id);
+    const { error } = await (supabase.from as any)("automation_rules").update({ active: newStatus }).eq("id", id);
     if (error) {
       console.error(error);
       setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: rule.active } : a));
