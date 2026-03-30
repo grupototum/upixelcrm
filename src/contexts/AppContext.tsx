@@ -31,6 +31,8 @@ interface AppState {
   toggleTaskStatus: (id: string) => Promise<void>;
 
   addColumn: (name: string, color: string) => Promise<void>;
+  updateColumn: (id: string, data: Partial<PipelineColumn>) => Promise<void>;
+  deleteColumn: (id: string) => Promise<void>;
 
   addTimelineEvent: (event: Omit<TimelineEvent, "id" | "created_at">) => Promise<void>;
 
@@ -41,6 +43,7 @@ interface AppState {
   toggleBasicAutomation: (id: string) => Promise<void>;
   deleteBasicAutomation: (id: string) => Promise<void>;
   addBasicAutomation: (data: Partial<Automation>) => Promise<void>;
+  updateBasicAutomation: (id: string, data: Partial<Automation>) => Promise<void>;
 
   addGlobalTag: (tag: string) => Promise<void>;
   deleteGlobalTag: (tag: string) => Promise<void>;
@@ -62,7 +65,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
   const [currentPipelineId, setCurrentPipelineId] = useState<string>("");
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [automations, setAutomations] = useState<Automation[]>(mockAutomations);
+  const [automations, setAutomations] = useState<Automation[]>([]);
   const [complexAutomations, setComplexAutomations] = useState<ComplexAutomation[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [globalTags, setGlobalTags] = useState<string[]>(["Hot", "Warm", "Cold", "Enterprise", "Agência"]);
@@ -75,13 +78,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const { data: userData } = await supabase.auth.getUser();
       const clientId = userData.user?.user_metadata?.client_id || "c1";
 
-      const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes] = await Promise.all([
+      const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
         (supabase.from as any)("pipelines").select("*").order("name"),
         supabase.from("pipeline_columns").select("*").order("order"),
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
         supabase.from("timeline_events").select("*").order("created_at", { ascending: false }).limit(100),
         (supabase.from as any)("automations").select("*").order("created_at", { ascending: false }),
+        supabase.from("automation_rules").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (pipeRes.data) {
@@ -95,6 +99,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (taskRes.data) setTasks(taskRes.data.map(mapTask));
       if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
       if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
+      if (rulesRes.data) setAutomations(rulesRes.data.map(mapAutomationRule));
     } catch (err) {
       console.error("Error fetching data:", err);
       toast.error("Erro ao carregar dados");
@@ -317,6 +322,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Coluna criada");
   }, [columns, currentPipelineId]);
 
+  const updateColumn = useCallback(async (id: string, data: Partial<PipelineColumn>) => {
+    const { error } = await supabase.from("pipeline_columns").update(data).eq("id", id);
+    if (error) { console.error(error); toast.error("Erro ao atualizar coluna"); return; }
+    setColumns((prev) => prev.map((c) => c.id === id ? { ...c, ...data } : c));
+    toast.success("Coluna atualizada");
+  }, []);
+
+  const deleteColumn = useCallback(async (id: string) => {
+    const { error } = await supabase.from("pipeline_columns").delete().eq("id", id);
+    if (error) { console.error(error); toast.error("Erro ao excluir coluna"); return; }
+    setColumns((prev) => prev.filter((c) => c.id !== id));
+    toast.success("Coluna removida");
+  }, []);
+
   const createAutomation = useCallback(async (name: string): Promise<string | null> => {
     // client_id é gerenciado pelo trigger do Supabase RLS ou é optional.
     const { data: row, error } = await (supabase.from as any)("automations").insert({
@@ -361,28 +380,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleBasicAutomation = useCallback(async (id: string) => {
-    setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
-    toast.success("Automação atualizada");
-  }, []);
+    const rule = automations.find(a => a.id === id);
+    if (!rule) return;
+    const newStatus = !rule.active;
+    
+    setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: newStatus } : a));
+    
+    const { error } = await supabase.from("automation_rules").update({ active: newStatus }).eq("id", id);
+    if (error) {
+      console.error(error);
+      setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: rule.active } : a));
+      toast.error("Erro ao atualizar automação");
+    } else {
+      toast.success("Automação " + (newStatus ? "ativada" : "desativada"));
+    }
+  }, [automations]);
 
   const deleteBasicAutomation = useCallback(async (id: string) => {
+    const { error } = await supabase.from("automation_rules").delete().eq("id", id);
+    if (error) { console.error(error); toast.error("Erro ao excluir"); return; }
     setAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação removida");
   }, []);
 
   const addBasicAutomation = useCallback(async (data: Partial<Automation>) => {
-    const newAuto: Automation = {
-      id: Math.random().toString(36).substr(2, 9),
-      client_id: "c1",
+    const { data: userData } = await supabase.auth.getUser();
+    const clientId = userData.user?.user_metadata?.client_id || "c1";
+
+    const { data: row, error } = await supabase.from("automation_rules").insert({
+      client_id: clientId,
+      pipeline_id: data.pipeline_id || currentPipelineId || null,
+      column_id: data.column_id || null,
       name: data.name || "Nova Automação",
       active: true,
-      trigger: data.trigger || { type: "card_entered" },
-      actions: data.actions || [],
-      exceptions: data.exceptions || [],
-      ...data,
-    };
-    setAutomations(prev => [newAuto, ...prev]);
+      trigger: (data.trigger as any) || { type: "card_entered" },
+      actions: (data.actions as any) || [],
+      exceptions: (data.exceptions as any) || [],
+    }).select().single();
+
+    if (error) { console.error(error); toast.error("Erro ao criar automação"); return; }
+    if (row) setAutomations(prev => [mapAutomationRule(row), ...prev]);
     toast.success("Automação criada!");
+  }, [currentPipelineId]);
+
+  const updateBasicAutomation = useCallback(async (id: string, data: Partial<Automation>) => {
+    const updateData: any = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.active !== undefined) updateData.active = data.active;
+    if (data.trigger !== undefined) updateData.trigger = data.trigger;
+    if (data.actions !== undefined) updateData.actions = data.actions;
+    if (data.exceptions !== undefined) updateData.exceptions = data.exceptions;
+    if (data.column_id !== undefined) updateData.column_id = data.column_id;
+
+    const { error } = await supabase.from("automation_rules").update(updateData).eq("id", id);
+    if (error) { console.error(error); toast.error("Erro ao atualizar automação"); return; }
+    
+    setAutomations(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+    toast.success("Automação salva!");
   }, []);
 
   const addGlobalTag = useCallback(async (tag: string) => {
@@ -555,5 +609,18 @@ function mapComplexAutomation(row: Record<string, unknown>): ComplexAutomation {
     edges: Array.isArray(row.edges) ? row.edges : [],
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
+  };
+}
+function mapAutomationRule(row: Record<string, unknown>): Automation {
+  return {
+    id: row.id as string,
+    client_id: row.client_id as string,
+    pipeline_id: row.pipeline_id as string || undefined,
+    column_id: row.column_id as string || undefined,
+    name: row.name as string,
+    active: row.active as boolean,
+    trigger: (row.trigger as any) || { type: "card_entered" },
+    actions: (row.actions as any[]) || [],
+    exceptions: (row.exceptions as any[]) || [],
   };
 }

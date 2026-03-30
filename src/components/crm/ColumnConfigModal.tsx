@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -13,27 +13,11 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { PipelineColumn } from "@/types";
-import { mockColumns } from "@/lib/mock-data";
+import type { PipelineColumn, Automation } from "@/types";
+import { useAppState } from "@/contexts/AppContext";
+import { toast } from "sonner";
 
-/* ─── Types ─── */
-interface AutomationRule {
-  id: string;
-  name: string;
-  active: boolean;
-  trigger: { type: string; config?: Record<string, string | number> };
-  actions: { id: string; type: string; config?: Record<string, string> }[];
-  exceptions: { id: string; type: string; config?: Record<string, string> }[];
-}
 
-const defaultRule = (): AutomationRule => ({
-  id: `rule-${Date.now()}`,
-  name: "Nova automação",
-  active: true,
-  trigger: { type: "card_entered" },
-  actions: [],
-  exceptions: [],
-});
 
 /* ─── Trigger / Action / Exception configs ─── */
 const TRIGGERS = [
@@ -67,17 +51,57 @@ interface ColumnConfigModalProps {
 }
 
 export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalProps) {
+  const { 
+    updateColumn, 
+    deleteColumn, 
+    automations, 
+    addBasicAutomation, 
+    updateBasicAutomation, 
+    deleteBasicAutomation,
+    columns: allColumns,
+    currentPipelineId
+  } = useAppState();
+
   const [columnName, setColumnName] = useState(column?.name ?? "");
   const [columnColor, setColumnColor] = useState(column?.color ?? "#3b82f6");
-  const [rules, setRules] = useState<AutomationRule[]>([]);
 
-  // Reset state when column changes
-  if (column && columnName !== column.name && !rules.length) {
-    setColumnName(column.name);
-    setColumnColor(column.color ?? "#3b82f6");
-  }
+  // Filter automations for this specific column
+  const columnRules = useMemo(() => 
+    automations.filter(a => a.column_id === column?.id),
+    [automations, column?.id]
+  );
+
+  // Sync internal state when column changes
+  useEffect(() => {
+    if (column) {
+      setColumnName(column.name);
+      setColumnColor(column.color ?? "#3b82f6");
+    }
+  }, [column]);
 
   if (!column) return null;
+
+  const handleSaveGeneral = async () => {
+    await updateColumn(column.id, { name: columnName, color: columnColor });
+  };
+
+  const handleDeleteColumn = async () => {
+    if (confirm("Deseja realmente excluir esta coluna? Todos os leads nela serão mantidos, mas a coluna sumirá.")) {
+      await deleteColumn(column.id);
+      onClose();
+    }
+  };
+
+  const handleAddRule = async () => {
+    await addBasicAutomation({
+      name: "Nova automação " + column.name,
+      column_id: column.id,
+      pipeline_id: currentPipelineId,
+      trigger: { type: "card_entered" },
+      actions: [],
+      active: true
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -111,8 +135,11 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
                 <span className="text-xs text-muted-foreground">{columnColor}</span>
               </div>
             </div>
-            <div className="flex justify-end">
-              <Button size="sm" className="text-xs">Salvar</Button>
+            <div className="flex justify-between">
+              <Button size="sm" variant="destructive" className="text-xs gap-1" onClick={handleDeleteColumn}>
+                <Trash2 className="h-3 w-3" /> Excluir Coluna
+              </Button>
+              <Button size="sm" className="text-xs" onClick={handleSaveGeneral}>Salvar Alterações</Button>
             </div>
           </TabsContent>
 
@@ -134,32 +161,39 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
             </div>
           </TabsContent>
 
-          {/* ─── Automations ─── */}
           <TabsContent value="automations" className="mt-4 space-y-4">
-            {rules.length === 0 && (
-              <div className="text-center py-8">
-                <Zap className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground mb-3">Nenhuma automação configurada</p>
+            {columnRules.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed rounded-xl border-border/50">
+                <Zap className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-20" />
+                <p className="text-sm text-muted-foreground mb-3 font-medium">Nenhuma automação nesta coluna</p>
+                <Button variant="outline" size="sm" onClick={handleAddRule} className="text-[10px] h-7">
+                  Configurar Primeira Regra
+                </Button>
               </div>
             )}
 
-            {rules.map((rule, rIdx) => (
-              <AutomationRuleCard
-                key={rule.id}
-                rule={rule}
-                onUpdate={(updated) => setRules((prev) => prev.map((r, i) => (i === rIdx ? updated : r)))}
-                onDelete={() => setRules((prev) => prev.filter((_, i) => i !== rIdx))}
-              />
-            ))}
+            <div className="space-y-4">
+              {columnRules.map((rule) => (
+                <AutomationRuleCard
+                  key={rule.id}
+                  rule={rule}
+                  columns={allColumns.filter(c => c.pipeline_id === currentPipelineId)}
+                  onUpdate={(updated) => updateBasicAutomation(rule.id, updated)}
+                  onDelete={() => deleteBasicAutomation(rule.id)}
+                />
+              ))}
+            </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs gap-1"
-              onClick={() => setRules((prev) => [...prev, defaultRule()])}
-            >
-              <Plus className="h-3 w-3" /> Nova automação
-            </Button>
+            {columnRules.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs gap-1 border-primary/20 text-primary hover:bg-primary/5"
+                onClick={handleAddRule}
+              >
+                <Plus className="h-3 w-3" /> Nova automação
+              </Button>
+            )}
           </TabsContent>
 
           {/* ─── Manual Tasks ─── */}
@@ -176,16 +210,19 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
   );
 }
 
-/* ─── Automation Rule Card ─── */
+interface AutomationRuleCardProps {
+  rule: Automation;
+  columns: PipelineColumn[];
+  onUpdate: (r: Partial<Automation>) => void;
+  onDelete: () => void;
+}
+
 function AutomationRuleCard({
   rule,
+  columns,
   onUpdate,
   onDelete,
-}: {
-  rule: AutomationRule;
-  onUpdate: (r: AutomationRule) => void;
-  onDelete: () => void;
-}) {
+}: AutomationRuleCardProps) {
   return (
     <div className="ghost-border rounded-xl overflow-hidden">
       {/* Header */}
@@ -302,7 +339,7 @@ function AutomationRuleCard({
                         <SelectValue placeholder="Selecionar coluna" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockColumns.map((c) => (
+                        {columns.map((c) => (
                           <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -341,8 +378,7 @@ function AutomationRuleCard({
               className="text-xs gap-1 text-primary hover:text-primary"
               onClick={() =>
                 onUpdate({
-                  ...rule,
-                  actions: [...rule.actions, { id: `a-${Date.now()}`, type: "add_tag" }],
+                  actions: [...rule.actions, { id: `a-${Date.now()}`, type: "add_tag", config: {} }],
                 })
               }
             >
@@ -411,8 +447,7 @@ function AutomationRuleCard({
               className="text-xs gap-1 text-destructive hover:text-destructive"
               onClick={() =>
                 onUpdate({
-                  ...rule,
-                  exceptions: [...rule.exceptions, { id: `e-${Date.now()}`, type: "has_tag" }],
+                  exceptions: [...rule.exceptions, { id: `e-${Date.now()}`, type: "has_tag", config: {} }],
                 })
               }
             >

@@ -64,6 +64,7 @@ export interface Task {
 export interface Automation {
   id: string;
   client_id: string;
+  pipeline_id?: string;
   column_id?: string;
   name: string;
   description?: string;
@@ -91,12 +92,14 @@ export type AutomationTrigger = {
 };
 
 export type AutomationAction = {
+  id?: string;
   type: "add_tag" | "remove_tag" | "move_column" | "create_task" | "send_message" | "send_template" | "add_ai_agent";
   config?: Record<string, unknown>;
   comingSoon?: boolean;
 };
 
 export type AutomationException = {
+  id?: string;
   type: "has_tag" | "no_tag";
   config?: Record<string, unknown>;
 };
