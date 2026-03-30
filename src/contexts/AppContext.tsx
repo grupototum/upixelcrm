@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mockAutomations } from "@/lib/mock-data";
-import type { Lead, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
+import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
 import type { Node, Edge } from "reactflow";
 import { toast } from "sonner";
 
@@ -76,7 +76,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const clientId = userData.user?.user_metadata?.client_id || "c1";
 
       const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes] = await Promise.all([
-        supabase.from("pipelines").select("*").order("name"),
+        (supabase.from as any)("pipelines").select("*").order("name"),
         supabase.from("pipeline_columns").select("*").order("order"),
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
@@ -273,7 +273,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: userData } = await supabase.auth.getUser();
     const clientId = userData.user?.user_metadata?.client_id || "c1";
 
-    const { data: row, error } = await supabase.from("pipelines").insert({
+    const { data: row, error } = await (supabase.from as any)("pipelines").insert({
       name,
       client_id: clientId,
     }).select().single();

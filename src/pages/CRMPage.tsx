@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
-import { Plus, Search, X, ChevronDown, LayoutOutlined } from "lucide-react";
+import { Plus, Search, X, ChevronDown, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -188,7 +188,7 @@ export default function CRMPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/30 hover:bg-card/50 transition-all border border-border/40 group">
-                <LayoutOutlined className="h-3.5 w-3.5 text-primary" />
+                <LayoutGrid className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs font-bold text-foreground">
                   {currentPipeline?.name || "Selecionar Funil"}
                 </span>
