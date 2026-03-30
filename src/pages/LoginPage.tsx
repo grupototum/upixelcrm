@@ -11,7 +11,7 @@ import upixelIconDark from "@/assets/upixel_icon_dark.png";
 
 export default function LoginPage() {
   const { theme } = useTheme();
-  const { login, signup, loginAsDemo, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isSignup, setIsSignup] = useState(false);
   const [name, setName] = useState("");
