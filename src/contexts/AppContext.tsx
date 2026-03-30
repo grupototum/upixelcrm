@@ -85,7 +85,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
         supabase.from("timeline_events").select("*").order("created_at", { ascending: false }).limit(100),
         (supabase.from as any)("automations").select("*").order("created_at", { ascending: false }),
-        supabase.from("automation_rules").select("*").order("created_at", { ascending: false }),
+        (supabase.from as any)("automation_rules").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (pipeRes.data) {
@@ -386,7 +386,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: newStatus } : a));
     
-    const { error } = await supabase.from("automation_rules").update({ active: newStatus }).eq("id", id);
+    const { error } = await (supabase.from as any)("automation_rules").update({ active: newStatus }).eq("id", id);
     if (error) {
       console.error(error);
       setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: rule.active } : a));
@@ -397,7 +397,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [automations]);
 
   const deleteBasicAutomation = useCallback(async (id: string) => {
-    const { error } = await supabase.from("automation_rules").delete().eq("id", id);
+    const { error } = await (supabase.from as any)("automation_rules").delete().eq("id", id);
     if (error) { console.error(error); toast.error("Erro ao excluir"); return; }
     setAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação removida");
@@ -407,7 +407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: userData } = await supabase.auth.getUser();
     const clientId = userData.user?.user_metadata?.client_id || "c1";
 
-    const { data: row, error } = await supabase.from("automation_rules").insert({
+    const { data: row, error } = await (supabase.from as any)("automation_rules").insert({
       client_id: clientId,
       pipeline_id: data.pipeline_id || currentPipelineId || null,
       column_id: data.column_id || null,
@@ -432,7 +432,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.exceptions !== undefined) updateData.exceptions = data.exceptions;
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
 
-    const { error } = await supabase.from("automation_rules").update(updateData).eq("id", id);
+    const { error } = await (supabase.from as any)("automation_rules").update(updateData).eq("id", id);
     if (error) { console.error(error); toast.error("Erro ao atualizar automação"); return; }
     
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
@@ -521,9 +521,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPipeline: setCurrentPipelineId, addPipeline,
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
-      addColumn, addTimelineEvent, 
+      addColumn, updateColumn, deleteColumn, addTimelineEvent, 
       createAutomation, updateAutomationNodes, deleteAutomation,
-      toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation,
+      toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
       addGlobalTag, deleteGlobalTag,
       refreshData: fetchAll,
     }}>

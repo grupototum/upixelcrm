@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Automation, PipelineColumn } from "@/types";
+import { Automation, PipelineColumn, AutomationTrigger, AutomationAction } from "@/types";
 import { useAppState } from "@/contexts/AppContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -116,7 +116,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
                   </Label>
                   <Select
                     value={automation.trigger.type}
-                    onValueChange={(type) => handleUpdate({ trigger: { type } })}
+                    onValueChange={(type) => handleUpdate({ trigger: { type: type as AutomationTrigger["type"] } })}
                   >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue />
@@ -143,7 +143,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
                           value={action.type}
                           onValueChange={(type) => {
                             const newActions = [...automation.actions];
-                            newActions[idx] = { ...action, type };
+                            newActions[idx] = { ...action, type: type as AutomationAction["type"] };
                             handleUpdate({ actions: newActions });
                           }}
                         >
@@ -161,7 +161,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
 
                         {action.type === "add_tag" && (
                           <Input 
-                            value={action.config?.tag || ""} 
+                            value={(action.config?.tag as string) || ""} 
                             onChange={(e) => {
                               const newActions = [...automation.actions];
                               newActions[idx] = { ...action, config: { tag: e.target.value } };
@@ -174,7 +174,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
 
                         {action.type === "move_column" && (
                           <Select
-                            value={action.config?.column || ""}
+                            value={(action.config?.column as string) || ""}
                             onValueChange={(val) => {
                                 const newActions = [...automation.actions];
                                 newActions[idx] = { ...action, config: { column: val } };

@@ -14,7 +14,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { PipelineColumn, Automation } from "@/types";
+import type { PipelineColumn, Automation, AutomationTrigger, AutomationAction, AutomationException } from "@/types";
 import { useAppState } from "@/contexts/AppContext";
 import { toast } from "sonner";
 
@@ -294,7 +294,7 @@ function AutomationRuleCard({
           <div className="border border-success/30 bg-success/5 rounded-xl p-3">
             <Select
               value={rule.trigger.type}
-              onValueChange={(type) => onUpdate({ ...rule, trigger: { type } })}
+              onValueChange={(type) => onUpdate({ ...rule, trigger: { type: type as AutomationTrigger["type"] } })}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
@@ -312,7 +312,7 @@ function AutomationRuleCard({
                 <Label className="text-[10px]">Horas na coluna</Label>
                 <Input
                   type="number"
-                  value={rule.trigger.config?.hours ?? 24}
+                  value={(rule.trigger.config?.hours as number) ?? 24}
                   onChange={(e) =>
                     onUpdate({ ...rule, trigger: { ...rule.trigger, config: { hours: Number(e.target.value) } } })
                   }
@@ -337,7 +337,7 @@ function AutomationRuleCard({
                     value={action.type}
                     onValueChange={(type) => {
                       const updated = [...rule.actions];
-                      updated[aIdx] = { ...action, type };
+                      updated[aIdx] = { ...action, type: type as AutomationAction["type"] };
                       onUpdate({ ...rule, actions: updated });
                     }}
                   >
@@ -360,7 +360,7 @@ function AutomationRuleCard({
 
                   {(action.type === "add_tag" || action.type === "remove_tag") && (
                     <Input
-                      value={action.config?.tag ?? ""}
+                      value={(action.config?.tag as string) ?? ""}
                       onChange={(e) => {
                         const updated = [...rule.actions];
                         updated[aIdx] = { ...action, config: { tag: e.target.value } };
@@ -373,7 +373,7 @@ function AutomationRuleCard({
 
                   {action.type === "move_column" && (
                     <Select
-                      value={action.config?.column ?? ""}
+                      value={(action.config?.column as string) ?? ""}
                       onValueChange={(column) => {
                         const updated = [...rule.actions];
                         updated[aIdx] = { ...action, config: { column } };
@@ -393,7 +393,7 @@ function AutomationRuleCard({
 
                   {action.type === "create_task" && (
                     <Input
-                      value={action.config?.title ?? ""}
+                      value={(action.config?.title as string) ?? ""}
                       onChange={(e) => {
                         const updated = [...rule.actions];
                         updated[aIdx] = { ...action, config: { title: e.target.value } };
@@ -445,7 +445,7 @@ function AutomationRuleCard({
                     value={exc.type}
                     onValueChange={(type) => {
                       const updated = [...rule.exceptions];
-                      updated[eIdx] = { ...exc, type };
+                      updated[eIdx] = { ...exc, type: type as AutomationException["type"] };
                       onUpdate({ ...rule, exceptions: updated });
                     }}
                   >
@@ -462,7 +462,7 @@ function AutomationRuleCard({
                   </Select>
                   {exc.type === "has_tag" && (
                     <Input
-                      value={exc.config?.tag ?? ""}
+                      value={(exc.config?.tag as string) ?? ""}
                       onChange={(e) => {
                         const updated = [...rule.exceptions];
                         updated[eIdx] = { ...exc, config: { tag: e.target.value } };
