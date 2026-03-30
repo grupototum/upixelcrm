@@ -445,7 +445,7 @@ function AutomationRuleCard({
                     value={exc.type}
                     onValueChange={(type) => {
                       const updated = [...rule.exceptions];
-                      updated[eIdx] = { ...exc, type };
+                      updated[eIdx] = { ...exc, type: type as AutomationException["type"] };
                       onUpdate({ ...rule, exceptions: updated });
                     }}
                   >
