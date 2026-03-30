@@ -227,6 +227,7 @@ export type Database = {
       }
       timeline_events: {
         Row: {
+          client_id: string
           content: string
           created_at: string
           id: string
@@ -235,6 +236,7 @@ export type Database = {
           user_name: string | null
         }
         Insert: {
+          client_id?: string
           content: string
           created_at?: string
           id?: string
@@ -243,6 +245,7 @@ export type Database = {
           user_name?: string | null
         }
         Update: {
+          client_id?: string
           content?: string
           created_at?: string
           id?: string
