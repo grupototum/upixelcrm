@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAppState } from "@/contexts/AppContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
@@ -21,7 +22,9 @@ const tabLabels: Record<string, string> = {
 };
 
 export default function AutomationsPage() {
-  const [activeTab, setActiveTab] = useState("rules");
+  const location = useLocation();
+  const initialTab = (location.state as { tab?: string })?.tab || "rules";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const { addBasicAutomation } = useAppState();
 
   const handleCreate = () => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
     columns: allColumns,
     currentPipelineId
   } = useAppState();
+  const navigate = useNavigate();
 
   const [columnName, setColumnName] = useState(column?.name ?? "");
   const [columnColor, setColumnColor] = useState(column?.color ?? "#3b82f6");
@@ -145,19 +147,39 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
 
           {/* ─── Cadence ─── */}
           <TabsContent value="cadence" className="mt-4">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ListChecks className="h-8 w-8 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground mb-2">Cadência de tarefas automáticas</p>
-              <ComingSoonBadge />
+            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-border/50">
+              <ListChecks className="h-8 w-8 text-muted-foreground mb-3 opacity-20" />
+              <p className="text-sm text-muted-foreground mb-4">A cadência permite automatizar o <br/> fluxo de mensagens e sequências.</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs gap-1.5"
+                onClick={() => {
+                  navigate("/automations", { state: { tab: "sequences" } });
+                  onClose();
+                }}
+              >
+                Configurar Mensagens e Sequências <ArrowRight className="h-3 w-3" />
+              </Button>
             </div>
           </TabsContent>
 
           {/* ─── Integrations ─── */}
           <TabsContent value="integrations" className="mt-4">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Plug className="h-8 w-8 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground mb-2">Integrações por coluna</p>
-              <ComingSoonBadge />
+            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-border/50">
+              <Plug className="h-8 w-8 text-muted-foreground mb-3 opacity-20" />
+              <p className="text-sm text-muted-foreground mb-4">Conecte o seu funil com outras <br/> ferramentas e APIs.</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs gap-1.5"
+                onClick={() => {
+                  navigate("/integrations");
+                  onClose();
+                }}
+              >
+                Ir para Integrações <ArrowRight className="h-3 w-3" />
+              </Button>
             </div>
           </TabsContent>
 
@@ -185,23 +207,46 @@ export function ColumnConfigModal({ column, open, onClose }: ColumnConfigModalPr
             </div>
 
             {columnRules.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs gap-1 border-primary/20 text-primary hover:bg-primary/5"
-                onClick={handleAddRule}
-              >
-                <Plus className="h-3 w-3" /> Nova automação
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs gap-1 border-primary/20 text-primary hover:bg-primary/5"
+                  onClick={handleAddRule}
+                >
+                  <Plus className="h-3 w-3" /> Nova automação
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-[10px] text-muted-foreground gap-1 h-7"
+                  onClick={() => {
+                    navigate("/automations", { state: { tab: "rules" } });
+                    onClose();
+                  }}
+                >
+                  Ver todas as automações <ArrowRight className="h-2 w-2" />
+                </Button>
+              </div>
             )}
           </TabsContent>
 
           {/* ─── Manual Tasks ─── */}
           <TabsContent value="tasks" className="mt-4">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ClipboardList className="h-8 w-8 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground mb-2">Tarefas manuais associadas</p>
-              <ComingSoonBadge />
+            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-border/50">
+              <ClipboardList className="h-8 w-8 text-muted-foreground mb-3 opacity-20" />
+              <p className="text-sm text-muted-foreground mb-4">Gerencie as tarefas pendentes <br/> deste funil de vendas.</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs gap-1.5"
+                onClick={() => {
+                  navigate("/tasks");
+                  onClose();
+                }}
+              >
+                Gerenciar Tarefas <ArrowRight className="h-3 w-3" />
+              </Button>
             </div>
           </TabsContent>
         </Tabs>
