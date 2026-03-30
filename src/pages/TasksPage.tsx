@@ -17,6 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
 import { TaskProgressHeader } from "@/components/tasks/TaskProgressHeader";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import type { Task } from "@/types";
@@ -30,10 +31,6 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [showNewTask, setShowNewTask] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newLeadId, setNewLeadId] = useState("");
-  const [newDueDate, setNewDueDate] = useState("");
-  const [newPriority, setNewPriority] = useState<string>("medium");
 
   const fireConfetti = useCallback(() => {
     confetti({
@@ -109,21 +106,6 @@ export default function TasksPage() {
     overdue: tasks.filter((t) => t.status === "overdue").length,
     completed: tasks.filter((t) => t.status === "completed").length,
   }), [tasks, todayStr]);
-
-  const handleCreateTask = useCallback(async () => {
-    if (!newTitle.trim()) return;
-    await addTask({
-      title: newTitle,
-      lead_id: newLeadId && newLeadId !== "none" ? newLeadId : undefined,
-      due_date: newDueDate || undefined,
-      priority: newPriority as Task["priority"],
-    });
-    setNewTitle("");
-    setNewLeadId("");
-    setNewDueDate("");
-    setNewPriority("medium");
-    setShowNewTask(false);
-  }, [newTitle, newLeadId, newDueDate, newPriority, addTask]);
 
   const tableHeader = (
     <div className="grid grid-cols-[4px_auto_1fr_auto_auto_auto] gap-3 items-center pl-0 pr-4 py-3 bg-secondary/50 ghost-border border-b">
@@ -292,49 +274,7 @@ export default function TasksPage() {
       </div>
 
       {/* New Task Dialog */}
-      <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Nova Tarefa</DialogTitle></DialogHeader>
-          <div className="space-y-3 mt-2">
-            <div>
-              <Label className="text-xs">Título *</Label>
-              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Descreva a tarefa" className="mt-1 rounded-lg" />
-            </div>
-            <div>
-              <Label className="text-xs">Prioridade</Label>
-              <Select value={newPriority} onValueChange={setNewPriority}>
-                <SelectTrigger className="mt-1 text-xs rounded-lg"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low" className="text-xs">🟢 Baixa</SelectItem>
-                  <SelectItem value="medium" className="text-xs">🔵 Média</SelectItem>
-                  <SelectItem value="high" className="text-xs">🟡 Alta</SelectItem>
-                  <SelectItem value="urgent" className="text-xs">🔴 Urgente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Vincular ao Lead</Label>
-              <Select value={newLeadId} onValueChange={setNewLeadId}>
-                <SelectTrigger className="mt-1 text-xs rounded-lg"><SelectValue placeholder="Selecionar lead (opcional)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-xs">Nenhum</SelectItem>
-                  {leads.map((l) => (
-                    <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Prazo</Label>
-              <Input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="mt-1 rounded-lg" />
-            </div>
-          </div>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowNewTask(false)} className="rounded-lg">Cancelar</Button>
-            <Button onClick={handleCreateTask} disabled={!newTitle.trim()} className="rounded-lg">Criar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateTaskModal open={showNewTask} onOpenChange={setShowNewTask} />
     </AppLayout>
   );
 }

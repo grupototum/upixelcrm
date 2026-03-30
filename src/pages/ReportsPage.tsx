@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
+import { DateRange } from "react-day-picker";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { mockColumns, mockLeads, mockTasks } from "@/lib/mock-data";
 import {
   TrendingUp, ArrowDownRight, BarChart3, PieChart as PieChartIcon,
@@ -38,22 +40,43 @@ const tooltipStyle = {
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState("all");
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
 
   const filteredLeads = useMemo(() => {
+    if (period === "custom") {
+      if (!customRange?.from) return mockLeads;
+      return mockLeads.filter(l => {
+        const d = new Date(l.created_at);
+        if (customRange.to) {
+          return d >= customRange.from! && d <= customRange.to;
+        }
+        return d >= customRange.from!;
+      });
+    }
     if (period === "all") return mockLeads;
     const now = new Date();
     const days = parseInt(period);
     const limitDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     return mockLeads.filter(l => new Date(l.created_at) >= limitDate);
-  }, [period]);
+  }, [period, customRange]);
 
   const filteredTasks = useMemo(() => {
+    if (period === "custom") {
+      if (!customRange?.from) return mockTasks;
+      return mockTasks.filter(t => {
+        const d = new Date(t.created_at);
+        if (customRange.to) {
+          return d >= customRange.from! && d <= customRange.to;
+        }
+        return d >= customRange.from!;
+      });
+    }
     if (period === "all") return mockTasks;
     const now = new Date();
     const days = parseInt(period);
     const limitDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     return mockTasks.filter(t => new Date(t.created_at) >= limitDate);
-  }, [period]);
+  }, [period, customRange]);
 
   const conversionData = useMemo(() =>
     mockColumns.map((col, i) => {
@@ -132,8 +155,16 @@ export default function ReportsPage() {
               <SelectItem value="7d" className="text-xs">Últimos 7 dias</SelectItem>
               <SelectItem value="30d" className="text-xs">Últimos 30 dias</SelectItem>
               <SelectItem value="90d" className="text-xs">Últimos 90 dias</SelectItem>
+              <SelectItem value="custom" className="text-xs">Personalizado</SelectItem>
             </SelectContent>
           </Select>
+          {period === "custom" && (
+            <DateRangePicker 
+              date={customRange} 
+              setDate={setCustomRange} 
+              className="animate-in fade-in slide-in-from-right-2 duration-300"
+            />
+          )}
           <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8">
             <Download className="h-3 w-3" /> Exportar
           </Button>

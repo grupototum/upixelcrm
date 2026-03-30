@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { mockAutomations, mockColumns } from "@/lib/mock-data";
+import { useAppState } from "@/contexts/AppContext";
 import {
   Zap, Settings, Target, Cog, AlertTriangle,
   MoreHorizontal, Copy, Trash2, Search, Plus,
@@ -32,21 +32,19 @@ const actionLabels: Record<string, string> = {
 
 export function RulesTab() {
   const [search, setSearch] = useState("");
-  const [automations, setAutomations] = useState(mockAutomations);
+  const { automations, columns, toggleBasicAutomation, deleteBasicAutomation } = useAppState();
 
   const filtered = useMemo(
     () => automations.filter((a) => a.name.toLowerCase().includes(search.toLowerCase())),
     [search, automations]
   );
 
-  const toggleAuto = (id: string, current: boolean) => {
-    setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !current } : a));
-    toast.success(`Automação ${current ? "desativada" : "ativada"} com sucesso.`);
+  const toggleAuto = (id: string) => {
+    toggleBasicAutomation(id);
   };
 
   const deleteAuto = (id: string) => {
-    setAutomations(prev => prev.filter(a => a.id !== id));
-    toast.success("Automação excluída da lista.");
+    deleteBasicAutomation(id);
   };
 
   return (
@@ -73,7 +71,7 @@ export function RulesTab() {
         </div>
       ) : (
         filtered.map((auto) => {
-          const col = mockColumns.find((c) => c.id === auto.column_id);
+          const col = columns.find((c) => c.id === auto.column_id);
           return (
             <div
               key={auto.id}
@@ -99,7 +97,7 @@ export function RulesTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Switch checked={auto.active} onCheckedChange={() => toggleAuto(auto.id, auto.active)} />
+                  <Switch checked={auto.active} onCheckedChange={() => toggleAuto(auto.id)} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">

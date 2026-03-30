@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAppState } from "@/contexts/AppContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Plus, Zap, MessageSquare, Bot, Workflow,
@@ -21,6 +22,19 @@ const tabLabels: Record<string, string> = {
 
 export default function AutomationsPage() {
   const [activeTab, setActiveTab] = useState("rules");
+  const { addBasicAutomation } = useAppState();
+
+  const handleCreate = () => {
+    if (activeTab === "rules") {
+      addBasicAutomation({
+        name: "Nova Automação " + (Math.floor(Math.random() * 100)),
+        trigger: { type: "card_entered" },
+        actions: [{ type: "add_tag", config: { tag: "novo" } }],
+      });
+    } else {
+      toast.success(`${tabLabels[activeTab]} criada com sucesso! (Demonstração)`);
+    }
+  };
 
   return (
     <AppLayout
@@ -29,7 +43,7 @@ export default function AutomationsPage() {
       actions={
         <Button 
           size="sm" 
-          onClick={() => toast.success(`${tabLabels[activeTab]} criada com sucesso! (Demonstração)`)}
+          onClick={handleCreate}
           className="text-xs gap-1 bg-primary hover:bg-primary-hover text-primary-foreground"
         >
           <Plus className="h-3 w-3" /> {tabLabels[activeTab]}

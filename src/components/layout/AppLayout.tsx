@@ -2,7 +2,8 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "./ThemeToggle";
-import { Bell, Settings } from "lucide-react";
+import { NotificationPopover } from "./NotificationPopover";
+import { SettingsPopover } from "./SettingsPopover";
 import { Button } from "@/components/ui/button";
 
 interface AppLayoutProps {
@@ -30,13 +31,8 @@ export function AppLayout({ children, title, subtitle, actions }: AppLayoutProps
             </div>
             <div className="flex items-center gap-2">
               {actions}
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full">
-                <Settings className="h-4 w-4" />
-              </Button>
+              <NotificationPopover />
+              <SettingsPopover />
               <div className="h-6 w-px bg-border/20 mx-1" />
               <ThemeToggle />
             </div>

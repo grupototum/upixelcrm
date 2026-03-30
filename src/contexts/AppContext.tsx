@@ -32,6 +32,10 @@ interface AppState {
   createAutomation: (name: string) => Promise<string | null>;
   updateAutomationNodes: (id: string, nodes: Node[], edges: Edge[]) => Promise<void>;
   deleteAutomation: (id: string) => Promise<void>;
+  
+  toggleBasicAutomation: (id: string) => Promise<void>;
+  deleteBasicAutomation: (id: string) => Promise<void>;
+  addBasicAutomation: (data: Partial<Automation>) => Promise<void>;
 
   refreshData: () => Promise<void>;
 }
@@ -48,7 +52,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [automations] = useState<Automation[]>(mockAutomations);
+  const [automations, setAutomations] = useState<Automation[]>(mockAutomations);
   const [complexAutomations, setComplexAutomations] = useState<ComplexAutomation[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -281,6 +285,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Automação excluída");
   }, []);
 
+  const toggleBasicAutomation = useCallback(async (id: string) => {
+    setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
+    toast.success("Automação atualizada");
+  }, []);
+
+  const deleteBasicAutomation = useCallback(async (id: string) => {
+    setAutomations(prev => prev.filter(a => a.id !== id));
+    toast.success("Automação removida");
+  }, []);
+
+  const addBasicAutomation = useCallback(async (data: Partial<Automation>) => {
+    const newAuto: Automation = {
+      id: Math.random().toString(36).substr(2, 9),
+      client_id: "c1",
+      name: data.name || "Nova Automação",
+      active: true,
+      trigger: data.trigger || { type: "card_entered" },
+      actions: data.actions || [],
+      exceptions: data.exceptions || [],
+      ...data,
+    };
+    setAutomations(prev => [newAuto, ...prev]);
+    toast.success("Automação criada!");
+  }, []);
+
   return (
     <AppContext.Provider value={{
       leads, columns, tasks, automations, complexAutomations, timeline, loading,
@@ -288,6 +317,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, addTimelineEvent, 
       createAutomation, updateAutomationNodes, deleteAutomation,
+      toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation,
       refreshData: fetchAll,
     }}>
       {children}

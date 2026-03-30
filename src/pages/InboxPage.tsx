@@ -12,7 +12,16 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { MessageTemplatePopover } from "@/components/inbox/MessageTemplatePopover";
-import type { InboxThread } from "@/types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
+import { AddTagModal } from "@/components/crm/AddTagModal";
+import { useAppState } from "@/contexts/AppContext";
+import type { InboxThread, Task } from "@/types";
 
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success",
@@ -36,6 +45,13 @@ export default function InboxPage() {
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [inboxTab, setInboxTab] = useState<string>("todas");
+  
+  // Modal states
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [tagModalOpen, setTagModalOpen] = useState(false);
+
+  const { tasks, toggleTaskStatus, moveLead, columns } = useAppState();
 
   const messages = mockMessages.filter((m) => m.thread_id === selectedThread.id);
 
@@ -47,6 +63,11 @@ export default function InboxPage() {
   const leadColumn = useMemo(
     () => mockColumns.find((c) => c.id === selectedLead?.column_id),
     [selectedLead?.column_id]
+  );
+
+  const leadTasks = useMemo(
+    () => tasks.filter((t) => t.lead_id === selectedLead?.id),
+    [tasks, selectedLead?.id]
   );
 
   const filteredThreads = useMemo(() => {
@@ -192,16 +213,16 @@ export default function InboxPage() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-accent hover:text-accent">
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-accent hover:text-accent" onClick={() => toast.info("IA analisando conversa...")}>
                 <Sparkles className="h-3.5 w-3.5" /> IA
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => toast.info("Chamada de voz não disponível no navegador")}>
                 <Phone className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => toast.info("Chamada de vídeo não disponível no navegador")}>
                 <Video className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => toast.info("Opções adicionais: Bloquear, Arquivar, Exportar")}>
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </div>
@@ -387,18 +408,75 @@ export default function InboxPage() {
             )}
           </div>
 
-          {/* Tags */}
-          {selectedLead && selectedLead.tags.length > 0 && (
-            <div className="p-4 ghost-border border-b">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                <Tag className="h-3 w-3" /> Tags
+          {/* Tasks section */}
+          <div className="p-4 ghost-border border-b space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <CheckSquare className="h-3 w-3" /> Tarefas
               </p>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-5 w-5 text-primary hover:bg-primary/10"
+                onClick={() => setTaskModalOpen(true)}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {leadTasks.length > 0 ? (
+                leadTasks.map((task) => (
+                  <div key={task.id} className="flex items-start gap-2 group">
+                    <button 
+                      onClick={() => toggleTaskStatus(task.id)}
+                      className={`mt-0.5 h-3.5 w-3.5 rounded border border-primary/30 flex items-center justify-center transition-colors ${task.status === 'completed' ? 'bg-primary border-primary' : 'hover:border-primary'}`}
+                    >
+                      {task.status === 'completed' && <CheckSquare className="h-2.5 w-2.5 text-primary-foreground" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[11px] leading-tight ${task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground font-medium'}`}>
+                        {task.title}
+                      </p>
+                      {task.due_date && (
+                        <p className="text-[9px] text-muted-foreground mt-0.5">
+                          {new Date(task.due_date).toLocaleDateString("pt-BR")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-[10px] text-muted-foreground italic text-center py-2">Sem tarefas pendentes</p>
+              )}
+            </div>
+          </div>
+
+          {/* Tags */}
+          {selectedLead && (
+            <div className="p-4 ghost-border border-b">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Tag className="h-3 w-3" /> Tags
+                </p>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5 text-primary hover:bg-primary/10"
+                  onClick={() => setTagModalOpen(true)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-1">
-                {selectedLead.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-[10px] gap-1">
-                    <Tag className="h-2.5 w-2.5" /> {tag}
-                  </Badge>
-                ))}
+                {selectedLead.tags.length > 0 ? (
+                  selectedLead.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-[10px] gap-1 px-2 py-0">
+                      {tag}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-muted-foreground italic">Sem tags</p>
+                )}
               </div>
             </div>
           )}
@@ -407,13 +485,33 @@ export default function InboxPage() {
           <div className="p-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Ações Rápidas</p>
             <div className="space-y-1.5">
-              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => toast.success("Tarefa criada para " + selectedThread.lead_name)}>
+              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => setTaskModalOpen(true)}>
                 <CheckSquare className="h-3 w-3" /> Criar tarefa
               </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => toast.success("Lead movido para próximo estágio")}>
-                <ArrowRight className="h-3 w-3" /> Mover estágio
-              </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => toast.success("Tag adicionada ao lead")}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8">
+                    <ArrowRight className="h-3 w-3" /> Mover estágio
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {columns.map((col) => (
+                    <DropdownMenuItem
+                      key={col.id}
+                      className="text-xs gap-2"
+                      disabled={col.id === selectedLead?.column_id}
+                      onClick={() => moveLead(selectedThread.lead_id, col.id)}
+                    >
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: col.color }}
+                      />
+                      {col.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => setTagModalOpen(true)}>
                 <Plus className="h-3 w-3" /> Adicionar tag
               </Button>
               <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => { setMessage("Olá! Obrigado pelo contato. Como posso ajudar?"); toast.info("Sugestão inserida"); }}>
@@ -422,6 +520,18 @@ export default function InboxPage() {
             </div>
           </div>
         </div>
+
+        {/* Modals */}
+        <CreateTaskModal 
+          open={taskModalOpen} 
+          onOpenChange={setTaskModalOpen} 
+          defaultLeadId={selectedThread.lead_id} 
+        />
+        <AddTagModal 
+          open={tagModalOpen} 
+          onOpenChange={setTagModalOpen} 
+          leadId={selectedThread.lead_id}
+        />
       </div>
     </AppLayout>
   );
