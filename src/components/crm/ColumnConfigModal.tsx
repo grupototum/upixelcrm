@@ -14,7 +14,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { PipelineColumn, Automation } from "@/types";
+import type { PipelineColumn, Automation, AutomationTrigger, AutomationAction, AutomationException } from "@/types";
 import { useAppState } from "@/contexts/AppContext";
 import { toast } from "sonner";
 
