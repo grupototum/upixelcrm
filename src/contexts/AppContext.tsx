@@ -432,7 +432,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.exceptions !== undefined) updateData.exceptions = data.exceptions;
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
 
-    const { error } = await supabase.from("automation_rules").update(updateData).eq("id", id);
+    const { error } = await (supabase.from as any)("automation_rules").update(updateData).eq("id", id);
     if (error) { console.error(error); toast.error("Erro ao atualizar automação"); return; }
     
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
