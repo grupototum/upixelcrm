@@ -95,7 +95,9 @@ export function TimeActionsTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((auto) => {
             const col = columns.find((c) => c.id === auto.column_id);
-            const hoursInTrigger = auto.trigger.config?.hours || 0;
+            const config = auto.trigger.config as any;
+            const hoursInTrigger = config?.hours || 0;
+            const targetLeads = config?.target_lead_ids as string[] | undefined;
             
             // Render specific icon based on the primary action
             const primaryAction = auto.actions[0]?.type;
@@ -114,7 +116,14 @@ export function TimeActionsTab() {
                       <ActionIcon className={`h-4 w-4 transition-colors ${auto.active ? "text-accent" : "text-muted-foreground"}`} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-foreground group-hover:text-accent transition-colors">{auto.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-foreground group-hover:text-accent transition-colors">{auto.name}</h3>
+                        {targetLeads && targetLeads.length > 0 && (
+                          <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-primary/30 text-primary bg-primary/5">
+                            {targetLeads.length} Lead{targetLeads.length > 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                      </div>
                       {col ? (
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />

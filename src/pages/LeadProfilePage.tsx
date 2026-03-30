@@ -74,10 +74,19 @@ export default function LeadProfilePage() {
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
   
-  // Real automations for this lead's pipeline/column
+  // Temporal automations for this lead
   const leadAutomations = useMemo(() => {
-    return contextAutomations.filter(a => a.pipeline_id === column?.pipeline_id || a.column_id === column?.id);
-  }, [contextAutomations, column]);
+    return contextAutomations.filter(a => {
+      if (a.trigger.type !== "time_in_column") return false;
+      
+      const config = a.trigger.config as any;
+      if (config?.target_lead_ids && config.target_lead_ids.length > 0) {
+        return config.target_lead_ids.includes(id);
+      }
+      
+      return a.pipeline_id === column?.pipeline_id || a.column_id === column?.id;
+    });
+  }, [contextAutomations, column, id]);
   const leadTimeline = useMemo(() => timeline.filter((e) => e.lead_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [id, timeline]);
   const leadTasks = useMemo(() => tasks.filter((t) => t.lead_id === id), [id, tasks]);
   const threads = useMemo(() => mockThreads.filter((t) => t.lead_id === id), [id]);
@@ -462,12 +471,12 @@ export default function LeadProfilePage() {
             )}
           </TabsContent>
 
-          {/* Ações Automáticas */}
+          {/* Ações Temporais */}
           <TabsContent value="automacoes" className="mt-5 space-y-4">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center justify-between">
-                <p className="text-xs font-semibold">Automações vinculadas</p>
-                <Button variant="outline" size="sm" className="text-xs gap-1 h-7" onClick={() => navigate("/settings?tab=automations")}><Plus className="h-3 w-3" /> Nova automação</Button>
+                <p className="text-xs font-semibold">Rotinas Temporais Adicionadas</p>
+                <Button variant="outline" size="sm" className="text-xs gap-1 h-7" onClick={() => navigate("/automations", { state: { tab: "time_actions", lead_id: id } })}><Plus className="h-3 w-3" /> Nova regra</Button>
               </div>
               {leadAutomations.map((auto) => {
                 let friendlyTrigger = "Gatilho customizado";
@@ -502,7 +511,7 @@ export default function LeadProfilePage() {
               {leadAutomations.length === 0 && (
                  <div className="p-6 text-center text-muted-foreground">
                    <Zap className="h-6 w-6 mx-auto mb-2 opacity-30" />
-                   <p className="text-xs font-medium">Nenhuma automação vinculada a essa etapa.</p>
+                   <p className="text-xs font-medium">Nenhuma rotina temporal agendada.</p>
                  </div>
               )}
             </div>

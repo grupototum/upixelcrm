@@ -39,7 +39,13 @@ export default function AutomationsPage() {
     } else if (activeTab === "time_actions") {
       addBasicAutomation({
         name: "Ação de Tempo " + (Math.floor(Math.random() * 100)),
-        trigger: { type: "time_in_column", config: { hours: 24 } },
+        trigger: { 
+          type: "time_in_column", 
+          config: { 
+            hours: 24, 
+            ...(((location.state as any)?.lead_id) ? { target_lead_ids: [(location.state as any).lead_id] } : {}) 
+          } 
+        },
         actions: [{ type: "send_message", config: { text: "Olá! Como podemos ajudar?" } }],
       });
     } else {
@@ -62,6 +68,8 @@ export default function AutomationsPage() {
       }
     >
       <div className="p-6 animate-fade-in">
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-secondary">
             <TabsTrigger value="rules" className="text-xs gap-1.5">
               <Zap className="h-3 w-3" /> Regras e Automações
