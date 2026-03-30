@@ -393,7 +393,7 @@ function AutomationRuleCard({
 
                   {action.type === "create_task" && (
                     <Input
-                      value={action.config?.title ?? ""}
+                      value={(action.config?.title as string) ?? ""}
                       onChange={(e) => {
                         const updated = [...rule.actions];
                         updated[aIdx] = { ...action, config: { title: e.target.value } };
