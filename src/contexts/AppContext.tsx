@@ -521,7 +521,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPipeline: setCurrentPipelineId, addPipeline,
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
-      addColumn, addTimelineEvent, 
+      addColumn, updateColumn, deleteColumn, addTimelineEvent, 
       createAutomation, updateAutomationNodes, deleteAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation,
       addGlobalTag, deleteGlobalTag,
