@@ -145,6 +145,42 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          client_id: string
+          created_at: string
+          email: string | null
+          id: string
+          is_blocked: boolean
+          name: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          client_id?: string
+          created_at?: string
+          email?: string | null
+          id: string
+          is_blocked?: boolean
+          name?: string
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          client_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_blocked?: boolean
+          name?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assigned_to: string | null
@@ -229,7 +265,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_client_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
