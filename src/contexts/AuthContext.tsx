@@ -25,6 +25,8 @@ const MOCK_USERS: Array<AuthUser & { password: string }> = [
   { id: "u1", name: "Admin Totum", email: "admin@totumpixel.com", role: "supervisor", password: "admin123" },
   { id: "u2", name: "Maria Gerente", email: "maria@totumpixel.com", role: "atendente", password: "maria123" },
   { id: "u3", name: "João Operador", email: "joao@totumpixel.com", role: "vendedor", password: "joao123" },
+  { id: "udem1", name: "Usuário Demo", email: "demo@upixel.com.br", role: "atendente", password: "demo123" },
+  { id: "umast1", name: "Usuário Master", email: "master@upixel.com.br", role: "supervisor", password: "master123" },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
