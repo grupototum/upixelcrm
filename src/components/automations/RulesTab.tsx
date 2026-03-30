@@ -34,7 +34,7 @@ const actionLabels: Record<string, string> = {
 
 export function RulesTab() {
   const [search, setSearch] = useState("");
-  const [editingAutomation, setEditingAutomation] = useState<Automation | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { 
     automations, 
     columns, 
@@ -42,6 +42,8 @@ export function RulesTab() {
     deleteBasicAutomation, 
     addBasicAutomation 
   } = useAppState();
+
+  const editingAutomation = editingId ? automations.find(a => a.id === editingId) || null : null;
 
   const filtered = useMemo(
     () => automations.filter((a) => a.name.toLowerCase().includes(search.toLowerCase())),
@@ -123,7 +125,7 @@ export function RulesTab() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem className="text-xs gap-2" onClick={() => setEditingAutomation(auto)}><Settings className="h-3 w-3" /> Editar</DropdownMenuItem>
+                        <DropdownMenuItem className="text-xs gap-2" onClick={() => setEditingId(auto.id)}><Settings className="h-3 w-3" /> Editar</DropdownMenuItem>
                         <DropdownMenuItem className="text-xs gap-2" onClick={() => duplicateAuto(auto)}><Copy className="h-3 w-3" /> Duplicar</DropdownMenuItem>
                         <DropdownMenuItem className="text-xs gap-2 text-destructive" onClick={() => deleteAuto(auto.id)}><Trash2 className="h-3 w-3" /> Excluir</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -191,7 +193,7 @@ export function RulesTab() {
       <AutomationEditModal 
         automation={editingAutomation} 
         open={!!editingAutomation} 
-        onClose={() => setEditingAutomation(null)} 
+        onClose={() => setEditingId(null)} 
       />
     </div>
   );

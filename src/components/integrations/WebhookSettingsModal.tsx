@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useState, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Webhook, Plus, Trash2, Edit2, ShieldAlert, Eye, EyeOff } from "lucide-react";
+import { Webhook, Plus, Trash2, Edit2, ShieldAlert, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { WebhookEndpoint } from "@/types";
 
 const AVAILABLE_EVENTS = [
@@ -17,21 +18,9 @@ const AVAILABLE_EVENTS = [
   { id: "task.completed", name: "Tarefa Concluída" },
 ];
 
-const initialWebhooks: WebhookEndpoint[] = [
-  {
-    id: "wh1",
-    client_id: "c1",
-    url: "https://api.empresa.com/webhooks/upixel",
-    description: "Sincronização ERP via Make",
-    events: ["lead.created", "lead.stage_changed"],
-    secret: "wh_sec_a8b9cdef1234567890",
-    active: true,
-    created_at: "2026-03-20T10:00:00Z",
-  }
-];
-
 export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>(initialWebhooks);
+  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showSecretId, setShowSecretId] = useState<string | null>(null);
 
@@ -40,6 +29,22 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
   const [description, setDescription] = useState("");
   const [events, setEvents] = useState<string[]>([]);
   const [active, setActive] = useState(true);
+
+  const fetchWebhooks = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await (supabase.from as any)("webhook_endpoints").select("*").order("created_at", { ascending: false });
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao carregar webhooks");
+    } else {
+      setWebhooks(data || []);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (open) fetchWebhooks();
+  }, [open, fetchWebhooks]);
 
   const resetForm = () => {
     setUrl("");
@@ -62,7 +67,7 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
     setEditingId(wh.id);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!url.startsWith("https://")) {
       toast.error("A URL do Webhook deve usar HTTPS.");
       return;
@@ -73,26 +78,46 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
     }
 
     if (editingId === "new") {
-      const newWh: WebhookEndpoint = {
-        id: "wh" + Date.now(),
-        client_id: "c1",
+      const secret = "wh_sec_" + Array.from({ length: 24 }, () => Math.random().toString(36)[2] || '0').join('');
+      const { data: row, error } = await (supabase.from as any)("webhook_endpoints").insert({
         url,
         description,
         events,
         active,
-        secret: "wh_sec_" + Array.from({ length: 24 }, () => Math.random().toString(36)[2] || '0').join(''),
-        created_at: new Date().toISOString(),
-      };
-      setWebhooks([...webhooks, newWh]);
+        secret,
+      }).select().single();
+
+      if (error) {
+        console.error(error);
+        toast.error("Erro ao criar webhook.");
+        return;
+      }
+      setWebhooks(prev => [row, ...prev]);
       toast.success("Webhook criado com sucesso.");
     } else {
+      const { error } = await (supabase.from as any)("webhook_endpoints")
+        .update({ url, description, events, active })
+        .eq("id", editingId);
+
+      if (error) {
+        console.error(error);
+        toast.error("Erro ao atualizar webhook.");
+        return;
+      }
       setWebhooks(webhooks.map(wh => wh.id === editingId ? { ...wh, url, description, events, active } : wh));
       toast.success("Webhook atualizado.");
     }
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Deseja realmente excluir este webhook?")) return;
+    const { error } = await (supabase.from as any)("webhook_endpoints").delete().eq("id", id);
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao remover webhook.");
+      return;
+    }
     setWebhooks(webhooks.filter(w => w.id !== id));
     toast.success("Webhook removido.");
   };
@@ -103,7 +128,7 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if(!v) resetForm(); }}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Webhook className="h-5 w-5 text-accent" /> Gerenciar Webhooks
@@ -151,6 +176,10 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
               <Button onClick={handleSave}>Salvar Webhook</Button>
             </div>
           </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
         ) : (
           <>
             <div className="flex justify-between items-center bg-card mb-2">
@@ -177,7 +206,7 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(wh.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-2 flex-wrap mb-3 mt-3">
                       {wh.events.map(ev => <Badge key={ev} variant="secondary" className="text-[10px]">{ev}</Badge>)}
                     </div>

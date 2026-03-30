@@ -1,42 +1,58 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useState, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Key, Copy, AlertCircle, Trash2, CheckCircle2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Key, Copy, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { ApiKey } from "@/types";
 
-// Mock data init
-const initialKeys: ApiKey[] = [
-  { id: "ak1", client_id: "c1", name: "Integração ERP", token_preview: "sk_live_...9a8f", last_used_at: "2026-03-27T10:00:00Z", created_at: "2026-01-10T14:00:00Z", active: true },
-  { id: "ak2", client_id: "c1", name: "Typeform Leads", token_preview: "sk_live_...2b1c", created_at: "2026-02-15T09:30:00Z", active: false },
-];
-
 export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [keys, setKeys] = useState<ApiKey[]>(initialKeys);
+  const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newKeyName, setNewKeyName] = useState("");
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
 
-  const generateToken = () => {
+  const fetchKeys = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await (supabase.from as any)("api_keys").select("*").order("created_at", { ascending: false });
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao carregar chaves de API");
+    } else {
+      setKeys(data || []);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (open) fetchKeys();
+  }, [open, fetchKeys]);
+
+  const generateToken = async () => {
     if (!newKeyName.trim()) {
       toast.error("Informe um nome para a chave.");
       return;
     }
+
     const token = "sk_live_" + Array.from({ length: 32 }, () => Math.random().toString(36)[2] || '0').join('');
     const preview = token.slice(0, 12) + "..." + token.slice(-4);
-    
-    const newKey: ApiKey = {
-      id: "ak" + Date.now(),
-      client_id: "c1",
+
+    const { data: row, error } = await (supabase.from as any)("api_keys").insert({
       name: newKeyName,
       token_preview: preview,
-      created_at: new Date().toISOString(),
+      token_hash: btoa(token), // In production, use proper hashing
       active: true,
-    };
+    }).select().single();
 
-    setKeys([...keys, newKey]);
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao criar chave de API.");
+      return;
+    }
+
+    setKeys(prev => [row, ...prev]);
     setGeneratedToken(token);
     setNewKeyName("");
     toast.success("Chave de API gerada com sucesso!");
@@ -49,13 +65,33 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
     }
   };
 
-  const revokeKey = (id: string) => {
+  const revokeKey = async (id: string) => {
+    const { error } = await (supabase.from as any)("api_keys").update({ active: false }).eq("id", id);
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao revogar chave.");
+      return;
+    }
     setKeys(keys.map(k => k.id === id ? { ...k, active: false } : k));
     toast.info("Chave revogada.");
   };
 
+  const deleteKey = async (id: string) => {
+    const { error } = await (supabase.from as any)("api_keys").delete().eq("id", id);
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao excluir chave.");
+      return;
+    }
+    setKeys(keys.filter(k => k.id !== id));
+    toast.success("Chave removida.");
+  };
+
+  const activeKeys = keys.filter(k => k.active);
+  const revokedKeys = keys.filter(k => !k.active);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setGeneratedToken(null); }}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -72,7 +108,7 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
               <CheckCircle2 className="h-5 w-5 text-success mt-0.5 shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">Sua nova chave de API</p>
-                <p className="text-xs text-muted-foreground mt-1 mb-3">Copy e salve esta chave agora. Por segurança, você não poderá vê-la novamente.</p>
+                <p className="text-xs text-muted-foreground mt-1 mb-3">Copie e salve esta chave agora. Por segurança, você não poderá vê-la novamente.</p>
                 <div className="flex items-center gap-2 bg-background border border-border rounded-md p-1.5 pl-3">
                   <code className="text-xs text-foreground flex-1 break-all">{generatedToken}</code>
                   <Button variant="secondary" size="icon" onClick={copyToClipboard} className="h-7 w-7 shrink-0">
@@ -92,41 +128,68 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
             <div className="bg-secondary/30 border border-border rounded-lg p-4 mb-2 flex items-end gap-3">
               <div className="flex-1 space-y-1.5">
                 <Label className="text-xs font-semibold">Nova chave de API</Label>
-                <Input 
-                  placeholder="Ex: Integração ERP Financeiro" 
-                  value={newKeyName} 
-                  onChange={(e) => setNewKeyName(e.target.value)} 
+                <Input
+                  placeholder="Ex: Integração ERP Financeiro"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
                   maxLength={50}
                 />
               </div>
               <Button onClick={generateToken} disabled={!newKeyName.trim()}>Criar chave secreta</Button>
             </div>
 
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Chaves Ativas ({keys.filter(k => k.active).length})</h3>
-              <div className="divide-y divide-border border border-border rounded-lg overflow-hidden flex flex-col max-h-60 overflow-y-auto">
-                {keys.filter(k => k.active).length === 0 ? (
-                  <p className="p-4 text-xs text-muted-foreground text-center bg-card">Nenhuma chave ativa encontrada.</p>
-                ) : (
-                  keys.map((key) => (
-                    <div key={key.id} className="flex items-center justify-between p-3 bg-card hover:bg-card-hover transition-colors">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{key.name}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <code className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{key.token_preview}</code>
-                          {key.last_used_at && <span className="text-[10px] text-muted-foreground">Último uso: {new Date(key.last_used_at).toLocaleDateString()}</span>}
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                  Chaves Ativas ({activeKeys.length})
+                </h3>
+                <div className="divide-y divide-border border border-border rounded-lg overflow-hidden flex flex-col max-h-60 overflow-y-auto">
+                  {activeKeys.length === 0 ? (
+                    <p className="p-4 text-xs text-muted-foreground text-center bg-card">Nenhuma chave ativa encontrada.</p>
+                  ) : (
+                    activeKeys.map((key) => (
+                      <div key={key.id} className="flex items-center justify-between p-3 bg-card hover:bg-card-hover transition-colors">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{key.name}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <code className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{key.token_preview}</code>
+                            {key.last_used_at && <span className="text-[10px] text-muted-foreground">Último uso: {new Date(key.last_used_at).toLocaleDateString()}</span>}
+                          </div>
                         </div>
-                      </div>
-                      {key.active && (
                         <Button variant="ghost" size="sm" onClick={() => revokeKey(key.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
                           <Trash2 className="h-4 w-4 mr-1" /> Revogar
                         </Button>
-                      )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {revokedKeys.length > 0 && (
+                  <>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4">
+                      Chaves Revogadas ({revokedKeys.length})
+                    </h3>
+                    <div className="divide-y divide-border border border-border rounded-lg overflow-hidden flex flex-col max-h-40 overflow-y-auto opacity-60">
+                      {revokedKeys.map(key => (
+                        <div key={key.id} className="flex items-center justify-between p-3 bg-card">
+                          <div>
+                            <p className="text-sm font-medium text-foreground line-through">{key.name}</p>
+                            <code className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{key.token_preview}</code>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => deleteKey(key.id)} className="text-muted-foreground hover:text-destructive h-7 text-[10px]">
+                            <Trash2 className="h-3 w-3 mr-1" /> Excluir
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))
+                  </>
                 )}
               </div>
-            </div>
+            )}
           </>
         )}
       </DialogContent>
