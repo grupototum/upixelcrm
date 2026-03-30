@@ -294,7 +294,7 @@ function AutomationRuleCard({
           <div className="border border-success/30 bg-success/5 rounded-xl p-3">
             <Select
               value={rule.trigger.type}
-              onValueChange={(type) => onUpdate({ ...rule, trigger: { type } })}
+              onValueChange={(type) => onUpdate({ ...rule, trigger: { type: type as AutomationTrigger["type"] } })}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
