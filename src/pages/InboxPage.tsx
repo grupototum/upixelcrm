@@ -53,7 +53,7 @@ const channelIcons: Record<string, typeof MessageCircle> = {
   webchat: Globe,
 };
 
-export default function InboxPage() {
+export default function InboxPage() { // force HMR reset
   const navigate = useNavigate();
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData } = useAppState();
   const inbox = useInbox(refreshData);
