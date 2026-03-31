@@ -115,6 +115,34 @@ Deno.serve(async (req) => {
     const config = integration.config as { api_url: string; instance_name: string; api_key: string };
 
     if (action === "connect") {
+      // First, try to fetch the instance. If it doesn't exist, create it.
+      const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+        headers: { apikey: config.api_key },
+      });
+
+      if (checkRes.status === 404) {
+        // Instance doesn't exist — create it first
+        const createRes = await fetch(`${config.api_url}/instance/create`, {
+          method: "POST",
+          headers: { apikey: config.api_key, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instanceName: config.instance_name,
+            integration: "WHATSAPP-BAILEYS",
+            qrcode: true,
+          }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) {
+          return new Response(JSON.stringify({ error: "Failed to create instance", details: createData }), {
+            status: createRes.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        await checkRes.text(); // consume body
+      }
+
+      // Now connect (get QR code)
       const res = await fetch(`${config.api_url}/instance/connect/${config.instance_name}`, {
         headers: { apikey: config.api_key },
       });
