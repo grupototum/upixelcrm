@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, X } from "lucide-react";
+import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, X, Smile, Paperclip as AttachIcon, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -91,19 +91,19 @@ export function ReplyBox({
 
         {/* Header: Mode & Channel Selector */}
         <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 p-1 bg-secondary/30 rounded-2xl border border-border/20">
             <button
               onClick={() => setIsPrivate(false)}
-              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all ${
-                !isPrivate ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-secondary"
+              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl transition-all duration-200 ${
+                !isPrivate ? "bg-background text-primary shadow-sm border border-border/50" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Resposta
             </button>
             <button
               onClick={() => setIsPrivate(true)}
-              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all flex items-center gap-1 ${
-                isPrivate ? "bg-amber-500 text-white shadow-sm" : "text-muted-foreground hover:bg-secondary"
+              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
+                isPrivate ? "bg-amber-500 text-white shadow-md" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Lock className="h-2.5 w-2.5" /> Nota Privada
@@ -111,7 +111,7 @@ export function ReplyBox({
           </div>
 
           {!isPrivate && sourceConversations.length > 1 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[50%]">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[50%] p-1 bg-secondary/20 rounded-xl">
               {sourceConversations.map(sc => {
                 const Icon = channelIcons[sc.channel] || MessageCircle;
                 const isActive = activeConversationId === sc.id;
@@ -120,10 +120,10 @@ export function ReplyBox({
                     key={sc.id}
                     onClick={() => setActiveConversationId(sc.id)}
                     title={sc.metadata.phone || sc.metadata.email || sc.channel}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-medium transition-all shrink-0 ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-bold transition-all shrink-0 ${
                       isActive
-                        ? "bg-primary/10 text-primary border-primary/20"
-                        : "bg-background text-muted-foreground border-border hover:border-primary/20"
+                        ? "bg-background text-primary border-primary/20 shadow-sm"
+                        : "text-muted-foreground border-transparent hover:bg-background/50"
                     }`}
                   >
                     <Icon className="h-2.5 w-2.5" />
@@ -136,33 +136,45 @@ export function ReplyBox({
         </div>
 
         {/* Input Area */}
-        <div className={`relative rounded-2xl p-1.5 shadow-sm border transition-all ${
+        <div className={`relative rounded-3xl p-2 shadow-xl border transition-all duration-300 ${
           isPrivate 
-            ? "bg-amber-100/50 border-amber-300 focus-within:border-amber-400" 
-            : "bg-background border-border/50 focus-within:border-primary/50"
+            ? "bg-amber-50 border-amber-200 focus-within:border-amber-400 focus-within:ring-4 focus-within:ring-amber-500/10" 
+            : "bg-background border-border/40 focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10"
         }`}>
-          <div className="flex items-start gap-1">
-            <div className="flex flex-col pt-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-secondary shrink-0">
+          <div className="flex items-end gap-2 px-1">
+            <div className="flex items-center gap-1 pb-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors">
                 <Plus className="h-4 w-4" />
               </Button>
-              {!isPrivate && <MessageTemplatePopover onSelect={body => setMessage(body)} />}
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors">
+                <AttachIcon className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors">
+                <Smile className="h-4 w-4" />
+              </Button>
             </div>
 
-            <Textarea
-              ref={textareaRef}
-              rows={isPrivate ? 3 : 1}
-              className="flex-1 bg-transparent border-none focus-visible:ring-0 shadow-none py-2 text-sm min-h-[40px] resize-none"
-              placeholder={isPrivate ? "Adicionar uma nota privada interna..." : `Responder via ${sourceConversations.find(s => s.id === activeConversationId)?.channel || "canal"}...`}
-              value={message}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-            />
+            <div className="flex-1 min-h-[44px] flex flex-col justify-center">
+              <Textarea
+                ref={textareaRef}
+                rows={1}
+                className="w-full bg-transparent border-none focus-visible:ring-0 shadow-none py-2.5 text-sm min-h-[40px] max-h-[200px] resize-none overflow-y-auto custom-scrollbar"
+                placeholder={isPrivate ? "Adicionar uma nota privada interna..." : `Responder para ${leadName || "contato"}...`}
+                value={message}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
 
-            <div className="flex flex-col gap-1 self-end pb-0.5 pr-0.5">
+            <div className="flex items-center gap-2 pb-1 pr-1">
+              {!isPrivate && (
+                <div className="h-8 border-l border-border/50 mx-1" />
+              )}
+              {!isPrivate && <MessageTemplatePopover onSelect={body => setMessage(body)} />}
+              
               <Button
                 size="icon"
-                className={`h-9 w-9 rounded-xl shrink-0 shadow-md ${isPrivate ? "bg-amber-500 hover:bg-amber-600" : "bg-primary"}`}
+                className={`h-9 w-9 rounded-full shrink-0 shadow-lg transition-all active:scale-95 ${isPrivate ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-primary shadow-primary/20 hover:bg-primary-hover"}`}
                 disabled={!message.trim() || sending}
                 onClick={handleSend}
               >
@@ -173,8 +185,8 @@ export function ReplyBox({
           
           {/* Internal Note indicator */}
           {isPrivate && (
-            <div className="absolute top-0 right-12 px-2 py-0.5 bg-amber-200 text-amber-800 text-[9px] font-bold uppercase rounded-bl-lg rounded-tr-xl border-l border-b border-amber-300 pointer-events-none">
-              Visível apenas para agentes
+            <div className="absolute -top-2.5 right-6 px-3 py-0.5 bg-amber-500 text-white text-[9px] font-bold uppercase rounded-full shadow-lg border border-amber-400 flex items-center gap-1">
+              <Lock className="h-2 w-2" /> Agentes apenas
             </div>
           )}
         </div>

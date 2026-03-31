@@ -501,10 +501,37 @@ export function useInbox(onLeadCreated?: () => void) {
     return () => { supabase.removeChannel(channel); };
   }, [selectedLeadId, loadConversations, findOrCreateLead]);
 
+  // Transcribe audio message
+  const transcribeAudio = useCallback(async (messageId: string) => {
+    try {
+      const { data: msg } = await supabase.from("messages").select("content, metadata").eq("id", messageId).single();
+      if (!msg) return;
+
+      // Simulation of transcription API call
+      // In a real scenario, this would call a Supabase Edge Function with OpenAI Whisper
+      // const res = await supabase.functions.invoke('transcribe', { body: { url: msg.content } });
+      
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate delay
+      const mockTranscript = "Esta é uma transcrição simulada do áudio. O áudio parece falar sobre o novo projeto de CRM.";
+
+      const newMeta = { ...(msg.metadata as any || {}), transcript: mockTranscript };
+      const { error: updateError } = await supabase.from("messages").update({ metadata: newMeta }).eq("id", messageId);
+      
+      if (updateError) throw updateError;
+
+      // Update local state
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, metadata: newMeta } : m));
+      toast.success("Áudio transcrito com sucesso!");
+    } catch (err: any) {
+      toast.error(`Erro na transcrição: ${err.message}`);
+    }
+  }, []);
+
   return {
     conversations, messages, selectedLeadId, loading,
     selectLead, sendMessage, createConversation,
     updateStatus, updatePriority, assignToAgent, updateLabels,
+    transcribeAudio,
     refresh: loadConversations,
   };
 }

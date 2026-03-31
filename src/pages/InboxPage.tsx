@@ -5,7 +5,9 @@ import {
   Search, Phone, Video, MoreVertical, Send, Paperclip, Mic,
   Play, Pause, FileText, MessageSquare, CheckSquare, Sparkles, Tag,
   ArrowRight, Plus, User, Building, DollarSign, Globe, Mail,
-  MessageCircle, Loader2, ExternalLink, Users, Lock, Tags
+  MessageCircle, Loader2, ExternalLink, Users, Lock, Tags,
+  Check, CheckCheck, Smile, Paperclip as AttachIcon, Clock,
+  File, Download, Eye, Maximize2, Headphones, Activity, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +77,8 @@ export default function InboxPage() { // force HMR reset
 
   // Modal states
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState<string | null>(null);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: string } | null>(null);
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [createTagModalOpen, setCreateTagModalOpen] = useState(false);
 
@@ -233,10 +237,12 @@ export default function InboxPage() { // force HMR reset
                   }`}
                 >
                   <div className="relative">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm relative overflow-visible">
                       {initials(c.lead_name || "?")}
+                      {/* Status indicator */}
+                      <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background shadow-sm ${c.unread_count > 0 ? "bg-success" : "bg-muted-foreground/40"}`} />
                     </div>
-                    <div className="absolute -bottom-1 -right-1 flex -space-x-1">
+                    <div className="absolute -bottom-1 -left-1 flex -space-x-1">
                       {c.channels.slice(0, 2).map((ch, idx) => {
                         const Icon = channelIcons[ch] || MessageCircle;
                         return (
@@ -292,6 +298,10 @@ export default function InboxPage() { // force HMR reset
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground">{selectedLeadGroup.lead_name}</p>
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 border border-success/20">
+                        <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                        <span className="text-[9px] font-bold text-success uppercase">Online</span>
+                      </div>
                       <ConversationStatusBadge status={selectedLeadGroup.status} />
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -329,12 +339,35 @@ export default function InboxPage() { // force HMR reset
                     {inbox.messages.map((msg, i) => {
                       const isOutbound = msg.direction === "outbound";
                       const prevMsg = i > 0 ? inbox.messages[i - 1] : null;
+                      const nextMsg = i < inbox.messages.length - 1 ? inbox.messages[i + 1] : null;
+                      
                       const msgDate = new Date(msg.created_at).toLocaleDateString("pt-BR");
                       const prevDate = prevMsg ? new Date(prevMsg.created_at).toLocaleDateString("pt-BR") : null;
                       const showDate = !prevDate || msgDate !== prevDate;
-                      const isConsecutive = prevMsg && prevMsg.direction === msg.direction && (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() < 60000);
+                      
+                      const isConsecutivePrev = prevMsg && prevMsg.direction === msg.direction && 
+                        (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() < 60000) &&
+                        prevMsg.is_private === msg.is_private;
+                      
+                      const isConsecutiveNext = nextMsg && nextMsg.direction === msg.direction && 
+                        (new Date(nextMsg.created_at).getTime() - new Date(msg.created_at).getTime() < 60000) &&
+                        nextMsg.is_private === msg.is_private;
 
                       const ChannelIcon = channelIcons[msg.channel || ""] || MessageCircle;
+                      
+                      // Chat scope bubble styling
+                      let borderRadius = "rounded-2xl";
+                      if (isOutbound) {
+                        if (!isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-br-none";
+                        else if (!isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-br-none";
+                        else if (isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-tr-sm rounded-br-sm";
+                        else if (isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-tr-sm";
+                      } else {
+                        if (!isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-bl-none";
+                        else if (!isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-bl-none";
+                        else if (isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-tl-sm rounded-bl-sm";
+                        else if (isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-tl-sm";
+                      }
 
                       return (
                         <div key={msg.id} className={showDate ? "pt-2" : ""}>
@@ -345,46 +378,120 @@ export default function InboxPage() { // force HMR reset
                               <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                             </div>
                           )}
-                          <div className={`flex items-end gap-2 ${isOutbound ? "justify-end" : "justify-start"}`}>
-                            {!isOutbound && !isConsecutive && (
+                          <div className={`flex items-end gap-2 ${isConsecutivePrev ? "mt-0.5" : "mt-4"} ${isOutbound ? "justify-end" : "justify-start"}`}>
+                            {!isOutbound && !isConsecutivePrev && (
                               <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 mb-1">
                                 {initials(selectedLeadGroup.lead_name || "?")}
                               </div>
                             )}
-                            {isOutbound && isConsecutive && <div className="w-6" />}
+                            {isOutbound && isConsecutivePrev && <div className="w-6" />}
                             
-                            <div className={`relative group max-w-[70%] ${isConsecutive ? "mt-0.5" : "mt-3"}`}>
-                              {msg.is_private && (
+                            <div className={`relative group max-w-[70%]`}>
+                              {msg.is_private && !isConsecutivePrev && (
                                 <div className="flex items-center gap-1 px-2 mb-1">
                                   <Lock className="h-2.5 w-2.5 text-amber-600" />
                                   <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wider">Nota Privada</span>
                                 </div>
                               )}
-                              <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                              <div className={`px-4 py-2.5 text-sm leading-relaxed shadow-sm transition-all duration-200 ${borderRadius} ${
                                 msg.is_private
-                                  ? "bg-amber-100 border border-amber-200 text-amber-900 rounded-bl-sm"
+                                  ? "bg-amber-100 border border-amber-200 text-amber-900"
                                   : isOutbound
-                                    ? "bg-primary text-primary-foreground rounded-br-sm"
-                                    : "bg-card border border-border/50 text-foreground rounded-bl-sm"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-card border border-border/50 text-foreground"
                               }`}>
-                                {msg.content}
+                                {msg.type === "image" && (
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image" })}>
+                                    <img src={msg.content} alt="Imagem" className="max-w-full h-auto object-cover max-h-64 rounded-lg hover:scale-105 transition-transform duration-500" />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Maximize2 className="h-6 w-6 text-white" />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {msg.type === "video" && (
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg">
+                                    <video src={msg.content} className="max-w-full h-auto max-h-64 rounded-lg" controls />
+                                  </div>
+                                )}
+
+                                {msg.type === "audio" && (
+                                  <div className="space-y-2 py-1">
+                                    <div className="flex items-center gap-3 bg-black/5 p-2 rounded-xl border border-black/5">
+                                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                        <Headphones className="h-4 w-4" />
+                                      </div>
+                                      <audio src={msg.content} controls className="h-8 max-w-[180px] sm:max-w-[220px]" />
+                                    </div>
+                                    {!msg.metadata?.transcript && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-7 text-[10px] gap-1.5 font-bold hover:bg-primary/10 hover:text-primary"
+                                        onClick={async () => {
+                                          setIsTranscribing(msg.id);
+                                          await inbox.transcribeAudio(msg.id);
+                                          setIsTranscribing(null);
+                                        }}
+                                        disabled={isTranscribing === msg.id}
+                                      >
+                                        {isTranscribing === msg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Activity className="h-3 w-3" />}
+                                        {isTranscribing === msg.id ? "TRANSCREVENDO..." : "TRANSCREVER ÁUDIO"}
+                                      </Button>
+                                    )}
+                                    {msg.metadata?.transcript && (
+                                      <div className="mt-2 p-2 bg-primary/5 rounded-lg border border-primary/10 italic text-[11px] leading-snug">
+                                        "{msg.metadata.transcript}"
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {(msg.type === "file" || msg.type === "document") && (
+                                  <div className="flex items-center gap-3 p-2 bg-secondary/30 rounded-xl border border-border/50 group/file">
+                                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover/file:bg-primary group-hover/file:text-white transition-colors">
+                                      <File className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-bold truncate">{msg.metadata?.filename || "Documento"}</p>
+                                      <p className="text-[9px] text-muted-foreground uppercase">{msg.metadata?.size || "Ver arquivo"}</p>
+                                    </div>
+                                    <a href={msg.content} download target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-lg bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:shadow-sm transition-all">
+                                      <Download className="h-4 w-4" />
+                                    </a>
+                                  </div>
+                                )}
+
+                                {(msg.type === "text" || !msg.type) && msg.content}
+                                
                                 <div className={`flex items-center justify-end gap-1.5 mt-1 opacity-70`}>
                                   <span className="text-[9px]">
                                     {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                   </span>
-                                  {!msg.is_private && <ChannelIcon className="h-2.5 w-2.5" />}
+                                  {isOutbound && !msg.is_private && (
+                                    <div className="flex text-primary-foreground/80">
+                                      {msg.metadata?.read ? (
+                                        <CheckCheck className="h-3 w-3 text-white" />
+                                      ) : msg.metadata?.delivered ? (
+                                        <CheckCheck className="h-3 w-3" />
+                                      ) : (
+                                        <Check className="h-3 w-3" />
+                                      )}
+                                    </div>
+                                  )}
+                                  {!isOutbound && !msg.is_private && <ChannelIcon className="h-2.5 w-2.5" />}
                                 </div>
                               </div>
                             </div>
 
-                            {isOutbound && !isConsecutive && (
+                            {isOutbound && !isConsecutivePrev && (
                               <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mb-1 ${
                                 msg.is_private ? "bg-amber-500 text-white" : "bg-secondary text-muted-foreground"
                               }`}>
                                 VC
                               </div>
                             )}
-                            {!isOutbound && isConsecutive && <div className="w-6" />}
+                            {!isOutbound && isConsecutivePrev && <div className="w-6" />}
                           </div>
                         </div>
                       );
@@ -708,6 +815,35 @@ export default function InboxPage() { // force HMR reset
           <AddTagModal open={tagModalOpen} onOpenChange={setTagModalOpen} leadId={selectedLead.id} />
           <CreateTagModal open={createTagModalOpen} onOpenChange={setCreateTagModalOpen} />
         </>
+      )}
+      {/* Media Viewer Lightbox */}
+      {mediaViewer && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+          <button 
+            onClick={() => setMediaViewer(null)}
+            className="absolute top-6 right-6 h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-white"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          
+          <div className="max-w-5xl max-h-[85vh] overflow-hidden rounded-lg shadow-2xl">
+            {mediaViewer.type === "image" ? (
+              <img src={mediaViewer.url} alt="Full view" className="max-w-full max-h-full object-contain" />
+            ) : (
+              <video src={mediaViewer.url} controls autoPlay className="max-w-full max-h-full" />
+            )}
+          </div>
+          
+          <div className="mt-6 flex items-center gap-4">
+            <a 
+              href={mediaViewer.url} 
+              download 
+              className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-opacity"
+            >
+              <Download className="h-4 w-4" /> BAIXAR ARQUIVO
+            </a>
+          </div>
+        </div>
       )}
     </AppLayout>
   );
