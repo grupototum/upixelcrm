@@ -423,7 +423,7 @@ export function useInbox(onLeadCreated?: () => void) {
         name: leadName,
         phone: phone || null,
         email: email || null,
-        column_id: firstCol[0].id,
+        column_id: firstCol.id,
         tags: ["auto-criado"],
         origin: "inbox",
       }).select("id").single();
