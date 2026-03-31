@@ -69,9 +69,8 @@ export default function WhatsAppPage() {
           setQrStep("success");
           setLiteStatus("connected");
           clearInterval(interval);
-        } else if (data?.status === "connecting") {
-          setQrStep("connecting");
         }
+        // Keep showing QR code — don't switch to "connecting" spinner
       }, 3000);
     }
     return () => clearInterval(interval);
