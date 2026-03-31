@@ -95,7 +95,7 @@ export function useGoogleIntegration() {
   const disconnect = useCallback(async () => {
     try {
       await invokeFunction("disconnect");
-      setStatus({ connected: false, email: null, name: null, loading: false });
+      setStatus(s => ({ ...s, connected: false, email: null, name: null, loading: false }));
       toast.info("Conta Google desconectada.");
     } catch (err: any) {
       toast.error(err.message);
