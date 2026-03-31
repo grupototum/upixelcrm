@@ -612,7 +612,7 @@ export default function InboxPage() { // force HMR reset
                                         </Button>
                                       )}
                                       {msg.metadata?.transcript && (
-                                        <div className={`mt-1 p-2.5 rounded-xl italic text-[11px] leading-snug ${isOutbound ? 'bg-white/10 text-white/80' : 'bg-primary/5 border border-primary/10 text-foreground/80'}`}>
+                                        <div className={`mt-1 p-2.5 rounded-xl italic text-[11px] leading-snug ${!isOutbound ? 'bg-white/10 text-white/80' : 'bg-primary/5 border border-primary/10 text-foreground/80'}`}>
                                           "{msg.metadata.transcript}"
                                         </div>
                                       )}
