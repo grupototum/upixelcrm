@@ -644,7 +644,7 @@ export default function InboxPage() { // force HMR reset
                                   {isOutbound && !msg.is_private && (
                                     <div className="flex items-center ml-0.5">
                                       {msg.metadata?.status === "read" ? (
-                                        <CheckCheck className="h-3 w-3 text-white" />
+                                        <CheckCheck className="h-3 w-3 text-primary" />
                                       ) : msg.metadata?.status === "delivered" ? (
                                         <CheckCheck className="h-3 w-3 opacity-60" />
                                       ) : (
