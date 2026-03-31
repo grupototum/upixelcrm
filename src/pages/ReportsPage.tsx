@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { DateRange } from "react-day-picker";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
-import { mockColumns, mockLeads, mockTasks } from "@/lib/mock-data";
+import { useAppState } from "@/contexts/AppContext";
 import {
   TrendingUp, ArrowDownRight, BarChart3, PieChart as PieChartIcon,
   Download, Calendar, Target, Users, DollarSign,
@@ -39,13 +39,18 @@ const tooltipStyle = {
 };
 
 export default function ReportsPage() {
+  const { leads, tasks, columns, currentPipelineId, loading } = useAppState();
   const [period, setPeriod] = useState("all");
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
 
+  const pipelineColumns = useMemo(() => 
+    columns.filter(c => c.pipeline_id === currentPipelineId).sort((a, b) => a.order - b.order)
+  , [columns, currentPipelineId]);
+
   const filteredLeads = useMemo(() => {
     if (period === "custom") {
-      if (!customRange?.from) return mockLeads;
-      return mockLeads.filter(l => {
+      if (!customRange?.from) return leads;
+      return leads.filter(l => {
         const d = new Date(l.created_at);
         if (customRange.to) {
           return d >= customRange.from! && d <= customRange.to;
@@ -53,17 +58,17 @@ export default function ReportsPage() {
         return d >= customRange.from!;
       });
     }
-    if (period === "all") return mockLeads;
+    if (period === "all") return leads;
     const now = new Date();
     const days = parseInt(period);
     const limitDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    return mockLeads.filter(l => new Date(l.created_at) >= limitDate);
-  }, [period, customRange]);
+    return leads.filter(l => new Date(l.created_at) >= limitDate);
+  }, [period, customRange, leads]);
 
   const filteredTasks = useMemo(() => {
     if (period === "custom") {
-      if (!customRange?.from) return mockTasks;
-      return mockTasks.filter(t => {
+      if (!customRange?.from) return tasks;
+      return tasks.filter(t => {
         const d = new Date(t.created_at);
         if (customRange.to) {
           return d >= customRange.from! && d <= customRange.to;
@@ -71,22 +76,22 @@ export default function ReportsPage() {
         return d >= customRange.from!;
       });
     }
-    if (period === "all") return mockTasks;
+    if (period === "all") return tasks;
     const now = new Date();
     const days = parseInt(period);
     const limitDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    return mockTasks.filter(t => new Date(t.created_at) >= limitDate);
-  }, [period, customRange]);
+    return tasks.filter(t => new Date(t.created_at) >= limitDate);
+  }, [period, customRange, tasks]);
 
   const conversionData = useMemo(() =>
-    mockColumns.map((col, i) => {
+    pipelineColumns.map((col, i) => {
       const count = filteredLeads.filter((l) => l.column_id === col.id).length;
       const prevCount = i === 0
         ? filteredLeads.length
-        : filteredLeads.filter((l) => l.column_id === mockColumns[i - 1].id).length;
+        : filteredLeads.filter((l) => l.column_id === pipelineColumns[i - 1].id).length;
       const rate = prevCount > 0 ? Math.round((count / prevCount) * 100) : 100;
       return { name: col.name, count, rate, color: col.color || "hsl(var(--primary))" };
-    }), [filteredLeads]
+    }), [filteredLeads, pipelineColumns]
   );
 
   const leadsByPeriod = useMemo(() => {
@@ -114,11 +119,11 @@ export default function ReportsPage() {
   }, [filteredLeads]);
 
   const funnelData = useMemo(() =>
-    mockColumns.map((col) => ({
+    pipelineColumns.map((col) => ({
       name: col.name,
       value: filteredLeads.filter((l) => l.column_id === col.id).length,
       fill: col.color || "hsl(var(--primary))",
-    })), [filteredLeads]
+    })), [filteredLeads, pipelineColumns]
   );
 
   const totalValue = useMemo(
@@ -135,9 +140,23 @@ export default function ReportsPage() {
   }, [overdueCount, filteredTasks]);
 
   const conversionRate = useMemo(() => {
-    const wonCount = filteredLeads.filter((l) => l.column_id === mockColumns[mockColumns.length - 1]?.id).length;
+    if (pipelineColumns.length === 0) return "0";
+    const wonCount = filteredLeads.filter((l) => l.column_id === pipelineColumns[pipelineColumns.length - 1]?.id).length;
     return filteredLeads.length > 0 ? ((wonCount / filteredLeads.length) * 100).toFixed(1) : "0";
-  }, [filteredLeads]);
+  }, [filteredLeads, pipelineColumns]);
+
+  if (loading) {
+    return (
+      <AppLayout title="Relatórios" subtitle="Carregando métricas...">
+        <div className="p-6 space-y-6 animate-pulse">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-secondary/30 rounded-xl" />)}
+          </div>
+          <div className="h-96 bg-secondary/20 rounded-xl" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout
