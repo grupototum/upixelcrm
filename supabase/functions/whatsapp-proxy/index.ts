@@ -199,6 +199,84 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "send-message") {
+      const body = await req.json();
+      const { phone, message } = body;
+      if (!phone || !message) {
+        return new Response(JSON.stringify({ error: "Missing phone or message" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Format phone: remove non-digits, ensure country code
+      const cleanPhone = phone.replace(/\D/g, "");
+      const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+      const res = await fetch(`${config.api_url}/message/sendText/${config.instance_name}`, {
+        method: "POST",
+        headers: { apikey: config.api_key, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          number: formattedPhone,
+          text: message,
+        }),
+      });
+      const data = await res.json();
+
+      // Save message to DB
+      // Find or create conversation
+      let convId: string | null = null;
+      const { data: existingConv } = await adminClient.from("conversations")
+        .select("id")
+        .eq("client_id", clientId)
+        .eq("channel", "whatsapp")
+        .eq("metadata->>phone", formattedPhone)
+        .single();
+
+      if (existingConv) {
+        convId = existingConv.id;
+      } else {
+        // Try to find lead by phone
+        const { data: lead } = await adminClient.from("leads")
+          .select("id")
+          .eq("client_id", clientId)
+          .or(`phone.ilike.%${cleanPhone.slice(-8)}%`)
+          .limit(1)
+          .single();
+
+        const { data: newConv } = await adminClient.from("conversations").insert({
+          client_id: clientId,
+          lead_id: lead?.id || null,
+          channel: "whatsapp",
+          status: "open",
+          last_message: message,
+          last_message_at: new Date().toISOString(),
+          metadata: { phone: formattedPhone },
+        }).select("id").single();
+        convId = newConv?.id || null;
+      }
+
+      if (convId) {
+        await adminClient.from("messages").insert({
+          client_id: clientId,
+          conversation_id: convId,
+          content: message,
+          type: "text",
+          direction: "outbound",
+          sender_name: "Você",
+        });
+        await adminClient.from("conversations").update({
+          last_message: message,
+          last_message_at: new Date().toISOString(),
+        }).eq("id", convId);
+      }
+
+      return new Response(JSON.stringify(data), {
+        status: res.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
