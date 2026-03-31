@@ -11,97 +11,88 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useWhatsAppIntegration } from "@/hooks/useWhatsAppIntegration";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
+function StatusBadge({ status }: { status: ConnectionStatus }) {
+  const map = {
+    disconnected: { label: "Desconectado", cls: "border-muted-foreground/40 text-muted-foreground" },
+    connecting: { label: "Conectando...", cls: "border-accent/40 text-accent" },
+    connected: { label: "Conectado", cls: "border-success/40 text-success" },
+    error: { label: "Erro", cls: "border-destructive/40 text-destructive" },
+  };
+  const { label, cls } = map[status];
+  return <Badge variant="outline" className={`text-[9px] ${cls}`}>{label}</Badge>;
+}
+
+function FeatureTag({ label }: { label: string }) {
+  return <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{label}</Badge>;
+}
+
 export default function WhatsAppPage() {
   const navigate = useNavigate();
+  const wa = useWhatsAppIntegration();
+
   const [apiStatus, setApiStatus] = useState<ConnectionStatus>("disconnected");
   const [liteStatus, setLiteStatus] = useState<ConnectionStatus>("disconnected");
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrStep, setQrStep] = useState<"scan" | "connecting" | "success">("scan");
-  const [connectedNumber, setConnectedNumber] = useState("");
 
-  // Integração Real - WhatsApp Web / Evolution API / Baileys
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem("evo_api_url") || "https://sua-api.com.br");
-  const [instanceName, setInstanceName] = useState(() => localStorage.getItem("evo_instance") || "upixel-instance");
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("evo_api_key") || "SUA_API_KEY");
-  
-  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [formApiUrl, setFormApiUrl] = useState("");
+  const [formInstance, setFormInstance] = useState("");
+  const [formApiKey, setFormApiKey] = useState("");
 
-  const handleSaveSettings = () => {
-    localStorage.setItem("evo_api_url", apiUrl);
-    localStorage.setItem("evo_instance", instanceName);
-    localStorage.setItem("evo_api_key", apiKey);
-    setSettingsOpen(false);
-    toast.success("Credenciais da Evolution API salvas com sucesso!");
-  };
-
+  // Sync state from hook
   useEffect(() => {
-    let pollInterval: NodeJS.Timeout;
+    if (!wa.loading) {
+      if (wa.config.status === "connected") setLiteStatus("connected");
+      else if (wa.config.status === "connecting") setLiteStatus("connecting");
+      else setLiteStatus("disconnected");
+    }
+  }, [wa.config.status, wa.loading]);
 
-    const checkStatus = async () => {
-      try {
-        // Exemplo de chamada real para checar o status da conexão
-        const res = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, {
-          headers: { apikey: apiKey }
-        });
-        if (!res.ok) throw new Error("API Indisponível");
-        const data = await res.json();
-        
-        if (data.instance?.state === "open") {
+  // Load form fields from saved config
+  useEffect(() => {
+    if (wa.config.api_url) setFormApiUrl(wa.config.api_url);
+    if (wa.config.instance_name) setFormInstance(wa.config.instance_name);
+  }, [wa.config]);
+
+  // Polling when QR modal is open
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (qrModalOpen && qrStep !== "success") {
+      interval = setInterval(async () => {
+        const data = await wa.checkStatus();
+        if (data?.status === "connected") {
           setQrStep("success");
           setLiteStatus("connected");
-          setConnectedNumber(data.instance?.owner || "+55 11 98765-4321");
-          clearInterval(pollInterval);
-        } else if (data.instance?.state === "connecting") {
-           setQrStep("connecting");
+          clearInterval(interval);
+        } else if (data?.status === "connecting") {
+          setQrStep("connecting");
         }
-      } catch (e) {
-        // Fallback para Demonstração (Mock) se a API não estiver conectada
-        if (qrStep === "scan") {
-          pollInterval = setTimeout(() => setQrStep("connecting"), 4000);
-        } else if (qrStep === "connecting") {
-          pollInterval = setTimeout(() => {
-            setQrStep("success");
-            setLiteStatus("connected");
-            setConnectedNumber("+55 11 98765-4321 (Demonstração)");
-            toast.success("WhatsApp conectado (Modo Demo)!");
-          }, 2000);
-        }
-      }
-    };
-
-    if (qrModalOpen && qrStep !== "success") {
-      checkStatus();
-      pollInterval = setInterval(checkStatus, 3000); // Polling a cada 3s para ler status ou qr
+      }, 3000);
     }
+    return () => clearInterval(interval);
+  }, [qrModalOpen, qrStep, wa.checkStatus]);
 
-    return () => {
-      clearInterval(pollInterval);
-      clearTimeout(pollInterval);
-    };
-  }, [qrModalOpen, qrStep]);
+  const handleSaveSettings = async () => {
+    await wa.saveConfig(formApiUrl, formInstance, formApiKey);
+    setFormApiKey("");
+    setSettingsOpen(false);
+  };
 
   const initiateConnection = async () => {
+    if (!wa.config.configured) {
+      toast.error("Configure as credenciais da Evolution API primeiro.");
+      setSettingsOpen(true);
+      return;
+    }
     setLiteStatus("connecting");
     setQrModalOpen(true);
     setQrStep("scan");
-    setQrCodeData(null);
-    try {
-      // Exemplo de chamada real para gerar o QRCode
-      const res = await fetch(`${apiUrl}/instance/connect/${instanceName}`, {
-        headers: { apikey: apiKey }
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.base64) {
-        setQrCodeData(data.base64); // Sua API retorna QRCode em Base64
-      }
-    } catch (e) {
-      console.warn("Usando QRCode Fake para demonstração");
-    }
+    await wa.connect();
   };
 
   const handleConnectApi = () => {
@@ -118,13 +109,8 @@ export default function WhatsAppPage() {
   };
 
   const handleDisconnectLite = async () => {
+    await wa.disconnect();
     setLiteStatus("disconnected");
-    setConnectedNumber("");
-    try {
-      // Chamada real para desconectar
-      await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { apikey: apiKey } });
-    } catch(e) { /* ignore in demo */ }
-    toast.info("WhatsApp Lite desconectado.");
   };
 
   return (
@@ -180,7 +166,7 @@ export default function WhatsAppPage() {
 
               <p className="text-xs text-muted-foreground">
                 Conexão estável e recomendada para automações e escala. Suporta envio de templates,
-                mensagens em massa e integração com bots. Ideal para operações profissionais.
+                mensagens em massa e integração com bots.
               </p>
 
               <div className="flex flex-wrap gap-2">
@@ -194,11 +180,9 @@ export default function WhatsAppPage() {
               <div className="border-t border-border/40 pt-4 flex items-center justify-between">
                 {apiStatus === "connected" ? (
                   <>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost" className="text-xs gap-1" onClick={() => toast.info("Configurações da API — em breve")}>
-                        <Settings className="h-3 w-3" /> Configurar
-                      </Button>
-                    </div>
+                    <Button size="sm" variant="ghost" className="text-xs gap-1" onClick={() => toast.info("Configurações da API — em breve")}>
+                      <Settings className="h-3 w-3" /> Configurar
+                    </Button>
                     <Button size="sm" variant="outline" className="text-xs gap-1 text-destructive" onClick={handleDisconnectApi}>
                       <XCircle className="h-3 w-3" /> Desconectar
                     </Button>
@@ -208,17 +192,12 @@ export default function WhatsAppPage() {
                     <Loader2 className="h-3 w-3 animate-spin" /> Conectando...
                   </Button>
                 ) : (
-                  <Button
-                    size="sm"
-                    className="text-xs gap-1 w-full bg-success hover:bg-success/90 text-white"
-                    onClick={handleConnectApi}
-                  >
+                  <Button size="sm" className="text-xs gap-1 w-full bg-success hover:bg-success/90 text-white" onClick={handleConnectApi}>
                     <Zap className="h-3 w-3" /> Conectar API Oficial
                   </Button>
                 )}
               </div>
             </div>
-
             <div className="bg-success/5 border-t border-success/20 px-6 py-3">
               <p className="text-[10px] text-success font-medium flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3" /> Recomendado para produção
@@ -236,7 +215,7 @@ export default function WhatsAppPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-foreground">WhatsApp Lite</h3>
-                    <p className="text-[11px] text-muted-foreground">Conexão via QR Code</p>
+                    <p className="text-[11px] text-muted-foreground">Conexão via QR Code (Evolution API)</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -246,8 +225,7 @@ export default function WhatsAppPage() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Conexão rápida via QR Code, ideal para uso imediato e testes. Funciona como o WhatsApp Web.
-                Não requer conta Business verificada.
+                Conexão rápida via QR Code usando Evolution API. Ideal para uso imediato e testes.
               </p>
 
               <div className="flex flex-wrap gap-2">
@@ -256,11 +234,11 @@ export default function WhatsAppPage() {
                 <FeatureTag label="Uso imediato" />
               </div>
 
-              {liteStatus === "connected" && connectedNumber && (
+              {liteStatus === "connected" && wa.connectedNumber && (
                 <div className="bg-secondary rounded-lg p-3 flex items-center gap-3">
                   <Phone className="h-4 w-4 text-success" />
                   <div>
-                    <p className="text-xs font-semibold text-foreground">{connectedNumber}</p>
+                    <p className="text-xs font-semibold text-foreground">{wa.connectedNumber}</p>
                     <p className="text-[10px] text-muted-foreground">Sessão ativa</p>
                   </div>
                 </div>
@@ -277,17 +255,12 @@ export default function WhatsAppPage() {
                     </Button>
                   </>
                 ) : (
-                  <Button
-                    size="sm"
-                    className="text-xs gap-1 w-full bg-accent hover:bg-accent-hover text-accent-foreground"
-                    onClick={initiateConnection}
-                  >
+                  <Button size="sm" className="text-xs gap-1 w-full bg-accent hover:bg-accent-hover text-accent-foreground" onClick={initiateConnection}>
                     <QrCode className="h-3 w-3" /> Conectar via QR Code
                   </Button>
                 )}
               </div>
             </div>
-
             <div className="bg-accent/5 border-t border-accent/20 px-6 py-3">
               <p className="text-[10px] text-accent font-medium flex items-center gap-1">
                 <MessageCircle className="h-3 w-3" /> Ideal para testes e uso pessoal
@@ -296,7 +269,7 @@ export default function WhatsAppPage() {
           </div>
         </div>
 
-        {/* Info section */}
+        {/* Comparativo */}
         <div className="bg-card ghost-border rounded-xl shadow-card p-6">
           <h3 className="text-xs font-bold text-foreground mb-3">Comparativo</h3>
           <div className="overflow-x-auto">
@@ -344,20 +317,13 @@ export default function WhatsAppPage() {
               <>
                 <div className="relative mb-4">
                   <div className="h-48 w-48 bg-white rounded-xl p-3 flex items-center justify-center overflow-hidden">
-                    {qrCodeData ? (
-                      <img src={qrCodeData} alt="WhatsApp QR Code" className="h-full w-full object-contain" />
+                    {wa.qrData ? (
+                      <img src={wa.qrData} alt="WhatsApp QR Code" className="h-full w-full object-contain" />
                     ) : (
-                      <svg viewBox="0 0 100 100" className="h-full w-full opacity-60">
-                        {Array.from({ length: 10 }).map((_, row) =>
-                          Array.from({ length: 10 }).map((_, col) => {
-                            const isFilled = Math.random() > 0.4 ||
-                              (row < 3 && col < 3) || (row < 3 && col > 6) || (row > 6 && col < 3);
-                            return isFilled ? (
-                              <rect key={`${row}-${col}`} x={col * 10} y={row * 10} width="9" height="9" fill="#1a1a1a" rx="1" />
-                            ) : null;
-                          })
-                        )}
-                      </svg>
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <p className="text-[10px] text-muted-foreground">Gerando QR Code...</p>
+                      </div>
                     )}
                   </div>
                   <div className="absolute inset-0 rounded-xl border-2 border-success/50 animate-pulse pointer-events-none" />
@@ -383,7 +349,7 @@ export default function WhatsAppPage() {
                   <CheckCircle2 className="h-8 w-8 text-success" />
                 </div>
                 <p className="text-xs font-bold text-foreground mb-1">Conectado com sucesso!</p>
-                <p className="text-[11px] text-muted-foreground mb-3">{connectedNumber}</p>
+                <p className="text-[11px] text-muted-foreground mb-3">{wa.connectedNumber}</p>
                 <Button size="sm" className="text-xs" onClick={() => setQrModalOpen(false)}>
                   Fechar
                 </Button>
@@ -398,67 +364,57 @@ export default function WhatsAppPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
-              <Settings className="h-4 w-4 text-primary" /> Configurar Credenciais Externas
+              <Settings className="h-4 w-4 text-primary" /> Credenciais Evolution API
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">URL da Evolution API (Base)</Label>
-              <Input 
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                placeholder="Ex: https://api.suaempresa.com.br"
+              <Label className="text-xs font-semibold">URL do Servidor</Label>
+              <Input
+                value={formApiUrl}
+                onChange={(e) => setFormApiUrl(e.target.value)}
+                placeholder="https://api.evolution.com.br"
                 className="text-xs h-9 bg-secondary"
               />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Nome da Instância</Label>
-              <Input 
-                value={instanceName}
-                onChange={(e) => setInstanceName(e.target.value)}
-                placeholder="Ex: upixel-instance"
+              <Input
+                value={formInstance}
+                onChange={(e) => setFormInstance(e.target.value)}
+                placeholder="upixel-instance"
                 className="text-xs h-9 bg-secondary"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Global API Key (Autenticação)</Label>
-              <Input 
+              <Label className="text-xs font-semibold">API Key</Label>
+              <Input
                 type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Chave do ambiente (Ex: 429384...)"
+                value={formApiKey}
+                onChange={(e) => setFormApiKey(e.target.value)}
+                placeholder={wa.config.has_api_key ? "••••••• (já configurada)" : "Sua API Key"}
                 className="text-xs h-9 bg-secondary"
               />
+              <p className="text-[10px] text-muted-foreground">
+                As credenciais são armazenadas de forma segura no backend.
+              </p>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button variant="outline" size="sm" onClick={() => setSettingsOpen(false)} className="text-xs">Cancelar</Button>
-            <Button size="sm" className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground" onClick={handleSaveSettings}>
-              Salvar Conexão
+            <Button
+              size="sm"
+              className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground"
+              onClick={handleSaveSettings}
+              disabled={!formApiUrl || !formInstance || (!formApiKey && !wa.config.has_api_key)}
+            >
+              Salvar Credenciais
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </AppLayout>
-  );
-}
-
-function StatusBadge({ status }: { status: ConnectionStatus }) {
-  if (status === "connected")
-    return <Badge className="bg-success/15 text-success border-success/30 text-[10px] gap-1"><CheckCircle2 className="h-3 w-3" /> Conectado</Badge>;
-  if (status === "connecting")
-    return <Badge className="bg-accent/15 text-accent border-accent/30 text-[10px] gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Conectando</Badge>;
-  if (status === "error")
-    return <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-[10px] gap-1"><XCircle className="h-3 w-3" /> Erro</Badge>;
-  return <Badge variant="outline" className="text-[10px] gap-1"><WifiOff className="h-3 w-3" /> Desconectado</Badge>;
-}
-
-function FeatureTag({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-secondary text-[10px] font-medium text-muted-foreground">
-      {label}
-    </span>
   );
 }
