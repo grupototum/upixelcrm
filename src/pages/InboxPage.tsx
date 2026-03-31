@@ -7,7 +7,7 @@ import {
   ArrowRight, Plus, User, Building, Globe, Mail,
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
   Check, CheckCheck, Clock,
-  File, Download, Maximize2, Headphones, Activity, X,
+  File, Download, Maximize2, Activity, X,
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
