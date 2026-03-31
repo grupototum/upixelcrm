@@ -321,6 +321,10 @@ export default function InboxPage() { // force HMR reset
                 <ConversationActions 
                   conversation={selectedLeadGroup} 
                   onRefresh={() => inbox.refresh()} 
+                  onUpdateStatus={inbox.updateStatus}
+                  onUpdatePriority={inbox.updatePriority}
+                  onAssignToAgent={inbox.assignToAgent}
+                  onUpdateLabels={inbox.updateLabels}
                 />
               </div>
 
