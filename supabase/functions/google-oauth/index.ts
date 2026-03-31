@@ -230,35 +230,44 @@ Deno.serve(async (req) => {
       let apiUrl: string;
       let opts: RequestInit = { headers: { Authorization: `Bearer ${at}` } };
 
-      switch (action) {
-        case "gmail-list":
-          apiUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20";
-          break;
-        case "gmail-send": {
-          const body = await req.json();
-          apiUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
-          opts = {
-            method: "POST",
-            headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ raw: btoa(`To: ${body.to}\r\nSubject: ${body.subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body.body}`) }),
-          };
-          break;
-        }
-        case "calendar-list":
-          apiUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=20&timeMin=${new Date().toISOString()}&orderBy=startTime&singleEvents=true`;
-          break;
-        case "drive-list":
-          apiUrl = "https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,mimeType,size,modifiedTime,owners)";
-          break;
-        default:
-          return json({ error: "Unknown action" }, 400);
+      if (action === "gmail-list") {
+        // Fetch message IDs then get details for each
+        const listRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20", { headers: { Authorization: `Bearer ${at}` } });
+        const listData = await listRes.json();
+        if (!listRes.ok) return json(listData, listRes.status);
+
+        const messages = listData.messages || [];
+        const detailed = await Promise.all(
+          messages.slice(0, 20).map(async (m: { id: string }) => {
+            const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`, { headers: { Authorization: `Bearer ${at}` } });
+            return r.json();
+          })
+        );
+        return json({ messages: detailed });
       }
 
-      const apiRes = await fetch(apiUrl, opts);
-      return new Response(JSON.stringify(await apiRes.json()), {
-        status: apiRes.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (action === "gmail-send") {
+        const body = await req.json();
+        const raw = btoa(unescape(encodeURIComponent(`To: ${body.to}\r\nSubject: ${body.subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body.body}`)));
+        const sendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ raw }),
+        });
+        return json(await sendRes.json(), sendRes.status);
+      }
+
+      if (action === "calendar-list") {
+        const calRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=20&timeMin=${new Date().toISOString()}&orderBy=startTime&singleEvents=true`, { headers: { Authorization: `Bearer ${at}` } });
+        return json(await calRes.json(), calRes.status);
+      }
+
+      if (action === "drive-list") {
+        const driveRes = await fetch("https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,mimeType,size,modifiedTime,owners)", { headers: { Authorization: `Bearer ${at}` } });
+        return json(await driveRes.json(), driveRes.status);
+      }
+
+      return json({ error: "Unknown action" }, 400);
     }
 
     return json({ error: "Unknown action" }, 400);
