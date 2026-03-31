@@ -572,8 +572,8 @@ export default function InboxPage() { // force HMR reset
                                             <div className="h-full w-0 rounded-full bg-current transition-all" id={`progress-${msg.id}`} />
                                           </div>
                                           <div className="flex items-center justify-between">
-                                            <span className={`text-[9px] font-bold ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`} id={`time-${msg.id}`}>0:00</span>
-                                            <span className={`text-[9px] font-bold ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`}>{duration ? formatTime(duration) : '--:--'}</span>
+                                            <span className={`text-[9px] font-bold ${!isOutbound ? 'text-white/60' : 'text-muted-foreground'}`} id={`time-${msg.id}`}>0:00</span>
+                                            <span className={`text-[9px] font-bold ${!isOutbound ? 'text-white/60' : 'text-muted-foreground'}`}>{duration ? formatTime(duration) : '--:--'}</span>
                                           </div>
                                         </div>
                                         <audio
