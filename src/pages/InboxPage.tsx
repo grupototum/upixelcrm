@@ -471,7 +471,7 @@ export default function InboxPage() { // force HMR reset
                                   ? "bg-amber-100 border border-amber-200 text-amber-900"
                                   : isOutbound
                                     ? "bg-primary text-primary-foreground"
-                                    : "bg-card border border-border/50 text-foreground"
+                                    : "bg-muted border border-border text-foreground font-medium"
                               }`}>
                                 {msg.type === "image" && (
                                   <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
