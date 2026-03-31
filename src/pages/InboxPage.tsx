@@ -483,7 +483,7 @@ export default function InboxPage() { // force HMR reset
                                 )}
 
                                 {msg.type === "sticker" && (
-                                  <div className="flex justify-center p-1 -mx-2 -mt-1 cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id })}>
+                                  <div className="flex justify-center p-1 -mx-2 -mt-1 cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
                                     <img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain hover:scale-110 transition-transform" />
                                   </div>
                                 )}
