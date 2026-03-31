@@ -56,11 +56,29 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const { api_url, instance_name, api_key } = body;
 
-      if (!api_url || !instance_name || !api_key) {
+      if (!api_url || !instance_name) {
         return new Response(JSON.stringify({ error: "Missing fields" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // If no new api_key provided, keep existing one
+      let finalApiKey = api_key;
+      if (!finalApiKey) {
+        const { data: existing } = await adminClient
+          .from("integrations")
+          .select("config")
+          .eq("client_id", clientId)
+          .eq("provider", "whatsapp")
+          .single();
+        finalApiKey = (existing?.config as any)?.api_key;
+        if (!finalApiKey) {
+          return new Response(JSON.stringify({ error: "API Key is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
 
       await adminClient.from("integrations").upsert(
@@ -68,7 +86,7 @@ Deno.serve(async (req) => {
           client_id: clientId,
           provider: "whatsapp",
           status: "configured",
-          config: { api_url, instance_name, api_key },
+          config: { api_url, instance_name, api_key: finalApiKey },
         },
         { onConflict: "client_id,provider" }
       );
