@@ -94,7 +94,7 @@ export default function InboxPage() { // force HMR reset
     const nextIdx = dir === "next" ? currentMediaIndex + 1 : currentMediaIndex - 1;
     if (nextIdx >= 0 && nextIdx < allMedia.length) {
       const m = allMedia[nextIdx];
-      setMediaViewer({ url: m.content, type: m.type, id: m.id });
+      setMediaViewer({ url: m.content, type: m.type, id: m.id, metadata: m.metadata as Record<string, any> });
     }
   };
   const [tagModalOpen, setTagModalOpen] = useState(false);
