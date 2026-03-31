@@ -76,7 +76,7 @@ export default function InboxPage() { // force HMR reset
   // Modal states
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState<string | null>(null);
-  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: string; id?: string } | null>(null);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: string; id?: string; metadata?: Record<string, any> } | null>(null);
   
   // Gallery navigation for Media Viewer
   const allMedia = useMemo(() => 
@@ -94,7 +94,7 @@ export default function InboxPage() { // force HMR reset
     const nextIdx = dir === "next" ? currentMediaIndex + 1 : currentMediaIndex - 1;
     if (nextIdx >= 0 && nextIdx < allMedia.length) {
       const m = allMedia[nextIdx];
-      setMediaViewer({ url: m.content, type: m.type, id: m.id });
+      setMediaViewer({ url: m.content, type: m.type, id: m.id, metadata: m.metadata as Record<string, any> });
     }
   };
   const [tagModalOpen, setTagModalOpen] = useState(false);
@@ -474,7 +474,7 @@ export default function InboxPage() { // force HMR reset
                                     : "bg-card border border-border/50 text-foreground"
                               }`}>
                                 {msg.type === "image" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id })}>
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
                                     <img src={msg.content} alt="Imagem" className="max-w-full h-auto object-cover max-h-64 rounded-lg hover:scale-105 transition-transform duration-500" />
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
                                       <Maximize2 className="h-6 w-6 text-white" />
@@ -483,13 +483,13 @@ export default function InboxPage() { // force HMR reset
                                 )}
 
                                 {msg.type === "sticker" && (
-                                  <div className="flex justify-center p-1 -mx-2 -mt-1 cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id })}>
+                                  <div className="flex justify-center p-1 -mx-2 -mt-1 cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
                                     <img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain hover:scale-110 transition-transform" />
                                   </div>
                                 )}
 
                                 {msg.type === "video" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id })}>
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
                                     <video src={msg.content} className="max-w-full h-auto max-h-64 rounded-lg" />
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
                                       <PlayCircle className="h-10 w-10 text-white drop-shadow-lg" />
