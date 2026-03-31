@@ -6,9 +6,9 @@ import {
   MessageSquare, CheckSquare, Tag,
   ArrowRight, Plus, User, Building, Globe, Mail,
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
-  Check, CheckCheck,
+  Check, CheckCheck, Clock,
   File, Download, Maximize2, Headphones, Activity, X,
-  MapPin, UserSquare2, Smile, ChevronLeft, ChevronRight, PlayCircle
+  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
