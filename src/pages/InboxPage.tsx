@@ -540,37 +540,75 @@ export default function InboxPage() { // force HMR reset
                                   </div>
                                 )}
 
-                                {msg.type === "audio" && (
-                                  <div className="space-y-2 py-1">
-                                    <div className="flex items-center gap-3 bg-black/5 p-2 rounded-xl border border-black/5">
-                                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                                        <Headphones className="h-4 w-4" />
+                                {msg.type === "audio" && (() => {
+                                  const audioId = `audio-${msg.id}`;
+                                  const duration = msg.metadata?.seconds ? Number(msg.metadata.seconds) : 0;
+                                  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+                                  return (
+                                    <div className="space-y-2 py-1">
+                                      <div className={`flex items-center gap-3 p-2.5 rounded-2xl min-w-[220px] ${isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-border/50'}`}>
+                                        <button
+                                          className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all shadow-md ${isOutbound ? 'bg-white/25 hover:bg-white/35 text-white' : 'bg-primary/15 hover:bg-primary/25 text-primary'}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const audio = document.getElementById(audioId) as HTMLAudioElement;
+                                            if (audio) audio.paused ? audio.play() : audio.pause();
+                                          }}
+                                        >
+                                          <PlayCircle className="h-5 w-5" />
+                                        </button>
+                                        <div className="flex-1 min-w-0 space-y-1.5">
+                                          <div className={`h-1.5 rounded-full overflow-hidden ${isOutbound ? 'bg-white/20' : 'bg-border'}`}>
+                                            <div className="h-full w-0 rounded-full bg-current transition-all" id={`progress-${msg.id}`} />
+                                          </div>
+                                          <div className="flex items-center justify-between">
+                                            <span className={`text-[9px] font-bold ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`} id={`time-${msg.id}`}>0:00</span>
+                                            <span className={`text-[9px] font-bold ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`}>{duration ? formatTime(duration) : '--:--'}</span>
+                                          </div>
+                                        </div>
+                                        <audio
+                                          id={audioId}
+                                          src={msg.content}
+                                          preload="metadata"
+                                          onTimeUpdate={(e) => {
+                                            const a = e.target as HTMLAudioElement;
+                                            const pct = a.duration ? (a.currentTime / a.duration) * 100 : 0;
+                                            const bar = document.getElementById(`progress-${msg.id}`);
+                                            const timeEl = document.getElementById(`time-${msg.id}`);
+                                            if (bar) bar.style.width = `${pct}%`;
+                                            if (timeEl) timeEl.textContent = formatTime(a.currentTime);
+                                          }}
+                                          onEnded={() => {
+                                            const bar = document.getElementById(`progress-${msg.id}`);
+                                            if (bar) bar.style.width = '0%';
+                                          }}
+                                          className="hidden"
+                                        />
                                       </div>
-                                      <audio src={msg.content} controls className="h-8 max-w-[180px] sm:max-w-[220px]" />
+                                      {!msg.metadata?.transcript && (
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          className="h-7 text-[10px] gap-1.5 font-bold hover:bg-primary/10 hover:text-primary"
+                                          onClick={async () => {
+                                            setIsTranscribing(msg.id);
+                                            await inbox.transcribeAudio(msg.id);
+                                            setIsTranscribing(null);
+                                          }}
+                                          disabled={isTranscribing === msg.id}
+                                        >
+                                          {isTranscribing === msg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Activity className="h-3 w-3" />}
+                                          {isTranscribing === msg.id ? "TRANSCREVENDO..." : "TRANSCREVER ÁUDIO"}
+                                        </Button>
+                                      )}
+                                      {msg.metadata?.transcript && (
+                                        <div className={`mt-1 p-2.5 rounded-xl italic text-[11px] leading-snug ${isOutbound ? 'bg-white/10 text-white/80' : 'bg-primary/5 border border-primary/10 text-foreground/80'}`}>
+                                          "{msg.metadata.transcript}"
+                                        </div>
+                                      )}
                                     </div>
-                                    {!msg.metadata?.transcript && (
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-7 text-[10px] gap-1.5 font-bold hover:bg-primary/10 hover:text-primary"
-                                        onClick={async () => {
-                                          setIsTranscribing(msg.id);
-                                          await inbox.transcribeAudio(msg.id);
-                                          setIsTranscribing(null);
-                                        }}
-                                        disabled={isTranscribing === msg.id}
-                                      >
-                                        {isTranscribing === msg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Activity className="h-3 w-3" />}
-                                        {isTranscribing === msg.id ? "TRANSCREVENDO..." : "TRANSCREVER ÁUDIO"}
-                                      </Button>
-                                    )}
-                                    {msg.metadata?.transcript && (
-                                      <div className="mt-2 p-2 bg-primary/5 rounded-lg border border-primary/10 italic text-[11px] leading-snug">
-                                        "{msg.metadata.transcript}"
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                  );
+                                })()}
 
                                 {(msg.type === "file" || msg.type === "document") && (
                                   <div className="flex items-center gap-3 p-2 bg-secondary/30 rounded-xl border border-border/50 group/file">
