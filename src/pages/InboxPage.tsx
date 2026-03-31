@@ -57,7 +57,7 @@ export default function InboxPage() { // force HMR reset
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData } = useAppState();
   const inbox = useInbox(refreshData);
 
-  const [message, setMessage] = useState("");
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [inboxTab, setInboxTab] = useState<string>("todas");
