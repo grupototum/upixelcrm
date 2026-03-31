@@ -330,9 +330,9 @@ export default function InboxPage() { // force HMR reset
           {selectedLeadGroup ? (
             <>
               {/* Chat header */}
-              <div className="h-14 px-4 ghost-border border-b flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-sm z-10">
-                <div className="flex items-center gap-3">
-                  <div className="relative group cursor-pointer" onClick={() => setShowSidebar(!showSidebar)}>
+              <div className="px-4 py-2.5 ghost-border border-b flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-sm z-10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative group cursor-pointer shrink-0" onClick={() => setShowSidebar(!showSidebar)}>
                     <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm group-hover:shadow-md transition-all">
                       {initials(selectedLeadGroup.lead_name || "?")}
                     </div>
@@ -343,31 +343,10 @@ export default function InboxPage() { // force HMR reset
                       })()}
                     </div>
                   </div>
-                  <div>
-                    {/* Chat Header Actions */}
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-secondary/30 rounded-2xl border border-border/20">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 text-[10px] font-bold gap-1.5 hover:bg-green-500/10 hover:text-green-600 transition-colors"
-                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "resolved")}
-                    >
-                      <CheckSquare className="h-3.5 w-3.5" /> RESOLVER
-                    </Button>
-                    <div className="w-px h-4 bg-border/50 mx-1" />
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 text-[10px] font-bold gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors"
-                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "snoozed")}
-                    >
-                      <Loader2 className="h-3.5 w-3.5" /> ADIAR
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">{selectedLeadGroup.lead_name}</p>
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 border border-success/20">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">{selectedLeadGroup.lead_name}</p>
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 border border-success/20 shrink-0">
                         <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                         <span className="text-[9px] font-bold text-success uppercase">Online</span>
                       </div>
@@ -387,14 +366,35 @@ export default function InboxPage() { // force HMR reset
                   </div>
                 </div>
 
-                <ConversationActions 
-                  conversation={selectedLeadGroup} 
-                  onRefresh={() => inbox.refresh()} 
-                  onUpdateStatus={inbox.updateStatus}
-                  onUpdatePriority={inbox.updatePriority}
-                  onAssignToAgent={inbox.assignToAgent}
-                  onUpdateLabels={inbox.updateLabels}
-                />
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-border/20">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 text-[10px] font-bold gap-1.5 hover:bg-green-500/10 hover:text-green-600 transition-colors rounded-lg"
+                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "resolved")}
+                    >
+                      <CheckSquare className="h-3 w-3" /> Resolver
+                    </Button>
+                    <div className="w-px h-4 bg-border/50" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 text-[10px] font-bold gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg"
+                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "snoozed")}
+                    >
+                      <Clock className="h-3 w-3" /> Adiar
+                    </Button>
+                  </div>
+                  <ConversationActions 
+                    conversation={selectedLeadGroup} 
+                    onRefresh={() => inbox.refresh()} 
+                    onUpdateStatus={inbox.updateStatus}
+                    onUpdatePriority={inbox.updatePriority}
+                    onAssignToAgent={inbox.assignToAgent}
+                    onUpdateLabels={inbox.updateLabels}
+                  />
+                </div>
               </div>
 
               {/* Messages timeline */}
