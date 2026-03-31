@@ -329,7 +329,7 @@ export function useInbox(onLeadCreated?: () => void) {
     const { data: firstCol } = await supabase
       .from("pipeline_columns")
       .select("id")
-      .order("position", { ascending: true })
+      .order("order", { ascending: true })
       .limit(1);
 
     if (!firstCol || firstCol.length === 0) return null;
@@ -409,10 +409,15 @@ export function useInbox(onLeadCreated?: () => void) {
           }]);
         }
 
-        // Auto-create lead for inbound if needed
+        // Auto-create lead for inbound if needed (fallback if webhook didn't handle it)
         if (newMsg.direction === "inbound" && conv && !conv.lead_id) {
-          // This should be handled by webhook too, but here as fallback
-          // ... (existing logic)
+          const phone = (newMsg.metadata as any)?.phone;
+          const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
+          const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
+          if (leadId) {
+            await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
+            console.log("[Inbox] Auto-created lead via realtime fallback:", leadId);
+          }
         }
 
         loadConversations();
@@ -425,7 +430,7 @@ export function useInbox(onLeadCreated?: () => void) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedLeadId, loadConversations]);
+  }, [selectedLeadId, loadConversations, findOrCreateLead]);
 
   return {
     conversations,

@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     // Find or create conversation
     const { data: existingConv } = await adminClient.from("conversations")
-      .select("id")
+      .select("id, unread_count")
       .eq("client_id", clientId)
       .eq("channel", "whatsapp")
       .eq("metadata->>phone", phone)
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       await adminClient.from("conversations").update({
         last_message: content,
         last_message_at: new Date().toISOString(),
-        unread_count: (existingConv as any).unread_count ? (existingConv as any).unread_count + 1 : 1,
+        unread_count: (existingConv.unread_count || 0) + 1,
         status: "open",
       }).eq("id", convId);
     } else {
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
         const { data: firstCol } = await adminClient
           .from("pipeline_columns")
           .select("id")
-          .order("position", { ascending: true })
+          .order("order", { ascending: true })
           .limit(1)
           .maybeSingle();
 
