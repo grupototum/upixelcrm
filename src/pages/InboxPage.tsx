@@ -987,10 +987,22 @@ export default function InboxPage() { // force HMR reset
               <div>
                 <p className="text-white text-sm font-bold uppercase tracking-wider">{mediaViewer.type}</p>
                 <p className="text-white/40 text-[10px]">{currentMediaIndex + 1} de {allMedia.length} arquivos</p>
+                {mediaViewer.metadata?.caption && (
+                  <p className="text-white/60 text-[10px] truncate max-w-[200px] italic mt-0.5">"{mediaViewer.metadata.caption}"</p>
+                )}
               </div>
             </div>
             
             <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-10 text-[10px] font-bold gap-2 text-white hover:bg-white/10"
+                onClick={() => window.open(mediaViewer.url, '_blank')}
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> ABRIR ORIGINAL
+              </Button>
+              <div className="w-px h-6 bg-white/10 mx-2" />
               <a 
                 href={mediaViewer.url} 
                 download 
@@ -1027,11 +1039,28 @@ export default function InboxPage() { // force HMR reset
               </button>
             )}
 
-            <div className="max-w-[90vw] max-h-[75vh] overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10">
+            <div className="max-w-[90vw] max-h-[75vh] overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10 bg-black/40 flex items-center justify-center">
               {mediaViewer.type === "image" || mediaViewer.type === "sticker" ? (
-                <img src={mediaViewer.url} alt="Full view" className="max-w-full max-h-full object-contain" />
+                <div className="relative group/img">
+                  <img src={mediaViewer.url} alt="Full view" className="max-w-full max-h-full object-contain" onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = "https://placehold.co/600x400?text=Erro+ao+carregar+imagem";
+                  }} />
+                  {mediaViewer.metadata?.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent text-white text-center">
+                      <p className="text-sm font-medium">{mediaViewer.metadata.caption}</p>
+                    </div>
+                  )}
+                </div>
               ) : mediaViewer.type === "video" ? (
-                <video src={mediaViewer.url} controls autoPlay className="max-w-full max-h-full" />
+                <div className="relative">
+                  <video src={mediaViewer.url} controls autoPlay className="max-w-full max-h-full" />
+                  {mediaViewer.metadata?.caption && (
+                    <div className="absolute bottom-12 left-0 right-0 p-4 bg-black/40 text-white text-center">
+                      <p className="text-xs font-medium">{mediaViewer.metadata.caption}</p>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="p-20 bg-secondary/20 flex flex-col items-center gap-6">
                   <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -1039,10 +1068,10 @@ export default function InboxPage() { // force HMR reset
                   </div>
                   <div className="text-center">
                     <p className="text-white text-xl font-bold">Arquivo de Documento</p>
-                    <p className="text-white/40 text-sm mt-1">Este formato não pode ser visualizado diretamente.</p>
+                    <p className="text-white/40 text-sm mt-1">Este formato não pode ser visualizado diretamente aqui.</p>
                   </div>
-                  <Button className="font-bold px-8" onClick={() => window.open(mediaViewer.url, '_blank')}>
-                    VER NOVO NAVEGADOR
+                  <Button className="font-bold px-8 gap-2" onClick={() => window.open(mediaViewer.url, '_blank')}>
+                    <ExternalLink className="h-4 w-4" /> VER NO NAVEGADOR
                   </Button>
                 </div>
               )}

@@ -282,7 +282,11 @@ export function useInbox(onLeadCreated?: () => void) {
         body: JSON.stringify({ 
           phone, 
           mediaUrl: url, 
-          mediaType: file.type.split('/')[0], // image, video, audio, application
+          mediaType: file.type.startsWith('image') ? 'image' 
+                   : file.type.startsWith('video') ? 'video' 
+                   : file.type.startsWith('audio') ? 'audio' 
+                   : 'document',
+          mimetype: file.type,
           fileName: file.name
         }),
       });

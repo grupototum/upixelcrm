@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
 
     if (action === "send-media") {
       const body = await req.json();
-      const { phone, mediaUrl, mediaType, fileName } = body;
+      const { phone, mediaUrl, mediaType, fileName, caption, mimetype } = body;
       if (!phone || !mediaUrl) {
         return new Response(JSON.stringify({ error: "Missing phone or mediaUrl" }), {
           status: 400,
@@ -309,21 +309,16 @@ Deno.serve(async (req) => {
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
       // Determine Evolution API endpoint based on media type
-      let endpoint = "sendMedia";
+      const endpoint = "sendMedia";
       const payload: Record<string, any> = {
         number: formattedPhone,
         mediatype: mediaType || "image",
         media: mediaUrl,
+        fileName: fileName || "arquivo",
+        caption: caption || ""
       };
 
-      if (mediaType === "audio") {
-        endpoint = "sendWhatsAppAudio";
-        payload.audio = mediaUrl;
-        delete payload.media;
-        delete payload.mediatype;
-      } else {
-        if (fileName) payload.fileName = fileName;
-      }
+      if (mimetype) payload.mimetype = mimetype;
 
       const res = await fetch(`${config.api_url}/message/${endpoint}/${config.instance_name}`, {
         method: "POST",

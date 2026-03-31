@@ -14,6 +14,7 @@ interface MediaInfo {
 
 function extractMessageContent(messageData: any): MediaInfo {
   const msg = messageData.message;
+  const mediaUrl = messageData.mediaUrl;
   if (!msg) return { content: "[Mensagem vazia]", type: "text", metadata: {} };
 
   // Text messages
@@ -26,7 +27,7 @@ function extractMessageContent(messageData: any): MediaInfo {
 
   // Audio
   if (msg.audioMessage) {
-    const url = msg.audioMessage.url || "";
+    const url = mediaUrl || msg.audioMessage.url || "";
     return {
       content: url || "[Áudio]",
       type: "audio",
@@ -40,7 +41,7 @@ function extractMessageContent(messageData: any): MediaInfo {
 
   // Image
   if (msg.imageMessage) {
-    const url = msg.imageMessage.url || "";
+    const url = mediaUrl || msg.imageMessage.url || "";
     const caption = msg.imageMessage.caption || "";
     return {
       content: url || "[Imagem]",
@@ -55,7 +56,7 @@ function extractMessageContent(messageData: any): MediaInfo {
 
   // Video
   if (msg.videoMessage) {
-    const url = msg.videoMessage.url || "";
+    const url = mediaUrl || msg.videoMessage.url || "";
     const caption = msg.videoMessage.caption || "";
     return {
       content: url || "[Vídeo]",
@@ -71,13 +72,15 @@ function extractMessageContent(messageData: any): MediaInfo {
 
   // Document / File
   if (msg.documentMessage) {
-    const url = msg.documentMessage.url || "";
+    const url = mediaUrl || msg.documentMessage.url || "";
     const fileName = msg.documentMessage.fileName || "documento";
+    const caption = msg.documentMessage.caption || "";
     return {
       content: url || `[Arquivo: ${fileName}]`,
       type: "file",
       metadata: {
         filename: fileName,
+        caption,
         mimetype: msg.documentMessage.mimetype,
         size: msg.documentMessage.fileLength,
         media_url: url,
@@ -87,7 +90,7 @@ function extractMessageContent(messageData: any): MediaInfo {
 
   // Sticker
   if (msg.stickerMessage) {
-    const url = msg.stickerMessage.url || "";
+    const url = mediaUrl || msg.stickerMessage.url || "";
     return {
       content: url || "[Sticker]",
       type: "image",
