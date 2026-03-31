@@ -295,6 +295,83 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "send-media") {
+      const body = await req.json();
+      const { phone, mediaUrl, mediaType, fileName } = body;
+      if (!phone || !mediaUrl) {
+        return new Response(JSON.stringify({ error: "Missing phone or mediaUrl" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const cleanPhone = phone.replace(/\D/g, "");
+      const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+      // Determine Evolution API endpoint based on media type
+      let endpoint = "sendMedia";
+      const payload: Record<string, any> = {
+        number: formattedPhone,
+        mediatype: mediaType || "image",
+        media: mediaUrl,
+      };
+
+      if (mediaType === "audio") {
+        endpoint = "sendWhatsAppAudio";
+        payload.audio = mediaUrl;
+        delete payload.media;
+        delete payload.mediatype;
+      } else {
+        if (fileName) payload.fileName = fileName;
+      }
+
+      const res = await fetch(`${config.api_url}/message/${endpoint}/${config.instance_name}`, {
+        method: "POST",
+        headers: { apikey: config.api_key, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      // Save message to DB
+      let convId: string | null = null;
+      const { data: existingConv } = await adminClient.from("conversations")
+        .select("id")
+        .eq("client_id", clientId)
+        .eq("channel", "whatsapp")
+        .eq("metadata->>phone", formattedPhone)
+        .single();
+
+      if (existingConv) {
+        convId = existingConv.id;
+      }
+
+      if (convId) {
+        const displayText = mediaType === "audio" ? "🎵 Áudio" 
+          : mediaType === "video" ? "🎥 Vídeo"
+          : mediaType === "image" ? "📷 Imagem"
+          : `📎 ${fileName || "Arquivo"}`;
+
+        await adminClient.from("messages").insert({
+          client_id: clientId,
+          conversation_id: convId,
+          content: mediaUrl,
+          type: mediaType || "image",
+          direction: "outbound",
+          sender_name: "Você",
+          metadata: { media_url: mediaUrl, filename: fileName },
+        });
+        await adminClient.from("conversations").update({
+          last_message: displayText,
+          last_message_at: new Date().toISOString(),
+        }).eq("id", convId);
+      }
+
+      return new Response(JSON.stringify(data), {
+        status: res.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
