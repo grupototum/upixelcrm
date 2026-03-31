@@ -488,24 +488,34 @@ export default function InboxPage() { // force HMR reset
                                   </div>
                                 )}
 
-                                {msg.type === "video" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
-                                    <video src={msg.content} preload="metadata" className="max-w-full h-auto max-h-64 rounded-lg bg-black" onLoadedData={(e) => {
-                                      const v = e.target as HTMLVideoElement;
-                                      v.currentTime = 0.5;
-                                    }} />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                      <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
-                                        <PlayCircle className="h-8 w-8 text-white drop-shadow-lg" />
+                                {msg.type === "video" && (() => {
+                                  const videoUrl = msg.content;
+                                  const hasValidUrl = videoUrl && !videoUrl.startsWith("[") && !videoUrl.includes(".enc");
+                                  return (
+                                    <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: videoUrl, type: "video", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
+                                      {hasValidUrl ? (
+                                        <video src={videoUrl} preload="metadata" muted playsInline className="max-w-full h-auto max-h-64 rounded-lg bg-black" onLoadedMetadata={(e) => {
+                                          const v = e.target as HTMLVideoElement;
+                                          v.currentTime = 1;
+                                        }} />
+                                      ) : (
+                                        <div className="w-full h-40 bg-black rounded-lg flex items-center justify-center">
+                                          <span className="text-white/50 text-xs">Vídeo</span>
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                                          <PlayCircle className="h-8 w-8 text-white drop-shadow-lg" />
+                                        </div>
                                       </div>
+                                      {msg.metadata?.seconds && (
+                                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                          {Math.floor(Number(msg.metadata.seconds) / 60)}:{String(Number(msg.metadata.seconds) % 60).padStart(2, '0')}
+                                        </div>
+                                      )}
                                     </div>
-                                    {msg.metadata?.seconds && (
-                                      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                                        {Math.floor(Number(msg.metadata.seconds) / 60)}:{String(Number(msg.metadata.seconds) % 60).padStart(2, '0')}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                  );
+                                })()}
 
                                 {msg.type === "location" && (
                                   <a 
