@@ -568,7 +568,7 @@ export default function InboxPage() { // force HMR reset
                                           <PlayCircle className="h-5 w-5" />
                                         </button>
                                         <div className="flex-1 min-w-0 space-y-1.5">
-                                          <div className={`h-1.5 rounded-full overflow-hidden ${isOutbound ? 'bg-white/20' : 'bg-border'}`}>
+                                          <div className={`h-1.5 rounded-full overflow-hidden ${!isOutbound ? 'bg-white/20' : 'bg-border'}`}>
                                             <div className="h-full w-0 rounded-full bg-current transition-all" id={`progress-${msg.id}`} />
                                           </div>
                                           <div className="flex items-center justify-between">
