@@ -46,7 +46,7 @@ export function useGoogleIntegration() {
   const checkStatus = useCallback(async () => {
     try {
       const data = await invokeFunction("status");
-      setStatus({ connected: data.connected, email: data.email, name: data.name, loading: false });
+      setStatus({ connected: data.connected, email: data.email, name: data.name, loading: false, credentialsConfigured: data.credentials_configured ?? false });
     } catch {
       setStatus(s => ({ ...s, loading: false }));
     }
