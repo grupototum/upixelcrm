@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Tag as TagIcon, X, Plus, Check } from "lucide-react";
+import { useState } from "react";
+import { X, Plus, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,17 +8,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useConversationLabels, ConversationLabel } from "@/hooks/useConversationLabels";
-import { useInbox } from "@/hooks/useInbox";
 
 interface LabelSelectorProps {
   conversationId: string;
   selectedLabels: { id: string; name: string; color: string }[];
   onLabelsChange: () => void;
+  onUpdateLabels: (conversationId: string, labels: { id: string; name: string; color: string }[]) => Promise<void>;
 }
 
-export function LabelSelector({ conversationId, selectedLabels, onLabelsChange }: LabelSelectorProps) {
+export function LabelSelector({ conversationId, selectedLabels, onLabelsChange, onUpdateLabels }: LabelSelectorProps) {
   const { labels } = useConversationLabels();
-  const { updateLabels } = useInbox();
   const [open, setOpen] = useState(false);
 
   const toggleLabel = async (label: ConversationLabel) => {
@@ -30,7 +29,7 @@ export function LabelSelector({ conversationId, selectedLabels, onLabelsChange }
       newLabels = [...selectedLabels, { id: label.id, name: label.name, color: label.color }];
     }
     
-    await updateLabels(conversationId, newLabels);
+    await onUpdateLabels(conversationId, newLabels);
     onLabelsChange();
   };
 

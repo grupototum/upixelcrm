@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { CheckCircle2, Clock, AlertCircle, UserPlus, MoreHorizontal, User, Tags } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, UserPlus, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,21 +6,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuLabel,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { LabelSelector } from "./LabelSelector";
-import { useInbox } from "@/hooks/useInbox";
 
 interface ConversationActionsProps {
-  conversation: any; // LeadConversation
+  conversation: any;
   onRefresh: () => void;
+  onUpdateStatus: (leadId: string, status: string) => Promise<void>;
+  onUpdatePriority: (leadId: string, priority: string) => Promise<void>;
+  onAssignToAgent: (leadId: string, agentId: string | null) => Promise<void>;
+  onUpdateLabels: (conversationId: string, labels: { id: string; name: string; color: string }[]) => Promise<void>;
 }
 
-// Mock users list (matching UsersPage.tsx style)
 const MOCK_USERS = [
   { id: "u1", name: "Admin Totum" },
   { id: "u2", name: "Maria Gerente" },
@@ -29,27 +29,14 @@ const MOCK_USERS = [
   { id: "u4", name: "Carla Operadora" },
 ];
 
-export function ConversationActions({ conversation, onRefresh }: ConversationActionsProps) {
-  const { updateStatus, updatePriority, assignToAgent } = useInbox();
-
-  const handleStatusChange = async (status: string) => {
-    await updateStatus(conversation.lead_id, status);
-  };
-
-  const handlePriorityChange = async (priority: string) => {
-    await updatePriority(conversation.lead_id, priority);
-  };
-
-  const handleAssignChange = async (agentId: string | null) => {
-    await assignToAgent(conversation.lead_id, agentId);
-  };
-
+export function ConversationActions({ conversation, onRefresh, onUpdateStatus, onUpdatePriority, onAssignToAgent, onUpdateLabels }: ConversationActionsProps) {
   return (
     <div className="flex items-center gap-2">
       <LabelSelector 
         conversationId={conversation.source_conversations?.[0]?.id} 
         selectedLabels={conversation.labels || []}
         onLabelsChange={onRefresh}
+        onUpdateLabels={onUpdateLabels}
       />
 
       <div className="h-6 w-px bg-border mx-1" />
@@ -62,16 +49,16 @@ export function ConversationActions({ conversation, onRefresh }: ConversationAct
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 p-1">
-          <DropdownMenuItem onClick={() => handleStatusChange("open")} className="py-2 text-xs font-medium cursor-pointer">
+          <DropdownMenuItem onClick={() => onUpdateStatus(conversation.lead_id, "open")} className="py-2 text-xs font-medium cursor-pointer">
             <Clock className="mr-2 h-3.5 w-3.5 text-blue-500" /> Aberto
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleStatusChange("pending")} className="py-2 text-xs font-medium cursor-pointer">
+          <DropdownMenuItem onClick={() => onUpdateStatus(conversation.lead_id, "pending")} className="py-2 text-xs font-medium cursor-pointer">
             <Clock className="mr-2 h-3.5 w-3.5 text-yellow-500" /> Pendente
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleStatusChange("resolved")} className="py-2 text-xs font-medium cursor-pointer">
+          <DropdownMenuItem onClick={() => onUpdateStatus(conversation.lead_id, "resolved")} className="py-2 text-xs font-medium cursor-pointer">
             <CheckCircle2 className="mr-2 h-3.5 w-3.5 text-green-500" /> Resolvido
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleStatusChange("snoozed")} className="py-2 text-xs font-medium cursor-pointer">
+          <DropdownMenuItem onClick={() => onUpdateStatus(conversation.lead_id, "snoozed")} className="py-2 text-xs font-medium cursor-pointer">
             <Clock className="mr-2 h-3.5 w-3.5 text-slate-500" /> Soneca (Snooze)
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -90,11 +77,11 @@ export function ConversationActions({ conversation, onRefresh }: ConversationAct
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent className="p-1">
-                <DropdownMenuItem onClick={() => handlePriorityChange("none")} className="py-2 text-xs font-medium cursor-pointer">Sem prioridade</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handlePriorityChange("low")} className="py-2 text-xs font-medium cursor-pointer">Baixa</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handlePriorityChange("medium")} className="py-2 text-xs font-medium cursor-pointer">Média</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handlePriorityChange("high")} className="py-2 text-xs font-medium cursor-pointer">Alta</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handlePriorityChange("urgent")} className="py-2 text-xs font-medium cursor-pointer">Urgente</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onUpdatePriority(conversation.lead_id, "none")} className="py-2 text-xs font-medium cursor-pointer">Sem prioridade</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onUpdatePriority(conversation.lead_id, "low")} className="py-2 text-xs font-medium cursor-pointer">Baixa</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onUpdatePriority(conversation.lead_id, "medium")} className="py-2 text-xs font-medium cursor-pointer">Média</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onUpdatePriority(conversation.lead_id, "high")} className="py-2 text-xs font-medium cursor-pointer">Alta</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onUpdatePriority(conversation.lead_id, "urgent")} className="py-2 text-xs font-medium cursor-pointer">Urgente</DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
@@ -105,11 +92,11 @@ export function ConversationActions({ conversation, onRefresh }: ConversationAct
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent className="p-1">
-                <DropdownMenuItem onClick={() => handleAssignChange(null)} className="py-2 text-xs font-medium cursor-pointer">Nenhum</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAssignToAgent(conversation.lead_id, null)} className="py-2 text-xs font-medium cursor-pointer">Nenhum</DropdownMenuItem>
                 {MOCK_USERS.map((user) => (
                   <DropdownMenuItem 
                     key={user.id} 
-                    onClick={() => handleAssignChange(user.id)}
+                    onClick={() => onAssignToAgent(conversation.lead_id, user.id)}
                     className="py-2 text-xs font-medium cursor-pointer"
                   >
                     {user.name}
