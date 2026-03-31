@@ -2,18 +2,16 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
-  Search, Phone, Video, MoreVertical, Send, Paperclip, Mic,
-  Play, Pause, FileText, MessageSquare, CheckSquare, Sparkles, Tag,
-  ArrowRight, Plus, User, Building, DollarSign, Globe, Mail,
-  MessageCircle, Loader2, ExternalLink, Users, Lock, Tags,
-  Check, CheckCheck, Smile, Paperclip as AttachIcon, Clock,
-  File, Download, Eye, Maximize2, Headphones, Activity, X
+  Search, Phone, MoreVertical,
+  MessageSquare, CheckSquare, Tag,
+  ArrowRight, Plus, User, Building, Globe, Mail,
+  MessageCircle, Loader2, ExternalLink, Lock, Tags,
+  Check, CheckCheck,
+  File, Download, Maximize2, Headphones, Activity, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { MessageTemplatePopover } from "@/components/inbox/MessageTemplatePopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -31,8 +29,7 @@ import { ReplyBox } from "@/components/inbox/ReplyBox";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
 import { useAppState } from "@/contexts/AppContext";
-import { useInbox, type LeadConversation, type Message } from "@/hooks/useInbox";
-import { supabase } from "@/integrations/supabase/client";
+import { useInbox } from "@/hooks/useInbox";
 
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success",
@@ -60,7 +57,7 @@ export default function InboxPage() { // force HMR reset
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData } = useAppState();
   const inbox = useInbox(refreshData);
 
-  const [message, setMessage] = useState("");
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [inboxTab, setInboxTab] = useState<string>("todas");
@@ -321,6 +318,10 @@ export default function InboxPage() { // force HMR reset
                 <ConversationActions 
                   conversation={selectedLeadGroup} 
                   onRefresh={() => inbox.refresh()} 
+                  onUpdateStatus={inbox.updateStatus}
+                  onUpdatePriority={inbox.updatePriority}
+                  onAssignToAgent={inbox.assignToAgent}
+                  onUpdateLabels={inbox.updateLabels}
                 />
               </div>
 
@@ -684,6 +685,7 @@ export default function InboxPage() { // force HMR reset
                         conversationId={selectedLeadGroup.source_conversations[0]?.id}
                         selectedLabels={selectedLeadGroup.labels || []}
                         onLabelsChange={() => inbox.refresh()}
+                        onUpdateLabels={inbox.updateLabels}
                       />
                     </div>
                     <div className="flex flex-wrap gap-1.5">
