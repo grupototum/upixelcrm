@@ -470,8 +470,8 @@ export default function InboxPage() { // force HMR reset
                                 msg.is_private
                                   ? "bg-amber-100 border border-amber-200 text-amber-900"
                                   : isOutbound
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted border border-border text-foreground font-medium"
+                                    ? "bg-muted border border-border text-foreground"
+                                    : "bg-primary text-primary-foreground font-medium"
                               }`}>
                                 {msg.type === "image" && (
                                   <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
@@ -488,24 +488,34 @@ export default function InboxPage() { // force HMR reset
                                   </div>
                                 )}
 
-                                {msg.type === "video" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
-                                    <video src={msg.content} preload="metadata" className="max-w-full h-auto max-h-64 rounded-lg bg-black" onLoadedData={(e) => {
-                                      const v = e.target as HTMLVideoElement;
-                                      v.currentTime = 0.5;
-                                    }} />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                      <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
-                                        <PlayCircle className="h-8 w-8 text-white drop-shadow-lg" />
+                                {msg.type === "video" && (() => {
+                                  const videoUrl = msg.content;
+                                  const hasValidUrl = videoUrl && !videoUrl.startsWith("[") && !videoUrl.includes(".enc");
+                                  return (
+                                    <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: videoUrl, type: "video", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
+                                      {hasValidUrl ? (
+                                        <video src={videoUrl} preload="metadata" muted playsInline className="max-w-full h-auto max-h-64 rounded-lg bg-black" onLoadedMetadata={(e) => {
+                                          const v = e.target as HTMLVideoElement;
+                                          v.currentTime = 1;
+                                        }} />
+                                      ) : (
+                                        <div className="w-full h-40 bg-black rounded-lg flex items-center justify-center">
+                                          <span className="text-white/50 text-xs">Vídeo</span>
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                                          <PlayCircle className="h-8 w-8 text-white drop-shadow-lg" />
+                                        </div>
                                       </div>
+                                      {msg.metadata?.seconds && (
+                                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                          {Math.floor(Number(msg.metadata.seconds) / 60)}:{String(Number(msg.metadata.seconds) % 60).padStart(2, '0')}
+                                        </div>
+                                      )}
                                     </div>
-                                    {msg.metadata?.seconds && (
-                                      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                                        {Math.floor(Number(msg.metadata.seconds) / 60)}:{String(Number(msg.metadata.seconds) % 60).padStart(2, '0')}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                  );
+                                })()}
 
                                 {msg.type === "location" && (
                                   <a 
@@ -546,9 +556,9 @@ export default function InboxPage() { // force HMR reset
                                   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                                   return (
                                     <div className="space-y-2 py-1">
-                                      <div className={`flex items-center gap-3 p-2.5 rounded-2xl min-w-[220px] ${isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-border/50'}`}>
+                                      <div className={`flex items-center gap-3 p-2.5 rounded-2xl min-w-[220px] ${!isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-border/50'}`}>
                                         <button
-                                          className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all shadow-md ${isOutbound ? 'bg-white/25 hover:bg-white/35 text-white' : 'bg-primary/15 hover:bg-primary/25 text-primary'}`}
+                                          className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all shadow-md ${!isOutbound ? 'bg-white/25 hover:bg-white/35 text-white' : 'bg-primary/15 hover:bg-primary/25 text-primary'}`}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             const audio = document.getElementById(audioId) as HTMLAudioElement;
@@ -558,12 +568,12 @@ export default function InboxPage() { // force HMR reset
                                           <PlayCircle className="h-5 w-5" />
                                         </button>
                                         <div className="flex-1 min-w-0 space-y-1.5">
-                                          <div className={`h-1.5 rounded-full overflow-hidden ${isOutbound ? 'bg-white/20' : 'bg-border'}`}>
+                                          <div className={`h-1.5 rounded-full overflow-hidden ${!isOutbound ? 'bg-white/20' : 'bg-border'}`}>
                                             <div className="h-full w-0 rounded-full bg-current transition-all" id={`progress-${msg.id}`} />
                                           </div>
                                           <div className="flex items-center justify-between">
-                                            <span className={`text-[9px] font-bold ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`} id={`time-${msg.id}`}>0:00</span>
-                                            <span className={`text-[9px] font-bold ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`}>{duration ? formatTime(duration) : '--:--'}</span>
+                                            <span className={`text-[9px] font-bold ${!isOutbound ? 'text-white/60' : 'text-muted-foreground'}`} id={`time-${msg.id}`}>0:00</span>
+                                            <span className={`text-[9px] font-bold ${!isOutbound ? 'text-white/60' : 'text-muted-foreground'}`}>{duration ? formatTime(duration) : '--:--'}</span>
                                           </div>
                                         </div>
                                         <audio
@@ -602,7 +612,7 @@ export default function InboxPage() { // force HMR reset
                                         </Button>
                                       )}
                                       {msg.metadata?.transcript && (
-                                        <div className={`mt-1 p-2.5 rounded-xl italic text-[11px] leading-snug ${isOutbound ? 'bg-white/10 text-white/80' : 'bg-primary/5 border border-primary/10 text-foreground/80'}`}>
+                                        <div className={`mt-1 p-2.5 rounded-xl italic text-[11px] leading-snug ${!isOutbound ? 'bg-white/10 text-white/80' : 'bg-primary/5 border border-primary/10 text-foreground/80'}`}>
                                           "{msg.metadata.transcript}"
                                         </div>
                                       )}
@@ -634,7 +644,7 @@ export default function InboxPage() { // force HMR reset
                                   {isOutbound && !msg.is_private && (
                                     <div className="flex items-center ml-0.5">
                                       {msg.metadata?.status === "read" ? (
-                                        <CheckCheck className="h-3 w-3 text-white" />
+                                        <CheckCheck className="h-3 w-3 text-primary" />
                                       ) : msg.metadata?.status === "delivered" ? (
                                         <CheckCheck className="h-3 w-3 opacity-60" />
                                       ) : (
