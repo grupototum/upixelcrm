@@ -397,11 +397,12 @@ export function useInbox(onLeadCreated?: () => void) {
   ): Promise<string | null> => {
     if (phone) {
       const normalized = phone.replace(/\D/g, "");
-      const { data: byPhone } = await supabase
+      const phoneSuffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
+      const { data: duplicates } = await supabase
         .from("leads").select("id")
-        .or(`phone.ilike.%${normalized.slice(-8)}%`)
-        .limit(1);
-      if (byPhone && byPhone.length > 0) return byPhone[0].id;
+        .or(`phone.ilike.%${phoneSuffix}%`)
+        .order("created_at", { ascending: true });
+      if (duplicates && duplicates.length > 0) return duplicates[0].id;
     }
 
     if (email) {

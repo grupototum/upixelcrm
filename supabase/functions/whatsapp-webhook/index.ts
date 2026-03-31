@@ -100,35 +100,87 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", convId);
     } else {
-      // Try to find lead by phone (last 8 digits to match different formats)
+      let leadId: string | null = null;
+
+      // Robust Lead Search & Automatic Merging
       const phoneSuffix = phone.length >= 8 ? phone.slice(-8) : phone;
-      const { data: lead } = await adminClient.from("leads")
-        .select("id, name")
+      const { data: duplicateLeads } = await adminClient.from("leads")
+        .select("id, created_at, tags, notes")
         .eq("client_id", clientId)
         .or(`phone.ilike.%${phoneSuffix}%`)
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
-      let leadId = lead?.id || null;
+      if (duplicateLeads && duplicateLeads.length > 0) {
+        const primaryLead = duplicateLeads[0];
+        leadId = primaryLead.id;
+
+        // If we found more than one lead, we merge them
+        if (duplicateLeads.length > 1) {
+          console.log(`Merging ${duplicateLeads.length} duplicate leads for phone suffix ${phoneSuffix}`);
+          const duplicates = duplicateLeads.slice(1);
+          const duplicateIds = duplicates.map(d => d.id);
+
+          // 1. Move Conversations
+          await adminClient.from("conversations")
+            .update({ lead_id: leadId })
+            .in("lead_id", duplicateIds);
+
+          // 2. Move Tasks
+          await adminClient.from("tasks")
+            .update({ lead_id: leadId })
+            .in("lead_id", duplicateIds);
+
+          // 3. Move Timeline Events
+          await adminClient.from("timeline_events")
+            .update({ lead_id: leadId })
+            .in("lead_id", duplicateIds);
+
+          // 4. Merge Tags & Notes
+          let mergedTags = [...(primaryLead.tags || [])];
+          let mergedNotes = primaryLead.notes || "";
+          
+          duplicates.forEach(d => {
+            (d.tags || []).forEach(t => { if (!mergedTags.includes(t)) mergedTags.push(t); });
+            if (d.notes) mergedNotes += `\n[Merged Note]: ${d.notes}`;
+          });
+
+          await adminClient.from("leads")
+            .update({ tags: mergedTags, notes: mergedNotes })
+            .eq("id", leadId);
+
+          // 5. Delete Duplicates
+          await adminClient.from("leads")
+            .delete()
+            .in("id", duplicateIds);
+            
+          console.log("Merge completed successfully.");
+        }
+      }
 
       if (!leadId) {
         // Create lead automatically
-        // Get the first column to place the lead
-        const { data: firstCol } = await adminClient
-          .from("pipeline_columns")
-          .select("id")
-          .order("order", { ascending: true })
-          .limit(1)
-          .maybeSingle();
+        // Check for default column in integration config, otherwise fallback to first column
+        const cfg = match.config as { target_column_id?: string };
+        let targetColId = cfg?.target_column_id;
 
-        if (firstCol) {
+        if (!targetColId) {
+          const { data: firstCol } = await adminClient
+            .from("pipeline_columns")
+            .select("id")
+            .order("order", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          targetColId = firstCol?.id;
+        }
+
+        if (targetColId) {
           const { data: newLead, error: leadError } = await adminClient
             .from("leads")
             .insert({
               client_id: clientId,
               name: senderName,
               phone: phone,
-              column_id: firstCol.id,
+              column_id: targetColId,
               tags: ["whatsapp-auto"],
               origin: "whatsapp",
             })
@@ -137,7 +189,7 @@ Deno.serve(async (req) => {
           
           if (newLead) {
             leadId = newLead.id;
-            console.log("Created new lead from WhatsApp:", senderName, leadId);
+            console.log("Created new lead from WhatsApp:", senderName, leadId, "at column:", targetColId);
           } else if (leadError) {
             console.error("Error creating lead:", leadError);
           }
