@@ -47,16 +47,9 @@ export function useInbox(onLeadCreated?: () => void) {
 
   // Load conversations grouped by lead
   const loadConversations = useCallback(async () => {
-    // 1. Fetch conversations with new fields
     const { data: convs, error: convError } = await supabase
       .from("conversations")
-      .select(`
-        *,
-        conversation_label_assignments(
-          label_id,
-          conversation_labels(*)
-        )
-      `)
+      .select("*")
       .order("last_message_at", { ascending: false });
 
     if (convError) {
@@ -64,7 +57,7 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    // 2. Fetch leads
+    // Fetch leads
     const leadIds = (convs || []).filter(c => c.lead_id).map(c => c.lead_id);
     let leadsMap: Record<string, any> = {};
 
@@ -78,55 +71,41 @@ export function useInbox(onLeadCreated?: () => void) {
       }
     }
 
-    // 3. Grouping logic
+    // Grouping logic
     const groupedMap: Record<string, LeadConversation> = {};
 
     (convs || []).forEach(c => {
       const lid = c.lead_id || "unassigned";
-      
-      // Extract labels
-      const labels = (c.conversation_label_assignments || []).map((la: any) => ({
-        id: la.conversation_labels.id,
-        name: la.conversation_labels.name,
-        color: la.conversation_labels.color,
-      }));
+      const meta = (c.metadata || {}) as Record<string, any>;
 
       if (!groupedMap[lid]) {
         const lead = leadsMap[lid];
         groupedMap[lid] = {
           lead_id: lid,
-          lead_name: lead?.name || (c.metadata as any)?.lead_name || (c.metadata as any)?.phone || "Desconhecido",
-          lead_phone: lead?.phone || (c.metadata as any)?.phone,
-          lead_email: lead?.email || (c.metadata as any)?.email,
+          lead_name: lead?.name || meta?.lead_name || meta?.phone || "Desconhecido",
+          lead_phone: lead?.phone || meta?.phone,
+          lead_email: lead?.email || meta?.email,
           lead_company: lead?.company,
           last_message: c.last_message,
           last_message_at: c.last_message_at,
           unread_count: c.unread_count || 0,
           status: c.status || "open",
-          priority: c.priority || "none",
-          assignee_id: c.assignee_id,
-          labels: labels,
+          priority: meta?.priority || "none",
+          assignee_id: meta?.assignee_id || null,
+          labels: [],
           channels: [c.channel],
-          source_conversations: [{ id: c.id, channel: c.channel, metadata: (c.metadata || {}) as Record<string, any> }],
+          source_conversations: [{ id: c.id, channel: c.channel, metadata: meta }],
         };
       } else {
         const group = groupedMap[lid];
         if (!group.channels.includes(c.channel)) group.channels.push(c.channel);
-        group.source_conversations.push({ id: c.id, channel: c.channel, metadata: (c.metadata || {}) as Record<string, any> });
+        group.source_conversations.push({ id: c.id, channel: c.channel, metadata: meta });
         group.unread_count += (c.unread_count || 0);
-        
-        // Merge labels (unique)
-        labels.forEach((l: any) => {
-          if (!group.labels.some(gl => gl.id === l.id)) group.labels.push(l);
-        });
 
         if (c.last_message_at && (!group.last_message_at || new Date(c.last_message_at) > new Date(group.last_message_at))) {
           group.last_message = c.last_message;
           group.last_message_at = c.last_message_at;
-          // Most recent conversation fields take precedence for priority/status/assignee in the group
-          group.priority = c.priority || "none";
           group.status = c.status || "open";
-          group.assignee_id = c.assignee_id;
         }
       }
     });
@@ -143,7 +122,6 @@ export function useInbox(onLeadCreated?: () => void) {
 
   // Load messages for all conversations associated with a lead
   const loadMessages = useCallback(async (leadId: string) => {
-    // 1. Get all conversation IDs for this lead
     const { data: convs } = await supabase
       .from("conversations")
       .select("id, channel")
@@ -172,6 +150,8 @@ export function useInbox(onLeadCreated?: () => void) {
       ...m,
       channel: channelMap[m.conversation_id],
       metadata: (m.metadata || {}) as Record<string, any>,
+      is_private: (m.metadata as any)?.is_private || false,
+      content_type: (m.metadata as any)?.content_type || "text",
     })));
 
     // Mark all as read
@@ -181,7 +161,6 @@ export function useInbox(onLeadCreated?: () => void) {
     );
   }, []);
 
-  // Select lead
   const selectLead = useCallback((id: string) => {
     setSelectedLeadId(id);
     loadMessages(id);
@@ -192,8 +171,7 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    // Pick target conversation
-    let target = targetConversationId 
+    const target = targetConversationId
       ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
       : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp");
 
@@ -202,7 +180,7 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    const phone = (target.metadata as any)?.phone || leadGroup.lead_phone;
+    const phone = target.metadata?.phone || leadGroup.lead_phone;
     if (!phone) {
       toast.error("Sem número de telefone para enviar a mensagem.");
       return;
@@ -240,7 +218,7 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    let target = targetConversationId 
+    const target = targetConversationId
       ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
       : leadGroup.source_conversations.find(sc => sc.channel === "email");
 
@@ -249,7 +227,7 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    const email = (target.metadata as any)?.email || leadGroup.lead_email;
+    const email = target.metadata?.email || leadGroup.lead_email;
     if (!email) {
       toast.error("Sem e-mail para enviar a mensagem.");
       return;
@@ -275,7 +253,6 @@ export function useInbox(onLeadCreated?: () => void) {
         throw new Error(err.error || "Failed to send email");
       }
 
-      // Save to DB
       await supabase.from("messages").insert({
         conversation_id: target.id,
         content: text,
@@ -303,21 +280,20 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === selectedLeadId);
     if (!leadGroup) return;
 
-    let target = targetConversationId 
+    const target = targetConversationId
       ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
       : leadGroup.source_conversations[0];
 
     if (!target) return;
 
     if (isPrivate) {
-      // Send as private note (local only, no external channel)
       await supabase.from("messages").insert({
         conversation_id: target.id,
         content: text,
         type: "text",
         direction: "outbound",
         sender_name: "Você (Nota Privada)",
-        is_private: true,
+        metadata: { is_private: true },
       });
       await loadMessages(selectedLeadId);
       return;
@@ -334,7 +310,6 @@ export function useInbox(onLeadCreated?: () => void) {
         type: "text",
         direction: "outbound",
         sender_name: "Você",
-        is_private: false,
       });
       await supabase.from("conversations").update({
         last_message: text,
@@ -352,61 +327,52 @@ export function useInbox(onLeadCreated?: () => void) {
 
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
     const { error } = await supabase.from("conversations").update({ status }).in("id", convIds);
-    
+
     if (error) {
       toast.error("Erro ao atualizar status");
       return;
     }
-    
+
     loadConversations();
     toast.success(`Conversa marcada como ${status}`);
   }, [conversations, loadConversations]);
 
-  // Update conversation priority
+  // Update conversation priority (stored in metadata)
   const updatePriority = useCallback(async (leadId: string, priority: string) => {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    const convIds = leadGroup.source_conversations.map(sc => sc.id);
-    const { error } = await supabase.from("conversations").update({ priority }).in("id", convIds);
-    
-    if (error) {
-      toast.error("Erro ao atualizar prioridade");
-      return;
+    for (const sc of leadGroup.source_conversations) {
+      const newMeta = { ...sc.metadata, priority };
+      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", sc.id);
     }
-    
+
     loadConversations();
     toast.success("Prioridade atualizada");
   }, [conversations, loadConversations]);
 
-  // Assign conversation to agent
+  // Assign conversation to agent (stored in metadata)
   const assignToAgent = useCallback(async (leadId: string, agentId: string | null) => {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    const convIds = leadGroup.source_conversations.map(sc => sc.id);
-    const { error } = await supabase.from("conversations").update({ assignee_id: agentId }).in("id", convIds);
-    
-    if (error) {
-      toast.error("Erro ao atribuir agente");
-      return;
+    for (const sc of leadGroup.source_conversations) {
+      const newMeta = { ...sc.metadata, assignee_id: agentId };
+      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", sc.id);
     }
-    
+
     loadConversations();
     toast.success(agentId ? "Agente atribuído" : "Agente removido");
   }, [conversations, loadConversations]);
 
-  // Auto-recognize lead helper (mostly unchanged but ensures always returns a lead ID)
+  // Find or create lead
   const findOrCreateLead = useCallback(async (
-    phone?: string,
-    email?: string,
-    name?: string
+    phone?: string, email?: string, name?: string
   ): Promise<string | null> => {
     if (phone) {
       const normalized = phone.replace(/\D/g, "");
       const { data: byPhone } = await supabase
-        .from("leads")
-        .select("id")
+        .from("leads").select("id")
         .or(`phone.ilike.%${normalized.slice(-8)}%`)
         .limit(1);
       if (byPhone && byPhone.length > 0) return byPhone[0].id;
@@ -414,47 +380,35 @@ export function useInbox(onLeadCreated?: () => void) {
 
     if (email) {
       const { data: byEmail } = await supabase
-        .from("leads")
-        .select("id")
-        .ilike("email", email)
-        .limit(1);
+        .from("leads").select("id").ilike("email", email).limit(1);
       if (byEmail && byEmail.length > 0) return byEmail[0].id;
     }
 
     const { data: firstCol } = await supabase
-      .from("pipeline_columns")
-      .select("id")
-      .order("order", { ascending: true })
-      .limit(1);
+      .from("pipeline_columns").select("id")
+      .order("order", { ascending: true }).limit(1);
 
     if (!firstCol || firstCol.length === 0) return null;
 
     const leadName = name || phone || email || "Lead Automático";
     const { data: newLead, error } = await supabase
-      .from("leads")
-      .insert({
+      .from("leads").insert({
         name: leadName,
         phone: phone || null,
         email: email || null,
         column_id: firstCol[0].id,
         tags: ["auto-criado"],
         origin: "inbox",
-      })
-      .select("id")
-      .single();
+      }).select("id").single();
 
     if (error) return null;
     if (onLeadCreated) onLeadCreated();
     return newLead?.id ?? null;
   }, [onLeadCreated]);
 
-  // Create new conversation (ensures lead exists)
+  // Create new conversation
   const createConversation = useCallback(async (
-    channel: string,
-    leadId?: string,
-    phone?: string,
-    email?: string,
-    leadName?: string
+    channel: string, leadId?: string, phone?: string, email?: string, leadName?: string
   ) => {
     let resolvedLeadId = leadId || null;
     if (!resolvedLeadId && (phone || email)) {
@@ -479,9 +433,7 @@ export function useInbox(onLeadCreated?: () => void) {
   }, [loadConversations, findOrCreateLead, selectLead]);
 
   // Initial load
-  useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+  useEffect(() => { loadConversations(); }, [loadConversations]);
 
   // Realtime subscription
   useEffect(() => {
@@ -489,29 +441,26 @@ export function useInbox(onLeadCreated?: () => void) {
       .channel("inbox-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
-        
-        // Find which lead this belongs to
+
         const { data: conv } = await supabase.from("conversations")
-          .select("lead_id, channel")
-          .eq("id", newMsg.conversation_id)
-          .single();
+          .select("lead_id, channel").eq("id", newMsg.conversation_id).single();
 
         if (conv?.lead_id === selectedLeadId) {
           setMessages(prev => [...prev, {
             ...newMsg,
             channel: conv.channel,
             metadata: (newMsg.metadata || {}) as Record<string, any>,
+            is_private: (newMsg.metadata as any)?.is_private || false,
+            content_type: (newMsg.metadata as any)?.content_type || "text",
           }]);
         }
 
-        // Auto-create lead for inbound if needed (fallback if webhook didn't handle it)
         if (newMsg.direction === "inbound" && conv && !conv.lead_id) {
           const phone = (newMsg.metadata as any)?.phone;
           const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
           const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
           if (leadId) {
             await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
-            console.log("[Inbox] Auto-created lead via realtime fallback:", leadId);
           }
         }
 
@@ -522,23 +471,13 @@ export function useInbox(onLeadCreated?: () => void) {
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [selectedLeadId, loadConversations, findOrCreateLead]);
 
   return {
-    conversations,
-    messages,
-    selectedLeadId,
-    loading,
-    selectLead,
-    sendMessage,
-    createConversation,
-    updateStatus,
-    updatePriority,
-    assignToAgent,
+    conversations, messages, selectedLeadId, loading,
+    selectLead, sendMessage, createConversation,
+    updateStatus, updatePriority, assignToAgent,
     refresh: loadConversations,
   };
 }
-
