@@ -7,6 +7,7 @@ interface GoogleStatus {
   email: string | null;
   name: string | null;
   loading: boolean;
+  credentialsConfigured: boolean;
 }
 
 export function useGoogleIntegration() {
@@ -15,6 +16,7 @@ export function useGoogleIntegration() {
     email: null,
     name: null,
     loading: true,
+    credentialsConfigured: false,
   });
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -44,7 +46,7 @@ export function useGoogleIntegration() {
   const checkStatus = useCallback(async () => {
     try {
       const data = await invokeFunction("status");
-      setStatus({ connected: data.connected, email: data.email, name: data.name, loading: false });
+      setStatus({ connected: data.connected, email: data.email, name: data.name, loading: false, credentialsConfigured: data.credentials_configured ?? false });
     } catch {
       setStatus(s => ({ ...s, loading: false }));
     }
@@ -58,7 +60,7 @@ export function useGoogleIntegration() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    const state = params.get("state");
+    const _state = params.get("state");
 
     if (code && window.location.pathname === "/google") {
       // Remove code from URL
@@ -71,7 +73,7 @@ export function useGoogleIntegration() {
           const data = await invokeFunction("callback", { code, redirect_uri: redirectUri });
           toast.dismiss();
           toast.success(`Google conectado: ${data.email}`);
-          setStatus({ connected: true, email: data.email, name: data.name, loading: false });
+          setStatus(s => ({ ...s, connected: true, email: data.email, name: data.name, loading: false }));
         } catch (err: any) {
           toast.dismiss();
           toast.error(`Erro ao conectar: ${err.message}`);
@@ -93,7 +95,7 @@ export function useGoogleIntegration() {
   const disconnect = useCallback(async () => {
     try {
       await invokeFunction("disconnect");
-      setStatus({ connected: false, email: null, name: null, loading: false });
+      setStatus(s => ({ ...s, connected: false, email: null, name: null, loading: false }));
       toast.info("Conta Google desconectada.");
     } catch (err: any) {
       toast.error(err.message);

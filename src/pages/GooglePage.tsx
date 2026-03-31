@@ -65,12 +65,17 @@ export default function GooglePage() {
               Conecte sua conta Google para acessar Gmail, Calendar e Drive diretamente no uPixel.
               Seus dados ficam sincronizados em tempo real.
             </p>
-            <p className="text-xs text-muted-foreground/70 max-w-sm mb-6">
-              Requer configuração do Google Client ID e Client Secret como secrets no backend.
-            </p>
+            {!google.credentialsConfigured && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 max-w-md mb-4">
+                <p className="text-xs text-destructive font-medium">
+                  ⚠️ Credenciais Google não configuradas. Adicione os secrets GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no backend para habilitar a conexão.
+                </p>
+              </div>
+            )}
             <Button
               className="gap-2 bg-primary hover:bg-primary-hover text-primary-foreground"
               onClick={google.connect}
+              disabled={!google.credentialsConfigured}
             >
               <LogIn className="h-4 w-4" /> Conectar com Google
             </Button>
