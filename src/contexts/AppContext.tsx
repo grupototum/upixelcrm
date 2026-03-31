@@ -48,6 +48,7 @@ interface AppState {
   addGlobalTag: (tag: string) => Promise<void>;
   deleteGlobalTag: (tag: string) => Promise<void>;
 
+  deletePipeline: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -79,13 +80,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const clientId = userData.user?.user_metadata?.client_id || "c1";
 
       const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
-        (supabase.from as any)("pipelines").select("*").order("name"),
-        supabase.from("pipeline_columns").select("*").order("order"),
-        supabase.from("leads").select("*").order("created_at", { ascending: false }),
-        supabase.from("tasks").select("*").order("created_at", { ascending: false }),
-        supabase.from("timeline_events").select("*").order("created_at", { ascending: false }).limit(100),
-        (supabase.from as any)("automations").select("*").order("created_at", { ascending: false }),
-        (supabase.from as any)("automation_rules").select("*").order("created_at", { ascending: false }),
+        (supabase.from as any)("pipelines").select("*").eq("client_id", clientId).order("name"),
+        supabase.from("pipeline_columns").select("*").eq("client_id", clientId).order("order"),
+        supabase.from("leads").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
+        supabase.from("tasks").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
+        supabase.from("timeline_events").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(100),
+        (supabase.from as any)("automations").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
+        (supabase.from as any)("automation_rules").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
       ]);
 
       if (pipeRes.data) {
@@ -291,9 +292,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Criar colunas padrão para o novo funil
       const defaultCols = [
-        { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id },
-        { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id },
-        { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id },
+        { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id, client_id: clientId },
+        { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id, client_id: clientId },
+        { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id, client_id: clientId },
       ];
       
       const { data: colRows } = await supabase.from("pipeline_columns").insert(defaultCols).select();
@@ -302,6 +303,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toast.success("Funil criado com sucesso");
     }
   }, []);
+
+  const deletePipeline = useCallback(async (id: string) => {
+    // Delete columns first to be safe (cascade should handle this but let's be explicitly)
+    const { error: colError } = await supabase.from("pipeline_columns").delete().eq("pipeline_id", id);
+    if (colError) { console.error(colError); }
+
+    const { error } = await (supabase.from as any)("pipelines").delete().eq("id", id);
+    if (error) { console.error(error); toast.error("Erro ao excluir funil"); return; }
+    
+    setPipelines((prev) => {
+      const filtered = prev.filter((p) => p.id !== id);
+      if (currentPipelineId === id && filtered.length > 0) {
+        setCurrentPipelineId(filtered[0].id);
+      }
+      return filtered;
+    });
+    setColumns((prev) => prev.filter((c) => c.pipeline_id !== id));
+    toast.success("Funil excluído com sucesso");
+  }, [currentPipelineId]);
 
   const addColumn = useCallback(async (name: string, color: string) => {
     if (!currentPipelineId) { toast.error("Selecione um funil primeiro"); return; }
@@ -518,7 +538,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       leads, pipelines, columns, currentPipelineId, tasks, automations, complexAutomations, timeline, globalTags, loading,
-      setPipeline: setCurrentPipelineId, addPipeline,
+      setPipeline: setCurrentPipelineId, addPipeline, deletePipeline,
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, updateColumn, deleteColumn, addTimelineEvent, 

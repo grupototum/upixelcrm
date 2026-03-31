@@ -20,6 +20,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Trash2, AlertCircle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DndContext,
   DragOverlay,
@@ -45,7 +56,7 @@ export default function CRMPage() {
   const navigate = useNavigate();
   const { 
     leads, pipelines, columns, currentPipelineId, 
-    setPipeline, addPipeline, addColumn, 
+    setPipeline, addPipeline, deletePipeline, addColumn, 
     addLead, updateLead, deleteLead, moveLead 
   } = useAppState();
 
@@ -58,6 +69,7 @@ export default function CRMPage() {
   const [formColumnId, setFormColumnId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [pipelineToDelete, setPipelineToDelete] = useState<string | null>(null);
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
@@ -181,6 +193,13 @@ export default function CRMPage() {
     }
   };
 
+  const handleDeletePipeline = async () => {
+    if (pipelineToDelete) {
+      await deletePipeline(pipelineToDelete);
+      setPipelineToDelete(null);
+    }
+  };
+
   return (
     <AppLayout
       title="CRM"
@@ -201,14 +220,23 @@ export default function CRMPage() {
                 Seus Funis
               </div>
               {pipelines.map((p) => (
-                <DropdownMenuItem 
-                  key={p.id} 
-                  onClick={() => setPipeline(p.id)}
-                  className={`rounded-xl text-xs h-9 gap-3 cursor-pointer ${currentPipelineId === p.id ? "bg-primary/10 text-primary font-bold" : ""}`}
-                >
-                  <div className={`h-1.5 w-1.5 rounded-full ${currentPipelineId === p.id ? "bg-primary" : "bg-muted-foreground/30"}`} />
-                  {p.name}
-                </DropdownMenuItem>
+                <div key={p.id} className="group flex items-center pr-2">
+                  <DropdownMenuItem 
+                    onClick={() => setPipeline(p.id)}
+                    className={`flex-1 rounded-xl text-xs h-9 gap-3 cursor-pointer ${currentPipelineId === p.id ? "bg-primary/10 text-primary font-bold" : ""}`}
+                  >
+                    <div className={`h-1.5 w-1.5 rounded-full ${currentPipelineId === p.id ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                    {p.name}
+                  </DropdownMenuItem>
+                  {pipelines.length > 1 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setPipelineToDelete(p.id); }}
+                      className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               ))}
               <DropdownMenuSeparator className="bg-border/20" />
               <DropdownMenuItem 
@@ -378,6 +406,33 @@ export default function CRMPage() {
         onClose={() => setConfigColumn(null)}
         initialTab={configColumnTab}
       />
+
+      <AlertDialog open={!!pipelineToDelete} onOpenChange={(open) => !open && setPipelineToDelete(null)}>
+        <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold flex items-center gap-3 text-destructive">
+              <div className="h-10 w-10 rounded-2xl bg-destructive/20 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              </div>
+              Confirmar Exclusão
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm py-2">
+              Tem certeza que deseja excluir o funil **"{pipelines.find(p => p.id === pipelineToDelete)?.name}"**? 
+              <br /><br />
+              Esta ação é **irreversível** e todas as etapas vinculadas a este funil serão removidas permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl border-none bg-secondary/50 hover:bg-secondary transition-colors">Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeletePipeline}
+              className="rounded-xl bg-destructive hover:bg-destructive/90 text-white shadow-lg shadow-destructive/20 px-8"
+            >
+              Sim, Excluir Funil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
