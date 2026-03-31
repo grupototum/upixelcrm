@@ -5,7 +5,7 @@ import {
   Search, Phone, Video, MoreVertical, Send, Paperclip, Mic,
   Play, Pause, FileText, MessageSquare, CheckSquare, Sparkles, Tag,
   ArrowRight, Plus, User, Building, DollarSign, Globe, Mail,
-  MessageCircle, Loader2,
+  MessageCircle, Loader2, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
 import { AddTagModal } from "@/components/crm/AddTagModal";
 import { CreateTagModal } from "@/components/crm/CreateTagModal";
 import { useAppState } from "@/contexts/AppContext";
-import { useInbox, type Conversation } from "@/hooks/useInbox";
+import { useInbox, type LeadConversation, type Message } from "@/hooks/useInbox";
 import { supabase } from "@/integrations/supabase/client";
 
 const channelColors: Record<string, string> = {
@@ -58,6 +58,8 @@ export default function InboxPage() {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [inboxTab, setInboxTab] = useState<string>("todas");
   const [sending, setSending] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   // New conversation modal
   const [newConvOpen, setNewConvOpen] = useState(false);
@@ -73,10 +75,17 @@ export default function InboxPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const selectedConv = useMemo(
-    () => inbox.conversations.find(c => c.id === inbox.selectedConversationId),
-    [inbox.conversations, inbox.selectedConversationId]
+  const selectedLeadGroup = useMemo(
+    () => inbox.conversations.find(c => c.lead_id === inbox.selectedLeadId),
+    [inbox.conversations, inbox.selectedLeadId]
   );
+
+  // Default to the first source conversation if none selected
+  useEffect(() => {
+    if (selectedLeadGroup && !activeConversationId) {
+      setActiveConversationId(selectedLeadGroup.source_conversations[0]?.id || null);
+    }
+  }, [selectedLeadGroup, activeConversationId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -91,7 +100,7 @@ export default function InboxPage() {
       result = result.filter(t => t.unread_count > 0);
     }
     if (channelFilter !== "all") {
-      result = result.filter(t => t.channel === channelFilter);
+      result = result.filter(t => t.channels.includes(channelFilter));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -109,7 +118,7 @@ export default function InboxPage() {
   const handleSend = async () => {
     if (!message.trim() || sending) return;
     setSending(true);
-    await inbox.sendMessage(message.trim());
+    await inbox.sendMessage(message.trim(), activeConversationId || undefined);
     setMessage("");
     setSending(false);
   };
@@ -122,7 +131,7 @@ export default function InboxPage() {
 
     const id = await inbox.createConversation(newChannel, newLeadId || undefined, phone, email, name);
     if (id) {
-      inbox.selectConversation(id);
+      // The hook will auto-select the lead
       setNewConvOpen(false);
       setNewLeadId("");
       setNewPhone("");
@@ -132,9 +141,9 @@ export default function InboxPage() {
 
   // Find lead data for selected conversation
   const selectedLead = useMemo(() => {
-    if (!selectedConv?.lead_id) return null;
-    return leads.find(l => l.id === selectedConv.lead_id) || null;
-  }, [selectedConv, leads]);
+    if (!selectedLeadGroup?.lead_id) return null;
+    return leads.find(l => l.id === selectedLeadGroup.lead_id) || null;
+  }, [selectedLeadGroup, leads]);
 
   const leadColumn = useMemo(
     () => columns.find(c => c.id === selectedLead?.column_id),
@@ -217,29 +226,41 @@ export default function InboxPage() {
             ) : (
               filteredConversations.map(c => (
                 <button
-                  key={c.id}
-                  onClick={() => inbox.selectConversation(c.id)}
-                  className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-colors ghost-border border-b ${
-                    inbox.selectedConversationId === c.id ? "bg-primary/5 border-l-2 border-l-primary" : ""
+                  key={c.lead_id}
+                  onClick={() => {
+                    inbox.selectLead(c.lead_id);
+                    setActiveConversationId(c.source_conversations[0]?.id || null);
+                  }}
+                  className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-all duration-200 border-b border-border/50 relative ${
+                    inbox.selectedLeadId === c.lead_id ? "bg-primary/5 shadow-[inset_3px_0_0_0_#9b87f5]" : ""
                   }`}
                 >
                   <div className="relative">
-                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm">
                       {initials(c.lead_name || "?")}
                     </div>
-                    <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card ${channelColors[c.channel] || "bg-muted"}`} />
+                    <div className="absolute -bottom-1 -right-1 flex -space-x-1">
+                      {c.channels.slice(0, 2).map((ch, idx) => {
+                        const Icon = channelIcons[ch] || MessageCircle;
+                        return (
+                          <div key={idx} className={`h-4 w-4 rounded-full border-2 border-background flex items-center justify-center ${channelColors[ch] || "bg-muted shadow-sm"}`}>
+                            <Icon className="h-2 w-2 text-white" />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-foreground truncate">{c.lead_name}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
+                    <div className="flex justify-between items-center mb-0.5">
+                      <span className="text-sm font-semibold text-foreground truncate">{c.lead_name}</span>
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                         {c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{c.last_message || "Sem mensagens"}</p>
+                    <p className="text-xs text-muted-foreground truncate leading-relaxed">{c.last_message || "Sem mensagens"}</p>
                   </div>
                   {c.unread_count > 0 && (
-                    <span className="h-5 min-w-[20px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1.5 shrink-0">
+                    <span className="h-5 min-w-[20px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1.5 shadow-sm">
                       {c.unread_count}
                     </span>
                   )}
@@ -250,32 +271,47 @@ export default function InboxPage() {
         </div>
 
         {/* ─── Chat area ─── */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {selectedConv ? (
+        <div className="flex-1 flex flex-col min-w-0 bg-background relative">
+          {selectedLeadGroup ? (
             <>
               {/* Chat header */}
-              <div className="h-14 px-4 ghost-border border-b flex items-center justify-between shrink-0 bg-card">
+              <div className="h-14 px-4 ghost-border border-b flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-sm z-10">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
-                    {initials(selectedConv.lead_name || "?")}
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm">
+                    {initials(selectedLeadGroup.lead_name || "?")}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">{selectedConv.lead_name}</p>
+                    <p className="text-sm font-semibold text-foreground">{selectedLeadGroup.lead_name}</p>
                     <div className="flex items-center gap-1.5">
-                      <div className={`h-2 w-2 rounded-full ${channelColors[selectedConv.channel]}`} />
-                      <p className="text-[10px] text-muted-foreground">{channelLabels[selectedConv.channel] || selectedConv.channel}</p>
+                      <div className="flex -space-x-1">
+                        {selectedLeadGroup.channels.map((ch, idx) => {
+                          const Icon = channelIcons[ch] || MessageCircle;
+                          return <div key={idx} className={`h-3 w-3 rounded-full border border-background ${channelColors[ch] || "bg-muted"}`} title={channelLabels[ch]} />;
+                        })}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {selectedLeadGroup.channels.map(ch => channelLabels[ch]).join(" & ")}
+                      </p>
                       {leadColumn && (
                         <>
-                          <span className="text-muted-foreground/40">·</span>
-                          <p className="text-[10px] text-muted-foreground">{leadColumn.name}</p>
+                          <span className="text-muted-foreground/40 text-[10px]">·</span>
+                          <p className="text-[10px] font-medium text-primary">{leadColumn.name}</p>
                         </>
                       )}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-accent hover:text-accent" onClick={() => toast.info("IA analisando conversa...")}>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-accent hover:text-accent hover:bg-accent/10" onClick={() => toast.info("IA analisando histórico...")}>
                     <Sparkles className="h-3.5 w-3.5" /> IA
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={`h-8 w-8 transition-colors ${showSidebar ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+                    onClick={() => setShowSidebar(!showSidebar)}
+                  >
+                    <User className="h-4 w-4" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
                     <MoreVertical className="h-4 w-4" />
@@ -283,46 +319,67 @@ export default function InboxPage() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-auto p-4 space-y-3 bg-background">
+              {/* Messages timeline */}
+              <div className="flex-1 overflow-auto p-4 space-y-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
                 {inbox.messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full">
-                    <MessageCircle className="h-10 w-10 text-muted-foreground/20 mb-2" />
-                    <p className="text-xs text-muted-foreground">Nenhuma mensagem ainda. Envie a primeira!</p>
+                    <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                      <MessageSquare className="h-8 w-8 text-muted-foreground/20" />
+                    </div>
+                    <p className="text-sm font-medium text-foreground">Nenhuma mensagem ainda</p>
+                    <p className="text-xs text-muted-foreground mt-1">Inicie a conversa enviando uma mensagem abaixo</p>
                   </div>
                 ) : (
                   <>
                     {inbox.messages.map((msg, i) => {
                       const isOutbound = msg.direction === "outbound";
-                      // Date separator
                       const prevMsg = i > 0 ? inbox.messages[i - 1] : null;
                       const msgDate = new Date(msg.created_at).toLocaleDateString("pt-BR");
                       const prevDate = prevMsg ? new Date(prevMsg.created_at).toLocaleDateString("pt-BR") : null;
                       const showDate = !prevDate || msgDate !== prevDate;
+                      const isConsecutive = prevMsg && prevMsg.direction === msg.direction && (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() < 60000);
+
+                      const ChannelIcon = channelIcons[msg.channel || ""] || MessageCircle;
 
                       return (
-                        <div key={msg.id}>
+                        <div key={msg.id} className={showDate ? "pt-2" : ""}>
                           {showDate && (
-                            <div className="flex items-center gap-3 py-2">
-                              <div className="flex-1 h-px bg-border" />
-                              <span className="text-[10px] text-muted-foreground font-medium">{msgDate}</span>
-                              <div className="flex-1 h-px bg-border" />
+                            <div className="flex items-center gap-4 my-6">
+                              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+                              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest bg-background px-2">{msgDate}</span>
+                              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                             </div>
                           )}
-                          <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
-                            <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
-                              isOutbound
-                                ? "bg-secondary text-foreground rounded-br-md"
-                                : "bg-primary text-primary-foreground rounded-bl-md"
-                            }`}>
-                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                              <p className={`text-[10px] mt-1.5 ${
-                                isOutbound ? "text-muted-foreground" : "text-primary-foreground/60"
+                          <div className={`flex items-end gap-2 ${isOutbound ? "justify-end" : "justify-start"}`}>
+                            {!isOutbound && !isConsecutive && (
+                              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 mb-1">
+                                {initials(selectedLeadGroup.lead_name || "?")}
+                              </div>
+                            )}
+                            {isOutbound && isConsecutive && <div className="w-6" />}
+                            
+                            <div className={`relative group max-w-[70%] ${isConsecutive ? "mt-0.5" : "mt-3"}`}>
+                              <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                                isOutbound
+                                  ? "bg-primary text-primary-foreground rounded-br-sm"
+                                  : "bg-card border border-border/50 text-foreground rounded-bl-sm"
                               }`}>
-                                {msg.sender_name && !isOutbound && <span className="font-medium">{msg.sender_name} · </span>}
-                                {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                              </p>
+                                {msg.content}
+                                <div className={`flex items-center justify-end gap-1.5 mt-1 opacity-70`}>
+                                  <span className="text-[9px]">
+                                    {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                  <ChannelIcon className="h-2.5 w-2.5" />
+                                </div>
+                              </div>
                             </div>
+
+                            {isOutbound && !isConsecutive && (
+                              <div className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0 mb-1">
+                                VC
+                              </div>
+                            )}
+                            {!isOutbound && isConsecutive && <div className="w-6" />}
                           </div>
                         </div>
                       );
@@ -332,181 +389,244 @@ export default function InboxPage() {
                 )}
               </div>
 
-              {/* Input */}
-              <div className="p-3 ghost-border border-t bg-card">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground shrink-0">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <MessageTemplatePopover onSelect={body => { setMessage(body); toast.info("Template inserido"); }} />
-                  <Input
-                    className="flex-1 rounded-full px-4 h-9 text-sm"
-                    placeholder={`Enviar via ${channelLabels[selectedConv.channel] || selectedConv.channel}...`}
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
-                  />
-                  <Button
-                    size="icon"
-                    className="h-9 w-9 rounded-full shrink-0"
-                    disabled={!message.trim() || sending}
-                    onClick={handleSend}
-                  >
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
+              {/* Chat Input */}
+              <div className="p-4 ghost-border border-t bg-card/50 backdrop-blur-sm">
+                <div className="max-w-4xl mx-auto space-y-3">
+                  {/* Channel/Number Selector if multiple available */}
+                  {selectedLeadGroup.source_conversations.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 px-1 no-scrollbar">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">Responder p/ :</span>
+                      {selectedLeadGroup.source_conversations.map(sc => (
+                        <button
+                          key={sc.id}
+                          onClick={() => setActiveConversationId(sc.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-medium transition-all ${
+                            activeConversationId === sc.id
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-background text-muted-foreground border-border hover:border-primary/30"
+                          }`}
+                        >
+                          {(() => {
+                            const Icon = channelIcons[sc.channel] || MessageCircle;
+                            return <Icon className="h-3 w-3" />;
+                          })()}
+                          {sc.metadata.phone || sc.metadata.email || sc.channel}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 bg-background rounded-2xl p-1.5 shadow-sm border border-border/50 focus-within:border-primary/50 transition-colors">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-secondary">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <MessageTemplatePopover onSelect={body => setMessage(body)} />
+                    <Input
+                      className="flex-1 bg-transparent border-none focus-visible:ring-0 shadow-none h-10 text-sm"
+                      placeholder={`Responder via ${selectedLeadGroup.source_conversations.find(s => s.id === activeConversationId)?.channel || "canal"}...`}
+                      value={message}
+                      onChange={e => setMessage(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+                    />
+                    <Button
+                      size="icon"
+                      className="h-9 w-9 rounded-xl shrink-0 shadow-md"
+                      disabled={!message.trim() || sending}
+                      onClick={handleSend}
+                    >
+                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <MessageCircle className="h-12 w-12 text-muted-foreground/20 mb-3" />
-              <p className="text-sm text-muted-foreground font-medium">Selecione uma conversa</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">ou crie uma nova para começar</p>
-              <Button size="sm" variant="outline" className="mt-4 text-xs" onClick={() => setNewConvOpen(true)}>
-                <Plus className="h-3 w-3 mr-1" /> Nova conversa
+            <div className="flex-1 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
+              <div className="h-20 w-20 rounded-3xl bg-secondary flex items-center justify-center mb-6 animate-pulse">
+                <MessageSquare className="h-10 w-10 text-muted-foreground/30" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Sua Inbox</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xs text-center">Selecione um lead ao lado para visualizar o histórico de mensagens e responder.</p>
+              <Button size="sm" variant="outline" className="mt-6 text-xs shadow-sm rounded-xl px-4" onClick={() => setNewConvOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1.5 text-primary" /> Nova conversa
               </Button>
             </div>
           )}
         </div>
 
-        {/* ─── Lead context panel ─── */}
-        {selectedConv && selectedLead && (
-          <div className="w-72 ghost-border border-l shrink-0 overflow-auto hidden xl:block bg-card">
-            <div className="p-4 ghost-border border-b">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center text-sm font-semibold text-primary">
-                  {initials(selectedLead.name)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{selectedLead.name}</p>
+        {/* ─── Lead context panel (Retractable) ─── */}
+        <div 
+          className={`ghost-border border-l bg-card overflow-hidden transition-all duration-300 ease-in-out flex flex-col shrink-0 ${
+            showSidebar && selectedLeadGroup && selectedLead ? "w-80 opacity-100" : "w-0 opacity-0 border-none"
+          }`}
+        >
+          {selectedLeadGroup && selectedLead && (
+            <div className="w-80 flex flex-col h-full">
+              <div className="p-5 ghost-border border-b bg-gradient-to-b from-primary/5 to-transparent">
+                <div className="flex flex-col items-center text-center mb-4">
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-primary-hover flex items-center justify-center text-xl font-bold text-primary-foreground shadow-lg mb-3 transform rotate-3 hover:rotate-0 transition-transform">
+                    {initials(selectedLead.name)}
+                  </div>
+                  <h3 className="text-sm font-bold text-foreground line-clamp-1">{selectedLead.name}</h3>
                   {selectedLead.company && (
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                       <Building className="h-2.5 w-2.5" /> {selectedLead.company}
                     </p>
                   )}
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-[9px] font-bold bg-background/50 border border-primary/20 text-primary px-2 py-0.5 rounded-full shadow-sm">
+                      ID: {selectedLead.id.slice(0, 8)}
+                    </span>
+                    {selectedLead.value && (
+                      <span className="text-[9px] font-bold bg-success/15 text-success border border-success/20 px-2 py-0.5 rounded-full shadow-sm">
+                        R$ {selectedLead.value.toLocaleString("pt-BR")}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={() => navigate(`/leads/${selectedLead.id}`)}>
-                <User className="h-3 w-3" /> Ver perfil completo
-              </Button>
-            </div>
-
-            <div className="p-4 ghost-border border-b space-y-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dados</p>
-              {selectedLead.phone && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Phone className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-foreground">{selectedLead.phone}</span>
-                </div>
-              )}
-              {selectedLead.email && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Mail className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-foreground truncate">{selectedLead.email}</span>
-                </div>
-              )}
-              {leadColumn && (
-                <div className="flex items-center gap-2 text-xs">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: leadColumn.color }} />
-                  <span className="text-foreground">{leadColumn.name}</span>
-                </div>
-              )}
-              {selectedLead.value && (
-                <div className="flex items-center gap-2 text-xs">
-                  <DollarSign className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-primary font-semibold">R$ {selectedLead.value.toLocaleString("pt-BR")}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Tasks */}
-            <div className="p-4 ghost-border border-b space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <CheckSquare className="h-3 w-3" /> Tarefas
-                </p>
-                <Button variant="ghost" size="icon" className="h-5 w-5 text-primary hover:bg-primary/10" onClick={() => setTaskModalOpen(true)}>
-                  <Plus className="h-3 w-3" />
+                <Button variant="outline" size="sm" className="w-full text-[11px] gap-2 h-8 rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary transition-all" onClick={() => navigate(`/leads/${selectedLead.id}`)}>
+                  <User className="h-3.5 w-3.5" /> Ver perfil completo
                 </Button>
               </div>
-              <div className="space-y-2">
-                {leadTasks.length > 0 ? (
-                  leadTasks.map(task => (
-                    <div key={task.id} className="flex items-start gap-2">
-                      <button
-                        onClick={() => toggleTaskStatus(task.id)}
-                        className={`mt-0.5 h-3.5 w-3.5 rounded border border-primary/30 flex items-center justify-center transition-colors ${task.status === "completed" ? "bg-primary border-primary" : "hover:border-primary"}`}
-                      >
-                        {task.status === "completed" && <CheckSquare className="h-2.5 w-2.5 text-primary-foreground" />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[11px] leading-tight ${task.status === "completed" ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}>
-                          {task.title}
-                        </p>
-                      </div>
+
+              <div className="flex-1 overflow-auto no-scrollbar">
+                <div className="p-5 space-y-6">
+                  {/* Pipeline Stage */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                       <ArrowRight className="h-3 w-3" /> Estágio no Funil
+                    </p>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="w-full flex items-center justify-between p-2.5 rounded-xl border border-border/50 bg-background hover:border-primary/30 transition-all group">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="h-2 w-2 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: leadColumn?.color || "#9b87f5" }} />
+                            <span className="text-xs font-semibold text-foreground truncate">{leadColumn?.name || "Sem estágio"}</span>
+                          </div>
+                          <MoreVertical className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-64 p-1.5 rounded-xl border-border/50 shadow-xl">
+                        {columns.map(col => (
+                          <DropdownMenuItem
+                            key={col.id}
+                            className={`text-xs gap-2.5 p-2.5 rounded-lg transition-colors ${col.id === selectedLead.column_id ? "bg-primary/10 text-primary font-bold" : "hover:bg-secondary"}`}
+                            disabled={col.id === selectedLead.column_id}
+                            onClick={() => moveLead(selectedLead.id, col.id)}
+                          >
+                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />
+                            {col.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Contact Details */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Contato</p>
+                    <div className="space-y-2">
+                      {selectedLeadGroup.lead_phone && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-transparent hover:border-border/50 transition-all group">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-[11px] text-foreground font-medium truncate">{selectedLeadGroup.lead_phone}</span>
+                          </div>
+                          <MessageCircle className="h-3 w-3 text-success opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      )}
+                      {selectedLeadGroup.lead_email && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-transparent hover:border-border/50 transition-all group">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-[11px] text-foreground font-medium truncate">{selectedLeadGroup.lead_email}</span>
+                          </div>
+                          <ExternalLink className="h-3 w-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <p className="text-[10px] text-muted-foreground italic text-center py-2">Sem tarefas pendentes</p>
-                )}
-              </div>
-            </div>
+                  </div>
 
-            {/* Tags */}
-            <div className="p-4 ghost-border border-b">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <Tag className="h-3 w-3" /> Tags
-                </p>
-                <Button variant="ghost" size="icon" className="h-5 w-5 text-primary hover:bg-primary/10" onClick={() => setTagModalOpen(true)}>
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {selectedLead.tags.length > 0 ? (
-                  selectedLead.tags.map(tag => (
-                    <Badge key={tag} variant="secondary" className="text-[10px] gap-1 px-2 py-0">{tag}</Badge>
-                  ))
-                ) : (
-                  <p className="text-[10px] text-muted-foreground italic">Sem tags</p>
-                )}
-              </div>
-            </div>
+                  {/* Tasks */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                        <CheckSquare className="h-3 w-3" /> Tarefas Próximas
+                      </p>
+                      <button onClick={() => setTaskModalOpen(true)} className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {leadTasks.length > 0 ? (
+                        leadTasks.slice(0, 3).map(task => (
+                          <div key={task.id} className="group flex items-start gap-3 p-2.5 rounded-xl border border-border/30 bg-background hover:bg-secondary/20 transition-all">
+                            <button
+                              onClick={() => toggleTaskStatus(task.id)}
+                              className={`mt-0.5 h-4 w-4 rounded-lg border-2 flex items-center justify-center transition-all ${
+                                task.status === "completed" 
+                                  ? "bg-success border-success text-white shadow-sm" 
+                                  : "border-border group-hover:border-primary/50"
+                              }`}
+                            >
+                              {task.status === "completed" && <Plus className="h-3 w-3 rotate-45" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[11px] leading-tight font-semibold ${task.status === "completed" ? "text-muted-foreground line-through decoration-muted-foreground/30" : "text-foreground"}`}>
+                                {task.title}
+                              </p>
+                              {task.due_date && (
+                                <p className="text-[9px] text-muted-foreground mt-1 font-medium">Prazo: {new Date(task.due_date).toLocaleDateString("pt-BR")}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4 rounded-xl border border-dashed border-border/50">
+                          <CheckSquare className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1" />
+                          <p className="text-[10px] text-muted-foreground italic">Foco total! Nenhuma tarefa pendente.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-            {/* Quick actions */}
-            <div className="p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Ações Rápidas</p>
-              <div className="space-y-1.5">
-                <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => setTaskModalOpen(true)}>
-                  <CheckSquare className="h-3 w-3" /> Criar tarefa
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8">
-                      <ArrowRight className="h-3 w-3" /> Mover estágio
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {columns.map(col => (
-                      <DropdownMenuItem
-                        key={col.id}
-                        className="text-xs gap-2"
-                        disabled={col.id === selectedLead?.column_id}
-                        onClick={() => selectedLead && moveLead(selectedLead.id, col.id)}
-                      >
-                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />
-                        {col.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button variant="outline" size="sm" className="w-full text-xs justify-start gap-2 h-8" onClick={() => setTagModalOpen(true)}>
-                  <Plus className="h-3 w-3" /> Adicionar tag
+                  {/* Tags */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                         <Tag className="h-3 w-3" /> Tags do Lead
+                      </p>
+                      <button onClick={() => setTagModalOpen(true)} className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedLead.tags.length > 0 ? (
+                        selectedLead.tags.map(tag => (
+                          <span key={tag} className="text-[9px] font-bold bg-primary/5 text-primary border border-primary/20 rounded-lg px-2 py-0.5 shadow-sm">{tag}</span>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic pl-1">Organize seu lead com tags...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="p-5 ghost-border border-t bg-secondary/10">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-xs font-bold gap-2 h-9 rounded-xl border-border/50 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                  onClick={() => toast.success("Conversa arquivada")}
+                >
+                  <Search className="h-3.5 w-3.5 rotate-45" /> Arquivar Chat
                 </Button>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* New Conversation Modal */}
