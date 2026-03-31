@@ -10,13 +10,13 @@ import {
 import { useConversationLabels, ConversationLabel } from "@/hooks/useConversationLabels";
 
 interface LabelSelectorProps {
-  conversationId: string;
+  leadId: string;
   selectedLabels: { id: string; name: string; color: string }[];
   onLabelsChange: () => void;
-  onUpdateLabels: (conversationId: string, labels: { id: string; name: string; color: string }[]) => Promise<void>;
+  onUpdateLabels: (leadId: string, labels: { id: string; name: string; color: string }[]) => Promise<void>;
 }
 
-export function LabelSelector({ conversationId, selectedLabels, onLabelsChange, onUpdateLabels }: LabelSelectorProps) {
+export function LabelSelector({ leadId, selectedLabels, onLabelsChange, onUpdateLabels }: LabelSelectorProps) {
   const { labels } = useConversationLabels();
   const [open, setOpen] = useState(false);
 
@@ -29,7 +29,7 @@ export function LabelSelector({ conversationId, selectedLabels, onLabelsChange, 
       newLabels = [...selectedLabels, { id: label.id, name: label.name, color: label.color }];
     }
     
-    await onUpdateLabels(conversationId, newLabels);
+    await onUpdateLabels(leadId, newLabels);
     onLabelsChange();
   };
 

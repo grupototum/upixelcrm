@@ -19,7 +19,7 @@ interface ConversationActionsProps {
   onUpdateStatus: (leadId: string, status: string) => Promise<void>;
   onUpdatePriority: (leadId: string, priority: string) => Promise<void>;
   onAssignToAgent: (leadId: string, agentId: string | null) => Promise<void>;
-  onUpdateLabels: (conversationId: string, labels: { id: string; name: string; color: string }[]) => Promise<void>;
+  onUpdateLabels: (leadId: string, labels: { id: string; name: string; color: string }[]) => Promise<void>;
 }
 
 const MOCK_USERS = [
@@ -33,7 +33,7 @@ export function ConversationActions({ conversation, onRefresh, onUpdateStatus, o
   return (
     <div className="flex items-center gap-2">
       <LabelSelector 
-        conversationId={conversation.source_conversations?.[0]?.id} 
+        leadId={conversation.lead_id} 
         selectedLabels={conversation.labels || []}
         onLabelsChange={onRefresh}
         onUpdateLabels={onUpdateLabels}

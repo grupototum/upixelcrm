@@ -428,15 +428,21 @@ export function useInbox(onLeadCreated?: () => void) {
     if (!leadGroup) return;
 
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
-    const { error } = await supabase.from("conversations").update({ status }).in("id", convIds);
+    const { error } = await supabase
+      .from("conversations")
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
+      .in("id", convIds);
 
     if (error) {
       toast.error("Erro ao atualizar status");
       return;
     }
 
-    loadConversations();
-    toast.success(`Conversa marcada como ${status}`);
+    await loadConversations();
+    toast.success(`Conversa marcada como ${status === 'resolved' ? 'Resolvida' : status === 'snoozed' ? 'Soneca' : 'Aberta'}`);
   }, [conversations, loadConversations]);
 
   // Update conversation priority (stored in metadata)
@@ -468,19 +474,27 @@ export function useInbox(onLeadCreated?: () => void) {
   }, [conversations, loadConversations]);
 
   // Update conversation labels (stored in metadata)
-  const updateLabels = useCallback(async (conversationId: string, labels: { id: string; name: string; color: string }[]) => {
-    const { data: conv } = await supabase
-      .from("conversations")
-      .select("metadata")
-      .eq("id", conversationId)
-      .single();
+  const updateLabels = useCallback(async (leadId: string, labels: { id: string; name: string; color: string }[]) => {
+    const leadGroup = conversations.find(c => c.lead_id === leadId);
+    if (!leadGroup) return;
 
-    if (conv) {
-      const newMeta = { ...(conv.metadata as any || {}), labels };
-      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", conversationId);
-      loadConversations();
+    const convIds = leadGroup.source_conversations.map(sc => sc.id);
+    
+    // We update all conversations for this lead to have the same labels
+    for (const sc of leadGroup.source_conversations) {
+      const newMeta = { ...(sc.metadata as any || {}), labels };
+      await supabase
+        .from("conversations")
+        .update({ 
+          metadata: newMeta,
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", sc.id);
     }
-  }, [loadConversations]);
+    
+    await loadConversations();
+    toast.success("Etiquetas atualizadas");
+  }, [conversations, loadConversations]);
 
   // Find or create lead
   const findOrCreateLead = useCallback(async (

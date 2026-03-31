@@ -8,7 +8,7 @@ import {
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
   Check, CheckCheck, Clock,
   File, Download, Maximize2, Activity, X,
-  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle
+  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -889,7 +889,7 @@ export default function InboxPage() { // force HMR reset
                          <Tags className="h-3 w-3" /> Etiquetas de Conversa
                       </p>
                       <LabelSelector 
-                        conversationId={selectedLeadGroup.source_conversations[0]?.id}
+                        leadId={selectedLeadGroup.lead_id}
                         selectedLabels={selectedLeadGroup.labels || []}
                         onLabelsChange={() => inbox.refresh()}
                         onUpdateLabels={inbox.updateLabels}
@@ -1111,11 +1111,39 @@ export default function InboxPage() { // force HMR reset
                   )}
                 </div>
               ) : mediaViewer.type === "video" ? (
-                <div className="relative">
-                  <video src={mediaViewer.url} controls autoPlay className="max-w-full max-h-full" />
+                <div className="relative bg-black flex items-center justify-center min-h-[400px]">
+                  {mediaViewer.url && !mediaViewer.url.startsWith("[") && !mediaViewer.url.includes(".enc") ? (
+                    <video 
+                      src={mediaViewer.url} 
+                      controls 
+                      autoPlay 
+                      muted 
+                      playsInline 
+                      loop
+                      className="max-w-full max-h-[80vh] object-contain shadow-2xl" 
+                      onLoadedMetadata={(e) => {
+                        const video = e.target as HTMLVideoElement;
+                        video.currentTime = 1;
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-4 text-white">
+                      <div className="h-16 w-16 rounded-full bg-white/10 flex items-center justify-center animate-pulse">
+                        <VideoOff className="h-8 w-8 text-white/40" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-bold text-lg">Vídeo indisponível</p>
+                        <p className="text-sm text-white/40 max-w-[250px] mt-1">Este vídeo ainda está sendo carregado ou possui um formato não suportado.</p>
+                      </div>
+                      <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-white" onClick={() => window.open(mediaViewer.url, '_blank')}>
+                        <ExternalLink className="h-3 w-3 mr-1.5" /> Abrir Original
+                      </Button>
+                    </div>
+                  )}
                   {mediaViewer.metadata?.caption && (
-                    <div className="absolute bottom-12 left-0 right-0 p-4 bg-black/40 text-white text-center">
-                      <p className="text-xs font-medium">{mediaViewer.metadata.caption}</p>
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-black/60 backdrop-blur-md rounded-2xl text-white text-center border border-white/10 max-w-[80%]">
+                      <p className="text-xs font-semibold tracking-wide uppercase opacity-60 mb-1">Legenda</p>
+                      <p className="text-sm font-medium">{mediaViewer.metadata.caption}</p>
                     </div>
                   )}
                 </div>
