@@ -413,9 +413,9 @@ export function useInbox(onLeadCreated?: () => void) {
 
     const { data: firstCol } = await supabase
       .from("pipeline_columns").select("id")
-      .order("order", { ascending: true }).limit(1);
+      .order("order", { ascending: true }).limit(1).maybeSingle();
 
-    if (!firstCol || firstCol.length === 0) return null;
+    if (!firstCol) return null;
 
     const leadName = name || phone || email || "Lead Automático";
     const { data: newLead, error } = await supabase
@@ -423,7 +423,7 @@ export function useInbox(onLeadCreated?: () => void) {
         name: leadName,
         phone: phone || null,
         email: email || null,
-        column_id: firstCol[0].id,
+        column_id: firstCol.id,
         tags: ["auto-criado"],
         origin: "inbox",
       }).select("id").single();
