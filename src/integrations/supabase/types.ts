@@ -92,6 +92,45 @@ export type Database = {
         }
         Relationships: []
       }
+      integrations: {
+        Row: {
+          access_token: string | null
+          client_id: string
+          config: Json
+          created_at: string
+          id: string
+          provider: string
+          refresh_token: string | null
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          client_id?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          provider: string
+          refresh_token?: string | null
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          client_id?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           city: string | null
