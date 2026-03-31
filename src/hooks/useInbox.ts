@@ -413,7 +413,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
     const { data: firstCol } = await supabase
       .from("pipeline_columns").select("id")
-      .order("order", { ascending: true }).limit(1);
+      .order("order", { ascending: true }).limit(1).maybeSingle();
 
     if (!firstCol || firstCol.length === 0) return null;
 
