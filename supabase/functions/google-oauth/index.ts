@@ -227,8 +227,6 @@ Deno.serve(async (req) => {
       }
 
       const at = integration.access_token;
-      let apiUrl: string;
-      let opts: RequestInit = { headers: { Authorization: `Bearer ${at}` } };
 
       if (action === "gmail-list") {
         // Fetch message IDs then get details for each
