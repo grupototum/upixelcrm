@@ -92,6 +92,56 @@ export type Database = {
         }
         Relationships: []
       }
+      conversations: {
+        Row: {
+          channel: string
+          client_id: string
+          created_at: string
+          id: string
+          last_message: string | null
+          last_message_at: string | null
+          lead_id: string | null
+          metadata: Json
+          status: string
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_id?: string | null
+          metadata?: Json
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_id?: string | null
+          metadata?: Json
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           access_token: string | null
@@ -192,6 +242,50 @@ export type Database = {
             columns: ["column_id"]
             isOneToOne: false
             referencedRelation: "pipeline_columns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          client_id: string
+          content: string
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          metadata: Json
+          sender_name: string | null
+          type: string
+        }
+        Insert: {
+          client_id?: string
+          content?: string
+          conversation_id: string
+          created_at?: string
+          direction?: string
+          id?: string
+          metadata?: Json
+          sender_name?: string | null
+          type?: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          metadata?: Json
+          sender_name?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
