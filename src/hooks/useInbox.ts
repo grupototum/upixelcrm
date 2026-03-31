@@ -30,7 +30,7 @@ export interface Message {
   created_at: string;
 }
 
-export function useInbox() {
+export function useInbox(onLeadCreated?: () => void) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -228,6 +228,70 @@ export function useInbox() {
     }
   }, [selectedConversationId, conversations, sendWhatsAppMessage, sendEmail, loadMessages, loadConversations]);
 
+  // ── Auto-recognize lead by phone or email ──
+  const findOrCreateLead = useCallback(async (
+    phone?: string,
+    email?: string,
+    name?: string
+  ): Promise<string | null> => {
+    // 1. Try to find existing lead by phone
+    if (phone) {
+      const normalized = phone.replace(/\D/g, "");
+      const { data: byPhone } = await supabase
+        .from("leads")
+        .select("id")
+        .or(`phone.ilike.%${normalized.slice(-8)}%`)
+        .limit(1);
+      if (byPhone && byPhone.length > 0) return byPhone[0].id;
+    }
+
+    // 2. Try to find existing lead by email
+    if (email) {
+      const { data: byEmail } = await supabase
+        .from("leads")
+        .select("id")
+        .ilike("email", email)
+        .limit(1);
+      if (byEmail && byEmail.length > 0) return byEmail[0].id;
+    }
+
+    // 3. No existing lead found — auto-create one
+    // Get the first column of the first pipeline to place the lead
+    const { data: firstCol } = await supabase
+      .from("pipeline_columns")
+      .select("id")
+      .order("position", { ascending: true })
+      .limit(1);
+
+    if (!firstCol || firstCol.length === 0) return null;
+
+    const leadName = name || phone || email || "Lead Automático";
+    const { data: newLead, error } = await supabase
+      .from("leads")
+      .insert({
+        name: leadName,
+        phone: phone || null,
+        email: email || null,
+        column_id: firstCol[0].id,
+        tags: ["auto-criado"],
+        origin: "inbox",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Error auto-creating lead:", error);
+      return null;
+    }
+
+    toast.success(`Lead "${leadName}" criado automaticamente no CRM!`);
+    
+    // Refresh global state so the lead appears in lists
+    if (onLeadCreated) onLeadCreated();
+    
+    return newLead?.id ?? null;
+  }, [onLeadCreated]);
+
   // Create new conversation
   const createConversation = useCallback(async (
     channel: string,
@@ -236,9 +300,15 @@ export function useInbox() {
     email?: string,
     leadName?: string
   ) => {
+    // Auto-find or create lead if not provided
+    let resolvedLeadId = leadId || null;
+    if (!resolvedLeadId && (phone || email)) {
+      resolvedLeadId = await findOrCreateLead(phone, email, leadName);
+    }
+
     const { data, error } = await supabase.from("conversations").insert({
       channel,
-      lead_id: leadId || null,
+      lead_id: resolvedLeadId,
       status: "open",
       metadata: { phone, email, lead_name: leadName },
     }).select("id").single();
@@ -250,7 +320,7 @@ export function useInbox() {
 
     await loadConversations();
     return data?.id;
-  }, [loadConversations]);
+  }, [loadConversations, findOrCreateLead]);
 
   // Initial load
   useEffect(() => {
@@ -261,7 +331,7 @@ export function useInbox() {
   useEffect(() => {
     const channel = supabase
       .channel("inbox-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
         if (newMsg.conversation_id === selectedConversationId) {
           setMessages(prev => [...prev, {
@@ -269,6 +339,21 @@ export function useInbox() {
             metadata: (newMsg.metadata || {}) as Record<string, any>,
           }]);
         }
+
+        // Auto-create lead for inbound messages with no lead linked
+        if (newMsg.direction === "inbound") {
+          const conv = conversations.find(c => c.id === newMsg.conversation_id);
+          if (conv && !conv.lead_id) {
+            const phone = conv.lead_phone || conv.metadata?.phone;
+            const email = conv.lead_email || conv.metadata?.email;
+            const name = conv.lead_name || phone || email;
+            const leadId = await findOrCreateLead(phone, email, name);
+            if (leadId) {
+              await supabase.from("conversations").update({ lead_id: leadId }).eq("id", conv.id);
+            }
+          }
+        }
+
         loadConversations();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, () => {
@@ -279,7 +364,7 @@ export function useInbox() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedConversationId, loadConversations]);
+  }, [selectedConversationId, loadConversations, conversations, findOrCreateLead]);
 
   return {
     conversations,

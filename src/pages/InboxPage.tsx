@@ -50,8 +50,8 @@ const channelIcons: Record<string, typeof MessageCircle> = {
 
 export default function InboxPage() {
   const navigate = useNavigate();
-  const inbox = useInbox();
-  const { tasks, toggleTaskStatus, moveLead, columns, leads } = useAppState();
+  const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData } = useAppState();
+  const inbox = useInbox(refreshData);
 
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");

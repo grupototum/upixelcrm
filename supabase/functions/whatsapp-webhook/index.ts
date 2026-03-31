@@ -105,17 +105,50 @@ Deno.serve(async (req) => {
         .eq("client_id", clientId)
         .or(`phone.ilike.%${phone.slice(-8)}%`)
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      let leadId = lead?.id || null;
+
+      if (!leadId) {
+        // Create lead automatically
+        // Get the first column to place the lead
+        const { data: firstCol } = await adminClient
+          .from("pipeline_columns")
+          .select("id")
+          .order("position", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (firstCol) {
+          const { data: newLead } = await adminClient
+            .from("leads")
+            .insert({
+              client_id: clientId,
+              name: senderName,
+              phone: phone,
+              column_id: firstCol.id,
+              tags: ["whatsapp-auto"],
+              origin: "whatsapp",
+            })
+            .select("id")
+            .single();
+          
+          if (newLead) {
+            leadId = newLead.id;
+            console.log("Created new lead from WhatsApp:", senderName, leadId);
+          }
+        }
+      }
 
       const { data: newConv } = await adminClient.from("conversations").insert({
         client_id: clientId,
-        lead_id: lead?.id || null,
+        lead_id: leadId,
         channel: "whatsapp",
         status: "open",
         last_message: content,
         last_message_at: new Date().toISOString(),
         unread_count: 1,
-        metadata: { phone, lead_name: lead?.name || senderName },
+        metadata: { phone, lead_name: senderName },
       }).select("id").single();
 
       convId = newConv!.id;
