@@ -474,7 +474,7 @@ export default function InboxPage() { // force HMR reset
                                     : "bg-card border border-border/50 text-foreground"
                               }`}>
                                 {msg.type === "image" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id })}>
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
                                     <img src={msg.content} alt="Imagem" className="max-w-full h-auto object-cover max-h-64 rounded-lg hover:scale-105 transition-transform duration-500" />
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
                                       <Maximize2 className="h-6 w-6 text-white" />
