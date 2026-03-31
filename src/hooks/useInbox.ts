@@ -163,11 +163,12 @@ export function useInbox(onLeadCreated?: () => void) {
       let resolvedContent = m.content;
       const isMedia = ["image", "audio", "video", "file", "sticker"].includes(m.type);
       if (isMedia) {
-        const isEncrypted = resolvedContent?.includes(".enc") || resolvedContent?.includes("mmg.whatsapp.net");
-        const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent;
+        const isEncrypted = resolvedContent?.includes(".enc");
+        const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
+        const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
         
-        // Fallback to metadata media_url if content is not a direct link
-        if ((isEncrypted || isPlaceholder) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
+        // Fallback to metadata media_url if content is not a direct link or is an inaccessible WhatsApp link
+        if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
           resolvedContent = meta.media_url;
         }
       }

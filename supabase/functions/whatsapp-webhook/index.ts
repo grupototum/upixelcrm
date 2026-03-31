@@ -145,11 +145,16 @@ async function downloadAndStoreMedia(
     }
 
     const result = await response.json();
-    const base64Data = result.base64;
+    let base64Data = result.base64;
 
     if (!base64Data) {
       console.log("No base64 data returned from Evolution API");
       return null;
+    }
+
+    // Clean base64 prefix if present (e.g., data:video/mp4;base64,...)
+    if (base64Data.includes(",")) {
+      base64Data = base64Data.split(",")[1];
     }
 
     // Determine file extension from mimetype
@@ -184,7 +189,7 @@ async function downloadAndStoreMedia(
 
     const { error: uploadError } = await adminClient.storage
       .from("whatsapp_media")
-      .upload(fileName, bytes.buffer, {
+      .upload(fileName, bytes, {
         contentType: cleanMime,
         upsert: false,
       });
