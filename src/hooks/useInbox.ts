@@ -157,13 +157,27 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    setMessages((data || []).map(m => ({
-      ...m,
-      channel: channelMap[m.conversation_id],
-      metadata: (m.metadata || {}) as Record<string, any>,
-      is_private: (m.metadata as any)?.is_private || false,
-      content_type: (m.metadata as any)?.content_type || "text",
-    })));
+    setMessages((data || []).map(m => {
+      const meta = (m.metadata || {}) as Record<string, any>;
+      // For media messages, resolve the best available URL
+      let resolvedContent = m.content;
+      const isMedia = ["image", "audio", "video", "file", "sticker"].includes(m.type);
+      if (isMedia) {
+        const isEncrypted = resolvedContent?.includes(".enc") || resolvedContent?.includes("mmg.whatsapp.net");
+        const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent;
+        if ((isEncrypted || isPlaceholder) && meta.media_url && !meta.media_url.includes(".enc")) {
+          resolvedContent = meta.media_url;
+        }
+      }
+      return {
+        ...m,
+        content: resolvedContent,
+        channel: channelMap[m.conversation_id],
+        metadata: meta,
+        is_private: meta?.is_private || false,
+        content_type: meta?.content_type || "text",
+      };
+    }));
 
     // Mark all as read
     await supabase.from("conversations").update({ unread_count: 0 }).in("id", convIds);

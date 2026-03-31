@@ -17,7 +17,6 @@ function extractMessageContent(messageData: any): MediaInfo {
   const mediaUrl = messageData.mediaUrl;
   if (!msg) return { content: "[Mensagem vazia]", type: "text", metadata: {} };
 
-  // Text messages
   if (msg.conversation) {
     return { content: msg.conversation, type: "text", metadata: {} };
   }
@@ -25,7 +24,6 @@ function extractMessageContent(messageData: any): MediaInfo {
     return { content: msg.extendedTextMessage.text, type: "text", metadata: {} };
   }
 
-  // Audio
   if (msg.audioMessage) {
     const url = mediaUrl || msg.audioMessage.url || "";
     return {
@@ -39,38 +37,26 @@ function extractMessageContent(messageData: any): MediaInfo {
     };
   }
 
-  // Image
   if (msg.imageMessage) {
     const url = mediaUrl || msg.imageMessage.url || "";
     const caption = msg.imageMessage.caption || "";
     return {
       content: url || "[Imagem]",
       type: "image",
-      metadata: {
-        caption,
-        mimetype: msg.imageMessage.mimetype,
-        media_url: url,
-      },
+      metadata: { caption, mimetype: msg.imageMessage.mimetype, media_url: url },
     };
   }
 
-  // Video
   if (msg.videoMessage) {
     const url = mediaUrl || msg.videoMessage.url || "";
     const caption = msg.videoMessage.caption || "";
     return {
       content: url || "[Vídeo]",
       type: "video",
-      metadata: {
-        caption,
-        mimetype: msg.videoMessage.mimetype,
-        seconds: msg.videoMessage.seconds,
-        media_url: url,
-      },
+      metadata: { caption, mimetype: msg.videoMessage.mimetype, seconds: msg.videoMessage.seconds, media_url: url },
     };
   }
 
-  // Document / File
   if (msg.documentMessage) {
     const url = mediaUrl || msg.documentMessage.url || "";
     const fileName = msg.documentMessage.fileName || "documento";
@@ -78,17 +64,10 @@ function extractMessageContent(messageData: any): MediaInfo {
     return {
       content: url || `[Arquivo: ${fileName}]`,
       type: "file",
-      metadata: {
-        filename: fileName,
-        caption,
-        mimetype: msg.documentMessage.mimetype,
-        size: msg.documentMessage.fileLength,
-        media_url: url,
-      },
+      metadata: { filename: fileName, caption, mimetype: msg.documentMessage.mimetype, size: msg.documentMessage.fileLength, media_url: url },
     };
   }
 
-  // Sticker
   if (msg.stickerMessage) {
     const url = mediaUrl || msg.stickerMessage.url || "";
     return {
@@ -98,7 +77,6 @@ function extractMessageContent(messageData: any): MediaInfo {
     };
   }
 
-  // Location
   if (msg.locationMessage) {
     const lat = msg.locationMessage.degreesLatitude;
     const lng = msg.locationMessage.degreesLongitude;
@@ -109,7 +87,6 @@ function extractMessageContent(messageData: any): MediaInfo {
     };
   }
 
-  // Contact card
   if (msg.contactMessage) {
     return {
       content: `👤 Contato: ${msg.contactMessage.displayName || ""}`,
@@ -121,6 +98,106 @@ function extractMessageContent(messageData: any): MediaInfo {
   return { content: "[Mensagem não suportada]", type: "text", metadata: {} };
 }
 
+// Download media from Evolution API and upload to Supabase Storage
+async function downloadAndStoreMedia(
+  adminClient: any,
+  config: Record<string, any>,
+  messageData: any,
+  msgType: string,
+  mimetype: string
+): Promise<string | null> {
+  try {
+    const apiUrl = config.api_url;
+    const apiKey = config.api_key;
+    const instanceName = config.instance_name;
+
+    if (!apiUrl || !apiKey || !instanceName) {
+      console.log("Missing Evolution API config for media download");
+      return null;
+    }
+
+    // Use Evolution API getBase64FromMediaMessage
+    const messageKey = messageData.key;
+    const response = await fetch(
+      `${apiUrl}/chat/getBase64FromMediaMessage/${instanceName}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: apiKey,
+        },
+        body: JSON.stringify({
+          message: {
+            key: messageKey,
+          },
+          convertToMp4: msgType === "video",
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Failed to get base64 media:", response.status, await response.text().catch(() => ""));
+      return null;
+    }
+
+    const result = await response.json();
+    const base64Data = result.base64;
+
+    if (!base64Data) {
+      console.log("No base64 data returned from Evolution API");
+      return null;
+    }
+
+    // Determine file extension from mimetype
+    const extMap: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "audio/ogg; codecs=opus": "ogg",
+      "audio/ogg": "ogg",
+      "audio/mpeg": "mp3",
+      "audio/mp4": "m4a",
+      "video/mp4": "mp4",
+      "video/3gpp": "3gp",
+      "application/pdf": "pdf",
+    };
+
+    const cleanMime = (mimetype || "application/octet-stream").split(";")[0].trim();
+    const ext = extMap[mimetype] || extMap[cleanMime] || "bin";
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+
+    // Decode base64 and upload
+    const binaryStr = atob(base64Data);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    const { error: uploadError } = await adminClient.storage
+      .from("whatsapp_media")
+      .upload(fileName, bytes.buffer, {
+        contentType: cleanMime,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      return null;
+    }
+
+    const { data: { publicUrl } } = adminClient.storage
+      .from("whatsapp_media")
+      .getPublicUrl(fileName);
+
+    console.log("Media uploaded successfully:", publicUrl);
+    return publicUrl;
+  } catch (err) {
+    console.error("Error downloading/storing media:", err);
+    return null;
+  }
+}
+
 async function findOrCreateLead(
   adminClient: any,
   clientId: string,
@@ -128,7 +205,6 @@ async function findOrCreateLead(
   senderName: string,
   config: Record<string, any>
 ): Promise<string | null> {
-  // Search by phone suffix
   const phoneSuffix = phone.length >= 8 ? phone.slice(-8) : phone;
   const { data: existingLeads } = await adminClient
     .from("leads")
@@ -140,7 +216,6 @@ async function findOrCreateLead(
   if (existingLeads && existingLeads.length > 0) {
     const primaryLead = existingLeads[0];
 
-    // Merge duplicates if any
     if (existingLeads.length > 1) {
       console.log(`Merging ${existingLeads.length} duplicate leads for phone suffix ${phoneSuffix}`);
       const duplicates = existingLeads.slice(1);
@@ -163,13 +238,11 @@ async function findOrCreateLead(
 
       await adminClient.from("leads").update({ tags: mergedTags, notes: mergedNotes }).eq("id", primaryLead.id);
       await adminClient.from("leads").delete().in("id", duplicateIds);
-      console.log("Merge completed.");
     }
 
     return primaryLead.id;
   }
 
-  // Create new lead — find target column for THIS client
   let targetColId = config?.target_column_id;
   if (!targetColId) {
     const { data: firstCol } = await adminClient
@@ -205,7 +278,6 @@ async function findOrCreateLead(
     return null;
   }
 
-  // Create timeline event for the new lead
   await adminClient.from("timeline_events").insert({
     client_id: clientId,
     lead_id: newLead.id,
@@ -248,7 +320,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Skip group messages
     const remoteJid = messageData.key?.remoteJid || "";
     if (remoteJid.endsWith("@g.us")) {
       return new Response(JSON.stringify({ ok: true, skipped: "group_message" }), {
@@ -277,19 +348,39 @@ Deno.serve(async (req) => {
     }
 
     const clientId = match.client_id;
+    const matchConfig = (match.config || {}) as Record<string, any>;
     const phone = remoteJid.replace("@s.whatsapp.net", "");
     const senderName = messageData.pushName || phone;
 
-    // Extract message content with media support
+    // Extract message content
     const { content, type: msgType, metadata: msgMeta } = extractMessageContent(messageData);
 
-    // Build display text for last_message preview
-    const displayText = msgType === "text" ? content
+    // For media messages, download via Evolution API and upload to Storage
+    let finalContent = content;
+    const isMedia = ["image", "audio", "video", "file"].includes(msgType);
+    
+    if (isMedia) {
+      const mimetype = (msgMeta.mimetype as string) || "application/octet-stream";
+      const publicUrl = await downloadAndStoreMedia(
+        adminClient,
+        matchConfig,
+        messageData,
+        msgType,
+        mimetype
+      );
+      if (publicUrl) {
+        finalContent = publicUrl;
+        msgMeta.media_url = publicUrl;
+      }
+    }
+
+    // Build display text
+    const displayText = msgType === "text" ? finalContent
       : msgType === "audio" ? "🎵 Áudio"
       : msgType === "image" ? (msgMeta.caption as string) || "📷 Imagem"
       : msgType === "video" ? (msgMeta.caption as string) || "🎥 Vídeo"
       : msgType === "file" ? `📎 ${(msgMeta.filename as string) || "Arquivo"}`
-      : content;
+      : finalContent;
 
     // Find or create conversation
     const { data: existingConv } = await adminClient
@@ -311,9 +402,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", convId);
     } else {
-      // Find or create lead
-      const cfg = (match.config || {}) as Record<string, any>;
-      const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, cfg);
+      const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, matchConfig);
 
       const { data: newConv, error: convError } = await adminClient
         .from("conversations")
@@ -325,11 +414,7 @@ Deno.serve(async (req) => {
           last_message: displayText,
           last_message_at: new Date().toISOString(),
           unread_count: 1,
-          metadata: {
-            phone,
-            lead_name: senderName,
-            priority: "medium",
-          },
+          metadata: { phone, lead_name: senderName, priority: "medium" },
         })
         .select("id")
         .single();
@@ -344,11 +429,11 @@ Deno.serve(async (req) => {
       convId = newConv.id;
     }
 
-    // Insert message with full metadata
+    // Insert message
     await adminClient.from("messages").insert({
       client_id: clientId,
       conversation_id: convId,
-      content,
+      content: finalContent,
       type: msgType,
       direction: "inbound",
       sender_name: senderName,
