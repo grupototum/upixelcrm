@@ -1,19 +1,38 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Mail, Calendar, HardDrive, CheckCircle2, XCircle, LogIn } from "lucide-react";
+import { Mail, Calendar, HardDrive, CheckCircle2, XCircle, LogIn, Settings, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { GmailTab } from "@/components/google/GmailTab";
 import { CalendarTab } from "@/components/google/CalendarTab";
 import { DriveTab } from "@/components/google/DriveTab";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export default function GooglePage() {
+  const navigate = useNavigate();
   const [connected, setConnected] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [clientId, setClientId] = useState(() => localStorage.getItem("google_client_id") || "SUA_GOOGLE_CLIENT_ID");
+
+  const handleSaveSettings = () => {
+    localStorage.setItem("google_client_id", clientId);
+    setSettingsOpen(false);
+    toast.success("Credenciais do Google salvas com sucesso!");
+  };
 
   const handleConnect = () => {
-    toast.loading("Conectando com Google...");
+    if (clientId === "SUA_GOOGLE_CLIENT_ID" || !clientId.trim()) {
+      toast.error("Por favor, configure seu Google Client ID nas configurações antes de conectar.");
+      setSettingsOpen(true);
+      return;
+    }
+    
+    toast.loading("Conectando com Google Cloud...");
     setTimeout(() => {
       setConnected(true);
       toast.dismiss();
@@ -31,24 +50,32 @@ export default function GooglePage() {
       title="Google"
       subtitle="Gmail, Calendar e Drive integrados"
       actions={
-        connected ? (
-          <div className="flex items-center gap-2">
-            <Badge className="bg-success/15 text-success border-success/30 text-[10px] gap-1">
-              <CheckCircle2 className="h-3 w-3" /> Conectado
-            </Badge>
-            <Button size="sm" variant="outline" className="text-xs gap-1" onClick={handleDisconnect}>
-              <XCircle className="h-3 w-3" /> Desconectar
-            </Button>
-          </div>
-        ) : (
-          <Button
-            size="sm"
-            className="text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
-            onClick={handleConnect}
-          >
-            <LogIn className="h-3.5 w-3.5" /> Conectar com Google
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="text-xs gap-1 opacity-70 hover:opacity-100" onClick={() => setSettingsOpen(true)}>
+            <Settings className="h-3 w-3" /> Credenciais OAuth
           </Button>
-        )
+          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
+            <ArrowLeft className="h-3 w-3" /> Voltar
+          </Button>
+          {connected ? (
+            <div className="flex items-center gap-2 ml-2">
+              <Badge className="bg-success/15 text-success border-success/30 text-[10px] gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Conectado
+              </Badge>
+              <Button size="sm" variant="outline" className="text-xs gap-1" onClick={handleDisconnect}>
+                <XCircle className="h-3 w-3" /> Desconectar
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              className="text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground ml-2"
+              onClick={handleConnect}
+            >
+              <LogIn className="h-3.5 w-3.5" /> Conectar com Google
+            </Button>
+          )}
+        </div>
       }
     >
       <div className="p-6 animate-fade-in">
@@ -94,6 +121,39 @@ export default function GooglePage() {
           </Tabs>
         )}
       </div>
+
+      {/* Settings Modal */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Settings className="h-4 w-4 text-primary" /> Configurar Credenciais Google
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Google Client ID (OAuth 2.0)</Label>
+              <Input 
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="Ex: 123456789-abcdef.apps.googleusercontent.com"
+                className="text-xs h-9 bg-secondary"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                Você obtém este ID no <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">Google Cloud Console</a>.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setSettingsOpen(false)} className="text-xs">Cancelar</Button>
+            <Button size="sm" className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground" onClick={handleSaveSettings}>
+              Salvar Credenciais
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

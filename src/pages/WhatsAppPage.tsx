@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -21,10 +23,20 @@ export default function WhatsAppPage() {
   const [connectedNumber, setConnectedNumber] = useState("");
 
   // Integração Real - WhatsApp Web / Evolution API / Baileys
-  const apiUrl = "https://sua-api.com.br"; // Substitua pela URL da sua API WhatsApp Web
-  const instanceName = "upixel-instance";
-  const apiKey = "SUA_API_KEY"; // Substitua caso sua API exija autenticação
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem("evo_api_url") || "https://sua-api.com.br");
+  const [instanceName, setInstanceName] = useState(() => localStorage.getItem("evo_instance") || "upixel-instance");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("evo_api_key") || "SUA_API_KEY");
+  
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+
+  const handleSaveSettings = () => {
+    localStorage.setItem("evo_api_url", apiUrl);
+    localStorage.setItem("evo_instance", instanceName);
+    localStorage.setItem("evo_api_key", apiKey);
+    setSettingsOpen(false);
+    toast.success("Credenciais da Evolution API salvas com sucesso!");
+  };
 
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
@@ -120,9 +132,14 @@ export default function WhatsAppPage() {
       title="WhatsApp"
       subtitle="Conecte seu WhatsApp ao uPixel"
       actions={
-        <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
-          <ArrowLeft className="h-3 w-3" /> Voltar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="text-xs gap-1 opacity-70 hover:opacity-100" onClick={() => setSettingsOpen(true)}>
+            <Settings className="h-3 w-3" /> Credenciais API
+          </Button>
+          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
+            <ArrowLeft className="h-3 w-3" /> Voltar
+          </Button>
+        </div>
       }
     >
       <div className="p-6 animate-fade-in space-y-6">
@@ -372,6 +389,55 @@ export default function WhatsAppPage() {
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Modal */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Settings className="h-4 w-4 text-primary" /> Configurar Credenciais Externas
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">URL da Evolution API (Base)</Label>
+              <Input 
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder="Ex: https://api.suaempresa.com.br"
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Nome da Instância</Label>
+              <Input 
+                value={instanceName}
+                onChange={(e) => setInstanceName(e.target.value)}
+                placeholder="Ex: upixel-instance"
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Global API Key (Autenticação)</Label>
+              <Input 
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Chave do ambiente (Ex: 429384...)"
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setSettingsOpen(false)} className="text-xs">Cancelar</Button>
+            <Button size="sm" className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground" onClick={handleSaveSettings}>
+              Salvar Conexão
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
