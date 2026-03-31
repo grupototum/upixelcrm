@@ -77,6 +77,9 @@ export function useInbox(onLeadCreated?: () => void) {
     (convs || []).forEach(c => {
       const lid = c.lead_id || "unassigned";
       const meta = (c.metadata || {}) as Record<string, any>;
+      
+      // Extract labels from metadata
+      const labels = (meta.labels || []) as { id: string; name: string; color: string }[];
 
       if (!groupedMap[lid]) {
         const lead = leadsMap[lid];
@@ -92,7 +95,7 @@ export function useInbox(onLeadCreated?: () => void) {
           status: c.status || "open",
           priority: meta?.priority || "none",
           assignee_id: meta?.assignee_id || null,
-          labels: [],
+          labels: labels,
           channels: [c.channel],
           source_conversations: [{ id: c.id, channel: c.channel, metadata: meta }],
         };
@@ -101,11 +104,19 @@ export function useInbox(onLeadCreated?: () => void) {
         if (!group.channels.includes(c.channel)) group.channels.push(c.channel);
         group.source_conversations.push({ id: c.id, channel: c.channel, metadata: meta });
         group.unread_count += (c.unread_count || 0);
+        
+        // Merge labels (unique)
+        labels.forEach(l => {
+          if (!group.labels.some(gl => gl.id === l.id)) group.labels.push(l);
+        });
 
         if (c.last_message_at && (!group.last_message_at || new Date(c.last_message_at) > new Date(group.last_message_at))) {
           group.last_message = c.last_message;
           group.last_message_at = c.last_message_at;
           group.status = c.status || "open";
+          // Metadata fields from most recent conversation
+          group.priority = meta?.priority || group.priority;
+          group.assignee_id = meta?.assignee_id || group.assignee_id;
         }
       }
     });
@@ -365,6 +376,21 @@ export function useInbox(onLeadCreated?: () => void) {
     toast.success(agentId ? "Agente atribuído" : "Agente removido");
   }, [conversations, loadConversations]);
 
+  // Update conversation labels (stored in metadata)
+  const updateLabels = useCallback(async (conversationId: string, labels: { id: string; name: string; color: string }[]) => {
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select("metadata")
+      .eq("id", conversationId)
+      .single();
+
+    if (conv) {
+      const newMeta = { ...(conv.metadata as any || {}), labels };
+      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", conversationId);
+      loadConversations();
+    }
+  }, [loadConversations]);
+
   // Find or create lead
   const findOrCreateLead = useCallback(async (
     phone?: string, email?: string, name?: string
@@ -477,7 +503,7 @@ export function useInbox(onLeadCreated?: () => void) {
   return {
     conversations, messages, selectedLeadId, loading,
     selectLead, sendMessage, createConversation,
-    updateStatus, updatePriority, assignToAgent,
+    updateStatus, updatePriority, assignToAgent, updateLabels,
     refresh: loadConversations,
   };
 }

@@ -151,11 +151,14 @@ Deno.serve(async (req) => {
         lead_id: leadId,
         channel: "whatsapp",
         status: "open",
-        priority: "medium", // Default priority for new chats
         last_message: content,
         last_message_at: new Date().toISOString(),
         unread_count: 1,
-        metadata: { phone, lead_name: senderName },
+        metadata: { 
+          phone, 
+          lead_name: senderName,
+          priority: "medium", // Default priority for new chats
+        },
       }).select("id").single();
 
       if (convError) {

@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useConversationLabels, ConversationLabel } from "@/hooks/useConversationLabels";
+import { useInbox } from "@/hooks/useInbox";
 
 interface LabelSelectorProps {
   conversationId: string;
@@ -16,16 +17,20 @@ interface LabelSelectorProps {
 }
 
 export function LabelSelector({ conversationId, selectedLabels, onLabelsChange }: LabelSelectorProps) {
-  const { labels, assignToConversation, removeFromConversation } = useConversationLabels();
+  const { labels } = useConversationLabels();
+  const { updateLabels } = useInbox();
   const [open, setOpen] = useState(false);
 
   const toggleLabel = async (label: ConversationLabel) => {
     const isSelected = selectedLabels.some((l) => l.id === label.id);
+    let newLabels;
     if (isSelected) {
-      await removeFromConversation(conversationId, label.id);
+      newLabels = selectedLabels.filter((l) => l.id !== label.id);
     } else {
-      await assignToConversation(conversationId, label.id);
+      newLabels = [...selectedLabels, { id: label.id, name: label.name, color: label.color }];
     }
+    
+    await updateLabels(conversationId, newLabels);
     onLabelsChange();
   };
 
