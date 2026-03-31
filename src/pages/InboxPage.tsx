@@ -5,7 +5,7 @@ import {
   Search, Phone, Video, MoreVertical, Send, Paperclip, Mic,
   Play, Pause, FileText, MessageSquare, CheckSquare, Sparkles, Tag,
   ArrowRight, Plus, User, Building, DollarSign, Globe, Mail,
-  MessageCircle, Loader2, ExternalLink
+  MessageCircle, Loader2, ExternalLink, Users, Lock, Tags
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
 import { AddTagModal } from "@/components/crm/AddTagModal";
 import { CreateTagModal } from "@/components/crm/CreateTagModal";
+import { ConversationActions } from "@/components/inbox/ConversationActions";
+import { LabelSelector } from "@/components/inbox/LabelSelector";
+import { ReplyBox } from "@/components/inbox/ReplyBox";
+import { PriorityBadge } from "@/components/inbox/PriorityBadge";
+import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
 import { useAppState } from "@/contexts/AppContext";
 import { useInbox, type LeadConversation, type Message } from "@/hooks/useInbox";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,14 +119,6 @@ export default function InboxPage() {
 
   const initials = (name: string) =>
     name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
-
-  const handleSend = async () => {
-    if (!message.trim() || sending) return;
-    setSending(true);
-    await inbox.sendMessage(message.trim(), activeConversationId || undefined);
-    setMessage("");
-    setSending(false);
-  };
 
   const handleCreateConversation = async () => {
     const lead = leads.find(l => l.id === newLeadId);
@@ -258,9 +255,13 @@ export default function InboxPage() {
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground truncate leading-relaxed">{c.last_message || "Sem mensagens"}</p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <ConversationStatusBadge status={c.status} />
+                      <PriorityBadge priority={c.priority} />
+                    </div>
                   </div>
                   {c.unread_count > 0 && (
-                    <span className="h-5 min-w-[20px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1.5 shadow-sm">
+                    <span className="h-5 min-w-[20px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1.5 shadow-sm self-center">
                       {c.unread_count}
                     </span>
                   )}
@@ -277,18 +278,23 @@ export default function InboxPage() {
               {/* Chat header */}
               <div className="h-14 px-4 ghost-border border-b flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-sm z-10">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm">
-                    {initials(selectedLeadGroup.lead_name || "?")}
+                  <div className="relative group cursor-pointer" onClick={() => setShowSidebar(!showSidebar)}>
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm group-hover:shadow-md transition-all">
+                      {initials(selectedLeadGroup.lead_name || "?")}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background flex items-center justify-center overflow-hidden">
+                      {(() => {
+                        const Icon = channelIcons[selectedLeadGroup.channels[0]] || MessageCircle;
+                        return <Icon className={`h-full w-full p-0.5 text-white ${channelColors[selectedLeadGroup.channels[0]]}`} />;
+                      })()}
+                    </div>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{selectedLeadGroup.lead_name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{selectedLeadGroup.lead_name}</p>
+                      <ConversationStatusBadge status={selectedLeadGroup.status} />
+                    </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="flex -space-x-1">
-                        {selectedLeadGroup.channels.map((ch, idx) => {
-                          const Icon = channelIcons[ch] || MessageCircle;
-                          return <div key={idx} className={`h-3 w-3 rounded-full border border-background ${channelColors[ch] || "bg-muted"}`} title={channelLabels[ch]} />;
-                        })}
-                      </div>
                       <p className="text-[10px] text-muted-foreground">
                         {selectedLeadGroup.channels.map(ch => channelLabels[ch]).join(" & ")}
                       </p>
@@ -301,22 +307,11 @@ export default function InboxPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-accent hover:text-accent hover:bg-accent/10" onClick={() => toast.info("IA analisando histórico...")}>
-                    <Sparkles className="h-3.5 w-3.5" /> IA
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className={`h-8 w-8 transition-colors ${showSidebar ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
-                    onClick={() => setShowSidebar(!showSidebar)}
-                  >
-                    <User className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </div>
+
+                <ConversationActions 
+                  conversation={selectedLeadGroup} 
+                  onRefresh={() => inbox.refresh()} 
+                />
               </div>
 
               {/* Messages timeline */}
@@ -359,23 +354,33 @@ export default function InboxPage() {
                             {isOutbound && isConsecutive && <div className="w-6" />}
                             
                             <div className={`relative group max-w-[70%] ${isConsecutive ? "mt-0.5" : "mt-3"}`}>
+                              {msg.is_private && (
+                                <div className="flex items-center gap-1 px-2 mb-1">
+                                  <Lock className="h-2.5 w-2.5 text-amber-600" />
+                                  <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wider">Nota Privada</span>
+                                </div>
+                              )}
                               <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                                isOutbound
-                                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                                  : "bg-card border border-border/50 text-foreground rounded-bl-sm"
+                                msg.is_private
+                                  ? "bg-amber-100 border border-amber-200 text-amber-900 rounded-bl-sm"
+                                  : isOutbound
+                                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                                    : "bg-card border border-border/50 text-foreground rounded-bl-sm"
                               }`}>
                                 {msg.content}
                                 <div className={`flex items-center justify-end gap-1.5 mt-1 opacity-70`}>
                                   <span className="text-[9px]">
                                     {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                   </span>
-                                  <ChannelIcon className="h-2.5 w-2.5" />
+                                  {!msg.is_private && <ChannelIcon className="h-2.5 w-2.5" />}
                                 </div>
                               </div>
                             </div>
 
                             {isOutbound && !isConsecutive && (
-                              <div className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0 mb-1">
+                              <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mb-1 ${
+                                msg.is_private ? "bg-amber-500 text-white" : "bg-secondary text-muted-foreground"
+                              }`}>
                                 VC
                               </div>
                             )}
@@ -389,56 +394,21 @@ export default function InboxPage() {
                 )}
               </div>
 
-              {/* Chat Input */}
-              <div className="p-4 ghost-border border-t bg-card/50 backdrop-blur-sm">
-                <div className="max-w-4xl mx-auto space-y-3">
-                  {/* Channel/Number Selector if multiple available */}
-                  {selectedLeadGroup.source_conversations.length > 1 && (
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 px-1 no-scrollbar">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">Responder p/ :</span>
-                      {selectedLeadGroup.source_conversations.map(sc => (
-                        <button
-                          key={sc.id}
-                          onClick={() => setActiveConversationId(sc.id)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-medium transition-all ${
-                            activeConversationId === sc.id
-                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                              : "bg-background text-muted-foreground border-border hover:border-primary/30"
-                          }`}
-                        >
-                          {(() => {
-                            const Icon = channelIcons[sc.channel] || MessageCircle;
-                            return <Icon className="h-3 w-3" />;
-                          })()}
-                          {sc.metadata.phone || sc.metadata.email || sc.channel}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3 bg-background rounded-2xl p-1.5 shadow-sm border border-border/50 focus-within:border-primary/50 transition-colors">
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-secondary">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                    <MessageTemplatePopover onSelect={body => setMessage(body)} />
-                    <Input
-                      className="flex-1 bg-transparent border-none focus-visible:ring-0 shadow-none h-10 text-sm"
-                      placeholder={`Responder via ${selectedLeadGroup.source_conversations.find(s => s.id === activeConversationId)?.channel || "canal"}...`}
-                      value={message}
-                      onChange={e => setMessage(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
-                    />
-                    <Button
-                      size="icon"
-                      className="h-9 w-9 rounded-xl shrink-0 shadow-md"
-                      disabled={!message.trim() || sending}
-                      onClick={handleSend}
-                    >
-                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <ReplyBox
+                onSend={async (text, isPrivate, targetId) => {
+                  setSending(true);
+                  try {
+                    await inbox.sendMessage(text, targetId, isPrivate);
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+                sending={sending}
+                sourceConversations={selectedLeadGroup.source_conversations}
+                activeConversationId={activeConversationId || undefined}
+                setActiveConversationId={id => setActiveConversationId(id)}
+                leadName={selectedLeadGroup.lead_name}
+              />
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
@@ -473,10 +443,9 @@ export default function InboxPage() {
                       <Building className="h-2.5 w-2.5" /> {selectedLead.company}
                     </p>
                   )}
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="text-[9px] font-bold bg-background/50 border border-primary/20 text-primary px-2 py-0.5 rounded-full shadow-sm">
-                      ID: {selectedLead.id.slice(0, 8)}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 mt-3">
+                    <ConversationStatusBadge status={selectedLeadGroup.status} />
+                    <PriorityBadge priority={selectedLeadGroup.priority} />
                     {selectedLead.value && (
                       <span className="text-[9px] font-bold bg-success/15 text-success border border-success/20 px-2 py-0.5 rounded-full shadow-sm">
                         R$ {selectedLead.value.toLocaleString("pt-BR")}
@@ -590,7 +559,36 @@ export default function InboxPage() {
                     </div>
                   </div>
 
-                  {/* Tags */}
+                  {/* Labels (Chatwoot style) */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                         <Tags className="h-3 w-3" /> Etiquetas de Conversa
+                      </p>
+                      <LabelSelector 
+                        conversationId={selectedLeadGroup.source_conversations[0]?.id}
+                        selectedLabels={selectedLeadGroup.labels || []}
+                        onLabelsChange={() => inbox.refresh()}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedLeadGroup.labels && selectedLeadGroup.labels.length > 0 ? (
+                        selectedLeadGroup.labels.map(label => (
+                          <span 
+                            key={label.id} 
+                            style={{ backgroundColor: label.color + '20', color: label.color, borderColor: label.color + '40' }}
+                            className="text-[9px] font-bold border rounded-lg px-2 py-0.5 shadow-sm"
+                          >
+                            {label.name}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic pl-1">Sem etiquetas vinculadas...</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tags (Lead focus) */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">

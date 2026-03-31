@@ -83,11 +83,11 @@ Deno.serve(async (req) => {
 
     // Find or create conversation
     const { data: existingConv } = await adminClient.from("conversations")
-      .select("id, unread_count")
+      .select("id, unread_count, status")
       .eq("client_id", clientId)
       .eq("channel", "whatsapp")
       .eq("metadata->>phone", phone)
-      .single();
+      .maybeSingle();
 
     let convId: string;
     if (existingConv) {
@@ -96,14 +96,16 @@ Deno.serve(async (req) => {
         last_message: content,
         last_message_at: new Date().toISOString(),
         unread_count: (existingConv.unread_count || 0) + 1,
-        status: "open",
+        status: "open", // Reopen if closed/resolved
+        updated_at: new Date().toISOString(),
       }).eq("id", convId);
     } else {
-      // Try to find lead by phone
+      // Try to find lead by phone (last 8 digits to match different formats)
+      const phoneSuffix = phone.length >= 8 ? phone.slice(-8) : phone;
       const { data: lead } = await adminClient.from("leads")
         .select("id, name")
         .eq("client_id", clientId)
-        .or(`phone.ilike.%${phone.slice(-8)}%`)
+        .or(`phone.ilike.%${phoneSuffix}%`)
         .limit(1)
         .maybeSingle();
 
@@ -120,7 +122,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (firstCol) {
-          const { data: newLead } = await adminClient
+          const { data: newLead, error: leadError } = await adminClient
             .from("leads")
             .insert({
               client_id: clientId,
@@ -136,22 +138,31 @@ Deno.serve(async (req) => {
           if (newLead) {
             leadId = newLead.id;
             console.log("Created new lead from WhatsApp:", senderName, leadId);
+          } else if (leadError) {
+            console.error("Error creating lead:", leadError);
           }
+        } else {
+          console.error("No pipeline columns found for automatic lead creation.");
         }
       }
 
-      const { data: newConv } = await adminClient.from("conversations").insert({
+      const { data: newConv, error: convError } = await adminClient.from("conversations").insert({
         client_id: clientId,
         lead_id: leadId,
         channel: "whatsapp",
         status: "open",
+        priority: "medium", // Default priority for new chats
         last_message: content,
         last_message_at: new Date().toISOString(),
         unread_count: 1,
         metadata: { phone, lead_name: senderName },
       }).select("id").single();
 
-      convId = newConv!.id;
+      if (convError) {
+        console.error("Error creating conversation:", convError);
+        return new Response(JSON.stringify({ error: "Failed to create conversation" }), { status: 500, headers: corsHeaders });
+      }
+      convId = newConv.id;
     }
 
     // Insert message

@@ -12,6 +12,9 @@ export interface LeadConversation {
   last_message_at: string | null;
   unread_count: number;
   status: string;
+  priority: string;
+  assignee_id: string | null;
+  labels: { id: string; name: string; color: string }[];
   channels: string[];
   source_conversations: {
     id: string;
@@ -29,7 +32,9 @@ export interface Message {
   sender_name: string | null;
   metadata: Record<string, any>;
   created_at: string;
-  channel?: string; // Added to identify channel in unified timeline
+  channel?: string;
+  is_private: boolean;
+  content_type: string;
 }
 
 export function useInbox(onLeadCreated?: () => void) {
@@ -42,9 +47,16 @@ export function useInbox(onLeadCreated?: () => void) {
 
   // Load conversations grouped by lead
   const loadConversations = useCallback(async () => {
+    // 1. Fetch conversations with new fields
     const { data: convs, error: convError } = await supabase
       .from("conversations")
-      .select("*")
+      .select(`
+        *,
+        conversation_label_assignments(
+          label_id,
+          conversation_labels(*)
+        )
+      `)
       .order("last_message_at", { ascending: false });
 
     if (convError) {
@@ -52,7 +64,7 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    // Enrich with lead data and group
+    // 2. Fetch leads
     const leadIds = (convs || []).filter(c => c.lead_id).map(c => c.lead_id);
     let leadsMap: Record<string, any> = {};
 
@@ -66,11 +78,19 @@ export function useInbox(onLeadCreated?: () => void) {
       }
     }
 
-    // Grouping logic
+    // 3. Grouping logic
     const groupedMap: Record<string, LeadConversation> = {};
 
     (convs || []).forEach(c => {
-      const lid = c.lead_id || "unassigned"; // Should not happen with auto-create
+      const lid = c.lead_id || "unassigned";
+      
+      // Extract labels
+      const labels = (c.conversation_label_assignments || []).map((la: any) => ({
+        id: la.conversation_labels.id,
+        name: la.conversation_labels.name,
+        color: la.conversation_labels.color,
+      }));
+
       if (!groupedMap[lid]) {
         const lead = leadsMap[lid];
         groupedMap[lid] = {
@@ -83,20 +103,30 @@ export function useInbox(onLeadCreated?: () => void) {
           last_message_at: c.last_message_at,
           unread_count: c.unread_count || 0,
           status: c.status || "open",
+          priority: c.priority || "none",
+          assignee_id: c.assignee_id,
+          labels: labels,
           channels: [c.channel],
           source_conversations: [{ id: c.id, channel: c.channel, metadata: (c.metadata || {}) as Record<string, any> }],
         };
       } else {
-        // Merge
         const group = groupedMap[lid];
         if (!group.channels.includes(c.channel)) group.channels.push(c.channel);
         group.source_conversations.push({ id: c.id, channel: c.channel, metadata: (c.metadata || {}) as Record<string, any> });
         group.unread_count += (c.unread_count || 0);
         
-        // Keep the latest message
+        // Merge labels (unique)
+        labels.forEach((l: any) => {
+          if (!group.labels.some(gl => gl.id === l.id)) group.labels.push(l);
+        });
+
         if (c.last_message_at && (!group.last_message_at || new Date(c.last_message_at) > new Date(group.last_message_at))) {
           group.last_message = c.last_message;
           group.last_message_at = c.last_message_at;
+          // Most recent conversation fields take precedence for priority/status/assignee in the group
+          group.priority = c.priority || "none";
+          group.status = c.status || "open";
+          group.assignee_id = c.assignee_id;
         }
       }
     });
@@ -268,17 +298,30 @@ export function useInbox(onLeadCreated?: () => void) {
   }, [conversations, projectId, loadMessages, loadConversations]);
 
   // Unified send
-  const sendMessage = useCallback(async (text: string, targetConversationId?: string) => {
+  const sendMessage = useCallback(async (text: string, targetConversationId?: string, isPrivate: boolean = false) => {
     if (!selectedLeadId || !text.trim()) return;
     const leadGroup = conversations.find(c => c.lead_id === selectedLeadId);
     if (!leadGroup) return;
 
-    // Pick channel based on target or last used
     let target = targetConversationId 
       ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
-      : leadGroup.source_conversations[0]; // Most recent by sorting
+      : leadGroup.source_conversations[0];
 
     if (!target) return;
+
+    if (isPrivate) {
+      // Send as private note (local only, no external channel)
+      await supabase.from("messages").insert({
+        conversation_id: target.id,
+        content: text,
+        type: "text",
+        direction: "outbound",
+        sender_name: "Você (Nota Privada)",
+        is_private: true,
+      });
+      await loadMessages(selectedLeadId);
+      return;
+    }
 
     if (target.channel === "whatsapp") {
       await sendWhatsAppMessage(selectedLeadId, text, target.id);
@@ -291,6 +334,7 @@ export function useInbox(onLeadCreated?: () => void) {
         type: "text",
         direction: "outbound",
         sender_name: "Você",
+        is_private: false,
       });
       await supabase.from("conversations").update({
         last_message: text,
@@ -300,6 +344,57 @@ export function useInbox(onLeadCreated?: () => void) {
       await loadConversations();
     }
   }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail, loadMessages, loadConversations]);
+
+  // Update conversation status
+  const updateStatus = useCallback(async (leadId: string, status: string) => {
+    const leadGroup = conversations.find(c => c.lead_id === leadId);
+    if (!leadGroup) return;
+
+    const convIds = leadGroup.source_conversations.map(sc => sc.id);
+    const { error } = await supabase.from("conversations").update({ status }).in("id", convIds);
+    
+    if (error) {
+      toast.error("Erro ao atualizar status");
+      return;
+    }
+    
+    loadConversations();
+    toast.success(`Conversa marcada como ${status}`);
+  }, [conversations, loadConversations]);
+
+  // Update conversation priority
+  const updatePriority = useCallback(async (leadId: string, priority: string) => {
+    const leadGroup = conversations.find(c => c.lead_id === leadId);
+    if (!leadGroup) return;
+
+    const convIds = leadGroup.source_conversations.map(sc => sc.id);
+    const { error } = await supabase.from("conversations").update({ priority }).in("id", convIds);
+    
+    if (error) {
+      toast.error("Erro ao atualizar prioridade");
+      return;
+    }
+    
+    loadConversations();
+    toast.success("Prioridade atualizada");
+  }, [conversations, loadConversations]);
+
+  // Assign conversation to agent
+  const assignToAgent = useCallback(async (leadId: string, agentId: string | null) => {
+    const leadGroup = conversations.find(c => c.lead_id === leadId);
+    if (!leadGroup) return;
+
+    const convIds = leadGroup.source_conversations.map(sc => sc.id);
+    const { error } = await supabase.from("conversations").update({ assignee_id: agentId }).in("id", convIds);
+    
+    if (error) {
+      toast.error("Erro ao atribuir agente");
+      return;
+    }
+    
+    loadConversations();
+    toast.success(agentId ? "Agente atribuído" : "Agente removido");
+  }, [conversations, loadConversations]);
 
   // Auto-recognize lead helper (mostly unchanged but ensures always returns a lead ID)
   const findOrCreateLead = useCallback(async (
@@ -440,6 +535,9 @@ export function useInbox(onLeadCreated?: () => void) {
     selectLead,
     sendMessage,
     createConversation,
+    updateStatus,
+    updatePriority,
+    assignToAgent,
     refresh: loadConversations,
   };
 }
