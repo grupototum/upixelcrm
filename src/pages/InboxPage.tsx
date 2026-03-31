@@ -556,7 +556,7 @@ export default function InboxPage() { // force HMR reset
                                   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                                   return (
                                     <div className="space-y-2 py-1">
-                                      <div className={`flex items-center gap-3 p-2.5 rounded-2xl min-w-[220px] ${isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-border/50'}`}>
+                                      <div className={`flex items-center gap-3 p-2.5 rounded-2xl min-w-[220px] ${!isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-border/50'}`}>
                                         <button
                                           className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all shadow-md ${isOutbound ? 'bg-white/25 hover:bg-white/35 text-white' : 'bg-primary/15 hover:bg-primary/25 text-primary'}`}
                                           onClick={(e) => {
