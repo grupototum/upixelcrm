@@ -7,6 +7,7 @@ interface GoogleStatus {
   email: string | null;
   name: string | null;
   loading: boolean;
+  credentialsConfigured: boolean;
 }
 
 export function useGoogleIntegration() {
@@ -15,6 +16,7 @@ export function useGoogleIntegration() {
     email: null,
     name: null,
     loading: true,
+    credentialsConfigured: false,
   });
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
