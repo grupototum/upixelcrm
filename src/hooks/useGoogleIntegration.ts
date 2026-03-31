@@ -73,7 +73,7 @@ export function useGoogleIntegration() {
           const data = await invokeFunction("callback", { code, redirect_uri: redirectUri });
           toast.dismiss();
           toast.success(`Google conectado: ${data.email}`);
-          setStatus({ connected: true, email: data.email, name: data.name, loading: false });
+          setStatus(s => ({ ...s, connected: true, email: data.email, name: data.name, loading: false }));
         } catch (err: any) {
           toast.dismiss();
           toast.error(`Erro ao conectar: ${err.message}`);
