@@ -56,13 +56,49 @@ Deno.serve(async (req) => {
     }
 
     const clientId = profile.client_id;
+
+    // Actions that don't require Google credentials
+    if (action === "status") {
+      const { data: integration } = await supabase
+        .from("integrations")
+        .select("status, config, token_expires_at")
+        .eq("provider", "google")
+        .single();
+
+      const hasCredentials = !!Deno.env.get("GOOGLE_CLIENT_ID") && !!Deno.env.get("GOOGLE_CLIENT_SECRET");
+
+      return new Response(
+        JSON.stringify({
+          connected: integration?.status === "connected",
+          email: (integration?.config as any)?.email || null,
+          name: (integration?.config as any)?.name || null,
+          expires_at: integration?.token_expires_at || null,
+          credentials_configured: hasCredentials,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "disconnect") {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      await adminClient.from("integrations").update({ status: "disconnected", access_token: null, refresh_token: null })
+        .eq("client_id", clientId).eq("provider", "google");
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // All other actions require Google credentials
     const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID");
     const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET");
 
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
       return new Response(
-        JSON.stringify({ error: "Google OAuth credentials not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET secrets." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Credenciais Google não configuradas. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET como secrets." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
