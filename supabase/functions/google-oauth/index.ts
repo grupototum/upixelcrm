@@ -247,32 +247,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (action === "status") {
-      const { data: integration } = await supabase
-        .from("integrations")
-        .select("status, config, token_expires_at")
-        .eq("provider", "google")
-        .single();
-
-      return new Response(
-        JSON.stringify({
-          connected: integration?.status === "connected",
-          email: (integration?.config as any)?.email || null,
-          name: (integration?.config as any)?.name || null,
-          expires_at: integration?.token_expires_at || null,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (action === "disconnect") {
-      await adminClient.from("integrations").update({ status: "disconnected", access_token: null, refresh_token: null })
-        .eq("client_id", clientId).eq("provider", "google");
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // status and disconnect are handled above (before credential check)
 
     // Proxy Google API calls
     if (action === "gmail-list" || action === "calendar-list" || action === "drive-list" || action === "gmail-send") {
