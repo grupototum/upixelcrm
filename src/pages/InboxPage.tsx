@@ -76,7 +76,7 @@ export default function InboxPage() { // force HMR reset
   // Modal states
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState<string | null>(null);
-  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: string; id?: string } | null>(null);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: string; id?: string; metadata?: Record<string, any> } | null>(null);
   
   // Gallery navigation for Media Viewer
   const allMedia = useMemo(() => 
