@@ -552,7 +552,7 @@ export default function InboxPage() { // force HMR reset
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             const audio = document.getElementById(audioId) as HTMLAudioElement;
-                                            if (audio) audio.paused ? audio.play() : audio.pause();
+                                            if (audio) { if (audio.paused) { audio.play(); } else { audio.pause(); } }
                                           }}
                                         >
                                           <PlayCircle className="h-5 w-5" />
