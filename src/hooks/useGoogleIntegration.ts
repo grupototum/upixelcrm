@@ -46,7 +46,13 @@ export function useGoogleIntegration() {
   const checkStatus = useCallback(async () => {
     try {
       const data = await invokeFunction("status");
-      setStatus({ connected: data.connected, email: data.email, name: data.name, loading: false, credentialsConfigured: data.credentials_configured ?? false });
+      setStatus({
+        connected: data.connected,
+        email: data.email,
+        name: data.name,
+        loading: false,
+        credentialsConfigured: data.credentials_configured ?? false,
+      });
     } catch {
       setStatus(s => ({ ...s, loading: false }));
     }
@@ -60,10 +66,8 @@ export function useGoogleIntegration() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    const _state = params.get("state");
 
     if (code && window.location.pathname === "/google") {
-      // Remove code from URL
       window.history.replaceState({}, "", "/google");
 
       (async () => {
@@ -80,6 +84,14 @@ export function useGoogleIntegration() {
         }
       })();
     }
+  }, [invokeFunction]);
+
+  const saveCredentials = useCallback(async (googleClientId: string, googleClientSecret: string) => {
+    await invokeFunction("save-credentials", {
+      google_client_id: googleClientId,
+      google_client_secret: googleClientSecret,
+    });
+    setStatus(s => ({ ...s, credentialsConfigured: true }));
   }, [invokeFunction]);
 
   const connect = useCallback(async () => {
@@ -112,6 +124,7 @@ export function useGoogleIntegration() {
     ...status,
     connect,
     disconnect,
+    saveCredentials,
     fetchGmailList,
     fetchCalendarList,
     fetchDriveList,

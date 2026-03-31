@@ -1,17 +1,56 @@
+import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Mail, Calendar, HardDrive, CheckCircle2, XCircle, LogIn, ArrowLeft, Loader2 } from "lucide-react";
+import { Mail, Calendar, HardDrive, CheckCircle2, XCircle, LogIn, ArrowLeft, Loader2, Settings, KeyRound, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { GmailTab } from "@/components/google/GmailTab";
 import { CalendarTab } from "@/components/google/CalendarTab";
 import { DriveTab } from "@/components/google/DriveTab";
 import { useNavigate } from "react-router-dom";
 import { useGoogleIntegration } from "@/hooks/useGoogleIntegration";
+import { toast } from "sonner";
 
 export default function GooglePage() {
   const navigate = useNavigate();
   const google = useGoogleIntegration();
+
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [formClientId, setFormClientId] = useState("");
+  const [formClientSecret, setFormClientSecret] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleConnect = () => {
+    if (!google.credentialsConfigured) {
+      setCredentialsOpen(true);
+    } else {
+      google.connect();
+    }
+  };
+
+  const handleSaveAndConnect = async () => {
+    if (!formClientId.trim() || !formClientSecret.trim()) {
+      toast.error("Preencha ambos os campos.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await google.saveCredentials(formClientId.trim(), formClientSecret.trim());
+      toast.success("Credenciais salvas com sucesso!");
+      setCredentialsOpen(false);
+      setFormClientId("");
+      setFormClientSecret("");
+      // Now start OAuth flow
+      setTimeout(() => google.connect(), 500);
+    } catch (err: any) {
+      toast.error(`Erro ao salvar: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <AppLayout
@@ -19,6 +58,11 @@ export default function GooglePage() {
       subtitle={google.connected ? `Conectado como ${google.email}` : "Gmail, Calendar e Drive integrados"}
       actions={
         <div className="flex items-center gap-2">
+          {google.credentialsConfigured && !google.connected && (
+            <Button size="sm" variant="outline" className="text-xs gap-1 opacity-70 hover:opacity-100" onClick={() => setCredentialsOpen(true)}>
+              <Settings className="h-3 w-3" /> Credenciais
+            </Button>
+          )}
           <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
             <ArrowLeft className="h-3 w-3" /> Voltar
           </Button>
@@ -37,7 +81,7 @@ export default function GooglePage() {
             <Button
               size="sm"
               className="text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground ml-2"
-              onClick={google.connect}
+              onClick={handleConnect}
             >
               <LogIn className="h-3.5 w-3.5" /> Conectar com Google
             </Button>
@@ -61,21 +105,13 @@ export default function GooglePage() {
               </svg>
             </div>
             <h2 className="text-lg font-bold text-foreground mb-2">Conecte sua conta Google</h2>
-            <p className="text-sm text-muted-foreground max-w-md mb-2">
+            <p className="text-sm text-muted-foreground max-w-md mb-6">
               Conecte sua conta Google para acessar Gmail, Calendar e Drive diretamente no uPixel.
               Seus dados ficam sincronizados em tempo real.
             </p>
-            {!google.credentialsConfigured && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 max-w-md mb-4">
-                <p className="text-xs text-destructive font-medium">
-                  ⚠️ Credenciais Google não configuradas. Adicione os secrets GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no backend para habilitar a conexão.
-                </p>
-              </div>
-            )}
             <Button
               className="gap-2 bg-primary hover:bg-primary-hover text-primary-foreground"
-              onClick={google.connect}
-              disabled={!google.credentialsConfigured}
+              onClick={handleConnect}
             >
               <LogIn className="h-4 w-4" /> Conectar com Google
             </Button>
@@ -100,6 +136,80 @@ export default function GooglePage() {
           </Tabs>
         )}
       </div>
+
+      {/* Credentials Modal */}
+      <Dialog open={credentialsOpen} onOpenChange={setCredentialsOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" /> Configurar Credenciais Google OAuth
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Para conectar sua conta Google, você precisa criar um projeto OAuth no Google Cloud Console e inserir as credenciais abaixo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Instructions */}
+            <div className="bg-secondary/50 rounded-lg p-3 space-y-2">
+              <p className="text-[11px] font-semibold text-foreground">Como obter as credenciais:</p>
+              <ol className="text-[11px] text-muted-foreground space-y-1 list-decimal list-inside">
+                <li>Acesse o <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="h-2.5 w-2.5" /></a></li>
+                <li>Crie um projeto (ou selecione um existente)</li>
+                <li>Ative as APIs: Gmail, Calendar e Drive</li>
+                <li>Em Credenciais, crie um "ID do cliente OAuth 2.0" (tipo: Aplicativo Web)</li>
+                <li>
+                  Adicione a URI de redirecionamento: <code className="bg-muted px-1 py-0.5 rounded text-[10px] font-mono">{window.location.origin}/google</code>
+                </li>
+                <li>Copie o Client ID e Client Secret gerados</li>
+              </ol>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Google Client ID</Label>
+                <Input
+                  value={formClientId}
+                  onChange={(e) => setFormClientId(e.target.value)}
+                  placeholder="123456789-abcdef.apps.googleusercontent.com"
+                  className="text-xs h-9 bg-secondary font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Google Client Secret</Label>
+                <Input
+                  type="password"
+                  value={formClientSecret}
+                  onChange={(e) => setFormClientSecret(e.target.value)}
+                  placeholder="GOCSPX-..."
+                  className="text-xs h-9 bg-secondary font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="bg-accent/10 border border-accent/30 rounded-lg p-2.5">
+              <p className="text-[10px] text-accent font-medium">
+                🔒 Suas credenciais são armazenadas de forma segura no banco de dados e nunca são expostas no frontend.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" className="text-xs" onClick={() => setCredentialsOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              className="text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+              onClick={handleSaveAndConnect}
+              disabled={saving || !formClientId.trim() || !formClientSecret.trim()}
+            >
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogIn className="h-3 w-3" />}
+              Salvar e Conectar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
