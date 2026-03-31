@@ -130,9 +130,9 @@ export default function GooglePage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="gmail"><GmailTab /></TabsContent>
-            <TabsContent value="calendar"><CalendarTab /></TabsContent>
-            <TabsContent value="drive"><DriveTab /></TabsContent>
+            <TabsContent value="gmail"><GmailTab fetchGmailList={google.fetchGmailList} sendEmail={google.sendEmail} /></TabsContent>
+            <TabsContent value="calendar"><CalendarTab fetchCalendarList={google.fetchCalendarList} /></TabsContent>
+            <TabsContent value="drive"><DriveTab fetchDriveList={google.fetchDriveList} /></TabsContent>
           </Tabs>
         )}
       </div>
