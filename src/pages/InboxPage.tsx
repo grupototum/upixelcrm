@@ -490,10 +490,20 @@ export default function InboxPage() { // force HMR reset
 
                                 {msg.type === "video" && (
                                   <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
-                                    <video src={msg.content} className="max-w-full h-auto max-h-64 rounded-lg" />
-                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
-                                      <PlayCircle className="h-10 w-10 text-white drop-shadow-lg" />
+                                    <video src={msg.content} preload="metadata" className="max-w-full h-auto max-h-64 rounded-lg bg-black" onLoadedData={(e) => {
+                                      const v = e.target as HTMLVideoElement;
+                                      v.currentTime = 0.5;
+                                    }} />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                      <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                                        <PlayCircle className="h-8 w-8 text-white drop-shadow-lg" />
+                                      </div>
                                     </div>
+                                    {msg.metadata?.seconds && (
+                                      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                        {Math.floor(Number(msg.metadata.seconds) / 60)}:{String(Number(msg.metadata.seconds) % 60).padStart(2, '0')}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
