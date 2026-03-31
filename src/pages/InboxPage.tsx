@@ -489,7 +489,7 @@ export default function InboxPage() { // force HMR reset
                                 )}
 
                                 {msg.type === "video" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id })}>
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id, metadata: msg.metadata as Record<string, any> })}>
                                     <video src={msg.content} className="max-w-full h-auto max-h-64 rounded-lg" />
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
                                       <PlayCircle className="h-10 w-10 text-white drop-shadow-lg" />
