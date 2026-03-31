@@ -688,6 +688,7 @@ export default function InboxPage() { // force HMR reset
                         conversationId={selectedLeadGroup.source_conversations[0]?.id}
                         selectedLabels={selectedLeadGroup.labels || []}
                         onLabelsChange={() => inbox.refresh()}
+                        onUpdateLabels={inbox.updateLabels}
                       />
                     </div>
                     <div className="flex flex-wrap gap-1.5">
