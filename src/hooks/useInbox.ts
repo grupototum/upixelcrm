@@ -177,6 +177,25 @@ export function useInbox(onLeadCreated?: () => void) {
     loadMessages(id);
   }, [loadMessages]);
 
+  // Upload file to Supabase Storage
+  const uploadFile = async (file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('whatsapp_media')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('whatsapp_media')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
   // Send message via WhatsApp
   const sendWhatsAppMessage = useCallback(async (leadId: string, text: string, targetConversationId?: string) => {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
@@ -187,7 +206,7 @@ export function useInbox(onLeadCreated?: () => void) {
       : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp");
 
     if (!target) {
-      toast.error("Nenhuma conexão WhatsApp encontrada para este lead.");
+      toast.error("Nenhuma conexão WhatsApp encontrada for este lead.");
       return;
     }
 
@@ -221,6 +240,60 @@ export function useInbox(onLeadCreated?: () => void) {
       await loadConversations();
     } catch (err: any) {
       toast.error(`Erro ao enviar: ${err.message}`);
+    }
+  }, [conversations, projectId, loadMessages, loadConversations]);
+
+  // Send message with media via WhatsApp
+  const sendWhatsAppMedia = useCallback(async (leadId: string, file: File, targetConversationId?: string) => {
+    const leadGroup = conversations.find(c => c.lead_id === leadId);
+    if (!leadGroup) return;
+
+    const target = targetConversationId
+      ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
+      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp");
+
+    if (!target) {
+      toast.error("Nenhuma conexão WhatsApp encontrada.");
+      return;
+    }
+
+    const phone = target.metadata?.phone || leadGroup.lead_phone;
+    if (!phone) {
+      toast.error("Número não encontrado.");
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      // 1. Upload
+      const url = await uploadFile(file);
+
+      // 2. Send via proxy
+      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-media`;
+      const res = await fetch(proxyUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ 
+          phone, 
+          mediaUrl: url, 
+          mediaType: file.type.split('/')[0], // image, video, audio, application
+          fileName: file.name
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to send media via proxy");
+
+      await loadMessages(leadId);
+      await loadConversations();
+      toast.success("Mídia enviada!");
+    } catch (err: any) {
+      toast.error(`Erro ao enviar mídia: ${err.message}`);
     }
   }, [conversations, projectId, loadMessages, loadConversations]);
 
@@ -531,7 +604,7 @@ export function useInbox(onLeadCreated?: () => void) {
     conversations, messages, selectedLeadId, loading,
     selectLead, sendMessage, createConversation,
     updateStatus, updatePriority, assignToAgent, updateLabels,
-    transcribeAudio,
+    transcribeAudio, sendWhatsAppMedia,
     refresh: loadConversations,
   };
 }

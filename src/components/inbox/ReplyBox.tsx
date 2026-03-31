@@ -9,6 +9,7 @@ import { MessageTemplatePopover } from "./MessageTemplatePopover";
 
 interface ReplyBoxProps {
   onSend: (text: string, isPrivate: boolean, targetConversationId?: string) => Promise<void>;
+  onSendMedia: (file: File, targetConversationId?: string) => Promise<void>;
   sending: boolean;
   sourceConversations: any[];
   activeConversationId?: string;
@@ -25,6 +26,7 @@ const channelIcons: Record<string, any> = {
 
 export function ReplyBox({ 
   onSend, 
+  onSendMedia,
   sending, 
   sourceConversations, 
   activeConversationId, 
@@ -36,6 +38,7 @@ export function ReplyBox({
   const [showCannedPicker, setShowCannedPicker] = useState(false);
   const [cannedSearch, setCannedSearch] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -71,10 +74,22 @@ export function ReplyBox({
   };
 
   const handleSend = async () => {
-    if (!message.trim() || sending) return;
     await onSend(message, isPrivate, activeConversationId);
     setMessage("");
     setShowCannedPicker(false);
+  };
+
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await onSendMedia(file, activeConversationId);
+    }
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -146,9 +161,20 @@ export function ReplyBox({
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors">
                 <Plus className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors"
+                onClick={handleFileClick}
+              >
                 <AttachIcon className="h-4 w-4" />
               </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+              />
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors">
                 <Smile className="h-4 w-4" />
               </Button>

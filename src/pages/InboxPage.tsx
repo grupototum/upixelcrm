@@ -7,7 +7,8 @@ import {
   ArrowRight, Plus, User, Building, Globe, Mail,
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
   Check, CheckCheck,
-  File, Download, Maximize2, Headphones, Activity, X
+  File, Download, Maximize2, Headphones, Activity, X,
+  MapPin, UserSquare2, Smile, ChevronLeft, ChevronRight, PlayCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,7 +76,27 @@ export default function InboxPage() { // force HMR reset
   // Modal states
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState<string | null>(null);
-  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: string } | null>(null);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: string; id?: string } | null>(null);
+  
+  // Gallery navigation for Media Viewer
+  const allMedia = useMemo(() => 
+    inbox.messages.filter(m => ["image", "video", "sticker", "file", "document"].includes(m.type)), 
+    [inbox.messages]
+  );
+  
+  const currentMediaIndex = useMemo(() => 
+    mediaViewer ? allMedia.findIndex(m => m.id === mediaViewer.id) : -1,
+    [mediaViewer, allMedia]
+  );
+
+  const navigateMedia = (dir: "prev" | "next") => {
+    if (currentMediaIndex === -1) return;
+    const nextIdx = dir === "next" ? currentMediaIndex + 1 : currentMediaIndex - 1;
+    if (nextIdx >= 0 && nextIdx < allMedia.length) {
+      const m = allMedia[nextIdx];
+      setMediaViewer({ url: m.content, type: m.type, id: m.id });
+    }
+  };
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [createTagModalOpen, setCreateTagModalOpen] = useState(false);
 
@@ -98,13 +119,31 @@ export default function InboxPage() { // force HMR reset
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [inbox.messages]);
 
+  const formatTime = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    
+    if (diff < 60000) return "agora";
+    if (diff < 3600000) return `há ${Math.floor(diff / 60000)}min`;
+    if (diff < 86400000) return `há ${Math.floor(diff / 3600000)}h`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d atrás`;
+    return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  };
+
   const filteredConversations = useMemo(() => {
     let result = inbox.conversations;
-    if (inboxTab === "minhas") {
+    
+    // Status-based Tab Filtering (Chatwoot style)
+    if (inboxTab === "abertas") {
       result = result.filter(t => t.status === "open");
-    } else if (inboxTab === "nao-respondidas") {
-      result = result.filter(t => t.unread_count > 0);
+    } else if (inboxTab === "resolvidas") {
+      result = result.filter(t => t.status === "resolved");
+    } else if (inboxTab === "adiadas") {
+      result = result.filter(t => t.status === "snoozed");
     }
+
     if (channelFilter !== "all") {
       result = result.filter(t => t.channels.includes(channelFilter));
     }
@@ -160,19 +199,19 @@ export default function InboxPage() { // force HMR reset
         <div className="w-80 ghost-border border-r flex flex-col shrink-0">
           <div className="p-3 ghost-border border-b space-y-2">
             <div className="flex items-center justify-between">
-              <div className="flex gap-1">
+              <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
                 {[
-                  { key: "todas", label: "Todas" },
-                  { key: "minhas", label: "Minhas" },
-                  { key: "nao-respondidas", label: "Não respondidas" },
+                  { key: "abertas", label: "Abertas" },
+                  { key: "resolvidas", label: "Resolvidas" },
+                  { key: "adiadas", label: "Adiadas" },
                 ].map(tab => (
                   <button
                     key={tab.key}
                     onClick={() => setInboxTab(tab.key)}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                    className={`px-3 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all ${
                       inboxTab === tab.key
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        ? "bg-background text-primary shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {tab.label}
@@ -252,21 +291,33 @@ export default function InboxPage() { // force HMR reset
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-0.5">
-                      <span className="text-sm font-semibold text-foreground truncate">{c.lead_name}</span>
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                        {c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}
-                      </span>
+                      <span className={`text-[13px] font-bold truncate ${c.unread_count > 0 ? "text-foreground" : "text-foreground/80"}`}>{c.lead_name}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 font-medium">{formatTime(c.last_message_at)}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate leading-relaxed">{c.last_message || "Sem mensagens"}</p>
-                    <div className="flex items-center gap-1.5 mt-1.5">
+                    <div className="flex items-center gap-1">
+                      {c.last_message && c.unread_count === 0 && (
+                        <CheckCheck className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                      )}
+                      <p className={`text-[11px] truncate leading-tight ${c.unread_count > 0 ? "text-foreground font-bold" : "text-muted-foreground"}`}>
+                        {c.last_message || "Sem mensagens"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2">
                       <ConversationStatusBadge status={c.status} />
                       <PriorityBadge priority={c.priority} />
+                      {c.channels.map(ch => {
+                         const Icon = channelIcons[ch] || MessageCircle;
+                         return <Icon key={ch} className="h-2.5 w-2.5 text-muted-foreground/60" />;
+                      })}
                     </div>
                   </div>
                   {c.unread_count > 0 && (
-                    <span className="h-5 min-w-[20px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1.5 shadow-sm self-center">
-                      {c.unread_count}
-                    </span>
+                    <div className="flex flex-col items-end gap-2 self-center">
+                      <div className="h-5 min-w-[20px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1.5 shadow-md animate-in zoom-in duration-300">
+                        {c.unread_count}
+                      </div>
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                    </div>
                   )}
                 </button>
               ))
@@ -293,7 +344,28 @@ export default function InboxPage() { // force HMR reset
                     </div>
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    {/* Chat Header Actions */}
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-secondary/30 rounded-2xl border border-border/20">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 text-[10px] font-bold gap-1.5 hover:bg-green-500/10 hover:text-green-600 transition-colors"
+                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "resolved")}
+                    >
+                      <CheckSquare className="h-3.5 w-3.5" /> RESOLVER
+                    </Button>
+                    <div className="w-px h-4 bg-border/50 mx-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 text-[10px] font-bold gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors"
+                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "snoozed")}
+                    >
+                      <Loader2 className="h-3.5 w-3.5" /> ADIAR
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground">{selectedLeadGroup.lead_name}</p>
                       <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 border border-success/20">
                         <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
@@ -402,7 +474,7 @@ export default function InboxPage() { // force HMR reset
                                     : "bg-card border border-border/50 text-foreground"
                               }`}>
                                 {msg.type === "image" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image" })}>
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id })}>
                                     <img src={msg.content} alt="Imagem" className="max-w-full h-auto object-cover max-h-64 rounded-lg hover:scale-105 transition-transform duration-500" />
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
                                       <Maximize2 className="h-6 w-6 text-white" />
@@ -410,9 +482,51 @@ export default function InboxPage() { // force HMR reset
                                   </div>
                                 )}
 
+                                {msg.type === "sticker" && (
+                                  <div className="flex justify-center p-1 -mx-2 -mt-1 cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "image", id: msg.id })}>
+                                    <img src={msg.content} alt="Sticker" className="w-32 h-32 object-contain hover:scale-110 transition-transform" />
+                                  </div>
+                                )}
+
                                 {msg.type === "video" && (
-                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg">
-                                    <video src={msg.content} className="max-w-full h-auto max-h-64 rounded-lg" controls />
+                                  <div className="relative group/media mb-1 -mx-2 -mt-1 overflow-hidden rounded-lg cursor-pointer" onClick={() => setMediaViewer({ url: msg.content, type: "video", id: msg.id })}>
+                                    <video src={msg.content} className="max-w-full h-auto max-h-64 rounded-lg" />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
+                                      <PlayCircle className="h-10 w-10 text-white drop-shadow-lg" />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {msg.type === "location" && (
+                                  <a 
+                                    href={`https://www.google.com/maps/search/?api=1&query=${msg.metadata?.latitude || ''},${msg.metadata?.longitude || ''}`}
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-border/50 hover:bg-secondary/50 transition-all group"
+                                  >
+                                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                                      <MapPin className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-bold truncate">{msg.metadata?.name || "Localização"}</p>
+                                      <p className="text-[9px] text-muted-foreground uppercase truncate">{msg.metadata?.address || "Ver no Google Maps"}</p>
+                                    </div>
+                                    <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                  </a>
+                                )}
+
+                                {msg.type === "contact" && (
+                                  <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-border/50 group/contact">
+                                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover/contact:bg-primary group-hover/contact:text-white transition-colors">
+                                      <UserSquare2 className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-bold truncate">{msg.metadata?.sender_name || msg.sender_name || "Contato"}</p>
+                                      <p className="text-[9px] text-muted-foreground uppercase truncate">VCard / Contato</p>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => toast.info("Função de salvar contato em breve")}>
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 )}
 
@@ -466,21 +580,21 @@ export default function InboxPage() { // force HMR reset
                                 {(msg.type === "text" || !msg.type) && msg.content}
                                 
                                 <div className={`flex items-center justify-end gap-1.5 mt-1 opacity-70`}>
-                                  <span className="text-[9px]">
+                                  <span className="text-[9px] font-medium">
                                     {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                   </span>
                                   {isOutbound && !msg.is_private && (
-                                    <div className="flex text-primary-foreground/80">
-                                      {msg.metadata?.read ? (
+                                    <div className="flex items-center ml-0.5">
+                                      {msg.metadata?.status === "read" ? (
                                         <CheckCheck className="h-3 w-3 text-white" />
-                                      ) : msg.metadata?.delivered ? (
-                                        <CheckCheck className="h-3 w-3" />
+                                      ) : msg.metadata?.status === "delivered" ? (
+                                        <CheckCheck className="h-3 w-3 opacity-60" />
                                       ) : (
-                                        <Check className="h-3 w-3" />
+                                        <Check className="h-3 w-3 opacity-60" />
                                       )}
                                     </div>
                                   )}
-                                  {!isOutbound && !msg.is_private && <ChannelIcon className="h-2.5 w-2.5" />}
+                                  {!isOutbound && !msg.is_private && <ChannelIcon className="h-2.5 w-2.5 opacity-60" />}
                                 </div>
                               </div>
                             </div>
@@ -507,6 +621,14 @@ export default function InboxPage() { // force HMR reset
                   setSending(true);
                   try {
                     await inbox.sendMessage(text, targetId, isPrivate);
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+                onSendMedia={async (file, targetId) => {
+                  setSending(true);
+                  try {
+                    await inbox.sendWhatsAppMedia(inbox.selectedLeadId!, file, targetId);
                   } finally {
                     setSending(false);
                   }
@@ -632,6 +754,33 @@ export default function InboxPage() { // force HMR reset
                     </div>
                   </div>
 
+                  {/* Lead Analytics (Inspired by Chatwoot) */}
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                       <Activity className="h-3.5 w-3.5" /> Estatísticas do Lead
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-3 bg-secondary/20 rounded-xl border border-border/50">
+                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Mensagens</p>
+                        <p className="text-lg font-heading font-bold text-primary">{inbox.messages.length}</p>
+                      </div>
+                      <div className="p-3 bg-secondary/20 rounded-xl border border-border/50">
+                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Canais</p>
+                        <p className="text-lg font-heading font-bold text-primary">{selectedLeadGroup.channels.length}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2.5 px-1">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-muted-foreground">Primeiro Contato</span>
+                        <span className="font-bold text-foreground/80">{inbox.messages.length > 0 ? new Date(inbox.messages[0].created_at).toLocaleDateString("pt-BR") : "N/A"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-muted-foreground">Última Interação</span>
+                        <span className="font-bold text-foreground/80">{selectedLeadGroup.last_message_at ? new Date(selectedLeadGroup.last_message_at).toLocaleDateString("pt-BR") : "N/A"}</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Tasks */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -731,11 +880,20 @@ export default function InboxPage() { // force HMR reset
               </div>
 
               {/* Bottom Actions */}
-              <div className="p-5 ghost-border border-t bg-secondary/10">
+              <div className="p-5 ghost-border border-t bg-secondary/10 space-y-3">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full text-xs font-bold gap-2 h-9 rounded-xl border-border/50 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                  className="w-full text-xs font-bold gap-2 h-10 rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all shadow-sm"
+                  onClick={() => navigate(`/clients?search=${selectedLeadGroup.lead_name}`)}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> VER NO CRM
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full text-xs font-bold gap-2 h-10 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive transition-all"
                   onClick={() => toast.success("Conversa arquivada")}
                 >
                   <Search className="h-3.5 w-3.5 rotate-45" /> Arquivar Chat
@@ -820,30 +978,75 @@ export default function InboxPage() { // force HMR reset
       )}
       {/* Media Viewer Lightbox */}
       {mediaViewer && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-          <button 
-            onClick={() => setMediaViewer(null)}
-            className="absolute top-6 right-6 h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-white"
-          >
-            <X className="h-6 w-6" />
-          </button>
-          
-          <div className="max-w-5xl max-h-[85vh] overflow-hidden rounded-lg shadow-2xl">
-            {mediaViewer.type === "image" ? (
-              <img src={mediaViewer.url} alt="Full view" className="max-w-full max-h-full object-contain" />
-            ) : (
-              <video src={mediaViewer.url} controls autoPlay className="max-w-full max-h-full" />
-            )}
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-[101]">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
+                {mediaViewer.type === "image" ? <Maximize2 className="h-5 w-5" /> : <PlayCircle className="h-5 w-5" />}
+              </div>
+              <div>
+                <p className="text-white text-sm font-bold uppercase tracking-wider">{mediaViewer.type}</p>
+                <p className="text-white/40 text-[10px]">{currentMediaIndex + 1} de {allMedia.length} arquivos</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <a 
+                href={mediaViewer.url} 
+                download 
+                className="h-12 px-6 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 text-white text-sm font-bold shadow-xl backdrop-blur-sm border border-white/5"
+              >
+                <Download className="h-5 w-5" /> BAIXAR
+              </a>
+              <button 
+                onClick={() => setMediaViewer(null)}
+                className="h-12 w-12 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white shadow-xl backdrop-blur-sm border border-white/5"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
           </div>
           
-          <div className="mt-6 flex items-center gap-4">
-            <a 
-              href={mediaViewer.url} 
-              download 
-              className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-opacity"
-            >
-              <Download className="h-4 w-4" /> BAIXAR ARQUIVO
-            </a>
+          <div className="relative group/gallery w-full h-full flex items-center justify-center">
+            {/* Gallery Navigation */}
+            {currentMediaIndex > 0 && (
+              <button 
+                onClick={() => navigateMedia("prev")}
+                className="absolute left-6 h-14 w-14 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all border border-white/10 backdrop-blur-sm group-hover/gallery:translate-x-0 -translate-x-4 opacity-0 group-hover/gallery:opacity-100"
+              >
+                <ChevronLeft className="h-8 w-8" />
+              </button>
+            )}
+            
+            {currentMediaIndex < allMedia.length - 1 && (
+              <button 
+                onClick={() => navigateMedia("next")}
+                className="absolute right-6 h-14 w-14 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all border border-white/10 backdrop-blur-sm group-hover/gallery:translate-x-0 translate-x-4 opacity-0 group-hover/gallery:opacity-100"
+              >
+                <ChevronRight className="h-8 w-8" />
+              </button>
+            )}
+
+            <div className="max-w-[90vw] max-h-[75vh] overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10">
+              {mediaViewer.type === "image" || mediaViewer.type === "sticker" ? (
+                <img src={mediaViewer.url} alt="Full view" className="max-w-full max-h-full object-contain" />
+              ) : mediaViewer.type === "video" ? (
+                <video src={mediaViewer.url} controls autoPlay className="max-w-full max-h-full" />
+              ) : (
+                <div className="p-20 bg-secondary/20 flex flex-col items-center gap-6">
+                  <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <File className="h-12 w-12" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white text-xl font-bold">Arquivo de Documento</p>
+                    <p className="text-white/40 text-sm mt-1">Este formato não pode ser visualizado diretamente.</p>
+                  </div>
+                  <Button className="font-bold px-8" onClick={() => window.open(mediaViewer.url, '_blank')}>
+                    VER NOVO NAVEGADOR
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
