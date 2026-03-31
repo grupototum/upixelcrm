@@ -165,7 +165,9 @@ export function useInbox(onLeadCreated?: () => void) {
       if (isMedia) {
         const isEncrypted = resolvedContent?.includes(".enc") || resolvedContent?.includes("mmg.whatsapp.net");
         const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent;
-        if ((isEncrypted || isPlaceholder) && meta.media_url && !meta.media_url.includes(".enc")) {
+        
+        // Fallback to metadata media_url if content is not a direct link
+        if ((isEncrypted || isPlaceholder) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
           resolvedContent = meta.media_url;
         }
       }

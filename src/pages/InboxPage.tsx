@@ -1111,7 +1111,7 @@ export default function InboxPage() { // force HMR reset
                   )}
                 </div>
               ) : mediaViewer.type === "video" ? (
-                <div className="relative bg-black flex items-center justify-center min-h-[400px]">
+                <div className="relative bg-black/40 flex items-center justify-center min-h-[450px] w-full rounded-2xl border border-white/5 overflow-hidden shadow-2xl group">
                   {mediaViewer.url && !mediaViewer.url.startsWith("[") && !mediaViewer.url.includes(".enc") ? (
                     <video 
                       src={mediaViewer.url} 
@@ -1120,30 +1120,42 @@ export default function InboxPage() { // force HMR reset
                       muted 
                       playsInline 
                       loop
-                      className="max-w-full max-h-[80vh] object-contain shadow-2xl" 
+                      className="max-w-full max-h-[75vh] rounded-lg" 
                       onLoadedMetadata={(e) => {
                         const video = e.target as HTMLVideoElement;
-                        video.currentTime = 1;
+                        video.currentTime = 0.1;
                       }}
                     />
                   ) : (
-                    <div className="flex flex-col items-center gap-4 text-white">
-                      <div className="h-16 w-16 rounded-full bg-white/10 flex items-center justify-center animate-pulse">
-                        <VideoOff className="h-8 w-8 text-white/40" />
+                    <div className="flex flex-col items-center gap-6 p-12 text-center max-w-md animate-in fade-in zoom-in duration-300">
+                      <div className="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center border border-white/10 ring-4 ring-white/5">
+                        <VideoOff className="h-10 w-10 text-white/30" />
                       </div>
-                      <div className="text-center">
-                        <p className="font-bold text-lg">Vídeo indisponível</p>
-                        <p className="text-sm text-white/40 max-w-[250px] mt-1">Este vídeo ainda está sendo carregado ou possui um formato não suportado.</p>
+                      <div className="space-y-2">
+                        <p className="text-white font-bold text-xl">Vídeo Protegido ou Expirado</p>
+                        <p className="text-sm text-white/40 leading-relaxed">
+                          O WhatsApp protege estas mídias com criptografia de ponta a ponta. Tente abrir o link original ou baixar o arquivo para o seu dispositivo.
+                        </p>
                       </div>
-                      <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-white" onClick={() => window.open(mediaViewer.url, '_blank')}>
-                        <ExternalLink className="h-3 w-3 mr-1.5" /> Abrir Original
-                      </Button>
+                      <div className="flex flex-col w-full gap-3">
+                        <Button className="w-full font-bold h-11 gap-2 shadow-lg" onClick={() => window.open(mediaViewer.url, '_blank')}>
+                          <ExternalLink className="h-4 w-4" /> ABRIR ORIGINAL
+                        </Button>
+                        {mediaViewer.url && (
+                          <Button variant="outline" className="w-full h-11 gap-2 border-white/10 hover:bg-white/5 text-white" asChild>
+                            <a href={mediaViewer.url} download target="_blank" rel="noopener noreferrer">
+                              <Download className="h-4 w-4" /> BAIXAR VÍDEO
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                   {mediaViewer.metadata?.caption && (
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-black/60 backdrop-blur-md rounded-2xl text-white text-center border border-white/10 max-w-[80%]">
-                      <p className="text-xs font-semibold tracking-wide uppercase opacity-60 mb-1">Legenda</p>
-                      <p className="text-sm font-medium">{mediaViewer.metadata.caption}</p>
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl max-w-[85%] animate-in slide-in-from-bottom-4 duration-500">
+                      <p className="text-white text-sm font-medium leading-relaxed italic text-center">
+                        "{mediaViewer.metadata.caption}"
+                      </p>
                     </div>
                   )}
                 </div>

@@ -128,7 +128,11 @@ async function downloadAndStoreMedia(
         },
         body: JSON.stringify({
           message: {
-            key: messageKey,
+            key: {
+              id: messageKey.id || "",
+              remoteJid: messageKey.remoteJid || "",
+              fromMe: messageKey.fromMe || false,
+            },
           },
           convertToMp4: msgType === "video",
         }),
@@ -159,20 +163,24 @@ async function downloadAndStoreMedia(
       "audio/mpeg": "mp3",
       "audio/mp4": "m4a",
       "video/mp4": "mp4",
+      "video/mpeg": "mpeg",
+      "video/quicktime": "mov",
+      "video/x-matroska": "mkv",
       "video/3gpp": "3gp",
       "application/pdf": "pdf",
+      "application/msword": "doc",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+      "application/vnd.ms-excel": "xls",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
     };
 
     const cleanMime = (mimetype || "application/octet-stream").split(";")[0].trim();
     const ext = extMap[mimetype] || extMap[cleanMime] || "bin";
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
-    // Decode base64 and upload
-    const binaryStr = atob(base64Data);
-    const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
-    }
+    // Decode base64 and upload (Optimized)
+    const binary = atob(base64Data);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
 
     const { error: uploadError } = await adminClient.storage
       .from("whatsapp_media")
