@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield } from "lucide-react";
+import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,65 +15,81 @@ interface Integration {
   id: string;
   name: string;
   description: string;
-  icon: React.ElementType;
+  icon: any;
   color: string;
-  status: "connected" | "disconnected" | "coming_soon";
+  status: string;
   category: "channel" | "developer" | "email";
   configRoute?: string;
 }
 
+interface IntegrationCardProps {
+  key?: string | number;
+  integration: any;
+  active: boolean;
+  onToggle: (v: boolean) => void;
+  onConfigure: () => void;
+}
+
 const integrations: Integration[] = [
-  { id: "whatsapp", name: "WhatsApp Lite", description: "Conexão rápida via QR Code. Ideal para uso pessoal e testes imediatos.", icon: MessageCircle, color: "text-accent", status: "connected", category: "channel", configRoute: "/whatsapp" },
-  { id: "whatsapp_official", name: "WhatsApp Business", description: "API Oficial da Meta. Conexão estável e recomendada para escala e automações.", icon: Shield, color: "text-success", status: "connected", category: "channel", configRoute: "/whatsapp" },
+  { id: "whatsapp", name: "WhatsApp", description: "Conecte seu WhatsApp via API Oficial (Meta) ou QR Code (Lite) para atendimento omnichannel.", icon: MessageCircle, color: "text-success", status: "disconnected", category: "channel", configRoute: "/whatsapp" },
   { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "coming_soon", category: "channel" },
-  { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "connected", category: "channel", configRoute: "/google" },
-  { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "connected", color: "text-accent", category: "developer" },
-  { id: "api", name: "API uPixel", description: "Acesse a API REST do uPixel para integrações personalizadas.", icon: Code, status: "connected", color: "text-primary", category: "developer" },
+  { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "disconnected", category: "channel", configRoute: "/google" },
+  { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "disconnected", color: "text-accent", category: "developer" },
+  { id: "api", name: "API uPixel", description: "Acesse a API REST do uPixel para integrações personalizadas.", icon: Code, status: "disconnected", color: "text-primary", category: "developer" },
   { id: "smtp", name: "E-mail (SMTP)", description: "Configure envio de e-mails transacionais e notificações pelo sistema.", icon: Mail, status: "coming_soon", color: "text-muted-foreground", category: "email" },
 ];
 
-const STORAGE_KEY = "upixel_integration_toggles";
-
-function loadToggles(): Record<string, boolean> {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return { whatsapp: true, whatsapp_official: true, google: false, webhook: true, api: true };
-}
-
-function saveToggles(toggles: Record<string, boolean>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toggles));
-}
-
-function StatusBadge({ status, active }: { status: Integration["status"]; active: boolean }) {
-  if (status === "coming_soon") return <ComingSoonBadge />;
-  if (status === "connected" && active) return <Badge className="bg-success/15 text-success border-success/30 text-[10px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> Ativo</Badge>;
-  if (status === "connected" && !active) return <Badge variant="outline" className="text-[10px] gap-1"><XCircle className="h-2.5 w-2.5" /> Inativo</Badge>;
-  return <Badge variant="outline" className="text-[10px]">Inativo</Badge>;
-}
-
 export default function IntegrationsPage() {
   const navigate = useNavigate();
-  const [activeToggles, setActiveToggles] = useState<Record<string, boolean>>(loadToggles);
+  const [loading, setLoading] = useState(true);
+  const [realStatuses, setRealStatuses] = useState<Record<string, string>>({});
   const [apiModalOpen, setApiModalOpen] = useState(false);
   const [webhookModalOpen, setWebhookModalOpen] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
-  // Persist toggle changes
   useEffect(() => {
-    saveToggles(activeToggles);
-  }, [activeToggles]);
+    async function fetchStatuses() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-  const channels = integrations.filter(i => i.category === "channel");
-  const devTools = integrations.filter(i => i.category !== "channel");
+        const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).single();
+        if (!profile) return;
+
+        const { data: ints } = await supabase
+          .from("integrations")
+          .select("provider, status")
+          .eq("client_id", profile.client_id);
+
+        const statusMap: Record<string, string> = {};
+        ints?.forEach(i => {
+          statusMap[i.provider] = i.status;
+        });
+        
+        // WhatsApp special handling: if any of the two are connected, the unified card is "connected"
+        if (statusMap["whatsapp"] === "connected" || statusMap["whatsapp_official"] === "connected") {
+          statusMap["whatsapp_unified"] = "connected";
+        } else if (statusMap["whatsapp"] === "configured" || statusMap["whatsapp_official"] === "configured") {
+          statusMap["whatsapp_unified"] = "configured";
+        } else {
+          statusMap["whatsapp_unified"] = "disconnected";
+        }
+
+        setRealStatuses(statusMap);
+        setProjectId(import.meta.env.VITE_SUPABASE_PROJECT_ID);
+      } catch (error) {
+        console.error("Error fetching statuses:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStatuses();
+  }, []);
 
   const handleToggle = (id: string, value: boolean) => {
-    setActiveToggles(p => ({ ...p, [id]: value }));
-    if (value) {
-      toast.success(`${integrations.find(i => i.id === id)?.name} ativado.`);
-    } else {
-      toast.info(`${integrations.find(i => i.id === id)?.name} desativado.`);
-    }
+    // For now, toggling from this page is mainly restricted to configuration redirect
+    // but we can add logic to enable/disable via API if needed
+    toast.info("Acesse as configurações para ativar/desativar esta integração.");
   };
 
   const handleConfigure = (id: string) => {
@@ -84,16 +101,26 @@ export default function IntegrationsPage() {
     }
   };
 
-  const activeCount = Object.values(activeToggles).filter(Boolean).length;
+  const integrationsWithStatus = integrations.map(int => ({
+    ...int,
+    status: (int.id === "whatsapp" ? realStatuses["whatsapp_unified"] : realStatuses[int.id]) || int.status
+  }));
 
+  const channels = integrationsWithStatus.filter(i => i.category === "channel");
+  const devTools = integrationsWithStatus.filter(i => i.category !== "channel");
+
+  // Count active unique integrations
+  const activeCount = integrationsWithStatus.filter(i => i.status === "connected").length;
+
+  const B = Badge as any;
   return (
     <AppLayout
       title="Integrações"
       subtitle="Conecte seus canais e ferramentas ao uPixel"
       actions={
-        <Badge variant="outline" className="text-[10px] gap-1.5 px-2 py-1">
+        <B variant="outline" className="text-[10px] gap-1.5 px-2 py-1">
           <CheckCircle2 className="h-3 w-3 text-success" /> {activeCount} integração{activeCount !== 1 ? "ões" : ""} ativa{activeCount !== 1 ? "s" : ""}
-        </Badge>
+        </B>
       }
     >
       <div className="p-6 space-y-8 animate-fade-in">
@@ -101,15 +128,19 @@ export default function IntegrationsPage() {
         <div>
           <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Canais de comunicação</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {channels.map((int) => (
-              <IntegrationCard
-                key={int.id}
-                integration={int}
-                active={activeToggles[int.id] ?? false}
-                onToggle={(v) => handleToggle(int.id, v)}
-                onConfigure={() => handleConfigure(int.id)}
-              />
-            ))}
+            {loading ? (
+              Array(3).fill(0).map((_, i) => <div key={i} className="h-44 bg-card/50 ghost-border rounded-xl animate-pulse" />)
+            ) : (
+              channels.map((int) => (
+                <IntegrationCard
+                  key={int.id}
+                  integration={int}
+                  active={int.status === "connected" || int.status === "configured"}
+                  onToggle={(v) => handleToggle(int.id, v)}
+                  onConfigure={() => handleConfigure(int.id)}
+                />
+              ))
+            )}
           </div>
         </div>
 
@@ -117,15 +148,19 @@ export default function IntegrationsPage() {
         <div>
           <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Ferramentas e APIs</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {devTools.map((int) => (
-              <IntegrationCard
-                key={int.id}
-                integration={int}
-                active={activeToggles[int.id] ?? false}
-                onToggle={(v) => handleToggle(int.id, v)}
-                onConfigure={() => handleConfigure(int.id)}
-              />
-            ))}
+            {loading ? (
+              Array(2).fill(0).map((_, i) => <div key={i} className="h-44 bg-card/50 ghost-border rounded-xl animate-pulse" />)
+            ) : (
+              devTools.map((int) => (
+                <IntegrationCard
+                  key={int.id}
+                  integration={int}
+                  active={int.status === "connected" || int.status === "configured"}
+                  onToggle={(v) => handleToggle(int.id, v)}
+                  onConfigure={() => handleConfigure(int.id)}
+                />
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -136,7 +171,15 @@ export default function IntegrationsPage() {
   );
 }
 
-function IntegrationCard({ integration: int, active, onToggle, onConfigure }: { integration: Integration; active: boolean; onToggle: (v: boolean) => void; onConfigure: () => void }) {
+function StatusBadge({ status, active }: { status: string; active?: boolean }) {
+  const B = Badge as any;
+  if (status === "coming_soon") return <ComingSoonBadge />;
+  if (status === "connected") return <B variant="success" className="bg-success/15 text-success border-success/30 text-[10px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> Conectado</B>;
+  if (status === "configured") return <B className="bg-primary/15 text-primary border-primary/30 text-[10px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> Configurado</B>;
+  return <B variant="outline" className="text-[10px] gap-1 text-muted-foreground opacity-60"><XCircle className="h-2.5 w-2.5" /> Inativo</B>;
+}
+
+function IntegrationCard({ integration: int, active, onToggle, onConfigure }: IntegrationCardProps) {
   const isAvailable = int.status !== "coming_soon";
 
   return (
@@ -156,14 +199,14 @@ function IntegrationCard({ integration: int, active, onToggle, onConfigure }: { 
           <>
             <div className="flex items-center gap-2">
               <Switch checked={active} onCheckedChange={onToggle} className="scale-90" />
-              <span className={`text-xs ${active ? 'text-success font-medium' : 'text-muted-foreground'}`}>{active ? "Ativo" : "Inativo"}</span>
+              <span className={`text-xs ${active ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{active ? "Ativo" : "Inativo"}</span>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary" onClick={onConfigure}>
-              Configurar <ExternalLink className="h-3 w-3" />
+            <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary hover:bg-primary/5 rounded-lg" onClick={onConfigure}>
+              Gerenciar <ExternalLink className="h-3 w-3" />
             </Button>
           </>
         ) : (
-          <Button variant="outline" size="sm" className="text-xs w-full" disabled>
+          <Button variant="outline" size="sm" className="text-xs w-full rounded-lg" disabled>
             Em breve
           </Button>
         )}
