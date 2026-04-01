@@ -1,53 +1,42 @@
 
 
-## Plano: Corrigir problemas na aba de Automações
+## Fix: Build error and WhatsApp Official API integration
 
-### Problema raiz
-A tabela `automations` **nao existe** no banco de dados. Todas as operacoes (SELECT, INSERT, DELETE) retornam 404 com `PGRST205: Could not find the table 'public.automations'`. Isso causa o erro "Erro ao criar fluxo" e impede qualquer funcionalidade na aba de Automacoes Complexas.
+### Problem
+1. **Build error**: `useInbox.ts` queries a `category` column that doesn't exist on the `leads` table. This breaks the entire app.
+2. **WhatsApp Official API**: The backend (`whatsapp-proxy`) already supports the official type, but the send/receive flow in the Inbox needs to work with both `whatsapp` and `whatsapp_official` channels.
 
-Alem disso, o console mostra um warning de ref em `ComplexTab` (componente funcional recebendo ref do Radix Tabs).
+### Plan
 
-### Alteracoes
+**Step 1: Fix the build error in `useInbox.ts`**
+- Remove `category` from the `.select()` query on the `leads` table (line 68)
+- Remove `category` from the `LeadConversation` interface or default it from another field (e.g., derive from `origin` or hardcode `"lead"`)
+- Replace `lead?.category || "lead"` with just `"lead"` since the column doesn't exist
 
-**1. Criar tabela `automations` no banco de dados (migracao SQL)**
+**Step 2: Verify WhatsApp Official API flow**
+- The `whatsapp-proxy` edge function already handles `type=official` for save-config, connect, status, disconnect, send-message, and send-media
+- The `whatsapp-webhook` edge function needs to handle incoming messages from the official API (different payload format from Meta vs Evolution API Baileys)
+- Ensure the Inbox correctly displays conversations from both `whatsapp` and `whatsapp_official` channels
 
-```sql
-CREATE TABLE public.automations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id text NOT NULL DEFAULT 'c1',
-  name text NOT NULL,
-  status text NOT NULL DEFAULT 'draft',
-  trigger_type text,
-  nodes jsonb NOT NULL DEFAULT '[]'::jsonb,
-  edges jsonb NOT NULL DEFAULT '[]'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+**Step 3: Update `whatsapp-webhook` for Official API payloads**
+- Meta's webhook payload structure differs from Evolution API's Baileys format
+- Add parsing logic for Meta's `entry[].changes[].value.messages[]` structure
+- Extract sender phone, message text, and media from the official format
+- Store with `channel: "whatsapp_official"` in conversations/messages
 
-ALTER TABLE public.automations ENABLE ROW LEVEL SECURITY;
+**Step 4: Ensure Inbox handles both channels**
+- Verify `useInbox.ts` send functions pass the correct `type` parameter based on the conversation's channel
+- Ensure reply from Inbox routes through the correct provider (`whatsapp` vs `whatsapp_official`)
 
-CREATE POLICY "Allow all access to automations"
-  ON public.automations FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
+### Technical Details
 
-CREATE TRIGGER update_automations_updated_at
-  BEFORE UPDATE ON public.automations
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at_column();
-```
+**`useInbox.ts` changes:**
+- Line 11: Change `category: string` to `category?: string` or remove entirely
+- Line 68: Change select to `"id, name, phone, email, company, origin"`
+- Line 93: Use `origin` field or default `"lead"`
 
-**2. Remover type assertions `(supabase.from as any)` no AppContext**
-
-Apos a migracao, os tipos serao regenerados automaticamente e incluirao a tabela `automations`. As chamadas `(supabase.from as any)("automations")` serao substituidas por `supabase.from("automations")` com tipagem correta.
-
-**3. Corrigir warning de ref no ComplexTab**
-
-Envolver o componente `ComplexTab` com `React.forwardRef` para resolver o warning do Radix Tabs.
-
-### Resultado esperado
-- Criar, listar, editar e excluir automacoes complexas funcionara sem erros
-- O builder de fluxos abrira corretamente apos criar um novo fluxo
-- Warning de ref eliminado do console
+**`whatsapp-webhook` changes:**
+- Add a code path that detects Meta's official webhook format (presence of `entry` array with `changes`)
+- Parse message content, sender info, and media URLs from Meta's structure
+- Media from official API uses different download endpoints (Graph API with access token)
 
