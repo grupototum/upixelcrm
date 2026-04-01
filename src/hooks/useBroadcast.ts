@@ -8,19 +8,41 @@ export type BroadcastRoute = "free" | "official";
 export interface Template {
   id: string;
   name: string;
-  category: "UTILITY" | "MARKETING";
+  category: "MARKETING" | "UTILITY" | "AUTHENTICATION" | "SERVICE";
   content: string;
+  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 }
 
-const MOCK_TEMPLATES: Template[] = [
-  { id: "1", name: "order_confirmation", category: "UTILITY", content: "Olá {{1}}, seu pedido {{2}} foi confirmado!" },
-  { id: "2", name: "promotion_flash", category: "MARKETING", content: "Oferta imperdível! Use o cupom {{1}} e ganhe 20% OFF." },
-];
+// Meta 2024 Category-based Pricing for Brazil (Approx in Credits: 1 Credit = R$ 0,50)
+export const META_RATES = {
+  MARKETING: 1.24,   // ~R$ 0,62
+  UTILITY: 0.70,     // ~R$ 0,35
+  AUTHENTICATION: 0.60, // ~R$ 0,30
+  SERVICE: 0.60,      // ~R$ 0,30 (User-initiated)
+  FREE: 0,
+};
 
 export function useBroadcast() {
   const queryClient = useQueryClient();
   const [isInside24h, setIsInside24h] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  // Fetch real templates balance
+  const { data: templates = [] } = useQuery({
+    queryKey: ["whatsapp-templates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_templates")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching templates:", error);
+        return [];
+      }
+      return data as Template[];
+    }
+  });
 
   // Fetch real credits balance
   const { data: creditsData, isLoading: loadingCredits } = useQuery({
@@ -38,28 +60,48 @@ export function useBroadcast() {
         .eq("client_id", profile.client_id)
         .single();
       
-      if (error && error.code !== "PGRST116") { // PGRST116 is "No rows found"
+      if (error && error.code !== "PGRST116") {
         console.error("Error fetching credits:", error);
         return 0;
       }
-      
       return data?.balance || 0;
     }
   });
 
   const credits = creditsData ?? 0;
 
-  const calculateCost = useCallback((count: number, route: BroadcastRoute) => {
+  const calculateCost = useCallback((count: number, route: BroadcastRoute, category?: Template["category"]) => {
     if (route === "free") return 0;
-    return isInside24h ? 0 : count;
+    if (isInside24h) return 0; // First 24h is usually free for service
+    
+    // Official route outside 24h window
+    if (!category) return count; // Default 1 credit
+    return count * (META_RATES[category] || 1);
   }, [isInside24h]);
+
+  const createTemplate = async (template: Omit<Template, "id" | "status">) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user?.id).single();
+    
+    if (!profile) throw new Error("Client not found");
+
+    const { data, error } = await supabase.from("whatsapp_templates").insert({
+      ...template,
+      client_id: profile.client_id,
+      status: "PENDING"
+    }).select().single();
+
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
+    return data;
+  };
 
   const sendBroadcast = useCallback(async (
     count: number, 
     route: BroadcastRoute, 
     template?: Template
   ) => {
-    const cost = calculateCost(count, route);
+    const cost = calculateCost(count, route, template?.category);
 
     if (credits < cost) {
       toast.error("Saldo de créditos insuficiente!");
@@ -69,10 +111,8 @@ export function useBroadcast() {
     setLoading(true);
     
     try {
-      // 1. Simulate Evolution API call or real broadcast
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // 2. Debit credits if applicable
       if (cost > 0) {
          const { data: { user } } = await supabase.auth.getUser();
          const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user?.id).single();
@@ -103,8 +143,9 @@ export function useBroadcast() {
     isInside24h,
     setIsInside24h,
     loading,
-    templates: MOCK_TEMPLATES,
+    templates,
     calculateCost,
-    sendBroadcast
+    sendBroadcast,
+    createTemplate
   };
 }
