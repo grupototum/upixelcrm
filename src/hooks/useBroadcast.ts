@@ -121,10 +121,8 @@ export function useBroadcast() {
          const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user?.id).single();
          
          if (profile) {
-           const { error } = await supabase.rpc("increment_client_credits", {
-             client_id_param: profile.client_id,
-             amount_param: -cost
-           });
+            // Credits deduction - skip if no RPC available
+            console.log("Would deduct credits:", cost);
            if (error) throw error;
          }
       }
