@@ -205,7 +205,8 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
                 {evts.map((evt, idx) => (
                   <div
                     key={evt.id}
-                    className="group relative h-full flex flex-col bg-card border border-border/40 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300"
+                    onClick={() => handleOpenEvent(evt.htmlLink)}
+                    className="group relative h-full flex flex-col bg-card border border-border/40 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300 cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className={`shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${idx % 2 === 0 ? 'from-blue-500/20 to-blue-500/5' : 'from-primary/20 to-primary/5'} flex items-center justify-center`}>

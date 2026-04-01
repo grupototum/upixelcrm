@@ -194,6 +194,7 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
             return (
               <div
                 key={file.id}
+                onClick={() => handleOpenFile(file.webViewLink)}
                 className="group relative bg-card border border-border/40 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300 cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-4">
@@ -260,7 +261,11 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
               {filtered.map((file) => {
                 const Icon = file.icon;
                 return (
-                  <tr key={file.id} className="group hover:bg-secondary/40 transition-colors">
+                  <tr 
+                    key={file.id} 
+                    onClick={() => handleOpenFile(file.webViewLink)}
+                    className="group hover:bg-secondary/40 transition-colors cursor-pointer"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0", fileIcons[file.type].bgColor)}>

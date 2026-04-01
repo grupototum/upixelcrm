@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 interface GmailTabProps {
   fetchGmailList: () => Promise<any>;
+  fetchEmailMessage: (id: string) => Promise<any>;
   sendEmail: (to: string, subject: string, body: string) => Promise<any>;
 }
 
@@ -217,6 +218,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
             {filtered.map((email) => (
               <div
                 key={email.id}
+                onClick={() => handleOpenEmail(email)}
                 className={cn(
                   "group relative w-full text-left px-6 py-4 flex items-start gap-4 hover:bg-secondary/40 transition-all duration-200 cursor-pointer",
                   !email.read && "bg-primary/[0.02]"
@@ -274,6 +276,56 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
           </div>
         </div>
       )}
+
+      {/* View Email Dialog */}
+      <Dialog open={!!viewEmail} onOpenChange={(open) => !open && setViewEmail(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-3xl border-none shadow-2xl bg-card p-0">
+          {viewEmail && (
+            <>
+              <DialogHeader className="p-6 border-b border-border/20">
+                <DialogTitle className="text-sm font-bold leading-tight mb-2">
+                  {viewEmail.subject}
+                </DialogTitle>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                    {viewEmail.from.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[12px] font-bold text-foreground">{viewEmail.from}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{viewEmail.date}</span>
+                  </div>
+                </div>
+              </DialogHeader>
+              
+              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+                {viewLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-xs text-muted-foreground">Carregando mensagem...</span>
+                  </div>
+                ) : (
+                  <div 
+                    className="email-content text-sm text-foreground/90 leading-relaxed overflow-x-hidden pt-2"
+                    dangerouslySetInnerHTML={{ __html: viewEmail.body }}
+                  />
+                )}
+              </div>
+              
+              <DialogFooter className="p-4 border-t border-border/20 bg-secondary/10 gap-2">
+                <Button variant="ghost" size="sm" className="text-xs rounded-xl h-9" onClick={() => setViewEmail(null)}>Fechar</Button>
+                <Button size="sm" className="text-xs h-9 px-4 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-bold gap-2" onClick={() => { 
+                  setTo(viewEmail.from.match(/<(.+?)>/)?.[1] || viewEmail.from);
+                  setSubject(`Re: ${viewEmail.subject}`);
+                  setViewEmail(null);
+                  setComposeOpen(true);
+                }}>
+                  <Inbox className="h-3.5 w-3.5" /> Responder
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
         <DialogContent className="sm:max-w-lg rounded-3xl border-none shadow-2xl bg-card">
