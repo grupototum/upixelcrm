@@ -56,9 +56,10 @@ export function useBroadcast() {
       const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).single();
       if (!profile) return 0;
 
-      const { data, error } = await supabase
-        .from("client_credits")
-        .select("balance")
+      const { data, error } = await (supabase
+        .from("integrations") as any)
+        .select("config")
+        .eq("provider", "client_credits")
         .eq("client_id", profile.client_id)
         .single();
       
@@ -66,7 +67,7 @@ export function useBroadcast() {
         console.error("Error fetching credits:", error);
         return 0;
       }
-      return data?.balance || 0;
+      return (data?.config as any)?.balance || 0;
     }
   });
 
