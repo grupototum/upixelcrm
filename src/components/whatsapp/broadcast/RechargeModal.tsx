@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { 
-  CreditCard, PIX, CheckCircle2, Loader2, AlertCircle, 
+  CreditCard, CheckCircle2, Loader2, AlertCircle, 
   ArrowRight, QrCode, Copy, ExternalLink, Info, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

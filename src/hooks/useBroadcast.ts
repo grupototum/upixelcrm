@@ -32,16 +32,17 @@ export function useBroadcast() {
   const { data: templates = [] } = useQuery({
     queryKey: ["whatsapp-templates"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_templates")
+      const { data, error } = await (supabase
+        .from("integrations") as any)
         .select("*")
+        .eq("provider", "whatsapp_template")
         .order("created_at", { ascending: false });
       
       if (error) {
         console.error("Error fetching templates:", error);
         return [];
       }
-      return data as Template[];
+      return (data || []) as Template[];
     }
   });
 
