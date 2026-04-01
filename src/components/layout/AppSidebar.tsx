@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
-  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut,
+  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
@@ -18,6 +18,7 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "CRM", url: "/crm", icon: Kanban },
+  { title: "Contatos", url: "/contacts", icon: Handshake },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Automações", url: "/automations", icon: Zap },
   { title: "Inteligência", url: "/intelligence", icon: Brain },

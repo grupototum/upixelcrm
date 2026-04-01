@@ -62,7 +62,6 @@ export default function CRMPage() {
     addLead, updateLead, deleteLead, moveLead 
   } = useAppState();
 
-  const [activeCategory, setActiveCategory] = useState<Lead["category"]>("lead");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showNewPipeline, setShowNewPipeline] = useState(false);
@@ -104,8 +103,8 @@ export default function CRMPage() {
   const filteredLeads = useMemo(() => {
     let result = leads;
     
-    // Primary Category Filter
-    result = result.filter(l => (l.category || "lead") === activeCategory);
+    // Primary Category Filter - Only Leads
+    result = result.filter(l => (l.category || "lead") === "lead");
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -132,7 +131,7 @@ export default function CRMPage() {
       result = result.filter((l) => (l.value ?? 0) <= max);
     }
     return result;
-  }, [leads, searchQuery, crmFilters, activeCategory]);
+  }, [leads, searchQuery, crmFilters]);
 
   function handleDragStart(event: DragStartEvent) {
     const lead = leads.find((l) => l.id === event.active.id);
@@ -256,13 +255,6 @@ export default function CRMPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as any)} className="w-auto">
-              <TabsList className="bg-card/30 border border-border/40 p-1 rounded-xl h-9">
-                <TabsTrigger value="lead" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Leads</TabsTrigger>
-                <TabsTrigger value="partner" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Parceiros</TabsTrigger>
-                <TabsTrigger value="collaborator" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Colaboradores</TabsTrigger>
-              </TabsList>
-            </Tabs>
           </div>
         </div>
       }
@@ -298,7 +290,7 @@ export default function CRMPage() {
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
           <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground neon-glow" onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}>
-            <Plus className="h-3.5 w-3.5" /> {activeCategory === "lead" ? "Novo Lead" : activeCategory === "partner" ? "Novo Parceiro" : "Novo Colab."}
+            <Plus className="h-3.5 w-3.5" /> Novo Lead
           </Button>
         </div>
       }
