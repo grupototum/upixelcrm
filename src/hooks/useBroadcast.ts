@@ -88,7 +88,7 @@ export function useBroadcast() {
     
     if (!profile) throw new Error("Client not found");
 
-    const { data, error } = await supabase.from("whatsapp_templates").insert({
+    const { data, error } = await (supabase.from("integrations") as any).insert({
       ...template,
       client_id: profile.client_id,
       status: "PENDING"
