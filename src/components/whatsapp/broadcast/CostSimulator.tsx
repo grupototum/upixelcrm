@@ -50,9 +50,9 @@ export function CostSimulator() {
           </Label>
           <Tabs value={category} onValueChange={(v) => setCategory(v as Category)} className="w-full">
             <TabsList className="grid grid-cols-3 p-1 bg-muted/40 h-10 rounded-lg">
-              <TabsTrigger value="MARKETING" className="text-[9px] font-bold uppercase rounded-md data-[state=active]:bg-white">Mkt</TabsTrigger>
-              <TabsTrigger value="UTILITY" className="text-[9px] font-bold uppercase rounded-md data-[state=active]:bg-white">Util</TabsTrigger>
-              <TabsTrigger value="SERVICE" className="text-[9px] font-bold uppercase rounded-md data-[state=active]:bg-white">Serv</TabsTrigger>
+              <TabsTrigger value="MARKETING" className="text-[9px] font-bold uppercase rounded-md data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm">Mkt</TabsTrigger>
+              <TabsTrigger value="UTILITY" className="text-[9px] font-bold uppercase rounded-md data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm">Util</TabsTrigger>
+              <TabsTrigger value="SERVICE" className="text-[9px] font-bold uppercase rounded-md data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm">Serv</TabsTrigger>
             </TabsList>
           </Tabs>
           <p className="text-[10px] text-muted-foreground italic px-1">

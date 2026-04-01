@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Sparkles, MessageSquare, Info, Bot } from "lucide-react";
+import { useBroadcast, Template } from "@/hooks/useBroadcast";
+import { toast } from "sonner";
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { useBroadcast, Template } from "@/hooks/useBroadcast";
-import { Loader2, Sparkles, MessageSquare, Info } from "lucide-react";
 
 interface TemplateCreateModalProps {
   open: boolean;
@@ -26,7 +26,8 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
   const [formData, setFormData] = useState({
     name: "",
     category: "MARKETING" as Template["category"],
-    content: ""
+    content: "",
+    typebotFlowId: ""
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +42,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
       await createTemplate(formData);
       toast.success("Modelo enviado para aprovação!");
       onOpenChange(false);
-      setFormData({ name: "", category: "MARKETING", content: "" });
+      setFormData({ name: "", category: "MARKETING", content: "", typebotFlowId: "" });
     } catch (error: any) {
       toast.error(`Erro ao criar modelo: ${error.message}`);
     } finally {
@@ -103,8 +104,21 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                 placeholder="Olá {{1}}, seu pedido {{2}} foi recebido!"
                 value={formData.content}
                 onChange={(e) => setFormData({...formData, content: e.target.value})}
-                className="min-h-[120px] rounded-2xl bg-muted/30 border-border/40 focus:bg-white transition-all text-sm resize-none"
+                className="min-h-[120px] rounded-2xl bg-muted/30 border-border/40 focus:bg-white dark:focus:bg-zinc-900 transition-all text-sm resize-none"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <Bot className="h-3 w-3" /> Typebot Flow ID (Opcional)
+              </Label>
+              <Input 
+                placeholder="Digite o ID do fluxo no Typebot..."
+                value={formData.typebotFlowId}
+                onChange={(e) => setFormData({...formData, typebotFlowId: e.target.value})}
+                className="rounded-xl bg-muted/30 border-border/40 focus:bg-white dark:focus:bg-zinc-900 transition-all text-xs"
+              />
+              <p className="text-[9px] text-muted-foreground">Este fluxo será acionado automaticamente quando o cliente responder a esta mensagem.</p>
             </div>
 
             {/* Preview Section */}
@@ -112,12 +126,12 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
               <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                 <MessageSquare className="h-3 w-3" /> Preview no WhatsApp
               </Label>
-              <div className="bg-[#E5DDD5] p-4 rounded-2xl relative overflow-hidden flex justify-start">
-                <div className="bg-white p-3 rounded-xl rounded-tl-none shadow-sm max-w-[85%] relative z-10">
-                  <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">
+              <div className="bg-[#E5DDD5] dark:bg-[#0b141a] p-4 rounded-2xl relative overflow-hidden flex justify-start">
+                <div className="bg-white dark:bg-[#1f2c33] p-3 rounded-xl rounded-tl-none shadow-sm max-w-[85%] relative z-10 border border-transparent dark:border-[#ffffff10]">
+                  <p className="text-[13px] text-foreground dark:text-[#e9edef] leading-relaxed whitespace-pre-wrap">
                     {formData.content || <span className="opacity-30 italic">Seu conteúdo aparecerá aqui...</span>}
                   </p>
-                  <span className="text-[9px] text-muted-foreground block text-right mt-1">10:45</span>
+                  <span className="text-[9px] text-muted-foreground dark:text-[#8696a0] block text-right mt-1">10:45</span>
                 </div>
               </div>
             </div>

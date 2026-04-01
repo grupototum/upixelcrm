@@ -11,6 +11,7 @@ export interface Template {
   category: "MARKETING" | "UTILITY" | "AUTHENTICATION" | "SERVICE";
   content: string;
   status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  typebotFlowId?: string;
 }
 
 // Meta 2024 Category-based Pricing for Brazil (Approx in Credits: 1 Credit = R$ 0,50)

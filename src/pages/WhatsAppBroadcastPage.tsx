@@ -4,8 +4,9 @@ import { BroadcastModal } from "@/components/whatsapp/broadcast/BroadcastModal";
 import { TemplateManager } from "@/components/whatsapp/broadcast/TemplateManager";
 import { ImplementationChecklist } from "@/components/whatsapp/broadcast/ImplementationChecklist";
 import { useBroadcast } from "@/hooks/useBroadcast";
-import { MessageSquare, Sparkles, LayoutDashboard, History, FileText } from "lucide-react";
+import { MessageSquare, Sparkles, LayoutDashboard, History, FileText, Bot } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 export default function WhatsAppBroadcastPage() {
   const { credits, loadingCredits } = useBroadcast();
@@ -73,7 +74,7 @@ export default function WhatsAppBroadcastPage() {
           <TabsContent value="overview" className="space-y-8 mt-0 focus-visible:outline-none">
             <BroadcastDashboard credits={credits} loadingCredits={loadingCredits} />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                <div className="bg-card ghost-border rounded-2xl p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group">
                   <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center">
                     <MessageSquare className="h-6 w-6 text-accent" />
@@ -86,6 +87,26 @@ export default function WhatsAppBroadcastPage() {
                     Acessar Central de Ajuda
                   </button>
                </div>
+
+               {/* Typebot Integration Foundation Card */}
+               <div className="bg-card ghost-border rounded-2xl p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group border-primary/20 bg-gradient-to-br from-card to-primary/5">
+                  <div className="flex justify-between items-start">
+                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Bot className="h-6 w-6 text-primary" />
+                    </div>
+                    <Badge variant="outline" className="text-[8px] font-black uppercase tracking-tighter bg-primary/5 border-primary/20 text-primary">Soon</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black font-heading">Integração Typebot</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Conecte seus fluxos de atendimento automático. O sistema está preparado para acionar bots após o envio.
+                    </p>
+                  </div>
+                  <button className="w-full h-9 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                    Configurar Webhook
+                  </button>
+               </div>
+
                <ImplementationChecklist />
             </div>
           </TabsContent>
