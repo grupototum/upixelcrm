@@ -115,7 +115,7 @@ export function useGoogleIntegration() {
   }, [invokeFunction]);
 
   const fetchGmailList = useCallback(() => invokeFunction("gmail-list"), [invokeFunction]);
-  const fetchEmailMessage = useCallback((id: string) => invokeFunction(`gmail-get&id=${id}`), [invokeFunction]);
+  const fetchEmailMessage = useCallback((id: string) => invokeFunction("gmail-get", undefined, { id }), [invokeFunction]);
   const fetchCalendarList = useCallback(() => invokeFunction("calendar-list"), [invokeFunction]);
   const fetchDriveList = useCallback(() => invokeFunction("drive-list"), [invokeFunction]);
   const sendEmail = useCallback((to: string, subject: string, body: string) =>
