@@ -24,6 +24,7 @@ const navItems = [
   { title: "Campanhas", url: "/campaigns", icon: Megaphone },
   { title: "Relatórios", url: "/reports", icon: BarChart3 },
   { title: "Google", url: "/google", icon: Globe },
+  { title: "Disparos", url: "/whatsapp/broadcast", icon: Megaphone },
   { title: "Integrações", url: "/integrations", icon: Plug },
   { title: "Importação", url: "/import", icon: Upload },
   { title: "Usuários", url: "/users", icon: Users },
