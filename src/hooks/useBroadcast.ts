@@ -120,11 +120,10 @@ export function useBroadcast() {
          const { data: { user } } = await supabase.auth.getUser();
          const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user?.id).single();
          
-         if (profile) {
+          if (profile) {
             // Credits deduction - skip if no RPC available
             console.log("Would deduct credits:", cost);
-           if (error) throw error;
-         }
+          }
       }
 
       queryClient.invalidateQueries({ queryKey: ["client-credits"] });
