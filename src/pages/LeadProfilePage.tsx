@@ -23,6 +23,7 @@ import {
   Plus, CheckCircle2, Circle, AlertTriangle, Clock,
   MessageSquare, ArrowRight, Zap, ClipboardList, StickyNote,
   MoreHorizontal, Send, ChevronRight, Smartphone, Monitor, X, Check, Settings2,
+  Handshake, Target
 } from "lucide-react";
 import type { Lead, Task, TimelineEvent } from "@/types";
 
@@ -152,7 +153,12 @@ export default function LeadProfilePage() {
       subtitle=""
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="text-xs gap-1 h-8" onClick={() => navigate("/crm")}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs gap-1 h-8" 
+            onClick={() => navigate(lead.category === "lead" ? "/crm" : "/contacts")}
+          >
             <ArrowLeft className="h-3 w-3" /> Voltar
           </Button>
           <Button variant="ghost" size="sm" className="text-xs gap-1 h-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDelete}>
@@ -168,7 +174,22 @@ export default function LeadProfilePage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-xl font-bold text-foreground truncate">{lead.name}</h1>
-              {column && (
+              <Select 
+                value={lead.category || "lead"} 
+                onValueChange={(val: Lead["category"]) => {
+                  updateLead(lead.id, { category: val });
+                }}
+              >
+                <SelectTrigger className="w-auto h-7 text-[10px] uppercase font-bold tracking-wider px-3 rounded-lg border-primary/20 bg-primary/5 text-primary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-none shadow-2xl bg-card">
+                  <SelectItem value="lead" className="text-[10px] font-bold">LEAD</SelectItem>
+                  <SelectItem value="partner" className="text-[10px] font-bold">PARCEIRO</SelectItem>
+                  <SelectItem value="collaborator" className="text-[10px] font-bold">COLABORADOR</SelectItem>
+                </SelectContent>
+              </Select>
+              {column && lead.category === "lead" && (
                 <Badge variant="outline" className="shrink-0 text-xs gap-1.5">
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: column.color }} />
                   {column.name}
