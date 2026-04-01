@@ -52,6 +52,8 @@ import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 import { FilterPopover, EMPTY_FILTERS, type CRMFilters } from "@/components/crm/FilterPopover";
 import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopover";
 
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 export default function CRMPage() {
   const navigate = useNavigate();
   const { 
@@ -60,6 +62,7 @@ export default function CRMPage() {
     addLead, updateLead, deleteLead, moveLead 
   } = useAppState();
 
+  const [activeCategory, setActiveCategory] = useState<Lead["category"]>("lead");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showNewPipeline, setShowNewPipeline] = useState(false);
@@ -100,6 +103,10 @@ export default function CRMPage() {
 
   const filteredLeads = useMemo(() => {
     let result = leads;
+    
+    // Primary Category Filter
+    result = result.filter(l => (l.category || "lead") === activeCategory);
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -125,7 +132,7 @@ export default function CRMPage() {
       result = result.filter((l) => (l.value ?? 0) <= max);
     }
     return result;
-  }, [leads, searchQuery, crmFilters]);
+  }, [leads, searchQuery, crmFilters, activeCategory]);
 
   function handleDragStart(event: DragStartEvent) {
     const lead = leads.find((l) => l.id === event.active.id);
@@ -204,49 +211,59 @@ export default function CRMPage() {
     <AppLayout
       title="CRM"
       subtitle={
-        <div className="flex items-center gap-2 mt-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/30 hover:bg-card/50 transition-all border border-border/40 group">
-                <LayoutGrid className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-bold text-foreground">
-                  {currentPipeline?.name || "Selecionar Funil"}
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform duration-200" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 rounded-2xl shadow-2xl border-none p-1.5 backdrop-blur-xl bg-card/80">
-              <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                Seus Funis
-              </div>
-              {pipelines.map((p) => (
-                <div key={p.id} className="group flex items-center pr-2">
-                  <DropdownMenuItem 
-                    onClick={() => setPipeline(p.id)}
-                    className={`flex-1 rounded-xl text-xs h-9 gap-3 cursor-pointer ${currentPipelineId === p.id ? "bg-primary/10 text-primary font-bold" : ""}`}
-                  >
-                    <div className={`h-1.5 w-1.5 rounded-full ${currentPipelineId === p.id ? "bg-primary" : "bg-muted-foreground/30"}`} />
-                    {p.name}
-                  </DropdownMenuItem>
-                  {pipelines.length > 1 && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setPipelineToDelete(p.id); }}
-                      className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+        <div className="flex flex-col gap-4 mt-1">
+          <div className="flex items-center gap-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/30 hover:bg-card/50 transition-all border border-border/40 group">
+                  <LayoutGrid className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-bold text-foreground">
+                    {currentPipeline?.name || "Selecionar Funil"}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform duration-200" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 rounded-2xl shadow-2xl border-none p-1.5 backdrop-blur-xl bg-card/80">
+                <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  Seus Funis
                 </div>
-              ))}
-              <DropdownMenuSeparator className="bg-border/20" />
-              <DropdownMenuItem 
-                onClick={() => setShowNewPipeline(true)}
-                className="rounded-xl text-xs h-9 gap-3 text-primary font-bold cursor-pointer hover:bg-primary/5 hover:text-primary"
-              >
-                <Plus className="h-4 w-4" /> Novo Funil
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {pipelines.map((p) => (
+                  <div key={p.id} className="group flex items-center pr-2">
+                    <DropdownMenuItem 
+                      onClick={() => setPipeline(p.id)}
+                      className={`flex-1 rounded-xl text-xs h-9 gap-3 cursor-pointer ${currentPipelineId === p.id ? "bg-primary/10 text-primary font-bold" : ""}`}
+                    >
+                      <div className={`h-1.5 w-1.5 rounded-full ${currentPipelineId === p.id ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                      {p.name}
+                    </DropdownMenuItem>
+                    {pipelines.length > 1 && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setPipelineToDelete(p.id); }}
+                        className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <DropdownMenuSeparator className="bg-border/20" />
+                <DropdownMenuItem 
+                  onClick={() => setShowNewPipeline(true)}
+                  className="rounded-xl text-xs h-9 gap-3 text-primary font-bold cursor-pointer hover:bg-primary/5 hover:text-primary"
+                >
+                  <Plus className="h-4 w-4" /> Novo Funil
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as any)} className="w-auto">
+              <TabsList className="bg-card/30 border border-border/40 p-1 rounded-xl h-9">
+                <TabsTrigger value="lead" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Leads</TabsTrigger>
+                <TabsTrigger value="partner" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Parceiros</TabsTrigger>
+                <TabsTrigger value="collaborator" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Colaboradores</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
       }
       actions={
@@ -258,7 +275,7 @@ export default function CRMPage() {
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar leads..."
+                placeholder="Buscar contatos..."
                 className="h-8 w-56 pl-9 pr-8 text-xs rounded-full"
               />
               <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -281,7 +298,7 @@ export default function CRMPage() {
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
           <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground neon-glow" onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}>
-            <Plus className="h-3.5 w-3.5" /> Novo Lead
+            <Plus className="h-3.5 w-3.5" /> {activeCategory === "lead" ? "Novo Lead" : activeCategory === "partner" ? "Novo Parceiro" : "Novo Colab."}
           </Button>
         </div>
       }

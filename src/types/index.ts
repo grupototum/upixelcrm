@@ -44,6 +44,7 @@ export interface Lead {
   column_id: string;
   responsible_id?: string;
   value?: number;
+  category?: "lead" | "partner" | "collaborator";
   created_at: string;
   updated_at: string;
 }
