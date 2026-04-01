@@ -40,7 +40,29 @@ Deno.serve(async (req) => {
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    const rawAction = url.searchParams.get("action") ?? "";
+    let action = rawAction.trim();
+
+    if (action.includes("&")) {
+      const [primaryAction, ...extraPairs] = action.split("&");
+      action = primaryAction.trim();
+      url.searchParams.set("action", action);
+
+      for (const pair of extraPairs) {
+        const [key, value] = pair.split("=");
+        if (key && value && !url.searchParams.has(key)) {
+          url.searchParams.set(key, value);
+        }
+      }
+    }
+
+    console.log("google-oauth request", {
+      method: req.method,
+      url: req.url,
+      rawAction,
+      action,
+      id: url.searchParams.get("id"),
+    });
 
     // Helper: get stored Google credentials from integrations table config
     const getGoogleCreds = async () => {

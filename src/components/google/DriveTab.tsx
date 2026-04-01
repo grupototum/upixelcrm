@@ -23,6 +23,7 @@ interface ParsedFile {
   owner: string;
   icon: any;
   color: string;
+  webViewLink?: string;
 }
 
 const mimeMap: Record<string, FileType> = {
