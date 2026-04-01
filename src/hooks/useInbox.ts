@@ -8,7 +8,7 @@ export interface LeadConversation {
   lead_phone?: string;
   lead_email?: string;
   lead_company?: string;
-  category: string;
+  category?: string;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
@@ -65,7 +65,7 @@ export function useInbox(onLeadCreated?: () => void) {
     if (leadIds.length > 0) {
       const { data: leads } = await supabase
         .from("leads")
-        .select("id, name, phone, email, company, category")
+        .select("id, name, phone, email, company, origin")
         .in("id", leadIds);
       if (leads) {
         leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
@@ -90,7 +90,7 @@ export function useInbox(onLeadCreated?: () => void) {
           lead_phone: lead?.phone || meta?.phone,
           lead_email: lead?.email || meta?.email,
           lead_company: lead?.company,
-          category: lead?.category || "lead",
+          category: lead?.origin || "lead",
           last_message: c.last_message,
           last_message_at: c.last_message_at,
           unread_count: c.unread_count || 0,
