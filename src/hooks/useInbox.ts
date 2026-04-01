@@ -8,7 +8,7 @@ export interface LeadConversation {
   lead_phone?: string;
   lead_email?: string;
   lead_company?: string;
-  category: string;
+  category?: string;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
