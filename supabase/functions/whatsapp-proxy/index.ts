@@ -51,10 +51,12 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    const type = url.searchParams.get("type") || "normal";
+    const provider = type === "official" ? "whatsapp_official" : "whatsapp";
 
     if (action === "save-config") {
       const body = await req.json();
-      const { api_url, instance_name, api_key } = body;
+      const { api_url, instance_name, api_key, phone_number_id, business_id, access_token } = body;
 
       if (!api_url || !instance_name) {
         return new Response(JSON.stringify({ error: "Missing fields" }), {
@@ -70,7 +72,7 @@ Deno.serve(async (req) => {
           .from("integrations")
           .select("config")
           .eq("client_id", clientId)
-          .eq("provider", "whatsapp")
+          .eq("provider", provider)
           .single();
         finalApiKey = (existing?.config as any)?.api_key;
         if (!finalApiKey) {
@@ -84,9 +86,16 @@ Deno.serve(async (req) => {
       await adminClient.from("integrations").upsert(
         {
           client_id: clientId,
-          provider: "whatsapp",
+          provider: provider,
           status: "configured",
-          config: { api_url, instance_name, api_key: finalApiKey },
+          config: { 
+            api_url, 
+            instance_name, 
+            api_key: finalApiKey,
+            phone_number_id,
+            business_id,
+            access_token
+          },
         },
         { onConflict: "client_id,provider" }
       );
@@ -100,7 +109,7 @@ Deno.serve(async (req) => {
       const { data: integration } = await supabase
         .from("integrations")
         .select("status, config")
-        .eq("provider", "whatsapp")
+        .eq("provider", provider)
         .single();
 
       return new Response(
@@ -110,6 +119,9 @@ Deno.serve(async (req) => {
           api_url: (integration?.config as any)?.api_url || "",
           instance_name: (integration?.config as any)?.instance_name || "",
           has_api_key: !!(integration?.config as any)?.api_key,
+          phone_number_id: (integration?.config as any)?.phone_number_id || "",
+          business_id: (integration?.config as any)?.business_id || "",
+          access_token: (integration?.config as any)?.access_token || "",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -120,7 +132,7 @@ Deno.serve(async (req) => {
       .from("integrations")
       .select("*")
       .eq("client_id", clientId)
-      .eq("provider", "whatsapp")
+      .eq("provider", provider)
       .single();
 
     if (!integration?.config) {
@@ -130,7 +142,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const config = integration.config as { api_url: string; instance_name: string; api_key: string };
+    const config = integration.config as { 
+      api_url: string; 
+      instance_name: string; 
+      api_key: string;
+      phone_number_id?: string;
+      business_id?: string;
+      access_token?: string;
+    };
 
     if (action === "connect") {
       // First, try to fetch the instance. If it doesn't exist, create it.
@@ -145,8 +164,13 @@ Deno.serve(async (req) => {
           headers: { apikey: config.api_key, "Content-Type": "application/json" },
           body: JSON.stringify({
             instanceName: config.instance_name,
-            integration: "WHATSAPP-BAILEYS",
-            qrcode: true,
+            integration: type === "official" ? "WHATSAPP-BUSINESS" : "WHATSAPP-BAILEYS",
+            qrcode: type !== "official",
+            ...(type === "official" ? {
+              phoneNumberId: config.phone_number_id,
+              businessId: config.business_id,
+              accessToken: config.access_token
+            } : {})
           }),
         });
         const createData = await createRes.json();
@@ -166,9 +190,9 @@ Deno.serve(async (req) => {
       });
       const data = await res.json();
 
-      if (data.base64) {
+      if (data.base64 || type === "official") {
         await adminClient.from("integrations").update({ status: "connecting" })
-          .eq("client_id", clientId).eq("provider", "whatsapp");
+          .eq("client_id", clientId).eq("provider", provider);
       }
 
       return new Response(JSON.stringify(data), {
@@ -194,7 +218,7 @@ Deno.serve(async (req) => {
           ...config,
           ...(data.instance?.owner ? { connected_number: data.instance.owner } : {}),
         },
-      }).eq("client_id", clientId).eq("provider", "whatsapp");
+      }).eq("client_id", clientId).eq("provider", provider);
 
       return new Response(JSON.stringify({ ...data, status: newStatus }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -210,7 +234,7 @@ Deno.serve(async (req) => {
       } catch (_e) { /* ignore */ }
 
       await adminClient.from("integrations").update({ status: "disconnected" })
-        .eq("client_id", clientId).eq("provider", "whatsapp");
+        .eq("client_id", clientId).eq("provider", provider);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -244,10 +268,10 @@ Deno.serve(async (req) => {
       // Save message to DB
       // Find or create conversation
       let convId: string | null = null;
-      const { data: existingConv } = await adminClient.from("conversations")
+        const { data: existingConv } = await adminClient.from("conversations")
         .select("id")
         .eq("client_id", clientId)
-        .eq("channel", "whatsapp")
+        .eq("channel", type === "official" ? "whatsapp_official" : "whatsapp")
         .eq("metadata->>phone", formattedPhone)
         .single();
 
@@ -265,7 +289,7 @@ Deno.serve(async (req) => {
         const { data: newConv } = await adminClient.from("conversations").insert({
           client_id: clientId,
           lead_id: lead?.id || null,
-          channel: "whatsapp",
+          channel: type === "official" ? "whatsapp_official" : "whatsapp",
           status: "open",
           last_message: message,
           last_message_at: new Date().toISOString(),
@@ -282,6 +306,7 @@ Deno.serve(async (req) => {
           type: "text",
           direction: "outbound",
           sender_name: "Você",
+          metadata: { channel: type === "official" ? "whatsapp_official" : "whatsapp" }
         });
         await adminClient.from("conversations").update({
           last_message: message,
@@ -332,7 +357,7 @@ Deno.serve(async (req) => {
       const { data: existingConv } = await adminClient.from("conversations")
         .select("id")
         .eq("client_id", clientId)
-        .eq("channel", "whatsapp")
+        .eq("channel", type === "official" ? "whatsapp_official" : "whatsapp")
         .eq("metadata->>phone", formattedPhone)
         .single();
 
@@ -353,7 +378,11 @@ Deno.serve(async (req) => {
           type: mediaType || "image",
           direction: "outbound",
           sender_name: "Você",
-          metadata: { media_url: mediaUrl, filename: fileName },
+          metadata: { 
+            media_url: mediaUrl, 
+            filename: fileName, 
+            channel: type === "official" ? "whatsapp_official" : "whatsapp" 
+          },
         });
         await adminClient.from("conversations").update({
           last_message: displayText,

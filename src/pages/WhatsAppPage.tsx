@@ -32,84 +32,104 @@ function FeatureTag({ label }: { label: string }) {
 
 export default function WhatsAppPage() {
   const navigate = useNavigate();
-  const wa = useWhatsAppIntegration();
+  const waNormal = useWhatsAppIntegration("normal");
+  const waOfficial = useWhatsAppIntegration("official");
 
-  const [apiStatus, setApiStatus] = useState<ConnectionStatus>("disconnected");
-  const [liteStatus, setLiteStatus] = useState<ConnectionStatus>("disconnected");
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrStep, setQrStep] = useState<"scan" | "connecting" | "success">("scan");
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [officialSettingsOpen, setOfficialSettingsOpen] = useState(false);
+
+  // Normal Form
   const [formApiUrl, setFormApiUrl] = useState("");
   const [formInstance, setFormInstance] = useState("");
   const [formApiKey, setFormApiKey] = useState("");
 
+  // Official Form
+  const [offApiUrl, setOffApiUrl] = useState("");
+  const [offInstance, setOffInstance] = useState("");
+  const [offApiKey, setOffApiKey] = useState("");
+  const [offPhoneId, setOffPhoneId] = useState("");
+  const [offBusinessId, setOffBusinessId] = useState("");
+  const [offAccessToken, setOffAccessToken] = useState("");
+
   // Sync state from hook
   useEffect(() => {
-    if (!wa.loading) {
-      if (wa.config.status === "connected") setLiteStatus("connected");
-      else if (wa.config.status === "connecting") setLiteStatus("connecting");
-      else setLiteStatus("disconnected");
+    if (!waNormal.loading) {
+      // Status is handled via derived state
     }
-  }, [wa.config.status, wa.loading]);
+  }, [waNormal.loading]);
 
   // Load form fields from saved config
   useEffect(() => {
-    if (wa.config.api_url) setFormApiUrl(wa.config.api_url);
-    if (wa.config.instance_name) setFormInstance(wa.config.instance_name);
-  }, [wa.config]);
+    if (waNormal.config.api_url) setFormApiUrl(waNormal.config.api_url);
+    if (waNormal.config.instance_name) setFormInstance(waNormal.config.instance_name);
+
+    if (waOfficial.config.api_url) setOffApiUrl(waOfficial.config.api_url);
+    if (waOfficial.config.instance_name) setOffInstance(waOfficial.config.instance_name);
+    if (waOfficial.config.phone_number_id) setOffPhoneId(waOfficial.config.phone_number_id);
+    if (waOfficial.config.business_id) setOffBusinessId(waOfficial.config.business_id);
+  }, [waNormal.config, waOfficial.config]);
+
+  const apiStatus = waOfficial.config.status as ConnectionStatus;
+  const liteStatus = waNormal.config.status as ConnectionStatus;
 
   // Polling when QR modal is open
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (qrModalOpen && qrStep !== "success") {
       interval = setInterval(async () => {
-        const data = await wa.checkStatus();
+        const data = await waNormal.checkStatus();
         if (data?.status === "connected") {
           setQrStep("success");
-          setLiteStatus("connected");
           clearInterval(interval);
         }
-        // Keep showing QR code — don't switch to "connecting" spinner
       }, 3000);
     }
     return () => clearInterval(interval);
-  }, [qrModalOpen, qrStep, wa.checkStatus]);
+  }, [qrModalOpen, qrStep, waNormal.checkStatus]);
 
   const handleSaveSettings = async () => {
-    await wa.saveConfig(formApiUrl, formInstance, formApiKey);
+    await waNormal.saveConfig(formApiUrl, formInstance, formApiKey);
     setFormApiKey("");
     setSettingsOpen(false);
   };
 
+  const handleSaveOfficialSettings = async () => {
+    await waOfficial.saveConfig(offApiUrl, offInstance, offApiKey, offPhoneId, offBusinessId, offAccessToken);
+    setOffApiKey("");
+    setOffAccessToken("");
+    setOfficialSettingsOpen(false);
+  };
+
   const initiateConnection = async () => {
-    if (!wa.config.configured) {
+    if (!waNormal.config.configured) {
       toast.error("Configure as credenciais da Evolution API primeiro.");
       setSettingsOpen(true);
       return;
     }
-    setLiteStatus("connecting");
     setQrModalOpen(true);
     setQrStep("scan");
-    await wa.connect();
+    await waNormal.connect();
   };
 
-  const handleConnectApi = () => {
-    setApiStatus("connecting");
-    setTimeout(() => {
-      setApiStatus("connected");
-      toast.success("WhatsApp API conectado!");
-    }, 2000);
+  const handleConnectOfficial = async () => {
+    if (!waOfficial.config.configured) {
+      toast.error("Configure as credenciais da API Oficial primeiro.");
+      setOfficialSettingsOpen(true);
+      return;
+    }
+    await waOfficial.connect();
+    toast.success("Solicitação de conexão enviada!");
   };
 
-  const handleDisconnectApi = () => {
-    setApiStatus("disconnected");
-    toast.info("WhatsApp API desconectado.");
+  const handleDisconnectOfficial = async () => {
+    await waOfficial.disconnect();
   };
 
   const handleDisconnectLite = async () => {
-    await wa.disconnect();
-    setLiteStatus("disconnected");
+    await waNormal.disconnect();
   };
 
   return (
@@ -179,10 +199,10 @@ export default function WhatsAppPage() {
               <div className="border-t border-border/40 pt-4 flex items-center justify-between">
                 {apiStatus === "connected" ? (
                   <>
-                    <Button size="sm" variant="ghost" className="text-xs gap-1" onClick={() => toast.info("Configurações da API — em breve")}>
+                    <Button size="sm" variant="ghost" className="text-xs gap-1" onClick={() => setOfficialSettingsOpen(true)}>
                       <Settings className="h-3 w-3" /> Configurar
                     </Button>
-                    <Button size="sm" variant="outline" className="text-xs gap-1 text-destructive" onClick={handleDisconnectApi}>
+                    <Button size="sm" variant="outline" className="text-xs gap-1 text-destructive" onClick={handleDisconnectOfficial}>
                       <XCircle className="h-3 w-3" /> Desconectar
                     </Button>
                   </>
@@ -191,7 +211,7 @@ export default function WhatsAppPage() {
                     <Loader2 className="h-3 w-3 animate-spin" /> Conectando...
                   </Button>
                 ) : (
-                  <Button size="sm" className="text-xs gap-1 w-full bg-success hover:bg-success/90 text-white" onClick={handleConnectApi}>
+                  <Button size="sm" className="text-xs gap-1 w-full bg-success hover:bg-success/90 text-white" onClick={handleConnectOfficial}>
                     <Zap className="h-3 w-3" /> Conectar API Oficial
                   </Button>
                 )}
@@ -233,11 +253,11 @@ export default function WhatsAppPage() {
                 <FeatureTag label="Uso imediato" />
               </div>
 
-              {liteStatus === "connected" && wa.connectedNumber && (
+              {liteStatus === "connected" && waNormal.connectedNumber && (
                 <div className="bg-secondary rounded-lg p-3 flex items-center gap-3">
                   <Phone className="h-4 w-4 text-success" />
                   <div>
-                    <p className="text-xs font-semibold text-foreground">{wa.connectedNumber}</p>
+                    <p className="text-xs font-semibold text-foreground">{waNormal.connectedNumber}</p>
                     <p className="text-[10px] text-muted-foreground">Sessão ativa</p>
                   </div>
                 </div>
@@ -303,7 +323,7 @@ export default function WhatsAppPage() {
       </div>
 
       {/* QR Code Modal */}
-      <Dialog open={qrModalOpen} onOpenChange={(open) => { setQrModalOpen(open); if (!open && liteStatus === "connecting") setLiteStatus("disconnected"); }}>
+      <Dialog open={qrModalOpen} onOpenChange={(open) => { setQrModalOpen(open); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
@@ -316,8 +336,8 @@ export default function WhatsAppPage() {
               <>
                 <div className="relative mb-4">
                   <div className="h-48 w-48 bg-white rounded-xl p-3 flex items-center justify-center overflow-hidden">
-                    {wa.qrData ? (
-                      <img src={wa.qrData} alt="WhatsApp QR Code" className="h-full w-full object-contain" />
+                    {waNormal.qrData ? (
+                      <img src={waNormal.qrData} alt="WhatsApp QR Code" className="h-full w-full object-contain" />
                     ) : (
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -348,7 +368,7 @@ export default function WhatsAppPage() {
                   <CheckCircle2 className="h-8 w-8 text-success" />
                 </div>
                 <p className="text-xs font-bold text-foreground mb-1">Conectado com sucesso!</p>
-                <p className="text-[11px] text-muted-foreground mb-3">{wa.connectedNumber}</p>
+                <p className="text-[11px] text-muted-foreground mb-3">{waNormal.connectedNumber}</p>
                 <Button size="sm" className="text-xs" onClick={() => setQrModalOpen(false)}>
                   Fechar
                 </Button>
@@ -392,7 +412,7 @@ export default function WhatsAppPage() {
                 type="password"
                 value={formApiKey}
                 onChange={(e) => setFormApiKey(e.target.value)}
-                placeholder={wa.config.has_api_key ? "••••••• (já configurada)" : "Sua API Key"}
+                placeholder={waNormal.config.has_api_key ? "••••••• (já configurada)" : "Sua API Key"}
                 className="text-xs h-9 bg-secondary"
               />
               <p className="text-[10px] text-muted-foreground">
@@ -407,9 +427,95 @@ export default function WhatsAppPage() {
               size="sm"
               className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground"
               onClick={handleSaveSettings}
-              disabled={!formApiUrl || !formInstance || (!formApiKey && !wa.config.has_api_key)}
+              disabled={!formApiUrl || !formInstance || (!formApiKey && !waNormal.config.has_api_key)}
             >
               Salvar Credenciais
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Official Settings Modal */}
+      <Dialog open={officialSettingsOpen} onOpenChange={setOfficialSettingsOpen}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Shield className="h-4 w-4 text-success" /> Configuração API Oficial (Meta)
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Evolution API URL</Label>
+              <Input
+                value={offApiUrl}
+                onChange={(e) => setOffApiUrl(e.target.value)}
+                placeholder="https://api.evolution.com.br"
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Nome da Instância</Label>
+              <Input
+                value={offInstance}
+                onChange={(e) => setOffInstance(e.target.value)}
+                placeholder="meta-instance"
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Evolution API Key</Label>
+              <Input
+                type="password"
+                value={offApiKey}
+                onChange={(e) => setOffApiKey(e.target.value)}
+                placeholder={waOfficial.config.has_api_key ? "••••••• (já configurada)" : "API Key"}
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+
+            <div className="h-px bg-border my-2" />
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Credenciais Meta Business Platform</p>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Phone Number ID</Label>
+              <Input
+                value={offPhoneId}
+                onChange={(e) => setOffPhoneId(e.target.value)}
+                placeholder="ID do número de telefone"
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Business ID</Label>
+              <Input
+                value={offBusinessId}
+                onChange={(e) => setOffBusinessId(e.target.value)}
+                placeholder="ID da conta Business"
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Meta Access Token</Label>
+              <Input
+                type="password"
+                value={offAccessToken}
+                onChange={(e) => setOffAccessToken(e.target.value)}
+                placeholder={waOfficial.config.access_token ? "••••••• (já configurado)" : "Token de acesso permanente"}
+                className="text-xs h-9 bg-secondary"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setOfficialSettingsOpen(false)} className="text-xs">Cancelar</Button>
+            <Button
+              size="sm"
+              className="text-xs bg-success hover:bg-success/90 text-white"
+              onClick={handleSaveOfficialSettings}
+              disabled={!offApiUrl || !offInstance || (!offApiKey && !waOfficial.config.has_api_key) || !offPhoneId || !offBusinessId}
+            >
+              Salvar e Conectar
             </Button>
           </div>
         </DialogContent>

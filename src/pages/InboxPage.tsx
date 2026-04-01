@@ -19,6 +19,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
@@ -291,7 +293,14 @@ export default function InboxPage() { // force HMR reset
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-0.5">
-                      <span className={`text-[13px] font-bold truncate ${c.unread_count > 0 ? "text-foreground" : "text-foreground/80"}`}>{c.lead_name}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`text-[13px] font-bold truncate ${c.unread_count > 0 ? "text-foreground" : "text-foreground/80"}`}>{c.lead_name}</span>
+                        {c.category !== "lead" && (
+                          <Badge className={`text-[8px] px-1.5 py-0 h-3.5 border-none uppercase font-black ${c.category === "partner" ? "bg-blue-500/20 text-blue-600" : "bg-purple-500/20 text-purple-600"}`}>
+                            {c.category === "partner" ? "Parceiro" : "Colab."}
+                          </Badge>
+                        )}
+                      </div>
                       <span className="text-[10px] text-muted-foreground shrink-0 font-medium">{formatTime(c.last_message_at)}</span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -346,6 +355,11 @@ export default function InboxPage() { // force HMR reset
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground truncate">{selectedLeadGroup.lead_name}</p>
+                      {selectedLeadGroup.category !== "lead" && (
+                        <Badge className={`text-[9px] px-2 py-0 h-4 border-none uppercase font-black ${selectedLeadGroup.category === "partner" ? "bg-blue-500/20 text-blue-600" : "bg-purple-500/20 text-purple-600"}`}>
+                          {selectedLeadGroup.category === "partner" ? "Parceiro" : "Colaborador"}
+                        </Badge>
+                      )}
                       <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 border border-success/20 shrink-0">
                         <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                         <span className="text-[9px] font-bold text-success uppercase">Online</span>
@@ -726,6 +740,11 @@ export default function InboxPage() { // force HMR reset
                     {initials(selectedLead?.name || selectedLeadGroup.lead_name)}
                   </div>
                   <h3 className="text-sm font-bold text-foreground line-clamp-1">{selectedLead?.name || selectedLeadGroup.lead_name}</h3>
+                  {selectedLeadGroup.category !== "lead" && (
+                    <Badge className={`mt-1 text-[8px] px-2 py-0.5 border-none uppercase font-black ${selectedLeadGroup.category === "partner" ? "bg-blue-500/20 text-blue-600" : "bg-purple-500/20 text-purple-600"}`}>
+                      {selectedLeadGroup.category === "partner" ? "Parceiro" : "Colaborador"}
+                    </Badge>
+                  )}
                   {selectedLead?.company && (
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                       <Building className="h-2.5 w-2.5" /> {selectedLead.company}
@@ -734,7 +753,7 @@ export default function InboxPage() { // force HMR reset
                   <div className="flex flex-wrap items-center justify-center gap-1.5 mt-3">
                     <ConversationStatusBadge status={selectedLeadGroup.status} />
                     <PriorityBadge priority={selectedLeadGroup.priority} />
-                    {selectedLead?.value && (
+                    {selectedLeadGroup.category === "lead" && selectedLead?.value && (
                       <span className="text-[9px] font-bold bg-success/15 text-success border border-success/20 px-2 py-0.5 rounded-full shadow-sm">
                         R$ {selectedLead.value.toLocaleString("pt-BR")}
                       </span>
@@ -754,8 +773,8 @@ export default function InboxPage() { // force HMR reset
 
               <div className="flex-1 overflow-auto no-scrollbar">
                 <div className="p-5 space-y-6">
-                  {/* Pipeline Stage */}
-                  {selectedLead && (
+                  {/* Pipeline Stage - Only for Leads */}
+                  {selectedLead && selectedLeadGroup.category === "lead" && (
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
                         <ArrowRight className="h-3 w-3" /> Estágio no Funil

@@ -8,9 +8,12 @@ interface WhatsAppConfig {
   has_api_key: boolean;
   status: string;
   configured: boolean;
+  phone_number_id?: string;
+  business_id?: string;
+  access_token?: string;
 }
 
-export function useWhatsAppIntegration() {
+export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
   const [config, setConfig] = useState<WhatsAppConfig>({
     api_url: "",
     instance_name: "",
@@ -28,7 +31,7 @@ export function useWhatsAppIntegration() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error("Not authenticated");
 
-    const url = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=${action}`;
+    const url = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=${action}&type=${type}`;
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -64,9 +67,23 @@ export function useWhatsAppIntegration() {
     loadConfig();
   }, [loadConfig]);
 
-  const saveConfig = useCallback(async (apiUrl: string, instanceName: string, apiKey: string) => {
+  const saveConfig = useCallback(async (
+    apiUrl: string, 
+    instanceName: string, 
+    apiKey: string,
+    phoneNumberId?: string,
+    businessId?: string,
+    accessToken?: string
+  ) => {
     try {
-      await invokeFunction("save-config", { api_url: apiUrl, instance_name: instanceName, api_key: apiKey });
+      await invokeFunction("save-config", { 
+        api_url: apiUrl, 
+        instance_name: instanceName, 
+        api_key: apiKey,
+        phone_number_id: phoneNumberId,
+        business_id: businessId,
+        access_token: accessToken
+      });
       toast.success("Credenciais salvas com sucesso!");
       await loadConfig();
     } catch (err: any) {

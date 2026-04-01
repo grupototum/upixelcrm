@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, X, Smile, Paperclip as AttachIcon, Paperclip } from "lucide-react";
+import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, X, Smile, Paperclip as AttachIcon, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,7 @@ interface ReplyBoxProps {
 
 const channelIcons: Record<string, any> = {
   whatsapp: MessageCircle,
+  whatsapp_official: Shield,
   email: Mail,
   instagram: MessageCircle,
   webchat: MessageSquare,
@@ -130,19 +131,29 @@ export function ReplyBox({
               {sourceConversations.map(sc => {
                 const Icon = channelIcons[sc.channel] || MessageCircle;
                 const isActive = activeConversationId === sc.id;
+                const channelLabel = sc.channel === "whatsapp_official" ? "WhatsApp Oficial" 
+                                   : sc.channel === "whatsapp" ? "WhatsApp Lite"
+                                   : sc.channel === "email" ? "E-mail"
+                                   : sc.channel;
+                
+                const identifier = sc.metadata.phone || sc.metadata.email || sc.channel;
+
                 return (
                   <button
                     key={sc.id}
                     onClick={() => setActiveConversationId(sc.id)}
-                    title={sc.metadata.phone || sc.metadata.email || sc.channel}
+                    title={`${channelLabel}: ${identifier}`}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-bold transition-all shrink-0 ${
                       isActive
                         ? "bg-background text-primary border-primary/20 shadow-sm"
                         : "text-muted-foreground border-transparent hover:bg-background/50"
                     }`}
                   >
-                    <Icon className="h-2.5 w-2.5" />
-                    <span className="max-w-[80px] truncate">{sc.metadata.phone || sc.metadata.email || sc.channel}</span>
+                    <Icon className={`h-2.5 w-2.5 ${sc.channel === "whatsapp_official" ? "text-success" : ""}`} />
+                    <span className="max-w-[120px] truncate">
+                      <span className="opacity-60 mr-1">[{sc.channel === "whatsapp_official" ? "OFICIAL" : "LITE"}]</span>
+                      {identifier}
+                    </span>
                   </button>
                 );
               })}

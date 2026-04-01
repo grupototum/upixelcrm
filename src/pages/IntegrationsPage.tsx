@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
+import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,8 @@ interface Integration {
 }
 
 const integrations: Integration[] = [
-  { id: "whatsapp", name: "WhatsApp Business", description: "Conecte sua conta do WhatsApp Business para atender leads diretamente pelo uPixel.", icon: MessageCircle, color: "text-success", status: "connected", category: "channel", configRoute: "/whatsapp" },
+  { id: "whatsapp", name: "WhatsApp Lite", description: "Conexão rápida via QR Code. Ideal para uso pessoal e testes imediatos.", icon: MessageCircle, color: "text-accent", status: "connected", category: "channel", configRoute: "/whatsapp" },
+  { id: "whatsapp_official", name: "WhatsApp Business", description: "API Oficial da Meta. Conexão estável e recomendada para escala e automações.", icon: Shield, color: "text-success", status: "connected", category: "channel", configRoute: "/whatsapp" },
   { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "coming_soon", category: "channel" },
   { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "connected", category: "channel", configRoute: "/google" },
   { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "connected", color: "text-accent", category: "developer" },
@@ -37,7 +38,7 @@ function loadToggles(): Record<string, boolean> {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
   } catch {}
-  return { whatsapp: false, google: false, webhook: true, api: true };
+  return { whatsapp: true, whatsapp_official: true, google: false, webhook: true, api: true };
 }
 
 function saveToggles(toggles: Record<string, boolean>) {

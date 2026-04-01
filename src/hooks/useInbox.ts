@@ -8,6 +8,7 @@ export interface LeadConversation {
   lead_phone?: string;
   lead_email?: string;
   lead_company?: string;
+  category: string;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
@@ -64,7 +65,7 @@ export function useInbox(onLeadCreated?: () => void) {
     if (leadIds.length > 0) {
       const { data: leads } = await supabase
         .from("leads")
-        .select("id, name, phone, email, company")
+        .select("id, name, phone, email, company, category")
         .in("id", leadIds);
       if (leads) {
         leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
@@ -89,6 +90,7 @@ export function useInbox(onLeadCreated?: () => void) {
           lead_phone: lead?.phone || meta?.phone,
           lead_email: lead?.email || meta?.email,
           lead_company: lead?.company,
+          category: lead?.category || "lead",
           last_message: c.last_message,
           last_message_at: c.last_message_at,
           unread_count: c.unread_count || 0,
@@ -237,7 +239,8 @@ export function useInbox(onLeadCreated?: () => void) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const url = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-message`;
+      const isOfficial = target.channel === "whatsapp_official";
+      const url = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-message${isOfficial ? "&type=official" : ""}`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
@@ -288,7 +291,8 @@ export function useInbox(onLeadCreated?: () => void) {
       const url = await uploadFile(file);
 
       // 2. Send via proxy
-      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-media`;
+      const isOfficial = target.channel === "whatsapp_official";
+      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-media${isOfficial ? "&type=official" : ""}`;
       const res = await fetch(proxyUrl, {
         method: "POST",
         headers: {
@@ -404,7 +408,7 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    if (target.channel === "whatsapp") {
+    if (target.channel === "whatsapp" || target.channel === "whatsapp_official") {
       await sendWhatsAppMessage(selectedLeadId, text, target.id);
     } else if (target.channel === "email") {
       await sendEmail(selectedLeadId, text, target.id);
