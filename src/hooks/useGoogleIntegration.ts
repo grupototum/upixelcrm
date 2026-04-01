@@ -21,11 +21,12 @@ export function useGoogleIntegration() {
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-  const invokeFunction = useCallback(async (action: string, body?: Record<string, unknown>) => {
+  const invokeFunction = useCallback(async (action: string, body?: Record<string, unknown>, extraParams?: Record<string, string>) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error("Not authenticated");
 
-    const url = `https://${projectId}.supabase.co/functions/v1/google-oauth?action=${action}`;
+    const params = new URLSearchParams({ action, ...extraParams });
+    const url = `https://${projectId}.supabase.co/functions/v1/google-oauth?${params}`;
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -115,7 +116,7 @@ export function useGoogleIntegration() {
   }, [invokeFunction]);
 
   const fetchGmailList = useCallback(() => invokeFunction("gmail-list"), [invokeFunction]);
-  const fetchEmailMessage = useCallback((id: string) => invokeFunction(`gmail-get&id=${id}`), [invokeFunction]);
+  const fetchEmailMessage = useCallback((id: string) => invokeFunction("gmail-get", undefined, { id }), [invokeFunction]);
   const fetchCalendarList = useCallback(() => invokeFunction("calendar-list"), [invokeFunction]);
   const fetchDriveList = useCallback(() => invokeFunction("drive-list"), [invokeFunction]);
   const sendEmail = useCallback((to: string, subject: string, body: string) =>
