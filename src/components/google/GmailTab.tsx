@@ -56,12 +56,14 @@ function parseEmails(messages: any[]): ParsedEmail[] {
   });
 }
 
-export function GmailTab({ fetchGmailList, sendEmail }: GmailTabProps) {
+export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: GmailTabProps) {
   const [emails, setEmails] = useState<ParsedEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"all" | "unread" | "read">("all");
   const [composeOpen, setComposeOpen] = useState(false);
+  const [viewEmail, setViewEmail] = useState<any>(null);
+  const [viewLoading, setViewLoading] = useState(false);
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -80,6 +82,50 @@ export function GmailTab({ fetchGmailList, sendEmail }: GmailTabProps) {
   };
 
   useEffect(() => { load(); }, []);
+
+  const getBody = (payload: any): string => {
+    if (!payload) return "";
+    let html = "";
+    let plain = "";
+
+    const decode = (data: string) => {
+      try {
+        return decodeURIComponent(escape(atob(data.replace(/-/g, "+").replace(/_/g, "/"))));
+      } catch (e) {
+        return atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+      }
+    };
+
+    const processPart = (part: any) => {
+      if (part.mimeType === "text/plain" && part.body?.data) plain = decode(part.body.data);
+      if (part.mimeType === "text/html" && part.body?.data) html = decode(part.body.data);
+      if (part.parts) part.parts.forEach(processPart);
+    };
+
+    if (payload.body?.data) {
+      const decoded = decode(payload.body.data);
+      if (payload.mimeType === "text/html") html = decoded;
+      else plain = decoded;
+    }
+    
+    if (payload.parts) payload.parts.forEach(processPart);
+    
+    return html || plain || "(Sem conteúdo)";
+  };
+
+  const handleOpenEmail = async (email: ParsedEmail) => {
+    setViewLoading(true);
+    setViewEmail({ ...email, body: "" });
+    try {
+      const full = await fetchEmailMessage(email.id);
+      setViewEmail({ ...email, body: getBody(full.payload) });
+    } catch (err: any) {
+      toast.error("Erro ao carregar conteúdo do e-mail.");
+      setViewEmail(null);
+    } finally {
+      setViewLoading(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!to.trim() || !subject.trim()) { toast.error("Preencha destinatário e assunto."); return; }

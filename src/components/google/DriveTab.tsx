@@ -77,6 +77,7 @@ function parseFiles(files: any[]): ParsedFile[] {
       owner,
       icon: fileIcons[type].icon,
       color: fileIcons[type].color,
+      webViewLink: f.webViewLink || "https://drive.google.com",
     };
   });
 }
@@ -87,6 +88,10 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeType, setActiveType] = useState<FileType | "all">("all");
+
+  const handleOpenFile = (link: string) => {
+    window.open(link, "_blank");
+  };
 
   const load = async () => {
     setLoading(true);

@@ -201,7 +201,8 @@ Deno.serve(async (req) => {
     }
 
     // ──── proxy Google API ────
-    if (["gmail-list", "calendar-list", "drive-list", "gmail-send"].includes(action || "")) {
+    const proxyActions = ["gmail-list", "gmail-get", "calendar-list", "drive-list", "gmail-send"];
+    if (proxyActions.includes(action || "")) {
       const { data: integration } = await adminClient.from("integrations").select("*")
         .eq("client_id", clientId).eq("provider", "google").single();
       if (!integration?.access_token) return json({ error: "Not connected to Google" }, 401);
@@ -229,7 +230,6 @@ Deno.serve(async (req) => {
       const at = integration.access_token;
 
       if (action === "gmail-list") {
-        // Fetch message IDs then get details for each
         const listRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20", { headers: { Authorization: `Bearer ${at}` } });
         const listData = await listRes.json();
         if (!listRes.ok) return json(listData, listRes.status);
@@ -244,6 +244,15 @@ Deno.serve(async (req) => {
         return json({ messages: detailed });
       }
 
+      if (action === "gmail-get") {
+        const messageId = url.searchParams.get("id");
+        if (!messageId) return json({ error: "Missing message id" }, 400);
+        const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`, {
+          headers: { Authorization: `Bearer ${at}` }
+        });
+        return json(await res.json(), res.status);
+      }
+
       if (action === "gmail-send") {
         const body = await req.json();
         const raw = btoa(unescape(encodeURIComponent(`To: ${body.to}\r\nSubject: ${body.subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body.body}`)));
@@ -256,12 +265,12 @@ Deno.serve(async (req) => {
       }
 
       if (action === "calendar-list") {
-        const calRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=20&timeMin=${new Date().toISOString()}&orderBy=startTime&singleEvents=true`, { headers: { Authorization: `Bearer ${at}` } });
+        const calRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=20&timeMin=${new Date().toISOString()}&orderBy=startTime&singleEvents=true&fields=items(id,summary,start,end,location,description,hangoutLink,htmlLink,attendees)`, { headers: { Authorization: `Bearer ${at}` } });
         return json(await calRes.json(), calRes.status);
       }
 
       if (action === "drive-list") {
-        const driveRes = await fetch("https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,mimeType,size,modifiedTime,owners)", { headers: { Authorization: `Bearer ${at}` } });
+        const driveRes = await fetch("https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,mimeType,size,modifiedTime,owners,webViewLink)", { headers: { Authorization: `Bearer ${at}` } });
         return json(await driveRes.json(), driveRes.status);
       }
 

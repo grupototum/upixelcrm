@@ -26,6 +26,7 @@ interface ParsedEvent {
   attendees: number;
   isOnline: boolean;
   rawDate: string;
+  htmlLink: string;
 }
 
 function parseEvents(items: any[]): ParsedEvent[] {
@@ -56,6 +57,7 @@ function parseEvents(items: any[]): ParsedEvent[] {
       attendees: (evt.attendees || []).length,
       isOnline,
       rawDate: start.toDateString(),
+      htmlLink: evt.htmlLink || "https://calendar.google.com",
     };
   }).sort((a, b) => a.start.getTime() - b.start.getTime());
 }
@@ -67,6 +69,10 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
+  const handleOpenEvent = (link: string) => {
+    window.open(link, "_blank");
+  };
 
   const load = async () => {
     setLoading(true);
