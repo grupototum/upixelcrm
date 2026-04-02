@@ -91,6 +91,19 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
     }
   }, [invokeFunction, loadConfig]);
 
+  const checkStatus = useCallback(async () => {
+    try {
+      const data = await invokeFunction("status");
+      setConfig(prev => ({ ...prev, status: data.status }));
+      if (data.status === "connected" && data.instance?.owner) {
+        setConnectedNumber(data.instance.owner);
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  }, [invokeFunction]);
+
   const connect = useCallback(async () => {
     try {
       setQrData(null);
@@ -115,19 +128,6 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
       return null;
     }
   }, [invokeFunction, type, checkStatus]);
-
-  const checkStatus = useCallback(async () => {
-    try {
-      const data = await invokeFunction("status");
-      setConfig(prev => ({ ...prev, status: data.status }));
-      if (data.status === "connected" && data.instance?.owner) {
-        setConnectedNumber(data.instance.owner);
-      }
-      return data;
-    } catch {
-      return null;
-    }
-  }, [invokeFunction]);
 
   const disconnect = useCallback(async () => {
     try {
