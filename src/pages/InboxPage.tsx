@@ -433,6 +433,11 @@ export default function InboxPage() { // force HMR reset
                       const msgDate = new Date(msg.created_at).toLocaleDateString("pt-BR");
                       const prevDate = prevMsg ? new Date(prevMsg.created_at).toLocaleDateString("pt-BR") : null;
                       const showDate = !prevDate || msgDate !== prevDate;
+
+                      // Channel change indicator
+                      const prevChannel = prevMsg?.channel;
+                      const currentChannel = msg.channel;
+                      const showChannelChange = prevMsg && currentChannel && prevChannel && currentChannel !== prevChannel;
                       
                       const isConsecutivePrev = prevMsg && prevMsg.direction === msg.direction && 
                         (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() < 60000) &&
