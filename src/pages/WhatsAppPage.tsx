@@ -232,9 +232,14 @@ export default function WhatsAppPage() {
                     <Loader2 className="h-3 w-3 animate-spin" /> Conectando...
                   </Button>
                 ) : (
-                  <Button size="sm" className="text-xs gap-1 w-full bg-success hover:bg-success/90 text-white" onClick={handleConnectOfficial}>
-                    <Zap className="h-3 w-3" /> Conectar API Oficial
-                  </Button>
+                  <div className="flex flex-col w-full gap-2">
+                    <Button size="sm" className="text-xs gap-1 w-full bg-success hover:bg-success/90 text-white" onClick={handleConnectOfficial}>
+                      <Zap className="h-3 w-3" /> Conectar API Oficial
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs gap-1 w-full text-muted-foreground" onClick={() => setOfficialSettingsOpen(true)}>
+                      <Settings className="h-3 w-3" /> Configuração API
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
