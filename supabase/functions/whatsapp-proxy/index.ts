@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const config = integration.config as { 
+    const rawConfig = integration.config as { 
       api_url: string; 
       instance_name: string; 
       api_key: string;
@@ -151,6 +151,8 @@ Deno.serve(async (req) => {
       business_id?: string;
       access_token?: string;
     };
+    // Normalize api_url: remove trailing slash to prevent double slashes
+    const config = { ...rawConfig, api_url: rawConfig.api_url.replace(/\/+$/, "") };
 
     if (action === "connect") {
       // ── Official (Cloud API) flow ──

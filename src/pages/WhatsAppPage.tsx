@@ -13,13 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useWhatsAppIntegration } from "@/hooks/useWhatsAppIntegration";
 
-type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
+type ConnectionStatus = "disconnected" | "connecting" | "connected" | "configured" | "error";
 
 function StatusBadge({ status }: { status: ConnectionStatus }) {
-  const map = {
+  const map: Record<string, { label: string; cls: string }> = {
     disconnected: { label: "Desconectado", cls: "border-muted-foreground/40 text-muted-foreground" },
     connecting: { label: "Conectando...", cls: "border-accent/40 text-accent" },
     connected: { label: "Conectado", cls: "border-success/40 text-success" },
+    configured: { label: "Configurado", cls: "border-primary/40 text-primary" },
     error: { label: "Erro", cls: "border-destructive/40 text-destructive" },
   };
   const { label, cls } = map[status] || map.disconnected;
