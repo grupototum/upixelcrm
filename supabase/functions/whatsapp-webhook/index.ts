@@ -323,9 +323,9 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
 
       const phoneNumberId = value.metadata?.phone_number_id;
 
-      // Find integration by phone_number_id
+      // Find integration by phone_number_id (accept any active status)
       const { data: integrations } = await adminClient.from("integrations").select("client_id, config, access_token")
-        .eq("provider", "whatsapp_official").eq("status", "connected").limit(100);
+        .eq("provider", "whatsapp_official").in("status", ["connected", "configured", "connecting"]).limit(100);
 
       const match = (integrations || []).find((i: any) => (i.config as any)?.phone_number_id === phoneNumberId);
       if (!match) {

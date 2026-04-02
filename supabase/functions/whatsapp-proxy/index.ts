@@ -248,12 +248,24 @@ Deno.serve(async (req) => {
       const res = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
         headers: { apikey: config.api_key },
       });
-      const data = await res.json();
 
+      // For official: if instance not found (404), keep as configured (credentials exist)
+      if (!res.ok && type === "official") {
+        const fallbackStatus = config.access_token ? "configured" : "disconnected";
+        await adminClient.from("integrations").update({ status: fallbackStatus })
+          .eq("client_id", clientId).eq("provider", provider);
+        return new Response(JSON.stringify({ instance: { state: fallbackStatus }, status: fallbackStatus }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await res.json();
       const state = data.instance?.state;
       let newStatus = "disconnected";
       if (state === "open") newStatus = "connected";
       else if (state === "connecting") newStatus = "connecting";
+      // For official, if state is unknown but credentials exist, keep configured
+      else if (type === "official" && config.access_token) newStatus = "configured";
 
       await adminClient.from("integrations").update({
         status: newStatus,

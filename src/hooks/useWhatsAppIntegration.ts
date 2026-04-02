@@ -95,15 +95,26 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
     try {
       setQrData(null);
       const data = await invokeFunction("connect");
-      if (data.base64) {
-        setQrData(data.base64);
+
+      if (type === "official") {
+        // Official: no QR code, connection is immediate
+        if (data.connected || data.instance?.state === "open") {
+          setConfig(prev => ({ ...prev, status: "connected" }));
+          toast.success("WhatsApp Oficial conectado!");
+        }
+        await checkStatus();
+      } else {
+        // Lite: show QR code
+        if (data.base64) {
+          setQrData(data.base64);
+        }
       }
       return data;
     } catch (err: any) {
       toast.error(`Erro ao conectar: ${err.message}`);
       return null;
     }
-  }, [invokeFunction]);
+  }, [invokeFunction, type, checkStatus]);
 
   const checkStatus = useCallback(async () => {
     try {
