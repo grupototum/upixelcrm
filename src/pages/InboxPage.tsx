@@ -20,7 +20,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
@@ -655,6 +654,8 @@ export default function InboxPage() { // force HMR reset
                                 {(msg.type === "text" || !msg.type) && msg.content}
                                 
                                 <div className={`flex items-center justify-end gap-1.5 mt-1 opacity-70`}>
+                                  {/* Channel indicator */}
+                                  <ChannelIcon className={`h-2.5 w-2.5 opacity-60`} />
                                   <span className="text-[9px] font-medium">
                                     {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                   </span>
@@ -669,7 +670,6 @@ export default function InboxPage() { // force HMR reset
                                       )}
                                     </div>
                                   )}
-                                  {!isOutbound && !msg.is_private && <ChannelIcon className="h-2.5 w-2.5 opacity-60" />}
                                 </div>
                               </div>
                             </div>
@@ -713,6 +713,24 @@ export default function InboxPage() { // force HMR reset
                 activeConversationId={activeConversationId || undefined}
                 setActiveConversationId={id => setActiveConversationId(id)}
                 leadName={selectedLeadGroup.lead_name}
+                leadPhone={selectedLeadGroup.lead_phone}
+                leadEmail={selectedLeadGroup.lead_email}
+                onAddChannel={async (channel) => {
+                  const phone = selectedLeadGroup.lead_phone || "";
+                  const email = selectedLeadGroup.lead_email || "";
+                  const name = selectedLeadGroup.lead_name || "";
+                  const newId = await inbox.createConversation(
+                    channel, 
+                    selectedLeadGroup.lead_id, 
+                    phone, 
+                    email, 
+                    name
+                  );
+                  if (newId) {
+                    setActiveConversationId(newId);
+                    toast.success(`Canal ${channel === "whatsapp_official" ? "WA Oficial" : channel === "whatsapp" ? "WhatsApp" : channel === "email" ? "E-mail" : channel} adicionado!`);
+                  }
+                }}
               />
             </>
           ) : (

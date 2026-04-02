@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from "react";
-import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, X, Smile, Paperclip as AttachIcon, Shield } from "lucide-react";
+import { useState, useRef } from "react";
+import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, Smile, Paperclip as AttachIcon, Shield, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { CannedResponsePicker } from "./CannedResponsePicker";
 import { MessageTemplatePopover } from "./MessageTemplatePopover";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 interface ReplyBoxProps {
   onSend: (text: string, isPrivate: boolean, targetConversationId?: string) => Promise<void>;
@@ -15,15 +17,20 @@ interface ReplyBoxProps {
   activeConversationId?: string;
   setActiveConversationId: (id: string) => void;
   leadName?: string;
+  leadPhone?: string;
+  leadEmail?: string;
+  onAddChannel?: (channel: string) => Promise<void>;
 }
 
-const channelIcons: Record<string, any> = {
-  whatsapp: MessageCircle,
-  whatsapp_official: Shield,
-  email: Mail,
-  instagram: MessageCircle,
-  webchat: MessageSquare,
+const channelConfig: Record<string, { icon: any; label: string; color: string }> = {
+  whatsapp: { icon: MessageCircle, label: "WhatsApp", color: "text-emerald-500" },
+  whatsapp_official: { icon: Shield, label: "WA Oficial", color: "text-emerald-600" },
+  email: { icon: Mail, label: "E-mail", color: "text-blue-500" },
+  instagram: { icon: MessageCircle, label: "Instagram", color: "text-pink-500" },
+  webchat: { icon: MessageSquare, label: "Webchat", color: "text-violet-500" },
 };
+
+const allChannels = ["whatsapp", "whatsapp_official", "email", "instagram", "webchat"];
 
 export function ReplyBox({ 
   onSend, 
@@ -32,7 +39,10 @@ export function ReplyBox({
   sourceConversations, 
   activeConversationId, 
   setActiveConversationId,
-  leadName 
+  leadName,
+  leadPhone,
+  leadEmail,
+  onAddChannel,
 }: ReplyBoxProps) {
   const [message, setMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -41,11 +51,18 @@ export function ReplyBox({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const activeSource = sourceConversations.find(sc => sc.id === activeConversationId);
+  const activeChannel = activeSource?.channel || sourceConversations[0]?.channel || "whatsapp";
+  const activeConfig = channelConfig[activeChannel] || channelConfig.whatsapp;
+  const ActiveIcon = activeConfig.icon;
+
+  // Channels not yet in source_conversations
+  const existingChannels = sourceConversations.map(sc => sc.channel);
+  const availableNewChannels = allChannels.filter(ch => !existingChannels.includes(ch));
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setMessage(val);
-
-    // Detect "/" for canned response picker
     const lastWord = val.split(" ").pop() || "";
     if (lastWord.startsWith("/")) {
       setShowCannedPicker(true);
@@ -57,7 +74,7 @@ export function ReplyBox({
 
   const handleSelectCanned = (content: string) => {
     const words = message.split(" ");
-    words.pop(); // remove the "/shortcode"
+    words.pop();
     const newMessage = [...words, content].join(" ").trim();
     setMessage(newMessage);
     setShowCannedPicker(false);
@@ -89,8 +106,13 @@ export function ReplyBox({
     if (file) {
       await onSendMedia(file, activeConversationId);
     }
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleAddChannel = async (channel: string) => {
+    if (onAddChannel) {
+      await onAddChannel(channel);
+    }
   };
 
   return (
@@ -107,57 +129,94 @@ export function ReplyBox({
 
         {/* Header: Mode & Channel Selector */}
         <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5 p-1 bg-secondary/30 rounded-2xl border border-border/20">
-            <button
-              onClick={() => setIsPrivate(false)}
-              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl transition-all duration-200 ${
-                !isPrivate ? "bg-background text-primary shadow-sm border border-border/50" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Resposta
-            </button>
-            <button
-              onClick={() => setIsPrivate(true)}
-              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
-                isPrivate ? "bg-amber-500 text-white shadow-md" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Lock className="h-2.5 w-2.5" /> Nota Privada
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Reply / Private Note toggle */}
+            <div className="flex items-center gap-1.5 p-1 bg-secondary/30 rounded-2xl border border-border/20">
+              <button
+                onClick={() => setIsPrivate(false)}
+                className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl transition-all duration-200 ${
+                  !isPrivate ? "bg-background text-primary shadow-sm border border-border/50" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Resposta
+              </button>
+              <button
+                onClick={() => setIsPrivate(true)}
+                className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
+                  isPrivate ? "bg-amber-500 text-white shadow-md" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Lock className="h-2.5 w-2.5" /> Nota Privada
+              </button>
+            </div>
           </div>
 
-          {!isPrivate && sourceConversations.length >= 1 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[50%] p-1 bg-secondary/20 rounded-xl">
-              {sourceConversations.map(sc => {
-                const Icon = channelIcons[sc.channel] || MessageCircle;
-                const isActive = activeConversationId === sc.id;
-                const channelLabel = sc.channel === "whatsapp_official" ? "WhatsApp Oficial" 
-                                   : sc.channel === "whatsapp" ? "WhatsApp Lite"
-                                   : sc.channel === "email" ? "E-mail"
-                                   : sc.channel;
-                
-                const identifier = sc.metadata.phone || sc.metadata.email || sc.channel;
+          {/* Channel Selector Dropdown */}
+          {!isPrivate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/30 border border-border/20 hover:bg-secondary/50 transition-all text-[10px] font-bold uppercase tracking-wider">
+                  <ActiveIcon className={`h-3.5 w-3.5 ${activeConfig.color}`} />
+                  <span className="text-foreground">{activeConfig.label}</span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                  Canais conectados
+                </DropdownMenuLabel>
+                {sourceConversations.map(sc => {
+                  const config = channelConfig[sc.channel] || channelConfig.whatsapp;
+                  const Icon = config.icon;
+                  const identifier = sc.metadata?.phone || sc.metadata?.email || sc.channel;
+                  const isActive = sc.id === activeConversationId;
+                  return (
+                    <DropdownMenuItem
+                      key={sc.id}
+                      onClick={() => setActiveConversationId(sc.id)}
+                      className={`flex items-center gap-2.5 text-xs cursor-pointer ${isActive ? "bg-primary/10 text-primary font-bold" : ""}`}
+                    >
+                      <Icon className={`h-3.5 w-3.5 ${config.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold">{config.label}</span>
+                        <span className="text-muted-foreground ml-1.5 text-[10px]">{identifier}</span>
+                      </div>
+                      {isActive && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                    </DropdownMenuItem>
+                  );
+                })}
 
-                return (
-                  <button
-                    key={sc.id}
-                    onClick={() => setActiveConversationId(sc.id)}
-                    title={`${channelLabel}: ${identifier}`}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-bold transition-all shrink-0 ${
-                      isActive
-                        ? "bg-background text-primary border-primary/20 shadow-sm"
-                        : "text-muted-foreground border-transparent hover:bg-background/50"
-                    }`}
-                  >
-                    <Icon className={`h-2.5 w-2.5 ${sc.channel === "whatsapp_official" ? "text-success" : ""}`} />
-                    <span className="max-w-[120px] truncate">
-                      <span className="opacity-60 mr-1">[{sc.channel === "whatsapp_official" ? "OFICIAL" : "LITE"}]</span>
-                      {identifier}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                {/* Add new channel */}
+                {availableNewChannels.length > 0 && onAddChannel && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                      Adicionar canal
+                    </DropdownMenuLabel>
+                    {availableNewChannels.map(ch => {
+                      const config = channelConfig[ch];
+                      const Icon = config.icon;
+                      // Only show channels that make sense for this lead
+                      const canAdd = (ch === "email" && leadEmail) || 
+                                     ((ch === "whatsapp" || ch === "whatsapp_official") && leadPhone) ||
+                                     ch === "webchat" || ch === "instagram";
+                      if (!canAdd) return null;
+                      return (
+                        <DropdownMenuItem
+                          key={ch}
+                          onClick={() => handleAddChannel(ch)}
+                          className="flex items-center gap-2.5 text-xs cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3 text-muted-foreground" />
+                          <Icon className={`h-3.5 w-3.5 ${config.color}`} />
+                          <span>{config.label}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 
@@ -196,7 +255,7 @@ export function ReplyBox({
                 ref={textareaRef}
                 rows={1}
                 className="w-full bg-transparent border-none focus-visible:ring-0 shadow-none py-2.5 text-sm min-h-[40px] max-h-[200px] resize-none overflow-y-auto custom-scrollbar"
-                placeholder={isPrivate ? "Adicionar uma nota privada interna..." : `Responder para ${leadName || "contato"}...`}
+                placeholder={isPrivate ? "Adicionar uma nota privada interna..." : `Responder via ${activeConfig.label} para ${leadName || "contato"}...`}
                 value={message}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
