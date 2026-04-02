@@ -237,7 +237,7 @@ export default function InboxPage() { // force HMR reset
               />
             </div>
             <div className="flex gap-1.5">
-              {["all", "whatsapp", "email", "instagram"].map(ch => (
+              {["all", "whatsapp", "whatsapp_official", "email", "instagram"].map(ch => (
                 <button
                   key={ch}
                   onClick={() => setChannelFilter(ch)}
