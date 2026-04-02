@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
           phone_number_id: (integration?.config as any)?.phone_number_id || "",
           business_id: (integration?.config as any)?.business_id || "",
           access_token: (integration?.config as any)?.access_token || "",
+          connected_number: (integration?.config as any)?.connected_number || "",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

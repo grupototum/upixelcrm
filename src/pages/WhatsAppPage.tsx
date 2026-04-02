@@ -75,7 +75,18 @@ export default function WhatsAppPage() {
   const apiStatus = waOfficial.config.status as ConnectionStatus;
   const liteStatus = waNormal.config.status as ConnectionStatus;
 
-  // Polling when QR modal is open
+  // Periodic Status Monitor (every 10s)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!qrModalOpen) {
+        await waNormal.checkStatus();
+        await waOfficial.checkStatus();
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [qrModalOpen, waNormal.checkStatus, waOfficial.checkStatus]);
+
+  // QR Selection Polling
   useEffect(() => {
     let interval: any;
     if (qrModalOpen && qrStep !== "success") {
@@ -129,7 +140,8 @@ export default function WhatsAppPage() {
   };
 
   const handleDisconnectLite = async () => {
-    await waNormal.disconnect();
+    const ok = confirm("Tem certeza que deseja desconectar o WhatsApp Lite?");
+    if (ok) await waNormal.disconnect();
   };
 
   return (
