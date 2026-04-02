@@ -22,7 +22,7 @@ function StatusBadge({ status }: { status: ConnectionStatus }) {
     connected: { label: "Conectado", cls: "border-success/40 text-success" },
     error: { label: "Erro", cls: "border-destructive/40 text-destructive" },
   };
-  const { label, cls } = map[status];
+  const { label, cls } = map[status] || map.disconnected;
   return <Badge variant="outline" className={`text-[9px] ${cls}`}>{label}</Badge>;
 }
 
