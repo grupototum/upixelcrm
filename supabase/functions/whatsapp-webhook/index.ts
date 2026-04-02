@@ -419,14 +419,37 @@ Deno.serve(async (req) => {
 
     // Evolution API format
     const event = body.event;
-    if (event !== "messages.upsert") {
-      return new Response(JSON.stringify({ ok: true, skipped: true }), {
+    
+    // Handle message events
+    if (event === "messages.upsert") {
+      const result = await handleEvolutionWebhook(body, adminClient);
+      return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const result = await handleEvolutionWebhook(body, adminClient);
-    return new Response(JSON.stringify(result), {
+    // Handle connection status updates
+    if (event === "connection.update") {
+      const instanceName = body.instance;
+      const state = body.data?.state;
+      if (instanceName && state) {
+        let newStatus = "disconnected";
+        if (state === "open") newStatus = "connected";
+        else if (state === "connecting") newStatus = "connecting";
+
+        await adminClient.from("integrations").update({ status: newStatus })
+          .eq("provider", "whatsapp").eq("status", "connected") // Simplified: update active one
+          .filter("config->>instance_name", "eq", instanceName);
+          
+        console.log(`Connection update for ${instanceName}: ${state} -> ${newStatus}`);
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Skip other events
+    return new Response(JSON.stringify({ ok: true, skipped: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: unknown) {

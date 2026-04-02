@@ -196,6 +196,7 @@ Deno.serve(async (req) => {
     };
     // Normalize api_url: remove trailing slash to prevent double slashes
     const config = { ...rawConfig, api_url: rawConfig.api_url.replace(/\/+$/, "") };
+    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
 
     if (action === "connect") {
       const fallbackStatus = getFallbackStatus(integration?.status, type, config);
@@ -236,6 +237,20 @@ Deno.serve(async (req) => {
             status: "connected",
             config: { ...config, connected_number: config.phone_number_id || "" },
           }).eq("client_id", clientId).eq("provider", provider);
+
+          // Set Webhook for Official
+          await fetch(`${config.api_url}/webhook/set/${config.instance_name}`, {
+            method: "POST",
+            headers: { apikey: config.api_key, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              webhook: {
+                enabled: true,
+                url: webhookUrl,
+                webhook_by_events: false,
+                events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", "CONNECTION_UPDATE"]
+              }
+            })
+          }).catch(err => console.error("Failed to set official webhook:", err));
 
           return jsonResponse({ connected: true, instance: { state: "open" }, status: "connected", reachable: true });
         }
@@ -279,6 +294,20 @@ Deno.serve(async (req) => {
             }
           }).eq("client_id", clientId).eq("provider", provider);
         }
+
+        // Set Webhook for Lite
+        await fetch(`${config.api_url}/webhook/set/${config.instance_name}`, {
+          method: "POST",
+          headers: { apikey: config.api_key, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              webhook_by_events: false,
+              events: ["QRCODE_UPDATED", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", "SEND_MESSAGE", "CONNECTION_UPDATE"]
+            }
+          })
+        }).catch(err => console.error("Failed to set lite webhook:", err));
 
         return jsonResponse(data, res.status);
       } catch (err) {
