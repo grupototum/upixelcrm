@@ -6,6 +6,49 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const jsonHeaders = {
+  ...corsHeaders,
+  "Content-Type": "application/json",
+};
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: jsonHeaders,
+  });
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "Unknown error";
+
+const isConnectionTimeout = (error: unknown) => {
+  const message = getErrorMessage(error).toLowerCase();
+  return ["timed out", "tcp connect error", "connection refused", "dns", "network", "unreachable"].some((term) =>
+    message.includes(term)
+  );
+};
+
+const getFallbackStatus = (
+  persistedStatus: string | null | undefined,
+  type: string | null,
+  config: { api_key?: string; instance_name?: string; access_token?: string }
+) => {
+  if (persistedStatus && persistedStatus !== "disconnected") return persistedStatus;
+  if (type === "official" && config.access_token) return "configured";
+  if (config.api_key && config.instance_name) return "configured";
+  return persistedStatus || "disconnected";
+};
+
+async function readResponseBody(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -248,39 +291,68 @@ Deno.serve(async (req) => {
     }
 
     if (action === "status") {
-      const res = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
-        headers: { apikey: config.api_key },
-      });
+      const fallbackStatus = getFallbackStatus(integration?.status, type, config);
 
-      // For official: if instance not found (404), keep as configured (credentials exist)
-      if (!res.ok && type === "official") {
-        const fallbackStatus = config.access_token ? "configured" : "disconnected";
-        await adminClient.from("integrations").update({ status: fallbackStatus })
-          .eq("client_id", clientId).eq("provider", provider);
-        return new Response(JSON.stringify({ instance: { state: fallbackStatus }, status: fallbackStatus }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      try {
+        const res = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+          headers: { apikey: config.api_key },
         });
+        const data = await readResponseBody(res);
+
+        if (!res.ok) {
+          const upstreamError = typeof data === "string"
+            ? data
+            : (data as { response?: { message?: string } } | null)?.response?.message || "Could not fetch connection status from Evolution API";
+
+          if (type === "official") {
+            const configuredStatus = config.access_token ? "configured" : fallbackStatus;
+            await adminClient.from("integrations").update({ status: configuredStatus })
+              .eq("client_id", clientId).eq("provider", provider);
+
+            return jsonResponse({
+              instance: { state: configuredStatus },
+              status: configuredStatus,
+              reachable: false,
+              error: upstreamError,
+            });
+          }
+
+          return jsonResponse({
+            instance: { state: fallbackStatus },
+            status: fallbackStatus,
+            reachable: false,
+            error: upstreamError,
+          });
+        }
+
+        const payload = typeof data === "object" && data !== null ? data as Record<string, any> : {};
+        const state = payload.instance?.state;
+        let newStatus = "disconnected";
+        if (state === "open") newStatus = "connected";
+        else if (state === "connecting") newStatus = "connecting";
+        else if (type === "official" && config.access_token) newStatus = "configured";
+
+        await adminClient.from("integrations").update({
+          status: newStatus,
+          config: {
+            ...config,
+            ...(payload.instance?.owner ? { connected_number: payload.instance.owner } : {}),
+          },
+        }).eq("client_id", clientId).eq("provider", provider);
+
+        return jsonResponse({ ...payload, status: newStatus, reachable: true });
+      } catch (err) {
+        if (isConnectionTimeout(err)) {
+          return jsonResponse({
+            instance: { state: fallbackStatus },
+            status: fallbackStatus,
+            reachable: false,
+            error: "Evolution API is unavailable or timed out while checking the instance status.",
+          });
+        }
+
+        throw err;
       }
-
-      const data = await res.json();
-      const state = data.instance?.state;
-      let newStatus = "disconnected";
-      if (state === "open") newStatus = "connected";
-      else if (state === "connecting") newStatus = "connecting";
-      // For official, if state is unknown but credentials exist, keep configured
-      else if (type === "official" && config.access_token) newStatus = "configured";
-
-      await adminClient.from("integrations").update({
-        status: newStatus,
-        config: {
-          ...config,
-          ...(data.instance?.owner ? { connected_number: data.instance.owner } : {}),
-        },
-      }).eq("client_id", clientId).eq("provider", provider);
-
-      return new Response(JSON.stringify({ ...data, status: newStatus }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     if (action === "disconnect") {
