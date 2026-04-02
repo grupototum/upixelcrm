@@ -8,7 +8,7 @@ import {
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
   Check, CheckCheck, Clock,
   File, Download, Maximize2, Activity, X,
-  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff
+  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
