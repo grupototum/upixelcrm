@@ -472,6 +472,22 @@ export default function InboxPage() { // force HMR reset
                               <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
                             </div>
                           )}
+                          {showChannelChange && (() => {
+                            const ChIcon = channelIcons[currentChannel || ""] || MessageCircle;
+                            const label = channelLabels[currentChannel || ""] || currentChannel;
+                            return (
+                              <div className="flex items-center gap-3 my-4">
+                                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/5 border border-primary/10">
+                                  <ChIcon className={`h-3 w-3 ${channelColors[currentChannel || ""] ? "text-primary" : "text-muted-foreground"}`} />
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-primary/70">
+                                    Canal alterado para {label}
+                                  </span>
+                                </div>
+                                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+                              </div>
+                            );
+                          })()}
                           <div className={`flex items-end gap-2 ${isConsecutivePrev ? "mt-0.5" : "mt-4"} ${isOutbound ? "justify-end" : "justify-start"}`}>
                             {!isOutbound && !isConsecutivePrev && (
                               <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 mb-1">
