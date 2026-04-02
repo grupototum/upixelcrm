@@ -123,7 +123,15 @@ export default function WhatsAppPage() {
     }
     setQrModalOpen(true);
     setQrStep("scan");
-    await waNormal.connect();
+    const data = await waNormal.connect();
+    if (!data || data.reachable === false) {
+      setQrModalOpen(false);
+      setQrStep("scan");
+      return;
+    }
+    if (data.instance?.state === "open" || data.status === "connected") {
+      setQrStep("success");
+    }
   };
 
   const handleConnectOfficial = async () => {
@@ -132,8 +140,11 @@ export default function WhatsAppPage() {
       setOfficialSettingsOpen(true);
       return;
     }
-    await waOfficial.connect();
-    toast.success("Solicitação de conexão enviada!");
+    const data = await waOfficial.connect();
+    if (!data || data.reachable === false) return;
+    if (!data.connected && data.instance?.state !== "open") {
+      toast.success("Solicitação de conexão enviada!");
+    }
   };
 
   const handleDisconnectOfficial = async () => {
