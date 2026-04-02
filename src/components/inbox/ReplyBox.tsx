@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, Smile, Paperclip as AttachIcon, Shield, ChevronDown, Globe } from "lucide-react";
+import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, Smile, Paperclip as AttachIcon, Shield, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
