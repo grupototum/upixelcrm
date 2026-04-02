@@ -655,6 +655,8 @@ export default function InboxPage() { // force HMR reset
                                 {(msg.type === "text" || !msg.type) && msg.content}
                                 
                                 <div className={`flex items-center justify-end gap-1.5 mt-1 opacity-70`}>
+                                  {/* Channel indicator */}
+                                  <ChannelIcon className={`h-2.5 w-2.5 opacity-60`} />
                                   <span className="text-[9px] font-medium">
                                     {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                   </span>
@@ -669,7 +671,6 @@ export default function InboxPage() { // force HMR reset
                                       )}
                                     </div>
                                   )}
-                                  {!isOutbound && !msg.is_private && <ChannelIcon className="h-2.5 w-2.5 opacity-60" />}
                                 </div>
                               </div>
                             </div>
