@@ -138,9 +138,6 @@ export default function WhatsAppPage() {
       subtitle="Conecte seu WhatsApp ao uPixel"
       actions={
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="text-xs gap-1 opacity-70 hover:opacity-100" onClick={() => setSettingsOpen(true)}>
-            <Settings className="h-3 w-3" /> Credenciais API
-          </Button>
           <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
             <ArrowLeft className="h-3 w-3" /> Voltar
           </Button>
@@ -263,20 +260,30 @@ export default function WhatsAppPage() {
                 </div>
               )}
 
-              <div className="border-t border-border/40 pt-4 flex items-center justify-between">
+              <div className="border-t border-border/40 pt-4 flex items-center justify-between gap-2">
                 {liteStatus === "connected" ? (
                   <>
-                    <Button size="sm" variant="ghost" className="text-xs gap-1" onClick={() => { setQrStep("scan"); setQrModalOpen(true); }}>
-                      <RefreshCw className="h-3 w-3" /> Atualizar sessão
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-xs gap-1 text-destructive" onClick={handleDisconnectLite}>
+                    <div className="flex items-center gap-2 flex-1">
+                      <Button size="sm" variant="ghost" className="text-xs gap-1 flex-1" onClick={() => { setQrStep("scan"); setQrModalOpen(true); }}>
+                        <RefreshCw className="h-3 w-3" /> Reset
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs gap-1 text-primary" onClick={() => setSettingsOpen(true)}>
+                        <Settings className="h-3 w-3" /> Config
+                      </Button>
+                    </div>
+                    <Button size="sm" variant="outline" className="text-xs gap-1 text-destructive whitespace-nowrap" onClick={handleDisconnectLite}>
                       <XCircle className="h-3 w-3" /> Desconectar
                     </Button>
                   </>
                 ) : (
-                  <Button size="sm" className="text-xs gap-1 w-full bg-accent hover:bg-accent-hover text-accent-foreground" onClick={initiateConnection}>
-                    <QrCode className="h-3 w-3" /> Conectar via QR Code
-                  </Button>
+                  <div className="flex flex-col w-full gap-2">
+                    <Button size="sm" className="text-xs gap-1 w-full bg-accent hover:bg-accent-hover text-accent-foreground" onClick={initiateConnection}>
+                      <QrCode className="h-3 w-3" /> Conectar via QR Code
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs gap-1 w-full text-muted-foreground" onClick={() => setSettingsOpen(true)}>
+                      <Settings className="h-3 w-3" /> Credenciais API
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

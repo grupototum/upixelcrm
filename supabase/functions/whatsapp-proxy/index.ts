@@ -184,15 +184,22 @@ Deno.serve(async (req) => {
         await checkRes.text(); // consume body
       }
 
-      // Now connect (get QR code)
+      // Now connect (get QR code or activate Official)
       const res = await fetch(`${config.api_url}/instance/connect/${config.instance_name}`, {
         headers: { apikey: config.api_key },
       });
       const data = await res.json();
 
-      if (data.base64 || type === "official") {
-        await adminClient.from("integrations").update({ status: "connecting" })
-          .eq("client_id", clientId).eq("provider", provider);
+      // For official API, if it says "instance already connected" or similar, it's fine
+      if (data.base64 || type === "official" || data.instance?.state === "open") {
+        const newStatus = (data.instance?.state === "open") ? "connected" : "connecting";
+        await adminClient.from("integrations").update({ 
+          status: newStatus,
+          config: {
+            ...config,
+            ...(data.instance?.owner ? { connected_number: data.instance.owner } : {}),
+          }
+        }).eq("client_id", clientId).eq("provider", provider);
       }
 
       return new Response(JSON.stringify(data), {
@@ -227,14 +234,31 @@ Deno.serve(async (req) => {
 
     if (action === "disconnect") {
       try {
-        await fetch(`${config.api_url}/instance/logout/${config.instance_name}`, {
+        // Try logout first
+        const logoutRes = await fetch(`${config.api_url}/instance/logout/${config.instance_name}`, {
           method: "DELETE",
           headers: { apikey: config.api_key },
         });
-      } catch (_e) { /* ignore */ }
+        
+        // If logout fails (e.g. 404), try delete
+        if (!logoutRes.ok) {
+          await fetch(`${config.api_url}/instance/delete/${config.instance_name}`, {
+            method: "DELETE",
+            headers: { apikey: config.api_key },
+          });
+        }
+      } catch (err) { 
+        console.error("Error during disconnect:", err);
+      }
 
-      await adminClient.from("integrations").update({ status: "disconnected" })
-        .eq("client_id", clientId).eq("provider", provider);
+      // Always update local status to disconnected
+      await adminClient.from("integrations").update({ 
+        status: "disconnected",
+        config: {
+          ...config,
+          connected_number: null
+        }
+      }).eq("client_id", clientId).eq("provider", provider);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
