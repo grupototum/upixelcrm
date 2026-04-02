@@ -714,6 +714,24 @@ export default function InboxPage() { // force HMR reset
                 activeConversationId={activeConversationId || undefined}
                 setActiveConversationId={id => setActiveConversationId(id)}
                 leadName={selectedLeadGroup.lead_name}
+                leadPhone={selectedLeadGroup.lead_phone}
+                leadEmail={selectedLeadGroup.lead_email}
+                onAddChannel={async (channel) => {
+                  const phone = selectedLeadGroup.lead_phone || "";
+                  const email = selectedLeadGroup.lead_email || "";
+                  const name = selectedLeadGroup.lead_name || "";
+                  const newId = await inbox.createConversation(
+                    channel, 
+                    selectedLeadGroup.lead_id, 
+                    phone, 
+                    email, 
+                    name
+                  );
+                  if (newId) {
+                    setActiveConversationId(newId);
+                    toast.success(`Canal ${channel === "whatsapp_official" ? "WA Oficial" : channel === "whatsapp" ? "WhatsApp" : channel === "email" ? "E-mail" : channel} adicionado!`);
+                  }
+                }}
               />
             </>
           ) : (
