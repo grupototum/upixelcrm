@@ -152,25 +152,63 @@ Deno.serve(async (req) => {
     };
 
     if (action === "connect") {
-      // First, try to fetch the instance. If it doesn't exist, create it.
+      // ── Official (Cloud API) flow ──
+      if (type === "official") {
+        // Check if instance already exists
+        const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+          headers: { apikey: config.api_key },
+        });
+
+        if (checkRes.status === 404) {
+          // Create instance with correct Evolution API v2 payload for WHATSAPP-BUSINESS
+          const createRes = await fetch(`${config.api_url}/instance/create`, {
+            method: "POST",
+            headers: { apikey: config.api_key, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              instanceName: config.instance_name,
+              integration: "WHATSAPP-BUSINESS",
+              token: config.access_token,
+              number: config.phone_number_id,
+              businessId: config.business_id,
+              qrcode: false,
+            }),
+          });
+          const createData = await createRes.json();
+          if (!createRes.ok) {
+            return new Response(JSON.stringify({ error: "Failed to create instance", details: createData }), {
+              status: createRes.status,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          await checkRes.text(); // consume body
+        }
+
+        // Cloud API connects automatically after creation — no QR needed
+        // Mark as connected directly
+        await adminClient.from("integrations").update({
+          status: "connected",
+          config: { ...config, connected_number: config.phone_number_id || "" },
+        }).eq("client_id", clientId).eq("provider", provider);
+
+        return new Response(JSON.stringify({ connected: true, instance: { state: "open" } }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── Lite (Baileys) flow — unchanged ──
       const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
         headers: { apikey: config.api_key },
       });
 
       if (checkRes.status === 404) {
-        // Instance doesn't exist — create it first
         const createRes = await fetch(`${config.api_url}/instance/create`, {
           method: "POST",
           headers: { apikey: config.api_key, "Content-Type": "application/json" },
           body: JSON.stringify({
             instanceName: config.instance_name,
-            integration: type === "official" ? "WHATSAPP-BUSINESS" : "WHATSAPP-BAILEYS",
-            qrcode: type !== "official",
-            ...(type === "official" ? {
-              phoneNumberId: config.phone_number_id,
-              businessId: config.business_id,
-              accessToken: config.access_token
-            } : {})
+            integration: "WHATSAPP-BAILEYS",
+            qrcode: true,
           }),
         });
         const createData = await createRes.json();
@@ -181,19 +219,17 @@ Deno.serve(async (req) => {
           });
         }
       } else {
-        await checkRes.text(); // consume body
+        await checkRes.text();
       }
 
-      // Now connect (get QR code or activate Official)
       const res = await fetch(`${config.api_url}/instance/connect/${config.instance_name}`, {
         headers: { apikey: config.api_key },
       });
       const data = await res.json();
 
-      // For official API, if it says "instance already connected" or similar, it's fine
-      if (data.base64 || type === "official" || data.instance?.state === "open") {
+      if (data.base64 || data.instance?.state === "open") {
         const newStatus = (data.instance?.state === "open") ? "connected" : "connecting";
-        await adminClient.from("integrations").update({ 
+        await adminClient.from("integrations").update({
           status: newStatus,
           config: {
             ...config,
