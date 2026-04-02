@@ -1001,6 +1001,7 @@ export default function InboxPage() { // force HMR reset
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="whatsapp" className="text-xs">WhatsApp</SelectItem>
+                  <SelectItem value="whatsapp_official" className="text-xs">WhatsApp Oficial</SelectItem>
                   <SelectItem value="email" className="text-xs">E-mail</SelectItem>
                   <SelectItem value="instagram" className="text-xs">Instagram</SelectItem>
                   <SelectItem value="webchat" className="text-xs">Webchat</SelectItem>
