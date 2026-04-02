@@ -36,6 +36,7 @@ import { useInbox } from "@/hooks/useInbox";
 
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success",
+  whatsapp_official: "bg-emerald-600",
   instagram: "bg-destructive",
   email: "bg-primary",
   webchat: "bg-accent",
@@ -43,6 +44,7 @@ const channelColors: Record<string, string> = {
 
 const channelLabels: Record<string, string> = {
   whatsapp: "WhatsApp",
+  whatsapp_official: "WA Oficial",
   instagram: "Instagram",
   email: "E-mail",
   webchat: "Webchat",
@@ -50,6 +52,7 @@ const channelLabels: Record<string, string> = {
 
 const channelIcons: Record<string, typeof MessageCircle> = {
   whatsapp: MessageCircle,
+  whatsapp_official: Shield,
   email: Mail,
   instagram: MessageCircle,
   webchat: Globe,
