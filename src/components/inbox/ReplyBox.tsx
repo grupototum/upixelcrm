@@ -126,7 +126,7 @@ export function ReplyBox({
             </button>
           </div>
 
-          {!isPrivate && sourceConversations.length > 1 && (
+          {!isPrivate && sourceConversations.length >= 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[50%] p-1 bg-secondary/20 rounded-xl">
               {sourceConversations.map(sc => {
                 const Icon = channelIcons[sc.channel] || MessageCircle;

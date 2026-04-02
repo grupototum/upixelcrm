@@ -8,7 +8,7 @@ import {
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
   Check, CheckCheck, Clock,
   File, Download, Maximize2, Activity, X,
-  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff
+  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import { useInbox } from "@/hooks/useInbox";
 
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success",
+  whatsapp_official: "bg-emerald-600",
   instagram: "bg-destructive",
   email: "bg-primary",
   webchat: "bg-accent",
@@ -43,6 +44,7 @@ const channelColors: Record<string, string> = {
 
 const channelLabels: Record<string, string> = {
   whatsapp: "WhatsApp",
+  whatsapp_official: "WA Oficial",
   instagram: "Instagram",
   email: "E-mail",
   webchat: "Webchat",
@@ -50,6 +52,7 @@ const channelLabels: Record<string, string> = {
 
 const channelIcons: Record<string, typeof MessageCircle> = {
   whatsapp: MessageCircle,
+  whatsapp_official: Shield,
   email: Mail,
   instagram: MessageCircle,
   webchat: Globe,
@@ -234,7 +237,7 @@ export default function InboxPage() { // force HMR reset
               />
             </div>
             <div className="flex gap-1.5">
-              {["all", "whatsapp", "email", "instagram"].map(ch => (
+              {["all", "whatsapp", "whatsapp_official", "email", "instagram"].map(ch => (
                 <button
                   key={ch}
                   onClick={() => setChannelFilter(ch)}
@@ -998,6 +1001,7 @@ export default function InboxPage() { // force HMR reset
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="whatsapp" className="text-xs">WhatsApp</SelectItem>
+                  <SelectItem value="whatsapp_official" className="text-xs">WhatsApp Oficial</SelectItem>
                   <SelectItem value="email" className="text-xs">E-mail</SelectItem>
                   <SelectItem value="instagram" className="text-xs">Instagram</SelectItem>
                   <SelectItem value="webchat" className="text-xs">Webchat</SelectItem>
@@ -1024,7 +1028,7 @@ export default function InboxPage() { // force HMR reset
               </Select>
             </div>
 
-            {(newChannel === "whatsapp" || newChannel === "webchat") && (
+            {(newChannel === "whatsapp" || newChannel === "whatsapp_official" || newChannel === "webchat") && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Telefone</Label>
                 <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="+55 11 99999-0000" className="text-xs h-9" />
