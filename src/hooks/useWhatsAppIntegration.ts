@@ -109,6 +109,15 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
       setQrData(null);
       const data = await invokeFunction("connect");
 
+      if (data?.status) {
+        setConfig(prev => ({ ...prev, status: data.status }));
+      }
+
+      if (data?.reachable === false) {
+        toast.error(data.error || "A Evolution API está indisponível no momento.");
+        return data;
+      }
+
       if (type === "official") {
         // Official: no QR code, connection is immediate
         if (data.connected || data.instance?.state === "open") {
@@ -120,6 +129,9 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
         // Lite: show QR code
         if (data.base64) {
           setQrData(data.base64);
+          setConfig(prev => ({ ...prev, status: "connecting" }));
+        } else if (data.instance?.state === "open") {
+          setConfig(prev => ({ ...prev, status: "connected" }));
         }
       }
       return data;

@@ -198,96 +198,105 @@ Deno.serve(async (req) => {
     const config = { ...rawConfig, api_url: rawConfig.api_url.replace(/\/+$/, "") };
 
     if (action === "connect") {
-      // ── Official (Cloud API) flow ──
-      if (type === "official") {
-        // Check if instance already exists
+      const fallbackStatus = getFallbackStatus(integration?.status, type, config);
+
+      try {
+        // ── Official (Cloud API) flow ──
+        if (type === "official") {
+          // Check if instance already exists
+          const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+            headers: { apikey: config.api_key },
+          });
+
+          if (checkRes.status === 404) {
+            // Create instance with correct Evolution API v2 payload for WHATSAPP-BUSINESS
+            const createRes = await fetch(`${config.api_url}/instance/create`, {
+              method: "POST",
+              headers: { apikey: config.api_key, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                instanceName: config.instance_name,
+                integration: "WHATSAPP-BUSINESS",
+                token: config.access_token,
+                number: config.phone_number_id,
+                businessId: config.business_id,
+                qrcode: false,
+              }),
+            });
+            const createData = await readResponseBody(createRes);
+            if (!createRes.ok) {
+              return jsonResponse({ error: "Failed to create instance", details: createData }, createRes.status);
+            }
+          } else {
+            await checkRes.text(); // consume body
+          }
+
+          // Cloud API connects automatically after creation — no QR needed
+          // Mark as connected directly
+          await adminClient.from("integrations").update({
+            status: "connected",
+            config: { ...config, connected_number: config.phone_number_id || "" },
+          }).eq("client_id", clientId).eq("provider", provider);
+
+          return jsonResponse({ connected: true, instance: { state: "open" }, status: "connected", reachable: true });
+        }
+
+        // ── Lite (Baileys) flow — unchanged ──
         const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
           headers: { apikey: config.api_key },
         });
 
         if (checkRes.status === 404) {
-          // Create instance with correct Evolution API v2 payload for WHATSAPP-BUSINESS
           const createRes = await fetch(`${config.api_url}/instance/create`, {
             method: "POST",
             headers: { apikey: config.api_key, "Content-Type": "application/json" },
             body: JSON.stringify({
               instanceName: config.instance_name,
-              integration: "WHATSAPP-BUSINESS",
-              token: config.access_token,
-              number: config.phone_number_id,
-              businessId: config.business_id,
-              qrcode: false,
+              integration: "WHATSAPP-BAILEYS",
+              qrcode: true,
             }),
           });
-          const createData = await createRes.json();
+          const createData = await readResponseBody(createRes);
           if (!createRes.ok) {
-            return new Response(JSON.stringify({ error: "Failed to create instance", details: createData }), {
-              status: createRes.status,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return jsonResponse({ error: "Failed to create instance", details: createData }, createRes.status);
           }
         } else {
-          await checkRes.text(); // consume body
+          await checkRes.text();
         }
 
-        // Cloud API connects automatically after creation — no QR needed
-        // Mark as connected directly
-        await adminClient.from("integrations").update({
-          status: "connected",
-          config: { ...config, connected_number: config.phone_number_id || "" },
-        }).eq("client_id", clientId).eq("provider", provider);
-
-        return new Response(JSON.stringify({ connected: true, instance: { state: "open" } }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const res = await fetch(`${config.api_url}/instance/connect/${config.instance_name}`, {
+          headers: { apikey: config.api_key },
         });
-      }
+        const data = await readResponseBody(res);
+        const payload = typeof data === "object" && data !== null ? data as Record<string, any> : {};
 
-      // ── Lite (Baileys) flow — unchanged ──
-      const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
-        headers: { apikey: config.api_key },
-      });
+        if (payload.base64 || payload.instance?.state === "open" || payload.instance?.state === "connecting") {
+          const newStatus = (payload.instance?.state === "open") ? "connected" : "connecting";
+          await adminClient.from("integrations").update({
+            status: newStatus,
+            config: {
+              ...config,
+              ...(payload.instance?.owner ? { connected_number: payload.instance.owner } : {}),
+            }
+          }).eq("client_id", clientId).eq("provider", provider);
+        }
 
-      if (checkRes.status === 404) {
-        const createRes = await fetch(`${config.api_url}/instance/create`, {
-          method: "POST",
-          headers: { apikey: config.api_key, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            instanceName: config.instance_name,
-            integration: "WHATSAPP-BAILEYS",
-            qrcode: true,
-          }),
-        });
-        const createData = await createRes.json();
-        if (!createRes.ok) {
-          return new Response(JSON.stringify({ error: "Failed to create instance", details: createData }), {
-            status: createRes.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return jsonResponse(data, res.status);
+      } catch (err) {
+        if (isConnectionTimeout(err)) {
+          await adminClient.from("integrations").update({ status: fallbackStatus })
+            .eq("client_id", clientId).eq("provider", provider);
+
+          return jsonResponse({
+            connected: false,
+            instance: { state: fallbackStatus },
+            status: fallbackStatus,
+            reachable: false,
+            error: "Evolution API is unavailable or timed out while starting the instance connection.",
           });
         }
-      } else {
-        await checkRes.text();
+
+        throw err;
       }
-
-      const res = await fetch(`${config.api_url}/instance/connect/${config.instance_name}`, {
-        headers: { apikey: config.api_key },
-      });
-      const data = await res.json();
-
-      if (data.base64 || data.instance?.state === "open") {
-        const newStatus = (data.instance?.state === "open") ? "connected" : "connecting";
-        await adminClient.from("integrations").update({
-          status: newStatus,
-          config: {
-            ...config,
-            ...(data.instance?.owner ? { connected_number: data.instance.owner } : {}),
-          }
-        }).eq("client_id", clientId).eq("provider", provider);
-      }
-
-      return new Response(JSON.stringify(data), {
-        status: res.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     if (action === "status") {
