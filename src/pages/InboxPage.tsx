@@ -1028,7 +1028,7 @@ export default function InboxPage() { // force HMR reset
               </Select>
             </div>
 
-            {(newChannel === "whatsapp" || newChannel === "webchat") && (
+            {(newChannel === "whatsapp" || newChannel === "whatsapp_official" || newChannel === "webchat") && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Telefone</Label>
                 <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="+55 11 99999-0000" className="text-xs h-9" />
