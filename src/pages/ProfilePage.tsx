@@ -105,6 +105,8 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
+            <PushNotificationSettings />
+
             <Card className="rounded-2xl ghost-border bg-card/50 backdrop-blur-xl shadow-card overflow-hidden">
               <CardHeader className="bg-destructive/5">
                 <CardTitle className="text-lg font-bold text-destructive">Zona de Perigo</CardTitle>
