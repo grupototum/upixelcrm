@@ -6,6 +6,35 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// ─── Push notification helper ───
+async function sendPushNotification(
+  adminClient: any,
+  params: { title: string; body: string; tag: string; type: string; target_user_id?: string; target_client_id?: string; lead_id?: string }
+) {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        title: params.title,
+        body: params.body,
+        tag: params.tag,
+        target_user_id: params.target_user_id,
+        target_client_id: params.target_client_id,
+        data: { type: params.type, lead_id: params.lead_id },
+      }),
+    });
+  } catch (err) {
+    console.error("Push notification error (non-blocking):", err);
+  }
+}
+
 interface MediaInfo {
   content: string;
   type: string;
