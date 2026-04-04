@@ -246,6 +246,17 @@ async function findOrCreateLead(
     content: `Lead "${senderName}" criado automaticamente via WhatsApp`, user_name: "Sistema",
   });
   console.log("Created lead:", senderName, newLead.id);
+
+  // Push notification for new lead (broadcast to all users of this client)
+  sendPushNotification(adminClient, {
+    title: "🆕 Novo Lead",
+    body: `${senderName} entrou via WhatsApp`,
+    tag: `lead-${newLead.id}`,
+    type: "new_lead",
+    target_client_id: clientId,
+    lead_id: newLead.id,
+  });
+
   return newLead.id;
 }
 
