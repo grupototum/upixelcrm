@@ -1,12 +1,11 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { User, Mail, Phone, Building2, MapPin, Camera, Settings, Bell, Globe } from "lucide-react";
+import { User, Mail, Phone, Building2, Camera, Settings, Bell, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PushNotificationSettings } from "@/components/pwa/PushNotificationSettings";
 
 export default function ProfilePage() {
   return (
