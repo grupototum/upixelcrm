@@ -64,6 +64,7 @@ const App = () => (
                 <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <PwaInstallPrompt />
             </BrowserRouter>
           </TooltipProvider>
         </QueryClientProvider>
