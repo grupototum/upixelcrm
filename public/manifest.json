@@ -1,0 +1,25 @@
+{
+  "name": "UPixel - Gestor de Vendas Inteligente",
+  "short_name": "UPixel CRM",
+  "description": "CRM inteligente com automação, pipeline e atendimento integrado para organizar processos e escalar vendas com eficiência.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff8f7",
+  "theme_color": "#f76926",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
