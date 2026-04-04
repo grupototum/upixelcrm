@@ -409,6 +409,26 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
           adminClient, clientId, senderPhone, senderName, finalContent, msgType, msgMeta,
           "whatsapp_official", matchConfig, msg.id
         );
+
+        // Push notification to responsible user
+        if (convId) {
+          const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
+          if (conv?.lead_id) {
+            const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
+            const targetUserId = lead?.responsible_id;
+            if (targetUserId) {
+              sendPushNotification(adminClient, {
+                title: `💬 ${senderName}`,
+                body: buildDisplayText(msgType, finalContent, msgMeta).slice(0, 100),
+                tag: `msg-${convId}`,
+                type: "new_message",
+                target_user_id: targetUserId,
+                lead_id: conv.lead_id,
+              });
+            }
+          }
+        }
+
         results.push({ ok: true, conversation_id: convId });
       }
     }
