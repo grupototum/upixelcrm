@@ -6,6 +6,35 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// ─── Push notification helper ───
+async function sendPushNotification(
+  adminClient: any,
+  params: { title: string; body: string; tag: string; type: string; target_user_id?: string; target_client_id?: string; lead_id?: string }
+) {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        title: params.title,
+        body: params.body,
+        tag: params.tag,
+        target_user_id: params.target_user_id,
+        target_client_id: params.target_client_id,
+        data: { type: params.type, lead_id: params.lead_id },
+      }),
+    });
+  } catch (err) {
+    console.error("Push notification error (non-blocking):", err);
+  }
+}
+
 interface MediaInfo {
   content: string;
   type: string;
@@ -217,6 +246,17 @@ async function findOrCreateLead(
     content: `Lead "${senderName}" criado automaticamente via WhatsApp`, user_name: "Sistema",
   });
   console.log("Created lead:", senderName, newLead.id);
+
+  // Push notification for new lead (broadcast to all users of this client)
+  sendPushNotification(adminClient, {
+    title: "🆕 Novo Lead",
+    body: `${senderName} entrou via WhatsApp`,
+    tag: `lead-${newLead.id}`,
+    type: "new_lead",
+    target_client_id: clientId,
+    lead_id: newLead.id,
+  });
+
   return newLead.id;
 }
 
@@ -308,6 +348,25 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
     "whatsapp", matchConfig, messageData.key?.id
   );
 
+  // Push notification to responsible user
+  if (convId) {
+    const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
+    if (conv?.lead_id) {
+      const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
+      const targetUserId = lead?.responsible_id;
+      if (targetUserId) {
+        sendPushNotification(adminClient, {
+          title: `💬 ${senderName}`,
+          body: buildDisplayText(msgType, finalContent, msgMeta).slice(0, 100),
+          tag: `msg-${convId}`,
+          type: "new_message",
+          target_user_id: targetUserId,
+          lead_id: conv.lead_id,
+        });
+      }
+    }
+  }
+
   return { ok: true, conversation_id: convId };
 }
 
@@ -361,6 +420,26 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
           adminClient, clientId, senderPhone, senderName, finalContent, msgType, msgMeta,
           "whatsapp_official", matchConfig, msg.id
         );
+
+        // Push notification to responsible user
+        if (convId) {
+          const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
+          if (conv?.lead_id) {
+            const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
+            const targetUserId = lead?.responsible_id;
+            if (targetUserId) {
+              sendPushNotification(adminClient, {
+                title: `💬 ${senderName}`,
+                body: buildDisplayText(msgType, finalContent, msgMeta).slice(0, 100),
+                tag: `msg-${convId}`,
+                type: "new_message",
+                target_user_id: targetUserId,
+                lead_id: conv.lead_id,
+              });
+            }
+          }
+        }
+
         results.push({ ok: true, conversation_id: convId });
       }
     }

@@ -35,19 +35,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // Skip non-GET and cross-origin
   if (request.method !== 'GET') return;
   if (!request.url.startsWith(self.location.origin)) return;
-
-  // Skip Supabase/API calls
   if (request.url.includes('/functions/') || request.url.includes('/rest/') || request.url.includes('/auth/')) return;
 
-  // Navigation requests — network first, fallback to offline page
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Cache successful navigations
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
@@ -57,7 +52,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets — cache first, then network
   if (request.url.match(/\.(js|css|png|jpg|jpeg|svg|webp|woff2?|ttf)$/)) {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -71,6 +65,72 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
+});
+
+// ─── Push Notifications ───
+self.addEventListener('push', (event) => {
+  let data = { title: 'UPixel CRM', body: 'Nova notificação', icon: '/icon-192.png', badge: '/icon-192.png', tag: 'default', data: {} };
+
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = { ...data, ...payload };
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-192.png',
+    tag: data.tag || 'upixel-notification',
+    renotify: true,
+    requireInteraction: false,
+    vibrate: [200, 100, 200],
+    data: data.data,
+    actions: [
+      { action: 'open', title: 'Abrir' },
+      { action: 'dismiss', title: 'Fechar' },
+    ],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const notifData = event.notification.data || {};
+  let targetUrl = '/';
+
+  if (notifData.type === 'new_message') {
+    targetUrl = '/inbox';
+  } else if (notifData.type === 'new_lead') {
+    targetUrl = notifData.lead_id ? `/leads/${notifData.lead_id}` : '/crm';
+  } else if (notifData.type === 'task_due') {
+    targetUrl = '/tasks';
+  } else if (notifData.type === 'stage_change') {
+    targetUrl = notifData.lead_id ? `/leads/${notifData.lead_id}` : '/crm';
+  }
+
+  if (event.action === 'dismiss') return;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.focus();
+          client.navigate(targetUrl);
+          return;
+        }
+      }
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });
 
 // Listen for skip waiting message from client
