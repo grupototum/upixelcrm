@@ -90,7 +90,7 @@ export function useInbox(onLeadCreated?: () => void) {
           lead_phone: lead?.phone || meta?.phone,
           lead_email: lead?.email || meta?.email,
           lead_company: lead?.company,
-          category: lead?.category || "lead",
+          category: "lead",
           last_message: c.last_message,
           last_message_at: c.last_message_at,
           unread_count: c.unread_count || 0,
