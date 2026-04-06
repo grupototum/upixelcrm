@@ -183,6 +183,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          category: string
           city: string | null
           client_id: string
           column_id: string | null
@@ -201,6 +202,7 @@ export type Database = {
           value: number | null
         }
         Insert: {
+          category?: string
           city?: string | null
           client_id?: string
           column_id?: string | null
@@ -219,6 +221,7 @@ export type Database = {
           value?: number | null
         }
         Update: {
+          category?: string
           city?: string | null
           client_id?: string
           column_id?: string | null
