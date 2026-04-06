@@ -132,7 +132,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.value !== undefined) updateData.value = data.value ?? null;
     if (data.origin !== undefined) updateData.origin = data.origin || null;
-    // category is a client-side only field, not persisted in DB
+    // category is derived from tags, not persisted as a column
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
 
     const { error } = await supabase.from("leads").update(updateData).eq("id", id);

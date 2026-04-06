@@ -786,7 +786,15 @@ export default function InboxPage() { // force HMR reset
                     value={selectedLeadGroup.category || "lead"}
                     onValueChange={(val: any) => {
                       if (selectedLead) {
-                        updateLead(selectedLead.id, { category: val });
+                        const currentTags = selectedLead.tags || [];
+                        const filtered = currentTags.filter(t => !["parceiro", "colaborador"].includes(t.toLowerCase()));
+                        if (val === "partner") filtered.push("Parceiro");
+                        else if (val === "collaborator") filtered.push("Colaborador");
+                        updateLead(selectedLead.id, { tags: filtered });
+                        // Update local category display
+                        setLeadConversations(prev => prev.map(lc => 
+                          lc.lead_id === selectedLead.id ? { ...lc, category: val } : lc
+                        ));
                       } else {
                         toast.error("Vincule um Lead primeiro.");
                       }
