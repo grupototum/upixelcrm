@@ -90,7 +90,12 @@ export function useInbox(onLeadCreated?: () => void) {
           lead_phone: lead?.phone || meta?.phone,
           lead_email: lead?.email || meta?.email,
           lead_company: lead?.company,
-          category: "lead",
+          category: (() => {
+            const tags = ((lead?.tags || []) as string[]).map((t: string) => t.toLowerCase());
+            if (tags.includes("parceiro")) return "partner";
+            if (tags.includes("colaborador")) return "collaborator";
+            return "lead";
+          })(),
           last_message: c.last_message,
           last_message_at: c.last_message_at,
           unread_count: c.unread_count || 0,
