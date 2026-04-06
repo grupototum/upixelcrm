@@ -791,10 +791,6 @@ export default function InboxPage() { // force HMR reset
                         if (val === "partner") filtered.push("Parceiro");
                         else if (val === "collaborator") filtered.push("Colaborador");
                         updateLead(selectedLead.id, { tags: filtered });
-                        // Update local category display
-                        setLeadConversations(prev => prev.map(lc => 
-                          lc.lead_id === selectedLead.id ? { ...lc, category: val } : lc
-                        ));
                       } else {
                         toast.error("Vincule um Lead primeiro.");
                       }
