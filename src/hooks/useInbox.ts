@@ -65,7 +65,7 @@ export function useInbox(onLeadCreated?: () => void) {
     if (leadIds.length > 0) {
       const { data: leads } = await supabase
         .from("leads")
-        .select("id, name, phone, email, company, origin, tags")
+        .select("id, name, phone, email, company, origin, category")
         .in("id", leadIds);
       if (leads) {
         leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
