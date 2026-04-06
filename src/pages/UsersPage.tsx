@@ -65,23 +65,16 @@ export default function UsersPage() {
 
   const crmUsers = useMemo(() => {
     return leads
-      .filter((l) => {
-        const tags = (l.tags || []).map(t => t.toLowerCase());
-        return tags.includes("parceiro") || tags.includes("colaborador");
-      })
-      .map((l) => {
-        const tags = (l.tags || []).map(t => t.toLowerCase());
-        const isParceiro = tags.includes("parceiro");
-        return {
-          id: l.id,
-          client_id: l.client_id,
-          name: l.name,
-          email: l.email || l.phone || "-",
-          role: isParceiro ? "operator" as const : "manager" as const,
-          isExternal: true,
-          category: isParceiro ? "partner" : "collaborator",
-        };
-      });
+      .filter((l) => l.category === "collaborator" || l.category === "partner")
+      .map((l) => ({
+        id: l.id,
+        client_id: l.client_id,
+        name: l.name,
+        email: l.email || l.phone || "-",
+        role: l.category === "partner" ? "operator" as const : "manager" as const,
+        isExternal: true,
+        category: l.category,
+      }));
   }, [leads]);
 
   const allUsers = useMemo(() => [...localUsers, ...crmUsers], [localUsers, crmUsers]);
