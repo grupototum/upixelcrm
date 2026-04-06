@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useAppState } from "@/contexts/AppContext";
 import { Plus, Mail, Shield, PencilLine, Users as UsersIcon, Clock, FileText } from "lucide-react";
 import type { User } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -54,17 +55,35 @@ function getRoleBadgeClass(role: User["role"]) {
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const { leads } = useAppState();
+
+  const [localUsers, setLocalUsers] = useState<User[]>(initialUsers);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [form, setForm] = useState<UserFormValues>(defaultForm);
   const [errors, setErrors] = useState<FormErrors>({});
 
+  const crmUsers = useMemo(() => {
+    return leads
+      .filter((l) => l.category === "collaborator" || l.category === "partner")
+      .map((l) => ({
+        id: l.id,
+        client_id: l.client_id,
+        name: l.name,
+        email: l.email || l.phone || "-",
+        role: l.category === "partner" ? "operator" as const : "manager" as const,
+        isExternal: true, // flag to prevent edit
+        category: l.category,
+      }));
+  }, [leads]);
+
+  const allUsers = useMemo(() => [...localUsers, ...crmUsers], [localUsers, crmUsers]);
+
   const stats = useMemo(() => ([
-    { label: "Usuários", value: users.length },
-    { label: "Admins", value: users.filter((user) => user.role === "admin").length },
-    { label: "Operação", value: users.filter((user) => user.role !== "admin").length },
-  ]), [users]);
+    { label: "Usuários", value: allUsers.length },
+    { label: "Admins", value: allUsers.filter((user) => user.role === "admin").length },
+    { label: "Operação", value: allUsers.filter((user) => user.role !== "admin").length },
+  ]), [allUsers]);
 
   const openCreateModal = () => {
     setEditingUserId(null);
@@ -97,7 +116,7 @@ export default function UsersPage() {
     const sanitizedValues = result.data;
 
     if (editingUserId) {
-      setUsers((currentUsers) =>
+      setLocalUsers((currentUsers) =>
         currentUsers.map((user) =>
           user.id === editingUserId ? { ...user, ...sanitizedValues } : user,
         ),
@@ -111,7 +130,7 @@ export default function UsersPage() {
         email: sanitizedValues.email,
         role: sanitizedValues.role,
       };
-      setUsers((currentUsers) => [...currentUsers, newUser]);
+      setLocalUsers((currentUsers) => [...currentUsers, newUser]);
       toast.success("Usuário criado com sucesso.");
     }
 
@@ -159,12 +178,12 @@ export default function UsersPage() {
               <p className="text-xs text-muted-foreground">Cadastre e edite usuários com nome, e-mail e função.</p>
             </div>
             <Badge variant="outline" className="text-[10px]">
-              {users.length} cadastrados
+              {allUsers.length} cadastrados
             </Badge>
           </div>
 
           <div className="divide-y divide-border">
-            {users.map((user) => (
+            {allUsers.map((user) => (
               <div key={user.id} className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
@@ -188,10 +207,17 @@ export default function UsersPage() {
                     <Shield className="mr-1 h-3 w-3" />
                     {roleLabels[user.role]}
                   </Badge>
-                  <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditModal(user)}>
-                    <PencilLine className="h-3.5 w-3.5" />
-                    Editar
-                  </Button>
+                  {(user as any).isExternal && (
+                    <Badge variant="outline" className={(user as any).category === "partner" ? "border-blue-500/30 text-blue-500" : "border-purple-500/30 text-purple-500"}>
+                      {(user as any).category === "partner" ? "Parceiro" : "Colaborador"}
+                    </Badge>
+                  )}
+                  {!(user as any).isExternal && (
+                    <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditModal(user)}>
+                      <PencilLine className="h-3.5 w-3.5" />
+                      Editar
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

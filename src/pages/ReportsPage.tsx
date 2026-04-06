@@ -83,13 +83,18 @@ export default function ReportsPage() {
     return tasks.filter(t => new Date(t.created_at) >= limitDate);
   }, [period, customRange, tasks]);
 
+  const leadsThatReachedColumn = (colIndex: number) => {
+    return filteredLeads.filter(l => {
+      const lColIndex = pipelineColumns.findIndex(c => c.id === l.column_id);
+      return lColIndex >= colIndex;
+    }).length;
+  };
+
   const conversionData = useMemo(() =>
     pipelineColumns.map((col, i) => {
-      const count = filteredLeads.filter((l) => l.column_id === col.id).length;
-      const prevCount = i === 0
-        ? filteredLeads.length
-        : filteredLeads.filter((l) => l.column_id === pipelineColumns[i - 1].id).length;
-      const rate = prevCount > 0 ? Math.round((count / prevCount) * 100) : 100;
+      const count = leadsThatReachedColumn(i);
+      const prevCount = i === 0 ? filteredLeads.length : leadsThatReachedColumn(i - 1);
+      const rate = prevCount > 0 ? Math.round((count / prevCount) * 100) : (count > 0 ? 100 : 0);
       return { name: col.name, count, rate, color: col.color || "hsl(var(--primary))" };
     }), [filteredLeads, pipelineColumns]
   );
@@ -119,9 +124,9 @@ export default function ReportsPage() {
   }, [filteredLeads]);
 
   const funnelData = useMemo(() =>
-    pipelineColumns.map((col) => ({
+    pipelineColumns.map((col, i) => ({
       name: col.name,
-      value: filteredLeads.filter((l) => l.column_id === col.id).length,
+      value: leadsThatReachedColumn(i),
       fill: col.color || "hsl(var(--primary))",
     })), [filteredLeads, pipelineColumns]
   );
@@ -141,7 +146,7 @@ export default function ReportsPage() {
 
   const conversionRate = useMemo(() => {
     if (pipelineColumns.length === 0) return "0";
-    const wonCount = filteredLeads.filter((l) => l.column_id === pipelineColumns[pipelineColumns.length - 1]?.id).length;
+    const wonCount = leadsThatReachedColumn(pipelineColumns.length - 1);
     return filteredLeads.length > 0 ? ((wonCount / filteredLeads.length) * 100).toFixed(1) : "0";
   }, [filteredLeads, pipelineColumns]);
 

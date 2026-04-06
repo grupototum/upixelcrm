@@ -184,6 +184,7 @@ export type Database = {
       leads: {
         Row: {
           city: string | null
+          category: string | null
           client_id: string
           column_id: string | null
           company: string | null
@@ -202,6 +203,7 @@ export type Database = {
         }
         Insert: {
           city?: string | null
+          category?: string | null
           client_id?: string
           column_id?: string | null
           company?: string | null
@@ -220,6 +222,7 @@ export type Database = {
         }
         Update: {
           city?: string | null
+          category?: string | null
           client_id?: string
           column_id?: string | null
           company?: string | null

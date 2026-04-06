@@ -65,7 +65,7 @@ export function useInbox(onLeadCreated?: () => void) {
     if (leadIds.length > 0) {
       const { data: leads } = await supabase
         .from("leads")
-        .select("id, name, phone, email, company, origin")
+        .select("id, name, phone, email, company, origin, category")
         .in("id", leadIds);
       if (leads) {
         leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
@@ -90,7 +90,7 @@ export function useInbox(onLeadCreated?: () => void) {
           lead_phone: lead?.phone || meta?.phone,
           lead_email: lead?.email || meta?.email,
           lead_company: lead?.company,
-          category: lead?.origin || "lead",
+          category: lead?.category || "lead",
           last_message: c.last_message,
           last_message_at: c.last_message_at,
           unread_count: c.unread_count || 0,
@@ -434,6 +434,9 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
+    // Optimistic update
+    setConversations(prev => prev.map(c => c.lead_id === leadId ? { ...c, status } : c));
+
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
     const { error } = await supabase
       .from("conversations")
@@ -445,10 +448,10 @@ export function useInbox(onLeadCreated?: () => void) {
 
     if (error) {
       toast.error("Erro ao atualizar status");
+      loadConversations(); // Revert
       return;
     }
 
-    await loadConversations();
     toast.success(`Conversa marcada como ${status === 'resolved' ? 'Resolvida' : status === 'snoozed' ? 'Soneca' : 'Aberta'}`);
   }, [conversations, loadConversations]);
 

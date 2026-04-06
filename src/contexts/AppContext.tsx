@@ -132,6 +132,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.value !== undefined) updateData.value = data.value ?? null;
     if (data.origin !== undefined) updateData.origin = data.origin || null;
+    if (data.category !== undefined) updateData.category = data.category || null;
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
 
     const { error } = await supabase.from("leads").update(updateData).eq("id", id);
@@ -584,6 +585,7 @@ function mapLead(row: Record<string, unknown>): Lead {
     city: (row.city as string) || undefined,
     notes: (row.notes as string) || undefined,
     origin: (row.origin as string) || undefined,
+    category: (row.category as "lead" | "partner" | "collaborator") || "lead",
     tags: (row.tags as string[]) || [],
     column_id: row.column_id as string,
     responsible_id: (row.responsible_id as string) || undefined,

@@ -59,7 +59,7 @@ const channelIcons: Record<string, typeof MessageCircle> = {
 
 export default function InboxPage() { // force HMR reset
   const navigate = useNavigate();
-  const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData } = useAppState();
+  const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead } = useAppState();
   const inbox = useInbox(refreshData);
 
   
@@ -782,11 +782,29 @@ export default function InboxPage() { // force HMR reset
                     {initials(selectedLead?.name || selectedLeadGroup.lead_name)}
                   </div>
                   <h3 className="text-sm font-bold text-foreground line-clamp-1">{selectedLead?.name || selectedLeadGroup.lead_name}</h3>
-                  {selectedLeadGroup.category !== "lead" && (
-                    <Badge className={`mt-1 text-[8px] px-2 py-0.5 border-none uppercase font-black ${selectedLeadGroup.category === "partner" ? "bg-blue-500/20 text-blue-600" : "bg-purple-500/20 text-purple-600"}`}>
-                      {selectedLeadGroup.category === "partner" ? "Parceiro" : "Colaborador"}
-                    </Badge>
-                  )}
+                  <Select
+                    value={selectedLeadGroup.category || "lead"}
+                    onValueChange={(val: any) => {
+                      if (selectedLead) {
+                        updateLead(selectedLead.id, { category: val });
+                      } else {
+                        toast.error("Vincule um Lead primeiro.");
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={`mt-1 text-[8px] h-5 px-2 py-0 border-none uppercase font-black w-auto shadow-none ${
+                        selectedLeadGroup.category === "partner" ? "bg-blue-500/20 text-blue-600" : 
+                        selectedLeadGroup.category === "collaborator" ? "bg-purple-500/20 text-purple-600" :
+                        "bg-primary/10 text-primary"
+                      }`}>
+                      <SelectValue placeholder="LEAD" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-none shadow-2xl bg-card">
+                      <SelectItem value="lead" className="text-[10px] font-bold">LEAD</SelectItem>
+                      <SelectItem value="partner" className="text-[10px] font-bold">PARCEIRO</SelectItem>
+                      <SelectItem value="collaborator" className="text-[10px] font-bold">COLABORADOR</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {selectedLead?.company && (
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                       <Building className="h-2.5 w-2.5" /> {selectedLead.company}
