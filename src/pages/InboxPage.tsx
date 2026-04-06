@@ -790,7 +790,7 @@ export default function InboxPage() { // force HMR reset
                         const filtered = currentTags.filter(t => !["parceiro", "colaborador"].includes(t.toLowerCase()));
                         if (val === "partner") filtered.push("Parceiro");
                         else if (val === "collaborator") filtered.push("Colaborador");
-                        updateLead(selectedLead.id, { tags: filtered });
+                        updateLead(selectedLead.id, { category: val });
                       } else {
                         toast.error("Vincule um Lead primeiro.");
                       }
