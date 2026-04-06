@@ -173,7 +173,7 @@ export function ReplyBox({
                   return (
                     <DropdownMenuItem
                       key={sc.id}
-                      onClick={() => setActiveConversationId(sc.id)}
+                      onSelect={() => setActiveConversationId(sc.id)}
                       className={`flex items-center gap-2.5 text-xs cursor-pointer ${isActive ? "bg-primary/10 text-primary font-bold" : ""}`}
                     >
                       <Icon className={`h-3.5 w-3.5 ${config.color}`} />
@@ -204,7 +204,7 @@ export function ReplyBox({
                       return (
                         <DropdownMenuItem
                           key={ch}
-                          onClick={() => handleAddChannel(ch)}
+                          onSelect={() => handleAddChannel(ch)}
                           className="flex items-center gap-2.5 text-xs cursor-pointer"
                         >
                           <Plus className="h-3 w-3 text-muted-foreground" />
