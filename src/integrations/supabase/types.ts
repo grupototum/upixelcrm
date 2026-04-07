@@ -556,6 +556,14 @@ export type Database = {
       }
       get_user_client_id: { Args: never; Returns: string }
       is_master_user: { Args: never; Returns: boolean }
+      owner_add_org_member: {
+        Args: { target_org_id: string; target_user_id: string }
+        Returns: undefined
+      }
+      owner_remove_org_member: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
