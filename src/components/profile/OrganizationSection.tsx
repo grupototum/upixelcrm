@@ -321,6 +321,16 @@ export function OrganizationSection() {
                 </div>
                 <B variant="outline" className="text-[10px] capitalize">{m.role}</B>
                 {org.owner_id === m.id && <Crown className="h-3.5 w-3.5 text-primary" />}
+                {isOwner && org.owner_id !== m.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-[10px] text-destructive hover:text-destructive rounded-lg"
+                    onClick={() => handleRemoveMember(m.id, m.name || "Membro")}
+                  >
+                    <UserMinus className="h-3 w-3" /> Remover
+                  </Button>
+                )}
               </div>
             ))}
           </div>
