@@ -538,6 +538,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_add_org_member: {
+        Args: { target_org_id: string; target_user_id: string }
+        Returns: undefined
+      }
+      admin_remove_org_member: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
       admin_set_role: {
         Args: { new_role: string; target_user_id: string }
         Returns: undefined
