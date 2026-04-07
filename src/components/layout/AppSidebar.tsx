@@ -64,7 +64,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {navItems.concat(isMaster ? [{ title: "Admin", url: "/admin", icon: ShieldCheck }] : []).map((item) => {
+              {navItems.map((item) => {
                 const isActive = item.url === "/"
                   ? location.pathname === "/"
                   : location.pathname.startsWith(item.url);
