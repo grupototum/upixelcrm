@@ -112,13 +112,13 @@ export default function UsersPage() {
   );
 
   const toggleBlock = async (profile: ProfileRow) => {
-    // Check if user has permission to block (master or supervisor of the same org)
-    if (!isMaster && (user?.role !== "supervisor" || profile.organization_id !== user?.organization_id)) {
-        toast.error("Você não tem permissão para bloquear este usuário.");
-        return;
+    if (!isMaster && user?.role !== "supervisor") {
+      toast.error("Você não tem permissão para bloquear este usuário.");
+      return;
     }
 
-    const { error } = await supabase.rpc("admin_toggle_block" as any, {
+    const rpcName = isMaster ? "admin_toggle_block" : "supervisor_toggle_block";
+    const { error } = await supabase.rpc(rpcName as any, {
       target_user_id: profile.id,
       block_status: !profile.is_blocked,
     });
@@ -130,17 +130,18 @@ export default function UsersPage() {
   const saveRole = async () => {
     if (!editModal) return;
 
-    if (!isMaster && (user?.role !== "supervisor" || editModal.organization_id !== user?.organization_id)) {
-        toast.error("Você não tem permissão para alterar a permissão deste usuário.");
-        setEditModal(null);
-        return;
+    if (!isMaster && user?.role !== "supervisor") {
+      toast.error("Você não tem permissão para alterar a permissão deste usuário.");
+      setEditModal(null);
+      return;
     }
 
-    const { error } = await supabase.rpc("admin_set_role" as any, {
+    const rpcName = isMaster ? "admin_set_role" : "supervisor_set_role";
+    const { error } = await supabase.rpc(rpcName as any, {
       target_user_id: editModal.id,
       new_role: editRole,
     });
-    if (error) { toast.error("Erro ao atualizar o role: " + error.message); return; }
+    if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Permissão atualizada com sucesso.");
     setEditModal(null);
     fetchData();
