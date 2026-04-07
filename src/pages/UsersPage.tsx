@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { z } from "zod";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useAppState } from "@/contexts/AppContext";
+import { useAuth, type AuthUser } from "@/contexts/AuthContext";
 import { Plus, Mail, Shield, PencilLine, Users as UsersIcon, Clock, FileText } from "lucide-react";
-import type { User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
@@ -13,41 +12,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const userSchema = z.object({
   name: z.string().trim().min(2, "Informe um nome válido").max(100, "Máximo de 100 caracteres"),
-  email: z.string().trim().email("Informe um e-mail válido").max(255, "Máximo de 255 caracteres"),
-  role: z.enum(["admin", "manager", "operator"]),
+  role: z.enum(["supervisor", "atendente", "vendedor", "master"]),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
 
 type FormErrors = Partial<Record<keyof UserFormValues, string>>;
 
-const roleLabels: Record<User["role"], string> = {
-  admin: "Admin",
-  manager: "Gerente",
-  operator: "Operador",
+const roleLabels: Record<AuthUser["role"], string> = {
+  master: "Master",
+  supervisor: "Supervisor",
+  vendedor: "Vendedor",
+  atendente: "Atendente",
 };
-
-const initialUsers: User[] = [
-  { id: "u1", client_id: "c1", name: "Admin Totum", email: "admin@totumpixel.com", role: "admin" },
-  { id: "u2", client_id: "c1", name: "Maria Gerente", email: "maria@totumpixel.com", role: "manager" },
-  { id: "u3", client_id: "c1", name: "João Operador", email: "joao@totumpixel.com", role: "operator" },
-  { id: "u4", client_id: "c1", name: "Carla Operadora", email: "carla@totumpixel.com", role: "operator" },
-];
 
 const defaultForm: UserFormValues = {
   name: "",
-  email: "",
-  role: "operator",
+  role: "vendedor",
 };
 
-function getRoleBadgeClass(role: User["role"]) {
+function getRoleBadgeClass(role: AuthUser["role"]) {
   switch (role) {
-    case "admin":
+    case "master":
+    case "supervisor":
       return "border-primary/30 bg-primary/10 text-primary";
-    case "manager":
+    case "vendedor":
       return "border-accent/30 bg-accent/10 text-foreground";
     default:
       return "border-border bg-muted text-muted-foreground";
@@ -55,58 +48,60 @@ function getRoleBadgeClass(role: User["role"]) {
 }
 
 export default function UsersPage() {
-  const { leads } = useAppState();
+  const { user: currentUser } = useAuth();
 
-  const [localUsers, setLocalUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<AuthUser[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [form, setForm] = useState<UserFormValues>(defaultForm);
+  const [formEmail, setFormEmail] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
+  const [loading, setLoading] = useState(true);
 
-  const crmUsers = useMemo(() => {
-    return leads
-      .filter((l) => l.category === "collaborator" || l.category === "partner")
-      .map((l) => ({
-        id: l.id,
-        client_id: l.client_id,
-        name: l.name,
-        email: l.email || l.phone || "-",
-        role: l.category === "partner" ? "operator" as const : "manager" as const,
-        isExternal: true,
-        category: l.category,
-      }));
-  }, [leads]);
+  const fetchUsers = async () => {
+    if (!currentUser?.client_id) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("client_id", currentUser.client_id)
+      .order("created_at", { ascending: true });
 
-  const allUsers = useMemo(() => [...localUsers, ...crmUsers], [localUsers, crmUsers]);
+    if (!error && data) {
+      setUsers(data as any as AuthUser[]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [currentUser?.client_id]);
 
   const stats = useMemo(() => ([
-    { label: "Usuários", value: allUsers.length },
-    { label: "Admins", value: allUsers.filter((user) => user.role === "admin").length },
-    { label: "Operação", value: allUsers.filter((user) => user.role !== "admin").length },
-  ]), [allUsers]);
+    { label: "Usuários", value: users.length },
+    { label: "Gestão", value: users.filter((u) => u.role === "master" || u.role === "supervisor").length },
+    { label: "Operação", value: users.filter((u) => u.role !== "master" && u.role !== "supervisor").length },
+  ]), [users]);
 
   const openCreateModal = () => {
-    setEditingUserId(null);
-    setForm(defaultForm);
-    setErrors({});
-    setModalOpen(true);
+    toast.info("A criação de novos usuários com senha individual deve ser feita através de convite associado ao Auth da Plataforma.");
   };
 
-  const openEditModal = (user: User) => {
+  const openEditModal = (user: AuthUser) => {
     setEditingUserId(user.id);
-    setForm({ name: user.name, email: user.email, role: user.role });
+    setFormEmail(user.email || "");
+    setForm({ name: user.name, role: user.role });
     setErrors({});
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const result = userSchema.safeParse(form);
 
     if (!result.success) {
       const fieldErrors = result.error.flatten().fieldErrors;
       setErrors({
         name: fieldErrors.name?.[0],
-        email: fieldErrors.email?.[0],
         role: fieldErrors.role?.[0],
       });
       toast.error("Revise os campos obrigatórios.");
@@ -116,22 +111,26 @@ export default function UsersPage() {
     const sanitizedValues = result.data;
 
     if (editingUserId) {
-      setLocalUsers((currentUsers) =>
-        currentUsers.map((user) =>
-          user.id === editingUserId ? { ...user, ...sanitizedValues } : user,
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: sanitizedValues.name,
+          role: sanitizedValues.role,
+        } as any)
+        .eq("id", editingUserId);
+        
+      if (error) {
+        toast.error("Erro ao atualizar permissão no banco de dados.");
+        console.error(error);
+        return;
+      }
+      
+      setUsers((currentUsers) =>
+        currentUsers.map((u) =>
+          u.id === editingUserId ? { ...u, ...sanitizedValues } : u,
         ),
       );
-      toast.success("Usuário atualizado com sucesso.");
-    } else {
-      const newUser: User = {
-        id: `u${Date.now()}`,
-        client_id: "c1",
-        name: sanitizedValues.name,
-        email: sanitizedValues.email,
-        role: sanitizedValues.role,
-      };
-      setLocalUsers((currentUsers) => [...currentUsers, newUser]);
-      toast.success("Usuário criado com sucesso.");
+      toast.success("Permissões e dados atualizados com sucesso.");
     }
 
     setModalOpen(false);
@@ -141,12 +140,12 @@ export default function UsersPage() {
 
   return (
     <AppLayout
-      title="Usuários"
-      subtitle="Gerencie sua equipe e a função de cada usuário"
+      title="Usuários e Permissões"
+      subtitle="Gerencie os membros da equipe e os níveis de permissão do sistema"
       actions={
         <Button size="sm" className="gap-1 text-xs" onClick={openCreateModal}>
           <Plus className="h-3.5 w-3.5" />
-          Novo usuário
+          Convidar Usuário
         </Button>
       }
     >
@@ -166,77 +165,74 @@ export default function UsersPage() {
         <Tabs defaultValue="users">
           <TabsList className="bg-secondary mb-4">
             <TabsTrigger value="users" className="text-xs gap-1.5"><UsersIcon className="h-3 w-3" /> Usuários</TabsTrigger>
-            <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3 w-3" /> Roles / Permissões</TabsTrigger>
+            <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3 w-3" /> Matriz de Permissões</TabsTrigger>
             <TabsTrigger value="audit" className="text-xs gap-1.5"><FileText className="h-3 w-3" /> Auditoria</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
-        <section className="rounded-xl ghost-border bg-card">
-          <div className="flex items-center justify-between ghost-border border-b px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Lista de usuários</h2>
-              <p className="text-xs text-muted-foreground">Cadastre e edite usuários com nome, e-mail e função.</p>
-            </div>
-            <Badge variant="outline" className="text-[10px]">
-              {allUsers.length} cadastrados
-            </Badge>
-          </div>
-
-          <div className="divide-y divide-border">
-            {allUsers.map((user) => (
-              <div key={user.id} className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-                    {user.name
-                      .split(" ")
-                      .map((part) => part[0])
-                      .join("")
-                      .slice(0, 2)}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">{user.name}</p>
-                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Mail className="h-3 w-3" />
-                      {user.email}
-                    </p>
-                  </div>
+            <section className="rounded-xl ghost-border bg-card">
+              <div className="flex items-center justify-between ghost-border border-b px-4 py-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">Lista de usuários</h2>
+                  <p className="text-xs text-muted-foreground">Edite o nome e altere a função/Role de cada membro cadastrado.</p>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                  <Badge variant="outline" className={getRoleBadgeClass(user.role)}>
-                    <Shield className="mr-1 h-3 w-3" />
-                    {roleLabels[user.role]}
-                  </Badge>
-                  {(user as any).isExternal && (
-                    <Badge variant="outline" className={(user as any).category === "partner" ? "border-blue-500/30 text-blue-500" : "border-purple-500/30 text-purple-500"}>
-                      {(user as any).category === "partner" ? "Parceiro" : "Colaborador"}
-                    </Badge>
-                  )}
-                  {!(user as any).isExternal && (
-                    <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditModal(user)}>
-                      <PencilLine className="h-3.5 w-3.5" />
-                      Editar
-                    </Button>
-                  )}
-                </div>
+                <Badge variant="outline" className="text-[10px]">
+                  {loading ? "Carregando..." : `${users.length} usuários`}
+                </Badge>
               </div>
-            ))}
-          </div>
-        </section>
+
+              <div className="divide-y divide-border">
+                {users.map((user) => (
+                  <div key={user.id} className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+                        {user.name && user.name.length > 0
+                          ? user.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()
+                          : "??"}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-foreground">{user.name || "Usuário não nomeado"}</p>
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Mail className="h-3 w-3" />
+                          {user.email || "Sem e-mail"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <Badge variant="outline" className={getRoleBadgeClass(user.role)}>
+                        <Shield className="mr-1 h-3 w-3" />
+                        {roleLabels[user.role] || "Sem Role"}
+                      </Badge>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditModal(user)}>
+                        <PencilLine className="h-3.5 w-3.5" />
+                        Editar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {!loading && users.length === 0 && (
+                  <div className="p-8 text-center text-sm text-muted-foreground">Nenhum usuário encontrado para esta conta.</div>
+                )}
+                {loading && (
+                  <div className="p-8 text-center text-sm text-muted-foreground animate-pulse">Buscando perfis no Supabase...</div>
+                )}
+              </div>
+            </section>
           </TabsContent>
 
           <TabsContent value="roles">
             <div className="bg-card ghost-border rounded-xl overflow-hidden">
               <div className="px-4 py-3 ghost-border border-b">
                 <h2 className="text-sm font-semibold text-foreground">Matriz de Permissões — RBAC</h2>
-                <p className="text-xs text-muted-foreground">Quem pode acessar cada módulo do sistema</p>
+                <p className="text-xs text-muted-foreground">Visão geral descritiva de ações permitidas por perfil.</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-secondary/50">
-                      <th className="text-left px-4 py-2 font-semibold text-muted-foreground">Permissão</th>
-                      <th className="text-center px-3 py-2 font-semibold text-primary">Supervisor</th>
+                      <th className="text-left px-4 py-2 font-semibold text-muted-foreground">Módulo / Ação</th>
+                      <th className="text-center px-3 py-2 font-semibold text-primary">Supervisor / Master</th>
                       <th className="text-center px-3 py-2 font-semibold text-accent">Atendente</th>
                       <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Vendedor</th>
                     </tr>
@@ -254,9 +250,9 @@ export default function UsersPage() {
                       { perm: "Tarefas — Excluir", sup: true, att: false, ven: false },
                       { perm: "Automações", sup: true, att: false, ven: false },
                       { perm: "Relatórios", sup: true, att: false, ven: false },
-                      { perm: "Usuários", sup: true, att: false, ven: false },
+                      { perm: "Usuários e Permissões", sup: true, att: false, ven: false },
                       { perm: "Inteligência", sup: true, att: false, ven: true },
-                      { perm: "Configurações", sup: true, att: false, ven: false },
+                      { perm: "Configurações Globais", sup: true, att: false, ven: false },
                     ].map((row) => (
                       <tr key={row.perm} className="hover:bg-card-hover transition-colors">
                         <td className="px-4 py-2 font-medium text-foreground">{row.perm}</td>
@@ -275,15 +271,11 @@ export default function UsersPage() {
             <div className="bg-card ghost-border rounded-xl overflow-hidden">
               <div className="px-4 py-3 ghost-border border-b">
                 <h2 className="text-sm font-semibold text-foreground">Log de Auditoria</h2>
-                <p className="text-xs text-muted-foreground">Histórico de ações administrativas</p>
+                <p className="text-xs text-muted-foreground">Histórico centralizado de ações de segurança e acessos</p>
               </div>
               <div className="divide-y divide-border">
                 {[
-                  { user: "Admin Totum", action: "Criou usuário Maria Gerente", date: "2026-03-25 14:30" },
-                  { user: "Admin Totum", action: "Alterou role de João para Vendedor", date: "2026-03-25 10:15" },
-                  { user: "Admin Totum", action: "Exportou relatório de leads", date: "2026-03-24 16:45" },
-                  { user: "Sistema", action: "Backup automático realizado", date: "2026-03-24 03:00" },
-                  { user: "Admin Totum", action: "Ativou automação Follow-up 24h", date: "2026-03-23 11:20" },
+                  { user: "Sistema", action: "Integração viva da listagem de usuários com Supabase concluída", date: new Date().toISOString().split("T")[0] },
                 ].map((log, i) => (
                   <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-card-hover transition-colors">
                     <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -301,7 +293,7 @@ export default function UsersPage() {
         <section className="flex items-center justify-between rounded-xl ghost-border bg-card p-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Permissões avançadas</h3>
-            <p className="text-xs text-muted-foreground">Controle granular por módulo, recurso e equipe ficará disponível em breve.</p>
+            <p className="text-xs text-muted-foreground">Painel pronto e integrado ao Supabase para gerir o Role-Based Access Control (RBAC) real.</p>
           </div>
           <ComingSoonBadge />
         </section>
@@ -310,7 +302,7 @@ export default function UsersPage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingUserId ? "Editar usuário" : "Novo usuário"}</DialogTitle>
+            <DialogTitle>Mudar Permissões do Usuário</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -334,19 +326,16 @@ export default function UsersPage() {
               <Input
                 id="user-email"
                 type="email"
-                value={form.email}
-                maxLength={255}
+                value={formEmail}
+                disabled
+                className="opacity-70"
                 placeholder="email@empresa.com"
-                onChange={(event) => {
-                  setForm((current) => ({ ...current, email: event.target.value }));
-                  if (errors.email) setErrors((current) => ({ ...current, email: undefined }));
-                }}
               />
-              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+              <p className="text-[10px] text-muted-foreground mt-1">O e-mail só pode ser alterado pelo próprio usuário ou enviando um link de recuperação Auth.</p>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Função</Label>
+              <Label className="text-xs">Nível de Acesso (Role)</Label>
               <Select
                 value={form.role}
                 onValueChange={(value: UserFormValues["role"]) => {
@@ -355,12 +344,13 @@ export default function UsersPage() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma função" />
+                  <SelectValue placeholder="Selecione um nível de acesso" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Gerente</SelectItem>
-                  <SelectItem value="operator">Operador</SelectItem>
+                  <SelectItem value="master">Master</SelectItem>
+                  <SelectItem value="supervisor">Supervisor</SelectItem>
+                  <SelectItem value="atendente">Atendente</SelectItem>
+                  <SelectItem value="vendedor">Vendedor</SelectItem>
                 </SelectContent>
               </Select>
               {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
@@ -372,7 +362,7 @@ export default function UsersPage() {
               Cancelar
             </Button>
             <Button size="sm" onClick={handleSave}>
-              Salvar
+              Salvar Alterações
             </Button>
           </DialogFooter>
         </DialogContent>

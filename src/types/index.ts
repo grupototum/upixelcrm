@@ -10,7 +10,7 @@ export interface User {
   client_id: string;
   name: string;
   email: string;
-  role: "admin" | "manager" | "operator";
+  role: "supervisor" | "atendente" | "vendedor" | "master";
   avatar?: string;
 }
 
