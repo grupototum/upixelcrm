@@ -6,8 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Eye, EyeOff, AlertCircle, Lock, User, Building2, Plus } from "lucide-react";
+import { Mail, Eye, EyeOff, AlertCircle, Lock, User, Building2 } from "lucide-react";
 import upixelIconLight from "@/assets/upixel_icon_light.png";
 import upixelIconDark from "@/assets/upixel_icon_dark.png";
 
@@ -147,6 +146,57 @@ export default function LoginPage() {
                   required
                 />
               </div>
+            </div>
+          )}
+
+          {isSignup && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Empresa (opcional)</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={`flex-1 text-xs border rounded-lg px-3 py-2 transition-colors ${orgMode === "select" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                  onClick={() => setOrgMode(orgMode === "select" ? "none" : "select")}
+                >
+                  Entrar em existente
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 text-xs border rounded-lg px-3 py-2 transition-colors ${orgMode === "create" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                  onClick={() => setOrgMode(orgMode === "create" ? "none" : "create")}
+                >
+                  Criar nova
+                </button>
+              </div>
+
+              {orgMode === "select" && (
+                <div className="relative mt-1.5">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <select
+                    value={selectedOrgId}
+                    onChange={(e) => setSelectedOrgId(e.target.value)}
+                    className="w-full pl-10 h-10 rounded-md border border-input bg-background text-sm"
+                  >
+                    <option value="">Selecione uma empresa...</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {orgMode === "create" && (
+                <div className="relative mt-1.5">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value={newOrgName}
+                    onChange={(e) => setNewOrgName(e.target.value)}
+                    placeholder="Nome da empresa"
+                    className="pl-10 h-10"
+                  />
+                </div>
+              )}
             </div>
           )}
 
