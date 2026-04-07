@@ -76,8 +76,8 @@ export default function UsersPage() {
     const orgsList = (orgsRes.data || []) as OrgRow[];
 
     // If not master, filter only profiles from the user's organization
-    if (!isMaster && user?.organizationId) {
-      profilesList = profilesList.filter(p => p.organization_id === user.organizationId || p.id === user.id);
+    if (!isMaster && user?.organization_id) {
+      profilesList = profilesList.filter(p => p.organization_id === user.organization_id || p.id === user.id);
     }
 
     const orgMap = new Map(orgsList.map(o => [o.id, o.name]));
@@ -113,7 +113,7 @@ export default function UsersPage() {
 
   const toggleBlock = async (profile: ProfileRow) => {
     // Check if user has permission to block (master or supervisor of the same org)
-    if (!isMaster && (user?.role !== "supervisor" || profile.organization_id !== user?.organizationId)) {
+    if (!isMaster && (user?.role !== "supervisor" || profile.organization_id !== user?.organization_id)) {
         toast.error("Você não tem permissão para bloquear este usuário.");
         return;
     }
@@ -130,7 +130,7 @@ export default function UsersPage() {
   const saveRole = async () => {
     if (!editModal) return;
 
-    if (!isMaster && (user?.role !== "supervisor" || editModal.organization_id !== user?.organizationId)) {
+    if (!isMaster && (user?.role !== "supervisor" || editModal.organization_id !== user?.organization_id)) {
         toast.error("Você não tem permissão para alterar a permissão deste usuário.");
         setEditModal(null);
         return;
