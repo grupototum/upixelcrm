@@ -1,13 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/lib/theme";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Eye, EyeOff, AlertCircle, Lock, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Mail, Eye, EyeOff, AlertCircle, Lock, User, Building2, Plus } from "lucide-react";
 import upixelIconLight from "@/assets/upixel_icon_light.png";
 import upixelIconDark from "@/assets/upixel_icon_dark.png";
+
+interface OrgOption {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export default function LoginPage() {
   const { theme } = useTheme();
@@ -21,6 +29,21 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Organization fields for signup
+  const [orgMode, setOrgMode] = useState<"none" | "select" | "create">("none");
+  const [organizations, setOrganizations] = useState<OrgOption[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState("");
+  const [newOrgName, setNewOrgName] = useState("");
+
+  // Load available organizations for signup
+  useEffect(() => {
+    if (isSignup) {
+      supabase.from("organizations").select("id, name, slug").then(({ data }) => {
+        if (data) setOrganizations(data as OrgOption[]);
+      });
+    }
+  }, [isSignup]);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -40,13 +63,30 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      const result = await signup(email, password, name);
+      if (orgMode === "create" && !newOrgName.trim()) {
+        setError("Informe o nome da empresa");
+        setLoading(false);
+        return;
+      }
+
+      // Pass org info via metadata
+      const orgMeta: Record<string, string> = {};
+      if (orgMode === "select" && selectedOrgId) {
+        orgMeta.organization_id = selectedOrgId;
+      } else if (orgMode === "create" && newOrgName.trim()) {
+        orgMeta.new_org_name = newOrgName.trim();
+      }
+
+      const result = await signup(email, password, name, "vendedor", orgMeta);
       setLoading(false);
       if (result.success) {
-        setSuccess("Conta criada com sucesso! Você já pode fazer login.");
+        setSuccess("Conta criada com sucesso! Verifique seu e-mail para confirmar.");
         setIsSignup(false);
         setName("");
         setPassword("");
+        setOrgMode("none");
+        setNewOrgName("");
+        setSelectedOrgId("");
       } else {
         setError(result.error || "Erro ao criar conta");
       }
