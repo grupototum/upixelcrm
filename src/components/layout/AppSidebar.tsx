@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
-  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake
+  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake, ShieldCheck
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
@@ -37,7 +37,9 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  const isMaster = user?.role === "master";
 
   const handleLogout = async () => {
     await logout();
@@ -62,7 +64,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {navItems.map((item) => {
+              {navItems.concat(isMaster ? [{ title: "Admin", url: "/admin", icon: ShieldCheck }] : []).map((item) => {
                 const isActive = item.url === "/"
                   ? location.pathname === "/"
                   : location.pathname.startsWith(item.url);
