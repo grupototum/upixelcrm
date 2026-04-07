@@ -293,6 +293,33 @@ export type Database = {
           },
         ]
       }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pipeline_columns: {
         Row: {
           client_id: string
@@ -353,6 +380,7 @@ export type Database = {
           id: string
           is_blocked: boolean
           name: string
+          organization_id: string | null
           role: string
           updated_at: string
         }
@@ -364,6 +392,7 @@ export type Database = {
           id: string
           is_blocked?: boolean
           name?: string
+          organization_id?: string | null
           role?: string
           updated_at?: string
         }
@@ -375,10 +404,19 @@ export type Database = {
           id?: string
           is_blocked?: boolean
           name?: string
+          organization_id?: string | null
           role?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -501,6 +539,7 @@ export type Database = {
     }
     Functions: {
       get_user_client_id: { Args: never; Returns: string }
+      is_master_user: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
