@@ -6,8 +6,36 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PushNotificationSettings } from "@/components/pwa/PushNotificationSettings";
+import { OrganizationSection } from "@/components/profile/OrganizationSection";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
+  const { user } = useAuth();
+  const [name, setName] = useState(user?.name || "");
+  const [saving, setSaving] = useState(false);
+
+  const initials = (user?.name || "??").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ name } as any)
+        .eq("id", user.id);
+      if (error) throw error;
+      toast.success("Perfil atualizado!");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao salvar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <AppLayout title="Meu Perfil" subtitle="Gerencie suas informações pessoais e preferências">
       <div className="p-8 max-w-5xl mx-auto space-y-8 animate-fade-in">
@@ -20,18 +48,15 @@ export default function ProfilePage() {
               <CardContent className="pt-0 -mt-12 text-center pb-8">
                 <div className="relative inline-block group mb-4">
                   <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
-                    <AvatarImage src="" />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-bold">JS</AvatarFallback>
+                    <AvatarImage src={user?.avatar || ""} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-bold">{initials}</AvatarFallback>
                   </Avatar>
                   <button className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-background border border-border flex items-center justify-center shadow-lg hover:bg-secondary transition-colors opacity-0 group-hover:opacity-100 duration-200">
                     <Camera className="h-4 w-4" />
                   </button>
                 </div>
-                <h2 className="text-xl font-bold text-foreground">João Silva</h2>
-                <p className="text-sm text-muted-foreground">Administrador · Grupo Totum</p>
-                <div className="flex justify-center gap-2 mt-4">
-                  <Button variant="outline" size="sm" className="rounded-xl text-xs h-8">Editar Bio</Button>
-                </div>
+                <h2 className="text-xl font-bold text-foreground">{user?.name || "Usuário"}</h2>
+                <p className="text-sm text-muted-foreground capitalize">{user?.role} {user?.organization ? `· ${user.organization.name}` : ""}</p>
               </CardContent>
             </Card>
 
@@ -65,45 +90,41 @@ export default function ProfilePage() {
                     <Label htmlFor="fullname" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Nome Completo</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="fullname" defaultValue="João Silva" className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm focus:ring-primary" />
+                      <Input id="fullname" value={name} onChange={e => setName(e.target.value)} className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm focus:ring-primary" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">E-mail Corporativo</Label>
+                    <Label htmlFor="email" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">E-mail</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="email" defaultValue="joao.silva@grupototum.com" className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm" />
+                      <Input id="email" value={user?.email || ""} disabled className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm opacity-60" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Telefone</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="phone" defaultValue="+55 (11) 99999-8888" className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="position" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Cargo</Label>
+                    <Label htmlFor="role" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Função</Label>
                     <div className="relative">
                       <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="position" defaultValue="Administrador" className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm" />
+                      <Input id="role" value={user?.role || ""} disabled className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm capitalize opacity-60" />
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="company" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Empresa</Label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="company" defaultValue="Grupo Totum" className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm" />
+                  <div className="space-y-2">
+                    <Label htmlFor="clientid" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">ID do Tenant</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input id="clientid" value={user?.client_id || ""} disabled className="pl-10 rounded-xl ghost-border bg-secondary/10 h-11 text-sm opacity-60 font-mono text-[11px]" />
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button className="rounded-xl h-11 px-8 bg-primary hover:bg-primary-hover shadow-lg neon-glow">Salvar Alterações</Button>
+                  <Button onClick={handleSave} disabled={saving} className="rounded-xl h-11 px-8 bg-primary hover:bg-primary-hover shadow-lg neon-glow">
+                    {saving ? "Salvando..." : "Salvar Alterações"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
+
+            <OrganizationSection />
 
             <PushNotificationSettings />
 
