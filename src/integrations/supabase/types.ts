@@ -564,6 +564,14 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: undefined
       }
+      supervisor_set_role: {
+        Args: { new_role: string; target_user_id: string }
+        Returns: undefined
+      }
+      supervisor_toggle_block: {
+        Args: { block_status: boolean; target_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
