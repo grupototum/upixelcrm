@@ -115,10 +115,9 @@ export function OrganizationSection() {
     if (!inviteEmail.trim() || !org) return;
     setInviting(true);
     try {
-      // Find profile by email
       const { data: targetProfile } = await supabase
         .from("profiles")
-        .select("id, client_id, organization_id")
+        .select("id, organization_id")
         .eq("email", inviteEmail.trim())
         .single();
 
@@ -132,14 +131,10 @@ export function OrganizationSection() {
         return;
       }
 
-      // Update target profile: set org and change client_id to match org owner
-      const { error } = await supabase
-        .from("profiles")
-        .update({ 
-          organization_id: org.id,
-          client_id: user?.client_id 
-        } as any)
-        .eq("id", targetProfile.id);
+      const { error } = await supabase.rpc("owner_add_org_member" as any, {
+        target_user_id: targetProfile.id,
+        target_org_id: org.id,
+      });
 
       if (error) throw error;
 
@@ -151,6 +146,20 @@ export function OrganizationSection() {
       toast.error(e.message || "Erro ao adicionar membro");
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!confirm(`Remover ${memberName} da empresa?`)) return;
+    try {
+      const { error } = await supabase.rpc("owner_remove_org_member" as any, {
+        target_user_id: memberId,
+      });
+      if (error) throw error;
+      toast.success(`${memberName} removido da empresa`);
+      fetchOrg();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao remover membro");
     }
   };
 
