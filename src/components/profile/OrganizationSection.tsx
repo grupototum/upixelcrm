@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Plus, Users, Crown, UserPlus, Loader2, LogOut } from "lucide-react";
+import { Building2, Plus, Users, Crown, UserPlus, Loader2, LogOut, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -115,10 +115,9 @@ export function OrganizationSection() {
     if (!inviteEmail.trim() || !org) return;
     setInviting(true);
     try {
-      // Find profile by email
       const { data: targetProfile } = await supabase
         .from("profiles")
-        .select("id, client_id, organization_id")
+        .select("id, organization_id")
         .eq("email", inviteEmail.trim())
         .single();
 
@@ -132,14 +131,10 @@ export function OrganizationSection() {
         return;
       }
 
-      // Update target profile: set org and change client_id to match org owner
-      const { error } = await supabase
-        .from("profiles")
-        .update({ 
-          organization_id: org.id,
-          client_id: user?.client_id 
-        } as any)
-        .eq("id", targetProfile.id);
+      const { error } = await supabase.rpc("owner_add_org_member" as any, {
+        target_user_id: targetProfile.id,
+        target_org_id: org.id,
+      });
 
       if (error) throw error;
 
@@ -151,6 +146,20 @@ export function OrganizationSection() {
       toast.error(e.message || "Erro ao adicionar membro");
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!confirm(`Remover ${memberName} da empresa?`)) return;
+    try {
+      const { error } = await supabase.rpc("owner_remove_org_member" as any, {
+        target_user_id: memberId,
+      });
+      if (error) throw error;
+      toast.success(`${memberName} removido da empresa`);
+      fetchOrg();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao remover membro");
     }
   };
 
@@ -312,6 +321,16 @@ export function OrganizationSection() {
                 </div>
                 <B variant="outline" className="text-[10px] capitalize">{m.role}</B>
                 {org.owner_id === m.id && <Crown className="h-3.5 w-3.5 text-primary" />}
+                {isOwner && org.owner_id !== m.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-[10px] text-destructive hover:text-destructive rounded-lg"
+                    onClick={() => handleRemoveMember(m.id, m.name || "Membro")}
+                  >
+                    <UserMinus className="h-3 w-3" /> Remover
+                  </Button>
+                )}
               </div>
             ))}
           </div>
