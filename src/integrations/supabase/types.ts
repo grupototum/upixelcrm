@@ -538,6 +538,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_role: {
+        Args: { new_role: string; target_user_id: string }
+        Returns: undefined
+      }
+      admin_toggle_block: {
+        Args: { block_status: boolean; target_user_id: string }
+        Returns: undefined
+      }
       get_user_client_id: { Args: never; Returns: string }
       is_master_user: { Args: never; Returns: boolean }
     }
