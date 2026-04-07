@@ -1,35 +1,40 @@
 
+## Isolamento de dados por empresa (multi-tenant)
 
-## Adicionar ícone light ao PWA manifest
-
-### O que será feito
-
-Copiar `src/assets/upixel_icon_light.png` para `public/icon-light-192.png` e `public/icon-light-512.png`, e adicionar essas entradas no `manifest.json` para que dispositivos com tema claro usem o ícone alternativo.
+### Contexto
+Atualmente todos os usuários compartilham o `client_id = 'c1'`. Precisamos que:
+- Usuários pertençam a uma **empresa/organização**
+- Dados (leads, conversas, integrações configuráveis, etc.) sejam isolados por empresa
+- Usuários da mesma empresa compartilhem dados entre si
+- Um usuário **master** tenha acesso a todos os dados
+- APIs hardcoded no código permaneçam universais
 
 ### Alterações
 
-1. **Copiar asset light para public/**
-   - `cp src/assets/upixel_icon_light.png public/icon-light-192.png`
-   - `cp src/assets/upixel_icon_light.png public/icon-light-512.png`
+#### 1. Migração de banco de dados
+- Criar tabela `organizations` (id, name, slug, created_at, owner_id)
+- Atualizar trigger `handle_new_user` para gerar um `client_id` único por usuário (UUID) ao invés de 'c1'
+- Criar função `is_master_user()` para verificar se o usuário é master
+- Atualizar `get_user_client_id()` para retornar o client_id do perfil
+- Atualizar RLS de **todas as tabelas** para incluir exceção: master pode ver tudo
+- Adicionar campo `organization_id` na tabela `profiles` referenciando `organizations`
 
-2. **Atualizar `public/manifest.json`** — adicionar os ícones light ao array `icons`:
-   ```json
-   {
-     "src": "/icon-light-192.png",
-     "sizes": "192x192",
-     "type": "image/png",
-     "purpose": "any"
-   },
-   {
-     "src": "/icon-light-512.png",
-     "sizes": "512x512",
-     "type": "image/png",
-     "purpose": "any"
-   }
-   ```
+#### 2. Lógica de empresa compartilhada
+- Quando um usuário pertence a uma organização, seu `client_id` = o ID da organização
+- Assim todos os membros da mesma org compartilham dados automaticamente via RLS existente
+- Usuários sem organização terão `client_id` único (dados isolados)
 
-3. **Atualizar `index.html`** — adicionar `<link rel="apple-touch-icon" href="/icon-light-192.png" media="(prefers-color-scheme: light)">` para que dispositivos Apple com tema claro usem o ícone correto.
+#### 3. UI - Cadastro de empresa no perfil
+- Adicionar seção no ProfilePage para criar/gerenciar empresa
+- Permitir convidar membros (por email) para a mesma empresa
+- Mostrar membros da empresa
 
-### Nota técnica
-O Web App Manifest não suporta nativamente `media` queries nos ícones (diferente do `<link>`), então o navegador escolherá o ícone mais adequado automaticamente. A separação via `purpose` ("any" vs "maskable") e os `<link>` tags no HTML com `media="(prefers-color-scheme)"` garantem a melhor cobertura possível.
+#### 4. Papel Master
+- Definir via campo `role = 'master'` no profiles
+- RLS permite SELECT em todas as tabelas quando `is_master_user()` retorna true
+- Apenas atribuível diretamente no banco (sem UI para se auto-promover)
 
+### Ordem de execução
+1. Migration (organizations + RLS + funções)
+2. Atualizar código frontend (ProfilePage, contextos)
+3. Atualizar trigger de novo usuário
