@@ -2,14 +2,23 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  owner_id: string | null;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: "supervisor" | "atendente" | "vendedor";
+  role: "supervisor" | "atendente" | "vendedor" | "master";
   avatar?: string;
   is_blocked?: boolean;
   client_id?: string;
+  organization_id?: string | null;
+  organization?: Organization | null;
 }
 
 interface AuthContextType {
