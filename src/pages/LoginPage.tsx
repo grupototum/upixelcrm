@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/lib/theme";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Eye, EyeOff, AlertCircle, Lock, User } from "lucide-react";
+import { Mail, Eye, EyeOff, AlertCircle, Lock, User, Building2 } from "lucide-react";
 import upixelIconLight from "@/assets/upixel_icon_light.png";
 import upixelIconDark from "@/assets/upixel_icon_dark.png";
+
+interface OrgOption {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export default function LoginPage() {
   const { theme } = useTheme();
@@ -21,6 +28,21 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Organization fields for signup
+  const [orgMode, setOrgMode] = useState<"none" | "select" | "create">("none");
+  const [organizations, setOrganizations] = useState<OrgOption[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState("");
+  const [newOrgName, setNewOrgName] = useState("");
+
+  // Load available organizations for signup
+  useEffect(() => {
+    if (isSignup) {
+      supabase.from("organizations").select("id, name, slug").then(({ data }) => {
+        if (data) setOrganizations(data as OrgOption[]);
+      });
+    }
+  }, [isSignup]);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -40,13 +62,30 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      const result = await signup(email, password, name);
+      if (orgMode === "create" && !newOrgName.trim()) {
+        setError("Informe o nome da empresa");
+        setLoading(false);
+        return;
+      }
+
+      // Pass org info via metadata
+      const orgMeta: Record<string, string> = {};
+      if (orgMode === "select" && selectedOrgId) {
+        orgMeta.organization_id = selectedOrgId;
+      } else if (orgMode === "create" && newOrgName.trim()) {
+        orgMeta.new_org_name = newOrgName.trim();
+      }
+
+      const result = await signup(email, password, name, "vendedor", orgMeta);
       setLoading(false);
       if (result.success) {
-        setSuccess("Conta criada com sucesso! Você já pode fazer login.");
+        setSuccess("Conta criada com sucesso! Verifique seu e-mail para confirmar.");
         setIsSignup(false);
         setName("");
         setPassword("");
+        setOrgMode("none");
+        setNewOrgName("");
+        setSelectedOrgId("");
       } else {
         setError(result.error || "Erro ao criar conta");
       }
@@ -107,6 +146,57 @@ export default function LoginPage() {
                   required
                 />
               </div>
+            </div>
+          )}
+
+          {isSignup && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Empresa (opcional)</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={`flex-1 text-xs border rounded-lg px-3 py-2 transition-colors ${orgMode === "select" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                  onClick={() => setOrgMode(orgMode === "select" ? "none" : "select")}
+                >
+                  Entrar em existente
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 text-xs border rounded-lg px-3 py-2 transition-colors ${orgMode === "create" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                  onClick={() => setOrgMode(orgMode === "create" ? "none" : "create")}
+                >
+                  Criar nova
+                </button>
+              </div>
+
+              {orgMode === "select" && (
+                <div className="relative mt-1.5">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <select
+                    value={selectedOrgId}
+                    onChange={(e) => setSelectedOrgId(e.target.value)}
+                    className="w-full pl-10 h-10 rounded-md border border-input bg-background text-sm"
+                  >
+                    <option value="">Selecione uma empresa...</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {orgMode === "create" && (
+                <div className="relative mt-1.5">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value={newOrgName}
+                    onChange={(e) => setNewOrgName(e.target.value)}
+                    placeholder="Nome da empresa"
+                    className="pl-10 h-10"
+                  />
+                </div>
+              )}
             </div>
           )}
 
