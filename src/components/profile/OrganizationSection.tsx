@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Plus, Users, Crown, UserPlus, Loader2, LogOut } from "lucide-react";
+import { Building2, Plus, Users, Crown, UserPlus, Loader2, LogOut, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
