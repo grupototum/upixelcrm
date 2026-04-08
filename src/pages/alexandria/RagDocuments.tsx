@@ -34,7 +34,7 @@ const TYPE_OPTIONS = [
 ];
 
 export default function RagDocumentsPage() {
-  const { user } = useApp();
+  const { user } = useAuth();
   const isMaster = user?.role === "master";
 
   const [documents, setDocuments] = useState<RagDocument[]>([]);
