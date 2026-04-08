@@ -42,7 +42,7 @@ export function RAGIntegrationStatus() {
       </div>
 
       {okCount === total && (
-        <div className="text-sm text-green-600 dark:text-green-400 bg-green-500/10 rounded-lg p-3 text-center">
+        <div className="text-sm text-primary bg-primary/10 rounded-lg p-3 text-center">
           ✅ Alexandria RAG está 100% funcional e integrado com os agentes
         </div>
       )}
