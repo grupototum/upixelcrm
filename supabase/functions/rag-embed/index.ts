@@ -156,12 +156,14 @@ serve(async (req) => {
 
     for (let i = 0; i < chunks.length; i++) {
       const embedding = await generateEmbedding(chunks[i], lovableKey);
+      const isGlobal = (doc as any).is_global === true;
       const { error: insertErr } = await adminClient.from("rag_embeddings").insert({
         document_id: doc.id,
         client_id: doc.client_id,
         chunk_index: i,
         chunk_text: chunks[i],
         embedding: `[${embedding.join(",")}]`,
+        is_global: isGlobal,
       });
       if (insertErr) console.error("Insert error:", insertErr);
       else results.push({ chunk_index: i, length: chunks[i].length });
