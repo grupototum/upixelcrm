@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
+  LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone,
   BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake, ShieldCheck
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
