@@ -1,40 +1,68 @@
 
-## Isolamento de dados por empresa (multi-tenant)
 
-### Contexto
-Atualmente todos os usuários compartilham o `client_id = 'c1'`. Precisamos que:
-- Usuários pertençam a uma **empresa/organização**
-- Dados (leads, conversas, integrações configuráveis, etc.) sejam isolados por empresa
-- Usuários da mesma empresa compartilhem dados entre si
-- Um usuário **master** tenha acesso a todos os dados
-- APIs hardcoded no código permaneçam universais
+# Plano: Separação de Documentos Internos vs. Documentos de Cliente no RAG
 
-### Alterações
+## Problema
 
-#### 1. Migração de banco de dados
-- Criar tabela `organizations` (id, name, slug, created_at, owner_id)
-- Atualizar trigger `handle_new_user` para gerar um `client_id` único por usuário (UUID) ao invés de 'c1'
-- Criar função `is_master_user()` para verificar se o usuário é master
-- Atualizar `get_user_client_id()` para retornar o client_id do perfil
-- Atualizar RLS de **todas as tabelas** para incluir exceção: master pode ver tudo
-- Adicionar campo `organization_id` na tabela `profiles` referenciando `organizations`
+A tabela `rag_documents` não diferencia documentos internos da Totum (POPs, SLAs, templates) de documentos de clientes. Não há mecanismo para documentos "globais" acessíveis por todos os agentes mas protegidos contra edição por clientes.
 
-#### 2. Lógica de empresa compartilhada
-- Quando um usuário pertence a uma organização, seu `client_id` = o ID da organização
-- Assim todos os membros da mesma org compartilham dados automaticamente via RLS existente
-- Usuários sem organização terão `client_id` único (dados isolados)
+## Solução
 
-#### 3. UI - Cadastro de empresa no perfil
-- Adicionar seção no ProfilePage para criar/gerenciar empresa
-- Permitir convidar membros (por email) para a mesma empresa
-- Mostrar membros da empresa
+Adicionar um flag `is_global` à tabela e ajustar RLS + edge functions para que:
+- Documentos globais (`is_global = true`) sejam legíveis por todos os usuários autenticados
+- Apenas o master possa criar/editar/deletar documentos globais
+- A busca semântica inclua automaticamente documentos globais + documentos do tenant
 
-#### 4. Papel Master
-- Definir via campo `role = 'master'` no profiles
-- RLS permite SELECT em todas as tabelas quando `is_master_user()` retorna true
-- Apenas atribuível diretamente no banco (sem UI para se auto-promover)
+## Alterações
 
-### Ordem de execução
-1. Migration (organizations + RLS + funções)
-2. Atualizar código frontend (ProfilePage, contextos)
-3. Atualizar trigger de novo usuário
+### 1. Migração SQL
+
+- Adicionar coluna `is_global BOOLEAN DEFAULT false` em `rag_documents`
+- Adicionar coluna `is_global BOOLEAN DEFAULT false` em `rag_embeddings`
+- Atualizar políticas RLS de SELECT para incluir `OR is_global = true`
+- Criar políticas de INSERT/UPDATE/DELETE que bloqueiem clientes de tocar documentos globais
+- Atualizar `match_rag_documents` para incluir embeddings globais na busca
+
+### 2. Políticas RLS (lógica)
+
+```text
+SELECT: (client_id = get_user_client_id() OR is_master_user() OR is_global = true)
+INSERT: (is_global = false AND client_id = get_user_client_id()) OR (is_global = true AND is_master_user())
+UPDATE: (is_global = false AND client_id = get_user_client_id()) OR is_master_user()
+DELETE: (is_global = false AND client_id = get_user_client_id()) OR is_master_user()
+```
+
+### 3. Atualizar `match_rag_documents` RPC
+
+Incluir embeddings onde `is_global = true` além dos filtrados por `p_client_id`.
+
+### 4. Atualizar UI em `RagDocuments.tsx`
+
+- Adicionar toggle "Documento Global" visível apenas para o master
+- Exibir badge visual diferenciando docs globais dos do cliente
+- Master vê todos; clientes veem os seus + globais (somente leitura nos globais)
+
+### 5. Atualizar Edge Functions
+
+- `rag-search`: incluir docs globais na busca vetorial
+- `rag-embed`: permitir master gerar embeddings para docs globais
+- `ai-chat`: sem alteração (já usa `match_rag_documents`)
+
+## Detalhes Técnicos
+
+Migração principal:
+```sql
+ALTER TABLE rag_documents ADD COLUMN is_global boolean NOT NULL DEFAULT false;
+ALTER TABLE rag_embeddings ADD COLUMN is_global boolean NOT NULL DEFAULT false;
+
+-- Drop e recriar políticas com a nova lógica
+-- Atualizar função match_rag_documents para:
+-- WHERE (p_client_id IS NULL OR re.client_id = p_client_id OR re.is_global = true)
+```
+
+Arquivos modificados:
+- 1 migração SQL
+- `src/pages/alexandria/RagDocuments.tsx` (toggle global + badge)
+- `supabase/functions/rag-search/index.ts` (incluir globais)
+- `supabase/functions/rag-embed/index.ts` (permitir master criar globais)
+
