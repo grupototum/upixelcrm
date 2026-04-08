@@ -132,7 +132,15 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (!profile || (profile.client_id !== doc.client_id && profile.role !== "master")) {
+    // Master can embed any doc; others must match client_id
+    // Global docs can only be embedded by master
+    const isGlobalDoc = (doc as any).is_global === true;
+    if (isGlobalDoc && profile.role !== "master") {
+      return new Response(JSON.stringify({ error: "Only master can embed global documents" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!isGlobalDoc && profile.client_id !== doc.client_id && profile.role !== "master") {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

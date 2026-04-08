@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Plus, Trash2, FileText, Sparkles, Search } from "lucide-react";
+import { Loader2, Plus, Trash2, FileText, Sparkles, Search, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { AnalyticsPanel } from "@/components/alexandria/AnalyticsPanel";
 import { RAGIntegrationStatus } from "@/components/alexandria/RAGIntegrationStatus";
 import { generateDocumentEmbeddings } from "@/services/embeddingService";
 import { searchSimilarDocuments, SearchResult } from "@/services/ragSearchService";
+import { useApp } from "@/contexts/AppContext";
 
 interface RagDocument {
   id: string;
@@ -19,6 +22,7 @@ interface RagDocument {
   content: string;
   type: string;
   created_at: string;
+  is_global: boolean;
 }
 
 const TYPE_OPTIONS = [
@@ -30,15 +34,18 @@ const TYPE_OPTIONS = [
 ];
 
 export default function RagDocumentsPage() {
+  const { user } = useApp();
+  const isMaster = user?.role === "master";
+
   const [documents, setDocuments] = useState<RagDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newType, setNewType] = useState("client_info");
+  const [newIsGlobal, setNewIsGlobal] = useState(false);
   const [embeddingStatus, setEmbeddingStatus] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
 
-  // Semantic search state
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
@@ -47,7 +54,7 @@ export default function RagDocumentsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("rag_documents")
-      .select("id, title, content, type, created_at")
+      .select("id, title, content, type, created_at, is_global")
       .order("created_at", { ascending: false });
     if (error) {
       toast.error("Erro ao carregar documentos");
@@ -61,11 +68,13 @@ export default function RagDocumentsPage() {
 
   const handleAdd = async () => {
     if (!newTitle.trim()) return toast.error("Título obrigatório");
+    if (newIsGlobal && !isMaster) return toast.error("Apenas master pode criar documentos globais");
     setAdding(true);
     const { error } = await supabase.from("rag_documents").insert({
       title: newTitle.trim(),
       content: newContent.trim(),
       type: newType,
+      is_global: newIsGlobal,
     });
     if (error) {
       toast.error("Erro ao adicionar documento");
@@ -74,18 +83,20 @@ export default function RagDocumentsPage() {
       setNewTitle("");
       setNewContent("");
       setNewType("client_info");
+      setNewIsGlobal(false);
       fetchDocuments();
     }
     setAdding(false);
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("rag_documents").delete().eq("id", id);
+  const handleDelete = async (doc: RagDocument) => {
+    if (doc.is_global && !isMaster) return toast.error("Apenas master pode excluir documentos globais");
+    const { error } = await supabase.from("rag_documents").delete().eq("id", doc.id);
     if (error) {
       toast.error("Erro ao excluir");
     } else {
       toast.success("Documento excluído");
-      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
     }
   };
 
@@ -124,6 +135,9 @@ export default function RagDocumentsPage() {
     if (status === "error") return <span className="text-xs">❌</span>;
     return <Sparkles className="h-4 w-4" />;
   };
+
+  const globalDocs = documents.filter(d => d.is_global);
+  const clientDocs = documents.filter(d => !d.is_global);
 
   return (
     <AppLayout>
@@ -189,8 +203,8 @@ export default function RagDocumentsPage() {
               onChange={(e) => setNewContent(e.target.value)}
               rows={4}
             />
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
+            <div className="flex gap-3 items-end flex-wrap">
+              <div className="flex-1 min-w-[180px]">
                 <Select value={newType} onValueChange={setNewType}>
                   <SelectTrigger>
                     <SelectValue />
@@ -202,6 +216,19 @@ export default function RagDocumentsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {isMaster && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newIsGlobal}
+                    onCheckedChange={setNewIsGlobal}
+                    id="global-toggle"
+                  />
+                  <label htmlFor="global-toggle" className="text-sm flex items-center gap-1 cursor-pointer">
+                    <Globe className="h-3.5 w-3.5" />
+                    Global
+                  </label>
+                </div>
+              )}
               <Button onClick={handleAdd} disabled={adding}>
                 {adding ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
                 Adicionar
@@ -210,24 +237,80 @@ export default function RagDocumentsPage() {
           </CardContent>
         </Card>
 
-        {/* Documents List */}
+        {/* Global Documents */}
+        {globalDocs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Documentos Globais ({globalDocs.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {globalDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{doc.title}</p>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          <Globe className="h-3 w-3 mr-1" />
+                          Global
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {typeLabel(doc.type)} · {new Date(doc.created_at).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {isMaster && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleGenerateEmbeddings(doc.id)}
+                            disabled={embeddingStatus[doc.id] === "loading"}
+                            title="Gerar Embeddings"
+                          >
+                            {embeddingIcon(doc.id)}
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(doc)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                      {!isMaster && (
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Client Documents */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Documentos ({documents.length})</CardTitle>
+            <CardTitle className="text-base">Documentos da Empresa ({clientDocs.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : documents.length === 0 ? (
+            ) : clientDocs.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="h-10 w-10 mx-auto mb-2 opacity-40" />
                 <p>Nenhum documento cadastrado</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {documents.map((doc) => (
+                {clientDocs.map((doc) => (
                   <div
                     key={doc.id}
                     className="flex items-center justify-between rounded-lg border border-border/50 px-4 py-3"
@@ -248,7 +331,7 @@ export default function RagDocumentsPage() {
                       >
                         {embeddingIcon(doc.id)}
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)}>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(doc)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
