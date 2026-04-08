@@ -32,9 +32,9 @@ export function RAGIntegrationStatus() {
             className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 text-sm"
           >
             {c.status ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" />
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
             )}
             <span>{c.name}</span>
           </div>
