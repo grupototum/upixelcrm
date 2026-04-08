@@ -1,13 +1,12 @@
-import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle, BookOpen } from "lucide-react";
+import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useCallback } from "react";
-import { RagContextInjector } from "@/components/chat/RagContextInjector";
-import { SearchResult } from "@/services/ragSearchService";
+import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChatMessage {
   role: "assistant" | "user";
   content: string;
-  ragDocs?: number;
+  ragDocs?: { id: string; title: string; type: string; similarity: number }[];
 }
 
 const quickSuggestions = [
@@ -28,43 +27,59 @@ export function AssistantTab() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
-      content: "Olá! Sou o assistente uPixel. Posso ajudar com sugestões de resposta, orientações sobre o sistema ou estratégias de vendas. Como posso ajudar?",
+      content: "Olá! Sou o assistente uPixel com RAG integrado. Posso ajudar com sugestões de resposta, orientações sobre o sistema ou estratégias de vendas. Minhas respostas são enriquecidas com a base de conhecimento quando disponível. Como posso ajudar?",
     },
   ]);
-  const [submittedQuery, setSubmittedQuery] = useState("");
-  const [ragContext, setRagContext] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const handleContextReady = useCallback((context: string, docs: SearchResult[]) => {
-    setRagContext(context);
-  }, []);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isProcessing]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = query.trim();
     if (!text || isProcessing) return;
 
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
-    setSubmittedQuery(text);
+    const userMsg: ChatMessage = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
     setQuery("");
-    setRagContext("");
     setIsProcessing(true);
 
-    // Simulated AI response (will be replaced with real AI call)
-    setTimeout(() => {
-      const hasContext = ragContext.length > 0;
+    try {
+      // Build conversation history (skip first welcome message)
+      const history = [...messages.slice(1), userMsg].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: { messages: history },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: hasContext
-            ? `Com base na base de conhecimento, aqui está uma resposta para: "${text}"\n\n(Contexto RAG utilizado para enriquecer a resposta)`
-            : `Entendi sua pergunta: "${text}". Vou analisar e responder com base no meu conhecimento.`,
-          ragDocs: hasContext ? ragContext.split('\n\n').length : 0,
+          content: data.message,
+          ragDocs: data.rag?.used ? data.rag.documents : undefined,
         },
       ]);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.`,
+        },
+      ]);
+    } finally {
       setIsProcessing(false);
-      setSubmittedQuery("");
-    }, 1500);
+    }
   };
 
   return (
@@ -72,7 +87,7 @@ export function AssistantTab() {
       {/* Chat principal */}
       <div className="lg:col-span-2 space-y-4">
         <div className="bg-card ghost-border rounded-xl p-4 min-h-[420px] flex flex-col">
-          <div className="flex-1 space-y-4 mb-4 overflow-auto">
+          <div className="flex-1 space-y-4 mb-4 overflow-auto max-h-[500px]">
             {messages.map((msg, i) => (
               <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                 {msg.role === "assistant" && (
@@ -88,10 +103,10 @@ export function AssistantTab() {
                   }`}
                 >
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  {msg.ragDocs && msg.ragDocs > 0 && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-accent">
+                  {msg.ragDocs && msg.ragDocs.length > 0 && (
+                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50 text-xs text-accent">
                       <BookOpen className="h-3 w-3" />
-                      <span>{msg.ragDocs} doc(s) RAG utilizados</span>
+                      <span>{msg.ragDocs.length} doc(s) RAG: {msg.ragDocs.map(d => d.title).join(", ")}</span>
                     </div>
                   )}
                 </div>
@@ -100,22 +115,16 @@ export function AssistantTab() {
             {isProcessing && (
               <div className="flex gap-3">
                 <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                  <Brain className="h-4 w-4 text-accent animate-pulse" />
+                  <Brain className="h-4 w-4 text-accent" />
                 </div>
-                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
-                  <p className="text-sm text-muted-foreground">Pensando...</p>
+                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Buscando contexto RAG e gerando resposta...</p>
                 </div>
               </div>
             )}
+            <div ref={chatEndRef} />
           </div>
-
-          {/* RAG Context Injector */}
-          {submittedQuery && (
-            <RagContextInjector
-              userQuery={submittedQuery}
-              onContextReady={handleContextReady}
-            />
-          )}
 
           <div className="flex flex-wrap gap-2 mb-3">
             {quickSuggestions.slice(0, 3).map((s) => (
@@ -137,6 +146,7 @@ export function AssistantTab() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              disabled={isProcessing}
             />
             <Button
               size="icon"
@@ -152,7 +162,6 @@ export function AssistantTab() {
 
       {/* Painel lateral */}
       <div className="space-y-4">
-        {/* Sugestões rápidas */}
         <div className="bg-card ghost-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-accent" />
@@ -175,7 +184,6 @@ export function AssistantTab() {
           </div>
         </div>
 
-        {/* Dicas do sistema */}
         <div className="bg-card ghost-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="h-4 w-4 text-primary" />
