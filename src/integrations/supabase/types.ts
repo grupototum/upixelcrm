@@ -451,6 +451,77 @@ export type Database = {
         }
         Relationships: []
       }
+      rag_context: {
+        Row: {
+          agent_id: string | null
+          client_id: string
+          created_at: string
+          document_id: string | null
+          id: string
+          query: string
+          similarity_score: number
+        }
+        Insert: {
+          agent_id?: string | null
+          client_id?: string
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          query?: string
+          similarity_score?: number
+        }
+        Update: {
+          agent_id?: string | null
+          client_id?: string
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          query?: string
+          similarity_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_context_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "rag_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_documents: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string
+          id: string
+          metadata: Json
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assigned_to: string | null

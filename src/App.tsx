@@ -28,6 +28,7 @@ import WhatsAppPage from "./pages/WhatsAppPage";
 import ProfilePage from "./pages/ProfilePage";
 import SecurityPage from "./pages/SecurityPage";
 import ContactsPage from "./pages/ContactsPage";
+import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
                 <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
+                <Route path="/alexandria/rag" element={<ProtectedRoute><RagDocumentsPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <PwaInstallPrompt />
