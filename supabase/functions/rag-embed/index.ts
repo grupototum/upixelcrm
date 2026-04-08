@@ -119,7 +119,7 @@ serve(async (req) => {
     // Get document
     const { data: doc, error: docErr } = await adminClient
       .from("rag_documents")
-      .select("id, title, content, client_id")
+      .select("id, title, content, client_id, is_global")
       .eq("id", document_id)
       .single();
 
