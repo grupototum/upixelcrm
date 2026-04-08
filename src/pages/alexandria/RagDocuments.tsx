@@ -14,7 +14,7 @@ import { AnalyticsPanel } from "@/components/alexandria/AnalyticsPanel";
 import { RAGIntegrationStatus } from "@/components/alexandria/RAGIntegrationStatus";
 import { generateDocumentEmbeddings } from "@/services/embeddingService";
 import { searchSimilarDocuments, SearchResult } from "@/services/ragSearchService";
-import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RagDocument {
   id: string;
