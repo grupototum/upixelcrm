@@ -63,6 +63,7 @@ const App = () => (
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
                 <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
+                <Route path="/alexandria/rag" element={<ProtectedRoute><RagDocumentsPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <PwaInstallPrompt />
