@@ -495,6 +495,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_global: boolean
           metadata: Json
           title: string
           type: string
@@ -505,6 +506,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_global?: boolean
           metadata?: Json
           title: string
           type?: string
@@ -515,6 +517,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_global?: boolean
           metadata?: Json
           title?: string
           type?: string
@@ -531,6 +534,7 @@ export type Database = {
           document_id: string
           embedding: string | null
           id: string
+          is_global: boolean
           updated_at: string | null
         }
         Insert: {
@@ -541,6 +545,7 @@ export type Database = {
           document_id: string
           embedding?: string | null
           id?: string
+          is_global?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -551,6 +556,7 @@ export type Database = {
           document_id?: string
           embedding?: string | null
           id?: string
+          is_global?: boolean
           updated_at?: string | null
         }
         Relationships: [
