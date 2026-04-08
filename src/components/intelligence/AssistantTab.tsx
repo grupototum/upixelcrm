@@ -1,6 +1,14 @@
-import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle } from "lucide-react";
+import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { RagContextInjector } from "@/components/chat/RagContextInjector";
+import { SearchResult } from "@/services/ragSearchService";
+
+interface ChatMessage {
+  role: "assistant" | "user";
+  content: string;
+  ragDocs?: number;
+}
 
 const quickSuggestions = [
   { icon: MessageSquare, label: "Sugerir resposta para objeção de preço", category: "Comercial" },
@@ -17,6 +25,47 @@ const systemTips = [
 
 export function AssistantTab() {
   const [query, setQuery] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      content: "Olá! Sou o assistente uPixel. Posso ajudar com sugestões de resposta, orientações sobre o sistema ou estratégias de vendas. Como posso ajudar?",
+    },
+  ]);
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [ragContext, setRagContext] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleContextReady = useCallback((context: string, docs: SearchResult[]) => {
+    setRagContext(context);
+  }, []);
+
+  const handleSend = () => {
+    const text = query.trim();
+    if (!text || isProcessing) return;
+
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setSubmittedQuery(text);
+    setQuery("");
+    setRagContext("");
+    setIsProcessing(true);
+
+    // Simulated AI response (will be replaced with real AI call)
+    setTimeout(() => {
+      const hasContext = ragContext.length > 0;
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: hasContext
+            ? `Com base na base de conhecimento, aqui está uma resposta para: "${text}"\n\n(Contexto RAG utilizado para enriquecer a resposta)`
+            : `Entendi sua pergunta: "${text}". Vou analisar e responder com base no meu conhecimento.`,
+          ragDocs: hasContext ? ragContext.split('\n\n').length : 0,
+        },
+      ]);
+      setIsProcessing(false);
+      setSubmittedQuery("");
+    }, 1500);
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -24,17 +73,49 @@ export function AssistantTab() {
       <div className="lg:col-span-2 space-y-4">
         <div className="bg-card ghost-border rounded-xl p-4 min-h-[420px] flex flex-col">
           <div className="flex-1 space-y-4 mb-4 overflow-auto">
-            <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                <Brain className="h-4 w-4 text-accent" />
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                {msg.role === "assistant" && (
+                  <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                    <Brain className="h-4 w-4 text-accent" />
+                  </div>
+                )}
+                <div
+                  className={`rounded-2xl px-4 py-3 max-w-[80%] ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-br-md"
+                      : "bg-secondary rounded-bl-md"
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  {msg.ragDocs && msg.ragDocs > 0 && (
+                    <div className="flex items-center gap-1 mt-2 text-xs text-accent">
+                      <BookOpen className="h-3 w-3" />
+                      <span>{msg.ragDocs} doc(s) RAG utilizados</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%]">
-                <p className="text-sm text-foreground">
-                  Olá! Sou o assistente uPixel. Posso ajudar com sugestões de resposta, orientações sobre o sistema ou estratégias de vendas. Como posso ajudar?
-                </p>
+            ))}
+            {isProcessing && (
+              <div className="flex gap-3">
+                <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                  <Brain className="h-4 w-4 text-accent animate-pulse" />
+                </div>
+                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
+                  <p className="text-sm text-muted-foreground">Pensando...</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
+
+          {/* RAG Context Injector */}
+          {submittedQuery && (
+            <RagContextInjector
+              userQuery={submittedQuery}
+              onContextReady={handleContextReady}
+            />
+          )}
 
           <div className="flex flex-wrap gap-2 mb-3">
             {quickSuggestions.slice(0, 3).map((s) => (
@@ -55,12 +136,13 @@ export function AssistantTab() {
               placeholder="Pergunte algo..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && query.trim() && setQuery("")}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
             />
             <Button
               size="icon"
               className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
-              disabled={!query.trim()}
+              disabled={!query.trim() || isProcessing}
+              onClick={handleSend}
             >
               <Send className="h-4 w-4" />
             </Button>
