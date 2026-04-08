@@ -101,6 +101,7 @@ serve(async (req) => {
     const queryEmbedding = await generateQueryEmbedding(query, lovableKey);
     const embeddingStr = `[${queryEmbedding.join(",")}]`;
 
+    // Pass client_id; match_rag_documents now includes is_global=true automatically
     const { data: matches, error: matchErr } = await adminClient.rpc("match_rag_documents", {
       query_embedding: embeddingStr,
       match_threshold: threshold,

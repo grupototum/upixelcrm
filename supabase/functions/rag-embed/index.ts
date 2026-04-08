@@ -119,7 +119,7 @@ serve(async (req) => {
     // Get document
     const { data: doc, error: docErr } = await adminClient
       .from("rag_documents")
-      .select("id, title, content, client_id")
+      .select("id, title, content, client_id, is_global")
       .eq("id", document_id)
       .single();
 
@@ -132,7 +132,15 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (!profile || (profile.client_id !== doc.client_id && profile.role !== "master")) {
+    // Master can embed any doc; others must match client_id
+    // Global docs can only be embedded by master
+    const isGlobalDoc = (doc as any).is_global === true;
+    if (isGlobalDoc && profile.role !== "master") {
+      return new Response(JSON.stringify({ error: "Only master can embed global documents" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!isGlobalDoc && profile.client_id !== doc.client_id && profile.role !== "master") {
       return new Response(JSON.stringify({ error: "Access denied" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -148,12 +156,14 @@ serve(async (req) => {
 
     for (let i = 0; i < chunks.length; i++) {
       const embedding = await generateEmbedding(chunks[i], lovableKey);
+      const isGlobal = (doc as any).is_global === true;
       const { error: insertErr } = await adminClient.from("rag_embeddings").insert({
         document_id: doc.id,
         client_id: doc.client_id,
         chunk_index: i,
         chunk_text: chunks[i],
         embedding: `[${embedding.join(",")}]`,
+        is_global: isGlobal,
       });
       if (insertErr) console.error("Insert error:", insertErr);
       else results.push({ chunk_index: i, length: chunks[i].length });
