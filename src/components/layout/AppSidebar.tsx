@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
+  LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone,
   BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake, ShieldCheck
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -22,6 +22,7 @@ const navItems = [
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Automações", url: "/automations", icon: Zap },
   { title: "Inteligência", url: "/intelligence", icon: Brain },
+  { title: "Alexandria", url: "/alexandria/rag", icon: BookOpen },
   { title: "Campanhas", url: "/campaigns", icon: Megaphone },
   { title: "Relatórios", url: "/reports", icon: BarChart3 },
   { title: "Google", url: "/google", icon: Globe },
