@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, Smile, Paperclip as AttachIcon, Shield, ChevronDown } from "lucide-react";
+import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, Smile, Paperclip as AttachIcon, Shield, ChevronDown, Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -26,7 +26,7 @@ const channelConfig: Record<string, { icon: any; label: string; color: string }>
   whatsapp: { icon: MessageCircle, label: "WhatsApp", color: "text-emerald-500" },
   whatsapp_official: { icon: Shield, label: "WA Oficial", color: "text-emerald-600" },
   email: { icon: Mail, label: "E-mail", color: "text-blue-500" },
-  instagram: { icon: MessageCircle, label: "Instagram", color: "text-pink-500" },
+  instagram: { icon: Instagram, label: "Instagram", color: "text-pink-500" },
   webchat: { icon: MessageSquare, label: "Webchat", color: "text-violet-500" },
 };
 

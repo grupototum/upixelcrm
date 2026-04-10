@@ -225,7 +225,7 @@ export function useInbox(onLeadCreated?: () => void) {
       : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp" || sc.channel === "whatsapp_official" || sc.channel === "instagram");
 
     if (!target) {
-      toast.error("Nenhuma conexão WhatsApp encontrada for este lead.");
+      toast.error("Nenhuma conexão de mensageria encontrada para este lead.");
       return;
     }
 
@@ -276,7 +276,7 @@ export function useInbox(onLeadCreated?: () => void) {
       : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp" || sc.channel === "whatsapp_official" || sc.channel === "instagram");
 
     if (!target) {
-      toast.error("Nenhuma conexão WhatsApp encontrada.");
+      toast.error("Nenhuma conexão de mensageria encontrada.");
       return;
     }
 
