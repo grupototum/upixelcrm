@@ -37,10 +37,16 @@ async function generateQueryEmbedding(text: string, apiKey: string): Promise<num
   if (!toolCall) throw new Error("No embedding tool call");
   const args = JSON.parse(toolCall.function.arguments);
   let embedding = args.embedding;
-  if (!Array.isArray(embedding)) throw new Error("Invalid embedding");
+  if (!Array.isArray(embedding)) throw new Error("Invalid embedding: not an array");
+  // FIX-10: Reject empty embeddings before normalization. An empty array silently
+  // becomes 384 zeros, whose norm is 0. The previous `|| 1` fallback produced a
+  // zero-vector that is mathematically invalid for cosine similarity — it would return
+  // equal (maximum or minimum) similarity against every stored document, poisoning RAG.
+  if (embedding.length === 0) throw new Error("Invalid embedding: model returned empty array");
   if (embedding.length > 384) embedding = embedding.slice(0, 384);
   while (embedding.length < 384) embedding.push(0);
-  const norm = Math.sqrt(embedding.reduce((s: number, v: number) => s + v * v, 0)) || 1;
+  const norm = Math.sqrt(embedding.reduce((s: number, v: number) => s + v * v, 0));
+  if (norm < 1e-9) throw new Error("Invalid embedding: zero-magnitude vector cannot be normalized for cosine similarity");
   return embedding.map((v: number) => v / norm);
 }
 

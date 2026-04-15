@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Key, Copy, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { generateSecureToken, hashToken } from "@/lib/crypto";
 import type { ApiKey } from "@/types";
 
 export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -36,13 +37,17 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
       return;
     }
 
-    const token = "sk_live_" + Array.from({ length: 32 }, () => Math.random().toString(36)[2] || '0').join('');
+    // FIX-02: Use crypto.getRandomValues() for cryptographically secure token generation.
+    // FIX-03: Hash the token with SHA-256 before storing — btoa() is reversible Base64,
+    // not a hash, and would expose plaintext tokens on a database breach.
+    const token = generateSecureToken("sk_live_", 32);
     const preview = token.slice(0, 12) + "..." + token.slice(-4);
+    const tokenHash = await hashToken(token);
 
     const { data: row, error } = await (supabase.from as any)("api_keys").insert({
       name: newKeyName,
       token_preview: preview,
-      token_hash: btoa(token), // In production, use proper hashing
+      token_hash: tokenHash,
       active: true,
     }).select().single();
 

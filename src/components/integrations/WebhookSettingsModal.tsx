@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { generateSecureToken } from "@/lib/crypto";
 import type { WebhookEndpoint } from "@/types";
 
 const AVAILABLE_EVENTS = [
@@ -78,7 +79,9 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
     }
 
     if (editingId === "new") {
-      const secret = "wh_sec_" + Array.from({ length: 24 }, () => Math.random().toString(36)[2] || '0').join('');
+      // FIX-02: Use crypto.getRandomValues() for webhook secret generation.
+      // Math.random() is not cryptographically random and makes secrets predictable.
+      const secret = generateSecureToken("wh_sec_", 24);
       const { data: row, error } = await (supabase.from as any)("webhook_endpoints").insert({
         url,
         description,

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { MoreHorizontal, Settings, ArrowRight, Download, Zap, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -9,6 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SortableLeadCard } from "./SortableLeadCard";
 import { toast } from "sonner";
 import type { Lead, PipelineColumn } from "@/types";
+
+// FIX-23: Only virtualize columns with many leads — columns below this threshold
+// render normally so the DnD experience is identical to before for small lists.
+const VIRTUALIZATION_THRESHOLD = 20;
+// Approximate height of one lead card (px). The virtualizer measures actual heights
+// dynamically, so this is only the initial estimate.
+const ESTIMATED_CARD_HEIGHT = 108;
 
 interface KanbanColumnProps {
   column: PipelineColumn;
@@ -24,6 +32,26 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
   const { setNodeRef, isOver } = useDroppable({ id: column.id, data: { type: "column" } });
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
+
+  // FIX-23: Virtualization with @tanstack/react-virtual.
+  // We need both @dnd-kit's droppable ref AND react-virtual's scroll element ref
+  // on the same DOM node. We achieve this with a combined callback ref.
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const setRefs = (node: HTMLDivElement | null) => {
+    setNodeRef(node); // @dnd-kit droppable
+    scrollContainerRef.current = node; // react-virtual scroll container
+  };
+
+  const shouldVirtualize = leads.length > VIRTUALIZATION_THRESHOLD;
+
+  const rowVirtualizer = useVirtualizer({
+    count: shouldVirtualize ? leads.length : 0,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => ESTIMATED_CARD_HEIGHT,
+    // overscan keeps extra items rendered above and below the viewport so @dnd-kit
+    // can find neighbouring items during drag even when they are near the scroll boundary.
+    overscan: 5,
+  });
 
   function handleExportCSV() {
     if (leads.length === 0) {
@@ -97,17 +125,51 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
       </div>
 
       <div
-        ref={setNodeRef}
-        className={`flex-1 space-y-2 overflow-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
+        ref={setRefs}
+        className={`overflow-y-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
+        style={{ height: "calc(100vh - 220px)" }}
       >
+        {/* SortableContext always receives ALL lead IDs — not just the visible ones —
+            so @dnd-kit knows the complete order even when items are outside the viewport. */}
         <SortableContext items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map((lead) => (
-            <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
-          ))}
+          {shouldVirtualize ? (
+            /* Virtualized path: renders only visible cards as absolutely-positioned items
+               inside a tall spacer div. The spacer's height equals the total virtual size. */
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const lead = leads[virtualRow.index];
+                return (
+                  <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                      paddingBottom: "8px",
+                    }}
+                  >
+                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Non-virtualized path: unchanged rendering for small columns (≤ VIRTUALIZATION_THRESHOLD).
+               Preserves the original space-y-2 layout and DnD behaviour exactly. */
+            <div className="space-y-2">
+              {leads.map((lead) => (
+                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
+              ))}
+            </div>
+          )}
         </SortableContext>
         <button
           onClick={() => onAddLead(column.id)}
-          className="w-full py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1"
+          className="w-full mt-2 py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1"
         >
           <Plus className="h-3 w-3" /> Adicionar lead
         </button>

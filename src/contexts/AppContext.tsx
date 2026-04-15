@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { mockAutomations } from "@/lib/mock-data";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
 import type { Node, Edge } from "reactflow";
 import { toast } from "sonner";
@@ -61,6 +61,11 @@ export function useAppState() {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  // FIX-07: Use client_id from the AuthContext profile (profiles table) instead of
+  // mutable user_metadata. The previous fallback "c1" could silently scope all queries
+  // to the wrong tenant when user_metadata was missing, causing data leakage/loss.
+  const { user } = useAuth();
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
@@ -75,9 +80,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const executeAutomationsRef = useRef<((leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => Promise<void>) | null>(null);
 
   const fetchAll = useCallback(async () => {
+    // Return early (and clear loading) if auth has not resolved a valid client_id yet.
+    const clientId = user?.client_id;
+    if (!clientId) { setLoading(false); return; }
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const clientId = userData.user?.user_metadata?.client_id || "c1";
 
       const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
         (supabase.from as any)("pipelines").select("*").eq("client_id", clientId).order("name"),
@@ -107,7 +113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPipelineId]);
+  }, [currentPipelineId, user?.client_id]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -203,8 +209,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [leads, columns, addTimelineEvent]);
 
   const addLead = useCallback(async (data: Partial<Lead>, columnId: string): Promise<Lead | null> => {
-    const { data: userData } = await supabase.auth.getUser();
-    const clientId = userData.user?.user_metadata?.client_id || "c1";
+    const clientId = user?.client_id;
+    if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return null; }
 
     const { data: row, error } = await supabase.from("leads").insert({
       name: data.name ?? "",
@@ -239,7 +245,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     return newLead;
-  }, [addTimelineEvent]);
+  }, [addTimelineEvent, user?.client_id]);
 
   const deleteLead = useCallback(async (id: string) => {
     const { error } = await supabase.from("leads").delete().eq("id", id);
@@ -277,8 +283,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [tasks]);
 
   const addPipeline = useCallback(async (name: string) => {
-    const { data: userData } = await supabase.auth.getUser();
-    const clientId = userData.user?.user_metadata?.client_id || "c1";
+    const clientId = user?.client_id;
+    if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
     const { data: row, error } = await (supabase.from as any)("pipelines").insert({
       name,
@@ -303,7 +309,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       toast.success("Funil criado com sucesso");
     }
-  }, []);
+  }, [user?.client_id]);
 
   const deletePipeline = useCallback(async (id: string) => {
     // Delete columns first to be safe (cascade should handle this but let's be explicitly)
@@ -425,8 +431,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addBasicAutomation = useCallback(async (data: Partial<Automation>) => {
-    const { data: userData } = await supabase.auth.getUser();
-    const clientId = userData.user?.user_metadata?.client_id || "c1";
+    const clientId = user?.client_id;
+    if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
     const { data: row, error } = await (supabase.from as any)("automation_rules").insert({
       client_id: clientId,
@@ -442,7 +448,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (error) { console.error(error); toast.error("Erro ao criar automação"); return; }
     if (row) setAutomations(prev => [mapAutomationRule(row), ...prev]);
     toast.success("Automação criada!");
-  }, [currentPipelineId]);
+  }, [currentPipelineId, user?.client_id]);
 
   const updateBasicAutomation = useCallback(async (id: string, data: Partial<Automation>) => {
     const updateData: any = {};

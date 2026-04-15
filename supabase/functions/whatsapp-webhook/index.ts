@@ -472,8 +472,11 @@ Deno.serve(async (req) => {
         return cfg?.webhook_verify_token === token;
       });
 
-      // Accept the challenge (for simplicity, always accept if there's any official integration)
-      if (validToken || (integrations && integrations.length > 0)) {
+      // FIX-01: Only accept the challenge when the token actually matches a stored
+      // verify_token. The previous fallback `|| integrations.length > 0` allowed any
+      // request that arrived while ANY official integration existed to pass verification,
+      // completely bypassing the token check and enabling fraudulent webhook registration.
+      if (validToken) {
         return new Response(challenge || "", { status: 200, headers: corsHeaders });
       }
       return new Response("Forbidden", { status: 403, headers: corsHeaders });
