@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,7 +53,7 @@ export function useInstagramIntegration() {
         });
       }
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   }, []);
 

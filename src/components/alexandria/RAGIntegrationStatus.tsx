@@ -50,7 +50,7 @@ export function RAGIntegrationStatus() {
 
     // 3. rag_embeddings table
     try {
-      const { data, error } = await (supabase.from as any)("rag_embeddings").select("id").limit(1);
+      const { data, error } = await supabase.from("rag_embeddings").select("id").limit(1);
       updateCheck("rag_embeddings Table", !error);
       updateCheck("Embeddings Generated", !!data && data.length > 0);
     } catch {

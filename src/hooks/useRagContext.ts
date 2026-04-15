@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useCallback } from "react";
 import { searchSimilarDocuments, SearchResult } from "@/services/ragSearchService";
 
@@ -12,7 +13,7 @@ export function useRagContext() {
       setLastContext(results);
       return results;
     } catch (error) {
-      console.error("RAG search error:", error);
+      logger.error("RAG search error:", error);
       setLastContext([]);
       return [];
     } finally {

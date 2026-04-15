@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ export function useInbox(onLeadCreated?: () => void) {
       .order("last_message_at", { ascending: false });
 
     if (convError) {
-      console.error("Error loading conversations:", convError);
+      logger.error("Error loading conversations:", convError);
       return;
     }
 
@@ -155,7 +156,7 @@ export function useInbox(onLeadCreated?: () => void) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Error loading messages:", error);
+      logger.error("Error loading messages:", error);
       return;
     }
 

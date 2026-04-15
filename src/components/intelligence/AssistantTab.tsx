@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
@@ -69,7 +70,7 @@ export function AssistantTab() {
         },
       ]);
     } catch (err) {
-      console.error("Chat error:", err);
+      logger.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
         {

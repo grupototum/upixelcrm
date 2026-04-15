@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
+import { logger } from "@/lib/logger";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
@@ -43,39 +44,57 @@ export default function LeadProfilePage() {
 
   const [activeTab, setActiveTab] = useState("dados");
   const [newNote, setNewNote] = useState("");
-  const [notes, setNotes] = useState<Array<{ id: string; lead_id: string; content: string; created_at: string; user_name: string }>>(() => {
-    try {
-      const raw = localStorage.getItem("totum_notes");
-      return raw ? JSON.parse(raw) : [];
-    } catch { 
-      return []; 
-    }
-  });
-
-  // New task dialog
-  const [showNewTask, setShowNewTask] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDue, setNewTaskDue] = useState("");
-
-  // Custom fields
-  const [customFields, setCustomFields] = useState<Array<{ key: string; value: string }>>(() => {
-    try {
-      const raw = localStorage.getItem(`totum_custom_fields_${id}`);
-      return raw ? JSON.parse(raw) : [];
-    } catch { 
-      return []; 
-    }
-  });
-  const [showAddField, setShowAddField] = useState(false);
-  const [newFieldKey, setNewFieldKey] = useState("");
-  const [newFieldValue, setNewFieldValue] = useState("");
-
-  const [showTagModal, setShowTagModal] = useState(false);
-
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
-  
-  // Temporal automations for this lead
+
+  const leadNotes = useMemo(() => {
+    if (!lead?.notes_local) return [];
+    try { return JSON.parse(lead.notes_local); } catch { return []; }
+  }, [lead?.notes_local]);
+
+  const customFields: Array<{ key: string; value: string }> = useMemo(() => {
+    if (!lead?.custom_fields) return [];
+    return Array.isArray(lead.custom_fields) 
+      ? lead.custom_fields 
+      : Object.keys(lead.custom_fields).map(key => ({ key, value: lead.custom_fields![key] }));
+  }, [lead?.custom_fields]);
+
+  useEffect(() => {
+    if (!lead) return;
+    let needsUpdate = false;
+    const updateData: any = {};
+
+    try {
+      const rawNotes = localStorage.getItem("totum_notes") || localStorage.getItem("upixel_notes");
+      if (rawNotes) {
+        const localNotes = JSON.parse(rawNotes).filter((n: any) => n.lead_id === id);
+        if (localNotes.length > 0 && !lead.notes_local) {
+          updateData.notes_local = JSON.stringify(localNotes);
+          needsUpdate = true;
+        }
+        localStorage.removeItem("totum_notes");
+        localStorage.removeItem("upixel_notes");
+      }
+    } catch (e) { logger.error(e); }
+
+    try {
+      const fieldKeyT = `totum_custom_fields_${id}`;
+      const fieldKeyU = `upixel_custom_fields_${id}`;
+      const rawFields = localStorage.getItem(fieldKeyT) || localStorage.getItem(fieldKeyU);
+      
+      if (rawFields && (!lead.custom_fields || Object.keys(lead.custom_fields).length === 0)) {
+        updateData.custom_fields = JSON.parse(rawFields);
+        needsUpdate = true;
+        localStorage.removeItem(fieldKeyT);
+        localStorage.removeItem(fieldKeyU);
+      }
+    } catch (e) { logger.error(e); }
+
+    if (needsUpdate) {
+      updateLead(lead.id, updateData);
+    }
+  }, [lead, id, updateLead]);
+
   const leadAutomations = useMemo(() => {
     return contextAutomations.filter(a => {
       if (a.trigger.type !== "time_in_column") return false;
@@ -91,10 +110,9 @@ export default function LeadProfilePage() {
   const leadTimeline = useMemo(() => timeline.filter((e) => e.lead_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [id, timeline]);
   const leadTasks = useMemo(() => tasks.filter((t) => t.lead_id === id), [id, tasks]);
   const threads = useMemo(() => mockThreads.filter((t) => t.lead_id === id), [id]);
-  const leadNotes = useMemo(() => notes.filter((n) => n.lead_id === id), [id, notes]);
 
   const handleAddNote = useCallback(async () => {
-    if (!newNote.trim() || !id) return;
+    if (!newNote.trim() || !id || !lead) return;
     const note = {
       id: `n_${Date.now()}`,
       lead_id: id,
@@ -102,12 +120,11 @@ export default function LeadProfilePage() {
       created_at: new Date().toISOString(),
       user_name: "Você",
     };
-    const updated = [note, ...notes];
-    setNotes(updated);
-    localStorage.setItem("totum_notes", JSON.stringify(updated));
+    const updated = [note, ...leadNotes];
+    await updateLead(lead.id, { notes_local: JSON.stringify(updated) });
     await addTimelineEvent({ lead_id: id, type: "note", content: `Nota adicionada: "${newNote.slice(0, 50)}..."`, user_name: "Você" });
     setNewNote("");
-  }, [newNote, id, notes, addTimelineEvent]);
+  }, [newNote, id, lead, leadNotes, addTimelineEvent, updateLead]);
 
   const handleCreateTask = useCallback(async () => {
     if (!newTaskTitle.trim() || !id) return;
@@ -304,10 +321,9 @@ export default function LeadProfilePage() {
                       <Input placeholder="Campo" value={newFieldKey} onChange={(e) => setNewFieldKey(e.target.value)} className="h-7 text-xs flex-1" />
                       <Input placeholder="Valor" value={newFieldValue} onChange={(e) => setNewFieldValue(e.target.value)} className="h-7 text-xs flex-1" />
                       <Button size="icon" className="h-7 w-7 shrink-0" onClick={() => {
-                        if (newFieldKey.trim()) {
+                        if (newFieldKey.trim() && lead) {
                           const updated = [...customFields, { key: newFieldKey.trim(), value: newFieldValue.trim() }];
-                          setCustomFields(updated);
-                          localStorage.setItem(`totum_custom_fields_${id}`, JSON.stringify(updated));
+                          updateLead(lead.id, { custom_fields: updated });
                           setNewFieldKey(""); setNewFieldValue(""); setShowAddField(false);
                         }
                       }}><Check className="h-3 w-3" /></Button>
@@ -326,9 +342,10 @@ export default function LeadProfilePage() {
                             <p className="text-sm text-foreground truncate">{f.value || "—"}</p>
                           </div>
                           <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
-                            const updated = customFields.filter((_, i) => i !== idx);
-                            setCustomFields(updated);
-                            localStorage.setItem(`totum_custom_fields_${id}`, JSON.stringify(updated));
+                            if (lead) {
+                              const updated = customFields.filter((_, i) => i !== idx);
+                              updateLead(lead.id, { custom_fields: updated });
+                            }
                           }}>
                             <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
                           </button>

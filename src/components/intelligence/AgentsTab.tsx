@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { Bot, Plus, Settings, Zap, MessageSquare, ShieldCheck, Loader2, Power, Trash2, X, Save, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,7 @@ export function AgentsTab() {
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase.from as any)("integrations")
+      const { data, error } = await supabase.from("integrations")
         .select("*")
         .eq("provider", "ai_agent")
         .order("created_at", { ascending: false });
@@ -91,7 +92,7 @@ export function AgentsTab() {
 
       setAgents(parsed);
     } catch (err) {
-      console.error("Error loading agents:", err);
+      logger.error("Error loading agents:", err);
     } finally {
       setLoading(false);
     }
@@ -141,7 +142,7 @@ export function AgentsTab() {
         const { data: userData } = await supabase.auth.getUser();
         const clientId = userData.user?.user_metadata?.client_id || "c1";
 
-        const { error } = await (supabase.from as any)("integrations").insert({
+        const { error } = await supabase.from("integrations").insert({
           client_id: clientId,
           provider: "ai_agent",
           status: formStatus === "active" ? "connected" : "disconnected",
@@ -151,7 +152,7 @@ export function AgentsTab() {
         if (error) throw error;
         toast.success("Agente criado com sucesso!");
       } else {
-        const { error } = await (supabase.from as any)("integrations")
+        const { error } = await supabase.from("integrations")
           .update({
             status: formStatus === "active" ? "connected" : "disconnected",
             config,
@@ -173,7 +174,7 @@ export function AgentsTab() {
 
   const toggleAgent = async (agent: AIAgent) => {
     const newStatus = agent.status === "active" ? "disconnected" : "connected";
-    const { error } = await (supabase.from as any)("integrations")
+    const { error } = await supabase.from("integrations")
       .update({ status: newStatus })
       .eq("id", agent.id);
 
@@ -192,7 +193,7 @@ export function AgentsTab() {
 
   const deleteAgent = async (id: string) => {
     if (!confirm("Deseja realmente excluir este agente?")) return;
-    const { error } = await (supabase.from as any)("integrations").delete().eq("id", id);
+    const { error } = await supabase.from("integrations").delete().eq("id", id);
     if (error) {
       toast.error("Erro ao excluir agente");
       return;

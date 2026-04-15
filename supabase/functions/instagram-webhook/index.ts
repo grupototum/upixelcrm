@@ -1,9 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 async function sendPushNotification(
   adminClient: any,
@@ -165,7 +162,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log("IG Webhook:", JSON.stringify(body).slice(0, 500));
+    console.log("IG Webhook received");
 
     if (body.object !== "instagram") {
       return new Response(JSON.stringify({ ok: true, skipped: "not_instagram" }), { headers: corsHeaders });

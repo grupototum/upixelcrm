@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -78,7 +79,7 @@ export default function IntegrationsPage() {
         setRealStatuses(statusMap);
         setProjectId(import.meta.env.VITE_SUPABASE_PROJECT_ID);
       } catch (error) {
-        console.error("Error fetching statuses:", error);
+        logger.error("Error fetching statuses:", error);
       } finally {
         setLoading(false);
       }

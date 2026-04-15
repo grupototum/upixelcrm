@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, Upload, FileText, Trash2, Loader2, Sparkles, Search, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export function KnowledgeBaseTab() {
       .select("id, title, content, type, created_at, is_global")
       .order("created_at", { ascending: false });
     if (error) {
-      console.error(error);
+      logger.error(error);
     } else {
       setDocuments(data || []);
     }

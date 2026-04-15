@@ -1,10 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 // ─── Push notification helper ───
 async function sendPushNotification(
@@ -245,7 +241,7 @@ async function findOrCreateLead(
     client_id: clientId, lead_id: newLead.id, type: "stage_change",
     content: `Lead "${senderName}" criado automaticamente via WhatsApp`, user_name: "Sistema",
   });
-  console.log("Created lead:", senderName, newLead.id);
+  console.log("Created lead:", newLead.id);
 
   // Push notification for new lead (broadcast to all users of this client)
   sendPushNotification(adminClient, {
@@ -487,7 +483,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log("Webhook received:", JSON.stringify(body).slice(0, 500));
+    console.log("Webhook received");
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -520,7 +516,7 @@ Deno.serve(async (req) => {
         else if (state === "connecting") newStatus = "connecting";
 
         await adminClient.from("integrations").update({ status: newStatus })
-          .eq("provider", "whatsapp").eq("status", "connected") // Simplified: update active one
+          .eq("provider", "whatsapp") // FIX-05: Permite atualização de desconectados
           .filter("config->>instance_name", "eq", instanceName);
           
         console.log(`Connection update for ${instanceName}: ${state} -> ${newStatus}`);

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useRef, useEffect } from 'react';
 import { searchSimilarDocuments, SearchResult } from '@/services/ragSearchService';
 import { Card } from '@/components/ui/card';
@@ -37,7 +38,7 @@ export function RagContextInjector({
           onContextReadyRef.current(context, results);
         }
       } catch (err) {
-        console.error('Erro ao buscar contexto RAG:', err);
+        logger.error('Erro ao buscar contexto RAG:', err);
       } finally {
         setIsLoading(false);
       }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -68,7 +69,7 @@ export function OrganizationSection() {
         setMembers([]);
       }
     } catch (e) {
-      console.error("Error fetching org:", e);
+      logger.error("Error fetching org:", e);
     } finally {
       setLoading(false);
     }

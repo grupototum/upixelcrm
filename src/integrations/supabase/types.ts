@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          id: string
+          client_id: string
+          name: string
+          token_preview: string
+          last_used_at: string | null
+          created_at: string
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          client_id?: string
+          name: string
+          token_preview: string
+          last_used_at?: string | null
+          created_at?: string
+          active?: boolean
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          name?: string
+          token_preview?: string
+          last_used_at?: string | null
+          created_at?: string
+          active?: boolean
+        }
+        Relationships: []
+      }
       automation_rules: {
         Row: {
           actions: Json
@@ -193,6 +223,8 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          notes_local: string | null
+          custom_fields: Json
           origin: string | null
           phone: string | null
           position: string | null
@@ -212,6 +244,8 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          notes_local?: string | null
+          custom_fields?: Json
           origin?: string | null
           phone?: string | null
           position?: string | null
@@ -231,6 +265,8 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          notes_local?: string | null
+          custom_fields?: Json
           origin?: string | null
           phone?: string | null
           position?: string | null
@@ -650,6 +686,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      webhook_endpoints: {
+        Row: {
+          id: string
+          client_id: string
+          url: string
+          description: string | null
+          events: string[]
+          secret: string
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id?: string
+          url: string
+          description?: string | null
+          events?: string[]
+          secret: string
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          url?: string
+          description?: string | null
+          events?: string[]
+          secret?: string
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
