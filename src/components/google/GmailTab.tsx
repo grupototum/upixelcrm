@@ -305,9 +305,6 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
                     <span className="text-xs text-muted-foreground">Carregando mensagem...</span>
                   </div>
                 ) : (
-                  {/* FIX-04: Sanitize email HTML with DOMPurify before rendering to prevent XSS.
-                      Email bodies can contain malicious scripts or event handlers injected by
-                      senders. DOMPurify strips all dangerous markup while preserving formatting. */}
                   <div
                     className="email-content text-sm text-foreground/90 leading-relaxed overflow-x-hidden pt-2"
                     dangerouslySetInnerHTML={{

@@ -18,7 +18,7 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
 
   const fetchKeys = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("api_keys").select("*").order("created_at", { ascending: false });
+    const { data, error } = await (supabase as any).from("api_keys").select("*").order("created_at", { ascending: false });
     if (error) {
       logger.error(error);
       toast.error("Erro ao carregar chaves de API");
@@ -45,7 +45,7 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
     const preview = token.slice(0, 12) + "..." + token.slice(-4);
     const tokenHash = await hashToken(token);
 
-    const { data: row, error } = await supabase.from("api_keys").insert({
+    const { data: row, error } = await (supabase as any).from("api_keys").insert({
       name: newKeyName,
       token_preview: preview,
       token_hash: tokenHash,
@@ -72,7 +72,7 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
   };
 
   const revokeKey = async (id: string) => {
-    const { error } = await supabase.from("api_keys").update({ active: false }).eq("id", id);
+    const { error } = await (supabase as any).from("api_keys").update({ active: false }).eq("id", id);
     if (error) {
       logger.error(error);
       toast.error("Erro ao revogar chave.");
@@ -83,7 +83,7 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
   };
 
   const deleteKey = async (id: string) => {
-    const { error } = await supabase.from("api_keys").delete().eq("id", id);
+    const { error } = await (supabase as any).from("api_keys").delete().eq("id", id);
     if (error) {
       logger.error(error);
       toast.error("Erro ao excluir chave.");
