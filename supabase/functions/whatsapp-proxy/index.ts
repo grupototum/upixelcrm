@@ -279,7 +279,18 @@ Deno.serve(async (req) => {
           });
           const createData = await readResponseBody(createRes);
           if (!createRes.ok) {
-            return jsonResponse({ error: "Failed to create instance", details: createData }, createRes.status);
+            await adminClient.from("integrations").update({ status: fallbackStatus })
+              .eq("client_id", clientId).eq("provider", provider);
+            return jsonResponse({
+              connected: false,
+              instance: { state: fallbackStatus },
+              status: fallbackStatus,
+              reachable: false,
+              error: createRes.status === 401
+                ? "Credenciais da Evolution API inválidas (401 Unauthorized). Verifique a API Key."
+                : "Falha ao criar instância na Evolution API.",
+              details: createData,
+            });
           }
         } else {
           await checkRes.text();
