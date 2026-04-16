@@ -129,6 +129,8 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
+    if (!profile) throw new Error("Profile not found");
+
     // Master can embed any doc; others must match client_id
     // Global docs can only be embedded by master
     const isGlobalDoc = (doc as any).is_global === true;
