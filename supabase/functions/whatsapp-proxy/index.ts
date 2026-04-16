@@ -18,7 +18,7 @@ const getErrorMessage = (error: unknown) =>
 
 const isConnectionTimeout = (error: unknown) => {
   const message = getErrorMessage(error).toLowerCase();
-  return ["timed out", "tcp connect error", "connection refused", "dns", "network", "unreachable", "certificate", "unknownissuer", "peer certificate"].some((term) =>
+  return ["timed out", "tcp connect error", "connection refused", "dns", "network", "unreachable", "certificate", "unknownissuer", "peer certificate", "tls handshake", "connection reset", "reset by peer", "eof"].some((term) =>
     message.includes(term)
   );
 };
