@@ -190,8 +190,17 @@ Deno.serve(async (req) => {
       business_id?: string;
       access_token?: string;
     };
-    // Normalize api_url: remove trailing slash to prevent double slashes
-    const config = { ...rawConfig, api_url: rawConfig.api_url.replace(/\/+$/, "") };
+    // Normalize api_url: ensure scheme + remove trailing slash; encode instance name for URL paths
+    const normalizedUrl = (() => {
+      let u = (rawConfig.api_url || "").trim().replace(/\/+$/, "");
+      if (u && !/^https?:\/\//i.test(u)) u = `https://${u}`;
+      return u;
+    })();
+    const config = {
+      ...rawConfig,
+      api_url: normalizedUrl,
+      instance_name: encodeURIComponent(rawConfig.instance_name || ""),
+    };
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
 
     if (action === "connect") {
