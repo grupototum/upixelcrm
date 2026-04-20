@@ -190,8 +190,15 @@ Deno.serve(async (req) => {
       business_id?: string;
       access_token?: string;
     };
-    // Normalize api_url: remove trailing slash to prevent double slashes
-    const config = { ...rawConfig, api_url: rawConfig.api_url.replace(/\/+$/, "") };
+    // Normalize api_url: ensure scheme + remove trailing slash
+    const normalizedUrl = (() => {
+      let u = (rawConfig.api_url || "").trim().replace(/\/+$/, "");
+      if (u && !/^https?:\/\//i.test(u)) u = `https://${u}`;
+      return u;
+    })();
+    const config = { ...rawConfig, api_url: normalizedUrl };
+    // URL-safe instance name (for paths only; JSON bodies must use raw config.instance_name)
+    const instancePath = encodeURIComponent(config.instance_name || "");
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
 
     if (action === "connect") {
@@ -201,7 +208,7 @@ Deno.serve(async (req) => {
         // ── Official (Cloud API) flow ──
         if (type === "official") {
           // Check if instance already exists
-          const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+          const checkRes = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
             headers: { apikey: config.api_key },
           });
 
@@ -246,7 +253,7 @@ Deno.serve(async (req) => {
           }).eq("client_id", clientId).eq("provider", provider);
 
           // Set Webhook for Official
-          await fetch(`${config.api_url}/webhook/set/${config.instance_name}`, {
+          await fetch(`${config.api_url}/webhook/set/${instancePath}`, {
             method: "POST",
             headers: { apikey: config.api_key, "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -263,7 +270,7 @@ Deno.serve(async (req) => {
         }
 
         // ── Lite (Baileys) flow — unchanged ──
-        const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+        const checkRes = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
           headers: { apikey: config.api_key },
         });
 
@@ -296,7 +303,7 @@ Deno.serve(async (req) => {
           await checkRes.text();
         }
 
-        const res = await fetch(`${config.api_url}/instance/connect/${config.instance_name}`, {
+        const res = await fetch(`${config.api_url}/instance/connect/${instancePath}`, {
           headers: { apikey: config.api_key },
         });
         const data = await readResponseBody(res);
@@ -314,7 +321,7 @@ Deno.serve(async (req) => {
         }
 
         // Set Webhook for Lite
-        await fetch(`${config.api_url}/webhook/set/${config.instance_name}`, {
+        await fetch(`${config.api_url}/webhook/set/${instancePath}`, {
           method: "POST",
           headers: { apikey: config.api_key, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -350,7 +357,7 @@ Deno.serve(async (req) => {
       const fallbackStatus = getFallbackStatus(integration?.status, type, config);
 
       try {
-        const res = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+        const res = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
           headers: { apikey: config.api_key },
         });
         const data = await readResponseBody(res);
@@ -414,14 +421,14 @@ Deno.serve(async (req) => {
     if (action === "disconnect") {
       try {
         // Try logout first
-        const logoutRes = await fetch(`${config.api_url}/instance/logout/${config.instance_name}`, {
+        const logoutRes = await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
           method: "DELETE",
           headers: { apikey: config.api_key },
         });
         
         // If logout fails (e.g. 404), try delete
         if (!logoutRes.ok) {
-          await fetch(`${config.api_url}/instance/delete/${config.instance_name}`, {
+          await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
             method: "DELETE",
             headers: { apikey: config.api_key },
           });
@@ -458,7 +465,7 @@ Deno.serve(async (req) => {
       const cleanPhone = phone.replace(/\D/g, "");
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
-      const res = await fetch(`${config.api_url}/message/sendText/${config.instance_name}`, {
+      const res = await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
         method: "POST",
         headers: { apikey: config.api_key, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -548,7 +555,7 @@ Deno.serve(async (req) => {
 
       if (mimetype) payload.mimetype = mimetype;
 
-      const res = await fetch(`${config.api_url}/message/${endpoint}/${config.instance_name}`, {
+      const res = await fetch(`${config.api_url}/message/${endpoint}/${instancePath}`, {
         method: "POST",
         headers: { apikey: config.api_key, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
