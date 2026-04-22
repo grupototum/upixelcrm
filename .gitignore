@@ -27,3 +27,6 @@ dist-ssr
 
 # Supabase migration dump (contém dados reais, nunca commitar)
 migration-dump/
+
+# Credenciais de migração — NUNCA commitar
+.env.migration
