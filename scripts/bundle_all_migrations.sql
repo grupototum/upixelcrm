@@ -989,10 +989,12 @@ ALTER TABLE public.conversations
 
 -- Drop old status constraint and add expanded one
 ALTER TABLE public.conversations DROP CONSTRAINT IF EXISTS conversations_status_check;
+ALTER TABLE public.conversations DROP CONSTRAINT IF EXISTS conversations_status_check;
 ALTER TABLE public.conversations ADD CONSTRAINT conversations_status_check
   CHECK (status IN ('open','pending','resolved','snoozed','archived','closed'));
 
 -- Add priority constraint
+ALTER TABLE public.conversations DROP CONSTRAINT IF EXISTS conversations_priority_check;
 ALTER TABLE public.conversations DROP CONSTRAINT IF EXISTS conversations_priority_check;
 ALTER TABLE public.conversations ADD CONSTRAINT conversations_priority_check
   CHECK (priority IN ('none','low','medium','high','urgent'));
@@ -1168,12 +1170,13 @@ CREATE OR REPLACE TRIGGER update_push_subscriptions_updated_at
 -- ────────────────────────────────────────────────────────────
 -- File: 20260406144316_d7079464-5862-461c-a052-e27367510779.sql
 -- ────────────────────────────────────────────────────────────
-ALTER TABLE public.leads ADD COLUMN category text NOT NULL DEFAULT 'lead';
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'lead';
 
 -- ────────────────────────────────────────────────────────────
 -- File: 20260406145102_891aba5f-bfa1-4024-acd8-867a348fdb72.sql
 -- ────────────────────────────────────────────────────────────
 ALTER TABLE public.conversations DROP CONSTRAINT conversations_status_check;
+ALTER TABLE public.conversations DROP CONSTRAINT IF EXISTS conversations_status_check;
 ALTER TABLE public.conversations ADD CONSTRAINT conversations_status_check CHECK (status = ANY (ARRAY['open', 'pending', 'resolved', 'snoozed', 'archived', 'closed']));
 
 -- ────────────────────────────────────────────────────────────
@@ -1193,7 +1196,7 @@ CREATE TABLE IF NOT EXISTS public.organizations (
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 
 -- 2. Add organization_id to profiles
-ALTER TABLE public.profiles ADD COLUMN organization_id uuid REFERENCES public.organizations(id) ON DELETE SET NULL;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS organization_id uuid REFERENCES public.organizations(id) ON DELETE SET NULL;
 
 -- 3. Create is_master_user function
 CREATE OR REPLACE FUNCTION public.is_master_user()
