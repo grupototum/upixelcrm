@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .builder/config/data.json
+
+# Supabase migration dump (contém dados reais, nunca commitar)
+migration-dump/
