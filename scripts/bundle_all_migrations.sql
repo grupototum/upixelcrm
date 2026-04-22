@@ -1,6 +1,6 @@
 -- ============================================================
--- BUNDLE COMPLETO DE MIGRATIONS — uPixel CRM
--- Gerado em 2026-04-22T23:39:47Z
+-- BUNDLE COMPLETO DE MIGRATIONS — uPixel CRM (v2 — ordem corrigida)
+-- Gerado em 2026-04-22T23:47:06Z
 -- Cole tudo no SQL Editor do projeto NOVO e execute
 -- ============================================================
 
@@ -1067,17 +1067,6 @@ UPDATE public.leads SET category = 'lead' WHERE category IS NULL;
 
 
 -- ────────────────────────────────────────────────────────────
--- File: 20260401_add_typebot_to_templates.sql
--- ────────────────────────────────────────────────────────────
-
--- Add typebot_flow_id to whatsapp_templates
-ALTER TABLE public.whatsapp_templates 
-ADD COLUMN IF NOT EXISTS typebot_flow_id TEXT;
-
--- Update RLS or other constraints if necessary (none needed for a simple text column)
-
-
--- ────────────────────────────────────────────────────────────
 -- File: 20260401_recharge_system.sql
 -- ────────────────────────────────────────────────────────────
 
@@ -1130,41 +1119,6 @@ BEGIN
         updated_at = now();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- ────────────────────────────────────────────────────────────
--- File: 20260401_whatsapp_templates.sql
--- ────────────────────────────────────────────────────────────
-
--- Table for WhatsApp Templates Management
-CREATE TABLE IF NOT EXISTS public.whatsapp_templates (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    client_id UUID NOT NULL,
-    name TEXT NOT NULL,
-    content TEXT NOT NULL,
-    category TEXT NOT NULL CHECK (category IN ('MARKETING', 'UTILITY', 'AUTHENTICATION', 'SERVICE')),
-    status TEXT DEFAULT 'PENDING' CHECK (status IN ('DRAFT', 'PENDING', 'APPROVED', 'REJECTED')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- RLS Policies
-ALTER TABLE public.whatsapp_templates ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Clients can view their own templates" ON public.whatsapp_templates;
-CREATE POLICY "Clients can view their own templates" ON public.whatsapp_templates FOR SELECT
-TO authenticated
-USING (client_id::text = (select get_user_client_id()));
-
-DROP POLICY IF EXISTS "Clients can create their own templates" ON public.whatsapp_templates;
-CREATE POLICY "Clients can create their own templates" ON public.whatsapp_templates FOR INSERT
-TO authenticated
-WITH CHECK (client_id::text = (select get_user_client_id()));
-
-DROP POLICY IF EXISTS "Clients can update their own templates" ON public.whatsapp_templates;
-CREATE POLICY "Clients can update their own templates" ON public.whatsapp_templates FOR UPDATE
-TO authenticated
-USING (client_id::text = (select get_user_client_id()));
 
 
 -- ────────────────────────────────────────────────────────────
@@ -1816,4 +1770,49 @@ CREATE POLICY "Tenant isolation on push_subscriptions" ON public.push_subscripti
   WITH CHECK (
     tenant_id = public.get_user_tenant_id()
   );
+
+
+-- ────────────────────────────────────────────────────────────
+-- File: 20260401_whatsapp_templates.sql (forçado antes do ALTER)
+-- ────────────────────────────────────────────────────────────
+
+-- Table for WhatsApp Templates Management
+CREATE TABLE IF NOT EXISTS public.whatsapp_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_id UUID NOT NULL,
+    name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('MARKETING', 'UTILITY', 'AUTHENTICATION', 'SERVICE')),
+    status TEXT DEFAULT 'PENDING' CHECK (status IN ('DRAFT', 'PENDING', 'APPROVED', 'REJECTED')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- RLS Policies
+ALTER TABLE public.whatsapp_templates ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Clients can view their own templates" ON public.whatsapp_templates;
+CREATE POLICY "Clients can view their own templates" ON public.whatsapp_templates FOR SELECT
+TO authenticated
+USING (client_id::text = (select get_user_client_id()));
+
+DROP POLICY IF EXISTS "Clients can create their own templates" ON public.whatsapp_templates;
+CREATE POLICY "Clients can create their own templates" ON public.whatsapp_templates FOR INSERT
+TO authenticated
+WITH CHECK (client_id::text = (select get_user_client_id()));
+
+DROP POLICY IF EXISTS "Clients can update their own templates" ON public.whatsapp_templates;
+CREATE POLICY "Clients can update their own templates" ON public.whatsapp_templates FOR UPDATE
+TO authenticated
+USING (client_id::text = (select get_user_client_id()));
+
+-- ────────────────────────────────────────────────────────────
+-- File: 20260401_add_typebot_to_templates.sql
+-- ────────────────────────────────────────────────────────────
+
+-- Add typebot_flow_id to whatsapp_templates
+ALTER TABLE public.whatsapp_templates 
+ADD COLUMN IF NOT EXISTS typebot_flow_id TEXT;
+
+-- Update RLS or other constraints if necessary (none needed for a simple text column)
 
