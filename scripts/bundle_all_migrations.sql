@@ -1,3 +1,4 @@
+-- VERSAO_BUNDLE: 5f902c0f
 -- ============================================================
 -- BUNDLE COMPLETO DE MIGRATIONS — uPixel CRM (v2 — ordem corrigida)
 -- Gerado em 2026-04-22T23:47:06Z
@@ -1170,12 +1171,12 @@ CREATE OR REPLACE TRIGGER update_push_subscriptions_updated_at
 -- ────────────────────────────────────────────────────────────
 -- File: 20260406144316_d7079464-5862-461c-a052-e27367510779.sql
 -- ────────────────────────────────────────────────────────────
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'lead';
+-- [REMOVIDO] ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'lead'; -- duplicado: já adicionado em 20260401_add_lead_category.sql
 
 -- ────────────────────────────────────────────────────────────
 -- File: 20260406145102_891aba5f-bfa1-4024-acd8-867a348fdb72.sql
 -- ────────────────────────────────────────────────────────────
-ALTER TABLE public.conversations DROP CONSTRAINT conversations_status_check;
+-- [REMOVIDO] ALTER TABLE public.conversations DROP CONSTRAINT conversations_status_check; -- substituído pelo DROP IF EXISTS abaixo
 ALTER TABLE public.conversations DROP CONSTRAINT IF EXISTS conversations_status_check;
 ALTER TABLE public.conversations ADD CONSTRAINT conversations_status_check CHECK (status = ANY (ARRAY['open', 'pending', 'resolved', 'snoozed', 'archived', 'closed']));
 
