@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
+import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -28,12 +29,35 @@ import WhatsAppPage from "./pages/WhatsAppPage";
 import ProfilePage from "./pages/ProfilePage";
 import SecurityPage from "./pages/SecurityPage";
 import ContactsPage from "./pages/ContactsPage";
+import LandingPage from "./pages/LandingPage";
+import TenantNotFoundPage from "./pages/TenantNotFoundPage";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <ThemeProvider>
+function AppRoutes() {
+  const { tenant, subdomain, isLoading, notFound } = useTenant();
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Subdomínio informado mas não encontrado no banco
+  if (notFound) {
+    return <TenantNotFoundPage />;
+  }
+
+  // Domínio raiz — mostra landing page de criação de conta
+  if (!subdomain || !tenant) {
+    return <LandingPage />;
+  }
+
+  // Subdomínio válido — app completo com auth
+  return (
     <AuthProvider>
       <AppProvider>
         <QueryClientProvider client={queryClient}>
@@ -70,6 +94,14 @@ const App = () => (
         </QueryClientProvider>
       </AppProvider>
     </AuthProvider>
+  );
+}
+
+const App = () => (
+  <ThemeProvider>
+    <TenantProvider>
+      <AppRoutes />
+    </TenantProvider>
   </ThemeProvider>
 );
 

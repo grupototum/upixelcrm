@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/contexts/TenantContext";
 
 export interface Organization {
   id: string;
@@ -17,6 +18,7 @@ export interface AuthUser {
   avatar?: string;
   is_blocked?: boolean;
   client_id?: string;
+  tenant_id?: string | null;
   organization_id?: string | null;
   organization?: Organization | null;
 }
@@ -25,8 +27,7 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, name: string, role?: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -49,9 +50,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
       .select("*")
       .eq("id", orgId)
       .single();
-    if (orgData) {
-      organization = orgData as Organization;
-    }
+    if (orgData) organization = orgData as Organization;
   }
 
   return {
@@ -62,6 +61,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
     avatar: data.avatar_url || undefined,
     is_blocked: data.is_blocked || false,
     client_id: data.client_id || data.id,
+    tenant_id: (data as any).tenant_id || null,
     organization_id: orgId || null,
     organization,
   };
@@ -70,10 +70,11 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { tenant } = useTenant();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         if (session?.user) {
           setTimeout(async () => {
             const profile = await fetchProfile(session.user.id);
@@ -104,25 +105,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return !error;
-  };
-
-  const signup = async (
+  const login = async (
     email: string,
-    password: string,
-    name: string,
-    role: string = "vendedor"
+    password: string
   ): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name, role },
-      },
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, error: error.message };
+
+    // Valida se o usuário pertence ao tenant do subdomínio atual
+    if (tenant) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const profile = await fetchProfile(authUser.id);
+        if (!profile || profile.tenant_id !== tenant.id) {
+          await supabase.auth.signOut();
+          return {
+            success: false,
+            error: "Usuário não pertence a esta empresa. Verifique o endereço de acesso.",
+          };
+        }
+      }
+    }
+
     return { success: true };
   };
 
@@ -132,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

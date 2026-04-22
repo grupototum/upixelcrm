@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/contexts/TenantContext";
 import { mockAutomations } from "@/lib/mock-data";
 import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
 import type { Node, Edge } from "reactflow";
@@ -72,12 +73,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [globalTags, setGlobalTags] = useState<string[]>(["Hot", "Warm", "Cold", "Enterprise", "Agência"]);
   const [loading, setLoading] = useState(true);
 
+  const { tenant } = useTenant();
+
   const executeAutomationsRef = useRef<((leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => Promise<void>) | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const clientId = userData.user?.user_metadata?.client_id || "c1";
+      // Usa o tenant_id::text como client_id para RLS (retrocompatível com get_user_client_id)
+      const clientId = tenant?.id ?? "";
 
       const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
         (supabase.from as any)("pipelines").select("*").eq("client_id", clientId).order("name"),
@@ -107,7 +110,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPipelineId]);
+  }, [currentPipelineId, tenant]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -203,8 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [leads, columns, addTimelineEvent]);
 
   const addLead = useCallback(async (data: Partial<Lead>, columnId: string): Promise<Lead | null> => {
-    const { data: userData } = await supabase.auth.getUser();
-    const clientId = userData.user?.user_metadata?.client_id || "c1";
+    const clientId = tenant?.id ?? "";
 
     const { data: row, error } = await supabase.from("leads").insert({
       name: data.name ?? "",
@@ -277,8 +279,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [tasks]);
 
   const addPipeline = useCallback(async (name: string) => {
-    const { data: userData } = await supabase.auth.getUser();
-    const clientId = userData.user?.user_metadata?.client_id || "c1";
+    const clientId = tenant?.id ?? "";
 
     const { data: row, error } = await (supabase.from as any)("pipelines").insert({
       name,
@@ -425,8 +426,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addBasicAutomation = useCallback(async (data: Partial<Automation>) => {
-    const { data: userData } = await supabase.auth.getUser();
-    const clientId = userData.user?.user_metadata?.client_id || "c1";
+    const clientId = tenant?.id ?? "";
 
     const { data: row, error } = await (supabase.from as any)("automation_rules").insert({
       client_id: clientId,
