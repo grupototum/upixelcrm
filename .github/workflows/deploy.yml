@@ -1,0 +1,20 @@
+name: Deploy Upixel to VPS
+
+on:
+  push:
+    branches:
+      - main # Altere para 'master' se a sua branch principal tiver esse nome
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Executar Script de Deploy na VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            /root/deploy_upixel.sh

@@ -60,15 +60,18 @@ export function usePermissions() {
 
     const hasPermission = (permission: string): boolean => {
       if (!role) return false;
+      // Master has access to everything
+      if (role === "master") return true;
       const allowed = PERMISSION_MATRIX[permission];
       return allowed ? allowed.includes(role) : false;
     };
 
     const canAccessModule = (path: string): boolean => {
       if (!role) return false;
+      if (role === "master") return true;
       const basePath = "/" + path.split("/").filter(Boolean)[0] || "/";
       const permission = MODULE_PERMISSIONS[basePath] || MODULE_PERMISSIONS[path];
-      if (!permission) return true; // Allow unknown paths by default
+      if (!permission) return true;
       return hasPermission(permission);
     };
 

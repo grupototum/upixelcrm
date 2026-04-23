@@ -1,10 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 // ─── Push notification helper ───
 async function sendPushNotification(
@@ -245,7 +241,7 @@ async function findOrCreateLead(
     client_id: clientId, lead_id: newLead.id, type: "stage_change",
     content: `Lead "${senderName}" criado automaticamente via WhatsApp`, user_name: "Sistema",
   });
-  console.log("Created lead:", senderName, newLead.id);
+  console.log("Created lead:", newLead.id);
 
   // Push notification for new lead (broadcast to all users of this client)
   sendPushNotification(adminClient, {
@@ -472,8 +468,11 @@ Deno.serve(async (req) => {
         return cfg?.webhook_verify_token === token;
       });
 
-      // Accept the challenge (for simplicity, always accept if there's any official integration)
-      if (validToken || (integrations && integrations.length > 0)) {
+      // FIX-01: Only accept the challenge when the token actually matches a stored
+      // verify_token. The previous fallback `|| integrations.length > 0` allowed any
+      // request that arrived while ANY official integration existed to pass verification,
+      // completely bypassing the token check and enabling fraudulent webhook registration.
+      if (validToken) {
         return new Response(challenge || "", { status: 200, headers: corsHeaders });
       }
       return new Response("Forbidden", { status: 403, headers: corsHeaders });
@@ -484,7 +483,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log("Webhook received:", JSON.stringify(body).slice(0, 500));
+    console.log("Webhook received");
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -517,7 +516,7 @@ Deno.serve(async (req) => {
         else if (state === "connecting") newStatus = "connecting";
 
         await adminClient.from("integrations").update({ status: newStatus })
-          .eq("provider", "whatsapp").eq("status", "connected") // Simplified: update active one
+          .eq("provider", "whatsapp") // FIX-05: Permite atualização de desconectados
           .filter("config->>instance_name", "eq", instanceName);
           
         console.log(`Connection update for ${instanceName}: ${state} -> ${newStatus}`);

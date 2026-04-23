@@ -1,6 +1,6 @@
 import {
-  LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, Megaphone,
-  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake
+  LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone,
+  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake, ShieldCheck
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
@@ -22,6 +22,7 @@ const navItems = [
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Automações", url: "/automations", icon: Zap },
   { title: "Inteligência", url: "/intelligence", icon: Brain },
+  { title: "Alexandria", url: "/alexandria/rag", icon: BookOpen },
   { title: "Campanhas", url: "/campaigns", icon: Megaphone },
   { title: "Relatórios", url: "/reports", icon: BarChart3 },
   { title: "Google", url: "/google", icon: Globe },
@@ -37,7 +38,9 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  const isMaster = user?.role === "master";
 
   const handleLogout = async () => {
     await logout();

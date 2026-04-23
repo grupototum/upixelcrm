@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +33,7 @@ interface IntegrationCardProps {
 
 const integrations: Integration[] = [
   { id: "whatsapp", name: "WhatsApp", description: "Conecte seu WhatsApp via API Oficial (Meta) ou QR Code (Lite) para atendimento omnichannel.", icon: MessageCircle, color: "text-success", status: "disconnected", category: "channel", configRoute: "/whatsapp" },
-  { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "coming_soon", category: "channel" },
+  { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "disconnected", category: "channel", configRoute: "/instagram" },
   { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "disconnected", category: "channel", configRoute: "/google" },
   { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "disconnected", color: "text-accent", category: "developer" },
   { id: "api", name: "API uPixel", description: "Acesse a API REST do uPixel para integrações personalizadas.", icon: Code, status: "disconnected", color: "text-primary", category: "developer" },
@@ -78,7 +79,7 @@ export default function IntegrationsPage() {
         setRealStatuses(statusMap);
         setProjectId(import.meta.env.VITE_SUPABASE_PROJECT_ID);
       } catch (error) {
-        console.error("Error fetching statuses:", error);
+        logger.error("Error fetching statuses:", error);
       } finally {
         setLoading(false);
       }
