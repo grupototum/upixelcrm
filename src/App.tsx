@@ -30,6 +30,7 @@ import ProfilePage from "./pages/ProfilePage";
 import SecurityPage from "./pages/SecurityPage";
 import ContactsPage from "./pages/ContactsPage";
 import LandingPage from "./pages/LandingPage";
+import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 
@@ -51,9 +52,17 @@ function AppRoutes() {
     return <TenantNotFoundPage />;
   }
 
-  // Domínio raiz — mostra landing page de criação de conta
+  // Domínio raiz — landing institucional em / e cadastro protegido em /cadastro
   if (!subdomain || !tenant) {
-    return <LandingPage />;
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/cadastro" element={<SignupPage />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="*" element={<LandingPage />} />
+        </Routes>
+      </BrowserRouter>
+    );
   }
 
   // Subdomínio válido — app completo com auth
