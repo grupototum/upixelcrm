@@ -8,7 +8,8 @@ import {
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
   Check, CheckCheck, Clock,
   File, Download, Maximize2, Activity, X,
-  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield
+  MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
+  Instagram
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ import { useInbox } from "@/hooks/useInbox";
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success",
   whatsapp_official: "bg-emerald-600",
-  instagram: "bg-destructive",
+  instagram: "bg-pink-500",
   email: "bg-primary",
   webchat: "bg-accent",
 };
@@ -53,7 +54,7 @@ const channelIcons: Record<string, typeof MessageCircle> = {
   whatsapp: MessageCircle,
   whatsapp_official: Shield,
   email: Mail,
-  instagram: MessageCircle,
+  instagram: Instagram,
   webchat: Globe,
 };
 
@@ -749,7 +750,7 @@ export default function InboxPage() { // force HMR reset
                   );
                   if (newId) {
                     setActiveConversationId(newId);
-                    toast.success(`Canal ${channel === "whatsapp_official" ? "WA Oficial" : channel === "whatsapp" ? "WhatsApp" : channel === "email" ? "E-mail" : channel} adicionado!`);
+                    toast.success(`Canal ${channelLabels[channel] || channel} adicionado!`);
                   }
                 }}
               />

@@ -451,6 +451,124 @@ export type Database = {
         }
         Relationships: []
       }
+      rag_context: {
+        Row: {
+          agent_id: string | null
+          client_id: string
+          created_at: string
+          document_id: string | null
+          id: string
+          query: string
+          similarity_score: number
+        }
+        Insert: {
+          agent_id?: string | null
+          client_id?: string
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          query?: string
+          similarity_score?: number
+        }
+        Update: {
+          agent_id?: string | null
+          client_id?: string
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          query?: string
+          similarity_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_context_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "rag_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_documents: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string
+          id: string
+          is_global: boolean
+          metadata: Json
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_global?: boolean
+          metadata?: Json
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_global?: boolean
+          metadata?: Json
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rag_embeddings: {
+        Row: {
+          chunk_index: number
+          chunk_text: string
+          client_id: string
+          created_at: string | null
+          document_id: string
+          embedding: string | null
+          id: string
+          is_global: boolean
+          updated_at: string | null
+        }
+        Insert: {
+          chunk_index?: number
+          chunk_text?: string
+          client_id?: string
+          created_at?: string | null
+          document_id: string
+          embedding?: string | null
+          id?: string
+          is_global?: boolean
+          updated_at?: string | null
+        }
+        Update: {
+          chunk_index?: number
+          chunk_text?: string
+          client_id?: string
+          created_at?: string | null
+          document_id?: string
+          embedding?: string | null
+          id?: string
+          is_global?: boolean
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_embeddings_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "rag_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null
@@ -538,8 +656,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_add_org_member: {
+        Args: { target_org_id: string; target_user_id: string }
+        Returns: undefined
+      }
+      admin_remove_org_member: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
+      admin_set_role: {
+        Args: { new_role: string; target_user_id: string }
+        Returns: undefined
+      }
+      admin_toggle_block: {
+        Args: { block_status: boolean; target_user_id: string }
+        Returns: undefined
+      }
       get_user_client_id: { Args: never; Returns: string }
       is_master_user: { Args: never; Returns: boolean }
+      match_rag_documents: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          p_client_id?: string
+          query_embedding: string
+        }
+        Returns: {
+          chunk_text: string
+          document_id: string
+          id: string
+          similarity: number
+        }[]
+      }
+      owner_add_org_member: {
+        Args: { target_org_id: string; target_user_id: string }
+        Returns: undefined
+      }
+      owner_remove_org_member: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
+      supervisor_set_role: {
+        Args: { new_role: string; target_user_id: string }
+        Returns: undefined
+      }
+      supervisor_toggle_block: {
+        Args: { block_status: boolean; target_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

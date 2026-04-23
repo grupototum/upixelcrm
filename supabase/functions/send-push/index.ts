@@ -1,9 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 interface PushPayload {
   title: string;
@@ -32,7 +29,7 @@ async function sendWebPush(subscription: any, payload: PushPayload): Promise<boo
   const auth = subscription.keys?.auth;
 
   if (!endpoint || !p256dh || !auth) {
-    console.error("Invalid subscription:", JSON.stringify(subscription));
+    console.error("Invalid subscription");
     return false;
   }
 

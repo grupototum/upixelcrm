@@ -1,40 +1,61 @@
 
-## Isolamento de dados por empresa (multi-tenant)
 
-### Contexto
-Atualmente todos os usuários compartilham o `client_id = 'c1'`. Precisamos que:
-- Usuários pertençam a uma **empresa/organização**
-- Dados (leads, conversas, integrações configuráveis, etc.) sejam isolados por empresa
-- Usuários da mesma empresa compartilhem dados entre si
-- Um usuário **master** tenha acesso a todos os dados
-- APIs hardcoded no código permaneçam universais
+# Plano: Gatilho de Mensagem Recebida + Condições Avançadas
 
-### Alterações
+## Resumo
+Adicionar um novo tipo de gatilho "Mensagem Recebida" (com seleção de canal) e expandir o nó de Condição para suportar múltiplas condições, incluindo verificação de conteúdo de mensagem.
 
-#### 1. Migração de banco de dados
-- Criar tabela `organizations` (id, name, slug, created_at, owner_id)
-- Atualizar trigger `handle_new_user` para gerar um `client_id` único por usuário (UUID) ao invés de 'c1'
-- Criar função `is_master_user()` para verificar se o usuário é master
-- Atualizar `get_user_client_id()` para retornar o client_id do perfil
-- Atualizar RLS de **todas as tabelas** para incluir exceção: master pode ver tudo
-- Adicionar campo `organization_id` na tabela `profiles` referenciando `organizations`
+## Alterações
 
-#### 2. Lógica de empresa compartilhada
-- Quando um usuário pertence a uma organização, seu `client_id` = o ID da organização
-- Assim todos os membros da mesma org compartilham dados automaticamente via RLS existente
-- Usuários sem organização terão `client_id` único (dados isolados)
+### 1. Trigger — Novo tipo "Mensagem Recebida"
 
-#### 3. UI - Cadastro de empresa no perfil
-- Adicionar seção no ProfilePage para criar/gerenciar empresa
-- Permitir convidar membros (por email) para a mesma empresa
-- Mostrar membros da empresa
+**Arquivo:** `src/components/automations/canvas/AutomationSidebar.tsx`
 
-#### 4. Papel Master
-- Definir via campo `role = 'master'` no profiles
-- RLS permite SELECT em todas as tabelas quando `is_master_user()` retorna true
-- Apenas atribuível diretamente no banco (sem UI para se auto-promover)
+Adicionar ao `case 'trigger'` as novas opções de gatilho:
+- `message_received` — Mensagem Recebida (Qualquer Canal)
+- `message_received_whatsapp` — Mensagem via WhatsApp
+- `message_received_instagram` — Mensagem via Instagram
+- `message_received_email` — Mensagem via Email
+- `message_received_webchat` — Mensagem via Webchat
 
-### Ordem de execução
-1. Migration (organizations + RLS + funções)
-2. Atualizar código frontend (ProfilePage, contextos)
-3. Atualizar trigger de novo usuário
+Quando `message_received*` for selecionado, exibir campo adicional para filtro opcional de texto (ex: "mensagem contém palavras-chave").
+
+### 2. TriggerNode — Indicador visual de canal
+
+**Arquivo:** `src/components/automations/canvas/nodes/TriggerNode.tsx`
+
+Mostrar um badge/ícone do canal selecionado (WhatsApp, Instagram, etc.) quando o `configType` for do tipo `message_received_*`. Isso dá feedback visual no canvas.
+
+### 3. Condição — Suporte a múltiplas condições
+
+**Arquivo:** `src/components/automations/canvas/AutomationSidebar.tsx`
+
+Refatorar o `case 'condition'` para:
+- Permitir adicionar múltiplas condições (lista dinâmica com botão "+ Adicionar Condição")
+- Cada condição tem: tipo + operador + valor
+- Novos tipos de condição:
+  - `message_contains` — Conteúdo da mensagem contém
+  - `message_equals` — Conteúdo exato da mensagem
+  - `message_starts_with` — Mensagem começa com
+  - `message_channel` — Canal da mensagem é (WhatsApp/Instagram/Email/Webchat)
+  - Manter os existentes: `has_phone`, `has_email`, `has_tag`
+- Operador lógico entre condições: **E** (todas) ou **OU** (qualquer)
+- Armazenar em `data.conditions[]` e `data.conditionOperator`
+
+### 4. ConditionNode — Exibir resumo das condições
+
+**Arquivo:** `src/components/automations/canvas/nodes/ConditionNode.tsx`
+
+Exibir na área de conteúdo do nó um resumo das condições configuradas (ex: "Msg contém 'oi' E Canal = WhatsApp"), truncado se necessário.
+
+### 5. NodesPalette — Sem mudanças necessárias
+
+Os nós Trigger e Condition já existem na paleta. As novas opções aparecem na sidebar ao selecionar o nó.
+
+## Detalhes Técnicos
+
+- Dados persistidos no nó via `node.data`:
+  - Trigger: `{ configType: 'message_received_whatsapp', keywords?: string }`
+  - Condition: `{ conditions: [{ type, operator, value }], conditionOperator: 'and' | 'or' }`
+- 4 arquivos modificados: `AutomationSidebar.tsx`, `TriggerNode.tsx`, `ConditionNode.tsx`, e potencialmente `NodesPalette.tsx` (para melhorar o ícone do Mensagem)
+
