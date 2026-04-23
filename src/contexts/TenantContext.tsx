@@ -52,7 +52,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     async function resolve() {
       // 1. Tentar resolver como organization (subdomain na tabela organizations)
-      const { data: orgData } = await (supabase.from as any)("organizations")
+      const { data: orgData } = await supabase.from("organizations")
         .select("*")
         .eq("subdomain", subdomain)
         .maybeSingle();

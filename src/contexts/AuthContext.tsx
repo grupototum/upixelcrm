@@ -45,9 +45,9 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
   if (error || !data) return null;
 
   let organization: AuthOrganization | null = null;
-  const orgId = (data as any).organization_id;
+  const orgId = data.organization_id;
   if (orgId) {
-    const { data: orgData } = await (supabase.from as any)("organizations")
+    const { data: orgData } = await supabase.from("organizations")
       .select("*")
       .eq("id", orgId)
       .single();
@@ -62,7 +62,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
     avatar: data.avatar_url || undefined,
     is_blocked: data.is_blocked || false,
     client_id: data.client_id || data.id,
-    tenant_id: (data as any).tenant_id || null,
+    tenant_id: data.tenant_id || null,
     organization_id: orgId || null,
     organization,
   };
