@@ -11,10 +11,10 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
-    allowedHosts: ["upixel.app"],
+    allowedHosts: ["upixel.app", ".upixel.app"],
   },
   preview: {
-    allowedHosts: ["upixel.app"],
+    allowedHosts: ["upixel.app", ".upixel.app"],
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
