@@ -1,6 +1,14 @@
-import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle } from "lucide-react";
+import { logger } from "@/lib/logger";
+import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface ChatMessage {
+  role: "assistant" | "user";
+  content: string;
+  ragDocs?: { id: string; title: string; type: string; similarity: number }[];
+}
 
 const quickSuggestions = [
   { icon: MessageSquare, label: "Sugerir resposta para objeção de preço", category: "Comercial" },
@@ -17,23 +25,106 @@ const systemTips = [
 
 export function AssistantTab() {
   const [query, setQuery] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      content: "Olá! Sou o assistente uPixel com RAG integrado. Posso ajudar com sugestões de resposta, orientações sobre o sistema ou estratégias de vendas. Minhas respostas são enriquecidas com a base de conhecimento quando disponível. Como posso ajudar?",
+    },
+  ]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isProcessing]);
+
+  const handleSend = async () => {
+    const text = query.trim();
+    if (!text || isProcessing) return;
+
+    const userMsg: ChatMessage = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
+    setQuery("");
+    setIsProcessing(true);
+
+    try {
+      // Build conversation history (skip first welcome message)
+      const history = [...messages.slice(1), userMsg].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: { messages: history },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.message,
+          ragDocs: data.rag?.used ? data.rag.documents : undefined,
+        },
+      ]);
+    } catch (err) {
+      logger.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.`,
+        },
+      ]);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Chat principal */}
       <div className="lg:col-span-2 space-y-4">
         <div className="bg-card ghost-border rounded-xl p-4 min-h-[420px] flex flex-col">
-          <div className="flex-1 space-y-4 mb-4 overflow-auto">
-            <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                <Brain className="h-4 w-4 text-accent" />
+          <div className="flex-1 space-y-4 mb-4 overflow-auto max-h-[500px]">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                {msg.role === "assistant" && (
+                  <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                    <Brain className="h-4 w-4 text-accent" />
+                  </div>
+                )}
+                <div
+                  className={`rounded-2xl px-4 py-3 max-w-[80%] ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-br-md"
+                      : "bg-secondary rounded-bl-md"
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  {msg.ragDocs && msg.ragDocs.length > 0 && (
+                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50 text-xs text-accent">
+                      <BookOpen className="h-3 w-3" />
+                      <span>{msg.ragDocs.length} doc(s) RAG: {msg.ragDocs.map(d => d.title).join(", ")}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%]">
-                <p className="text-sm text-foreground">
-                  Olá! Sou o assistente uPixel. Posso ajudar com sugestões de resposta, orientações sobre o sistema ou estratégias de vendas. Como posso ajudar?
-                </p>
+            ))}
+            {isProcessing && (
+              <div className="flex gap-3">
+                <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                  <Brain className="h-4 w-4 text-accent" />
+                </div>
+                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Buscando contexto RAG e gerando resposta...</p>
+                </div>
               </div>
-            </div>
+            )}
+            <div ref={chatEndRef} />
           </div>
 
           <div className="flex flex-wrap gap-2 mb-3">
@@ -55,12 +146,14 @@ export function AssistantTab() {
               placeholder="Pergunte algo..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && query.trim() && setQuery("")}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              disabled={isProcessing}
             />
             <Button
               size="icon"
               className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
-              disabled={!query.trim()}
+              disabled={!query.trim() || isProcessing}
+              onClick={handleSend}
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -70,7 +163,6 @@ export function AssistantTab() {
 
       {/* Painel lateral */}
       <div className="space-y-4">
-        {/* Sugestões rápidas */}
         <div className="bg-card ghost-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-accent" />
@@ -93,7 +185,6 @@ export function AssistantTab() {
           </div>
         </div>
 
-        {/* Dicas do sistema */}
         <div className="bg-card ghost-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="h-4 w-4 text-primary" />

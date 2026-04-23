@@ -1,10 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const jsonHeaders = {
   ...corsHeaders,
@@ -22,7 +18,7 @@ const getErrorMessage = (error: unknown) =>
 
 const isConnectionTimeout = (error: unknown) => {
   const message = getErrorMessage(error).toLowerCase();
-  return ["timed out", "tcp connect error", "connection refused", "dns", "network", "unreachable", "certificate", "unknownissuer", "peer certificate"].some((term) =>
+  return ["timed out", "tcp connect error", "connection refused", "dns", "network", "unreachable", "certificate", "unknownissuer", "peer certificate", "tls handshake", "connection reset", "reset by peer", "eof"].some((term) =>
     message.includes(term)
   );
 };
@@ -194,8 +190,15 @@ Deno.serve(async (req) => {
       business_id?: string;
       access_token?: string;
     };
-    // Normalize api_url: remove trailing slash to prevent double slashes
-    const config = { ...rawConfig, api_url: rawConfig.api_url.replace(/\/+$/, "") };
+    // Normalize api_url: ensure scheme + remove trailing slash
+    const normalizedUrl = (() => {
+      let u = (rawConfig.api_url || "").trim().replace(/\/+$/, "");
+      if (u && !/^https?:\/\//i.test(u)) u = `https://${u}`;
+      return u;
+    })();
+    const config = { ...rawConfig, api_url: normalizedUrl };
+    // URL-safe instance name (for paths only; JSON bodies must use raw config.instance_name)
+    const instancePath = encodeURIComponent(config.instance_name || "");
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
 
     if (action === "connect") {
@@ -205,7 +208,7 @@ Deno.serve(async (req) => {
         // ── Official (Cloud API) flow ──
         if (type === "official") {
           // Check if instance already exists
-          const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+          const checkRes = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
             headers: { apikey: config.api_key },
           });
 
@@ -225,7 +228,18 @@ Deno.serve(async (req) => {
             });
             const createData = await readResponseBody(createRes);
             if (!createRes.ok) {
-              return jsonResponse({ error: "Failed to create instance", details: createData }, createRes.status);
+              await adminClient.from("integrations").update({ status: fallbackStatus })
+                .eq("client_id", clientId).eq("provider", provider);
+              return jsonResponse({
+                connected: false,
+                instance: { state: fallbackStatus },
+                status: fallbackStatus,
+                reachable: false,
+                error: createRes.status === 401
+                  ? "Credenciais da Evolution API inválidas (401 Unauthorized). Verifique a API Key."
+                  : "Falha ao criar instância na Evolution API.",
+                details: createData,
+              });
             }
           } else {
             await checkRes.text(); // consume body
@@ -239,7 +253,7 @@ Deno.serve(async (req) => {
           }).eq("client_id", clientId).eq("provider", provider);
 
           // Set Webhook for Official
-          await fetch(`${config.api_url}/webhook/set/${config.instance_name}`, {
+          await fetch(`${config.api_url}/webhook/set/${instancePath}`, {
             method: "POST",
             headers: { apikey: config.api_key, "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -256,7 +270,7 @@ Deno.serve(async (req) => {
         }
 
         // ── Lite (Baileys) flow — unchanged ──
-        const checkRes = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+        const checkRes = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
           headers: { apikey: config.api_key },
         });
 
@@ -272,13 +286,24 @@ Deno.serve(async (req) => {
           });
           const createData = await readResponseBody(createRes);
           if (!createRes.ok) {
-            return jsonResponse({ error: "Failed to create instance", details: createData }, createRes.status);
+            await adminClient.from("integrations").update({ status: fallbackStatus })
+              .eq("client_id", clientId).eq("provider", provider);
+            return jsonResponse({
+              connected: false,
+              instance: { state: fallbackStatus },
+              status: fallbackStatus,
+              reachable: false,
+              error: createRes.status === 401
+                ? "Credenciais da Evolution API inválidas (401 Unauthorized). Verifique a API Key."
+                : "Falha ao criar instância na Evolution API.",
+              details: createData,
+            });
           }
         } else {
           await checkRes.text();
         }
 
-        const res = await fetch(`${config.api_url}/instance/connect/${config.instance_name}`, {
+        const res = await fetch(`${config.api_url}/instance/connect/${instancePath}`, {
           headers: { apikey: config.api_key },
         });
         const data = await readResponseBody(res);
@@ -296,7 +321,7 @@ Deno.serve(async (req) => {
         }
 
         // Set Webhook for Lite
-        await fetch(`${config.api_url}/webhook/set/${config.instance_name}`, {
+        await fetch(`${config.api_url}/webhook/set/${instancePath}`, {
           method: "POST",
           headers: { apikey: config.api_key, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -332,7 +357,7 @@ Deno.serve(async (req) => {
       const fallbackStatus = getFallbackStatus(integration?.status, type, config);
 
       try {
-        const res = await fetch(`${config.api_url}/instance/connectionState/${config.instance_name}`, {
+        const res = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
           headers: { apikey: config.api_key },
         });
         const data = await readResponseBody(res);
@@ -396,14 +421,14 @@ Deno.serve(async (req) => {
     if (action === "disconnect") {
       try {
         // Try logout first
-        const logoutRes = await fetch(`${config.api_url}/instance/logout/${config.instance_name}`, {
+        const logoutRes = await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
           method: "DELETE",
           headers: { apikey: config.api_key },
         });
         
         // If logout fails (e.g. 404), try delete
         if (!logoutRes.ok) {
-          await fetch(`${config.api_url}/instance/delete/${config.instance_name}`, {
+          await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
             method: "DELETE",
             headers: { apikey: config.api_key },
           });
@@ -440,7 +465,7 @@ Deno.serve(async (req) => {
       const cleanPhone = phone.replace(/\D/g, "");
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
-      const res = await fetch(`${config.api_url}/message/sendText/${config.instance_name}`, {
+      const res = await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
         method: "POST",
         headers: { apikey: config.api_key, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -530,7 +555,7 @@ Deno.serve(async (req) => {
 
       if (mimetype) payload.mimetype = mimetype;
 
-      const res = await fetch(`${config.api_url}/message/${endpoint}/${config.instance_name}`, {
+      const res = await fetch(`${config.api_url}/message/${endpoint}/${instancePath}`, {
         method: "POST",
         headers: { apikey: config.api_key, "Content-Type": "application/json" },
         body: JSON.stringify(payload),

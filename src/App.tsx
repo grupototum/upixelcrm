@@ -26,12 +26,14 @@ import AutomationBuilderPage from "./pages/AutomationBuilderPage";
 import GooglePage from "./pages/GooglePage";
 import WhatsAppBroadcastPage from "./pages/WhatsAppBroadcastPage";
 import WhatsAppPage from "./pages/WhatsAppPage";
+import InstagramPage from "./pages/InstagramPage";
 import ProfilePage from "./pages/ProfilePage";
 import SecurityPage from "./pages/SecurityPage";
 import ContactsPage from "./pages/ContactsPage";
 import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
+import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 
 const queryClient = new QueryClient();
@@ -89,12 +91,14 @@ function AppRoutes() {
                 <Route path="/integrations" element={<ProtectedRoute requiredPermission="settings.view"><IntegrationsPage /></ProtectedRoute>} />
                 <Route path="/google" element={<ProtectedRoute><GooglePage /></ProtectedRoute>} />
                 <Route path="/whatsapp" element={<ProtectedRoute><WhatsAppPage /></ProtectedRoute>} />
+                <Route path="/instagram" element={<ProtectedRoute><InstagramPage /></ProtectedRoute>} />
                 <Route path="/whatsapp/broadcast" element={<ProtectedRoute><WhatsAppBroadcastPage /></ProtectedRoute>} />
                 <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
                 <Route path="/users" element={<ProtectedRoute requiredPermission="users.view"><UsersPage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
                 <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
+                <Route path="/alexandria/rag" element={<ProtectedRoute><RagDocumentsPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <PwaInstallPrompt />
