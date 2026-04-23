@@ -117,7 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
         const profile = await fetchProfile(authUser.id);
-        if (!profile || profile.tenant_id !== tenant.id) {
+        if (!profile) {
+          await supabase.auth.signOut();
+          return { success: false, error: "Perfil não encontrado." };
+        }
+        // role='master' tem acesso irrestrito a todos os tenants
+        if (profile.role !== "master" && profile.tenant_id !== tenant.id) {
           await supabase.auth.signOut();
           return {
             success: false,
