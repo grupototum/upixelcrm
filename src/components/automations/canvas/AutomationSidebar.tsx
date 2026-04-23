@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { TriggerConfig } from './sidebar/TriggerConfig';
+import { ConditionConfig, type ConditionRule } from './sidebar/ConditionConfig';
 
 interface SidebarProps {
   selectedNodeId: string | null;
@@ -16,6 +18,9 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
   const { getNode, setNodes } = useReactFlow();
   const [nodeName, setNodeName] = useState('');
   const [nodeConfigType, setNodeConfigType] = useState('');
+  const [keywords, setKeywords] = useState('');
+  const [conditions, setConditions] = useState<ConditionRule[]>([]);
+  const [conditionOperator, setConditionOperator] = useState<'and' | 'or'>('and');
 
   const selectedNode = selectedNodeId ? getNode(selectedNodeId) : null;
 
@@ -23,6 +28,9 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
     if (selectedNode) {
       setNodeName(selectedNode.data.label || '');
       setNodeConfigType(selectedNode.data.configType || '');
+      setKeywords(selectedNode.data.keywords || '');
+      setConditions(selectedNode.data.conditions || []);
+      setConditionOperator(selectedNode.data.conditionOperator || 'and');
     }
   }, [selectedNodeId, selectedNode]);
 
@@ -57,20 +65,12 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
     switch (selectedNode.type) {
       case 'trigger':
         return (
-          <>
-            <Label>Tipo de Gatilho (Trigger)</Label>
-            <Select 
-               value={nodeConfigType} 
-               onValueChange={(v) => { setNodeConfigType(v); handleUpdate({ configType: v }); }}
-            >
-              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new_lead">Novo Lead Cadastrado</SelectItem>
-                <SelectItem value="status_change">Mudança de Etapa de Funil</SelectItem>
-                <SelectItem value="tag_added">Tag Adicionada ao Cliente</SelectItem>
-              </SelectContent>
-            </Select>
-          </>
+          <TriggerConfig
+            configType={nodeConfigType}
+            keywords={keywords}
+            onConfigTypeChange={(v) => { setNodeConfigType(v); handleUpdate({ configType: v }); }}
+            onKeywordsChange={(v) => { setKeywords(v); handleUpdate({ keywords: v }); }}
+          />
         );
       case 'action':
         return (
@@ -92,20 +92,12 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
         );
       case 'condition':
         return (
-          <>
-            <Label>Verificação Binária (Sim/Não)</Label>
-            <Select 
-               value={nodeConfigType} 
-               onValueChange={(v) => { setNodeConfigType(v); handleUpdate({ configType: v }); }}
-            >
-              <SelectTrigger><SelectValue placeholder="Verificar..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="has_phone">Lead possui Celular Cadastrado?</SelectItem>
-                <SelectItem value="has_email">Lead possui Email?</SelectItem>
-                <SelectItem value="has_tag">Lead possui a Tag X?</SelectItem>
-              </SelectContent>
-            </Select>
-          </>
+          <ConditionConfig
+            conditions={conditions}
+            conditionOperator={conditionOperator}
+            onConditionsChange={(c) => { setConditions(c); handleUpdate({ conditions: c }); }}
+            onOperatorChange={(op) => { setConditionOperator(op); handleUpdate({ conditionOperator: op }); }}
+          />
         );
       case 'delay':
         return (

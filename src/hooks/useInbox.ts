@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ export function useInbox(onLeadCreated?: () => void) {
       .order("last_message_at", { ascending: false });
 
     if (convError) {
-      console.error("Error loading conversations:", convError);
+      logger.error("Error loading conversations:", convError);
       return;
     }
 
@@ -155,7 +156,7 @@ export function useInbox(onLeadCreated?: () => void) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Error loading messages:", error);
+      logger.error("Error loading messages:", error);
       return;
     }
 
@@ -222,10 +223,10 @@ export function useInbox(onLeadCreated?: () => void) {
 
     const target = targetConversationId
       ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
-      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp");
+      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp" || sc.channel === "whatsapp_official" || sc.channel === "instagram");
 
     if (!target) {
-      toast.error("Nenhuma conexão WhatsApp encontrada for este lead.");
+      toast.error("Nenhuma conexão de mensageria encontrada para este lead.");
       return;
     }
 
@@ -240,7 +241,10 @@ export function useInbox(onLeadCreated?: () => void) {
       if (!session) throw new Error("Not authenticated");
 
       const isOfficial = target.channel === "whatsapp_official";
-      const url = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-message${isOfficial ? "&type=official" : ""}`;
+      const isInstagram = target.channel === "instagram";
+      const url = isInstagram 
+        ? `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=send-message`
+        : `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-message${isOfficial ? "&type=official" : ""}`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
@@ -270,10 +274,10 @@ export function useInbox(onLeadCreated?: () => void) {
 
     const target = targetConversationId
       ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
-      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp");
+      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp" || sc.channel === "whatsapp_official" || sc.channel === "instagram");
 
     if (!target) {
-      toast.error("Nenhuma conexão WhatsApp encontrada.");
+      toast.error("Nenhuma conexão de mensageria encontrada.");
       return;
     }
 
@@ -292,7 +296,10 @@ export function useInbox(onLeadCreated?: () => void) {
 
       // 2. Send via proxy
       const isOfficial = target.channel === "whatsapp_official";
-      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-media${isOfficial ? "&type=official" : ""}`;
+      const isInstagram = target.channel === "instagram";
+      const proxyUrl = isInstagram
+        ? `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=send-media`
+        : `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-media${isOfficial ? "&type=official" : ""}`;
       const res = await fetch(proxyUrl, {
         method: "POST",
         headers: {
@@ -408,7 +415,7 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    if (target.channel === "whatsapp" || target.channel === "whatsapp_official") {
+    if (target.channel === "whatsapp" || target.channel === "whatsapp_official" || target.channel === "instagram") {
       await sendWhatsAppMessage(selectedLeadId, text, target.id);
     } else if (target.channel === "email") {
       await sendEmail(selectedLeadId, text, target.id);

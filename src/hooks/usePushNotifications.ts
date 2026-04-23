@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -92,14 +93,14 @@ export function usePushNotifications() {
       );
 
       if (error) {
-        console.error("Error saving push subscription:", error);
+        logger.error("Error saving push subscription:", error);
         toast({ title: "Erro", description: "Falha ao salvar inscrição de notificação.", variant: "destructive" });
       } else {
         setIsSubscribed(true);
         toast({ title: "Notificações ativadas", description: "Você receberá alertas sobre leads, mensagens e tarefas." });
       }
     } catch (err) {
-      console.error("Push subscribe error:", err);
+      logger.error("Push subscribe error:", err);
       toast({ title: "Erro", description: "Falha ao ativar notificações push.", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -126,7 +127,7 @@ export function usePushNotifications() {
       setIsSubscribed(false);
       toast({ title: "Notificações desativadas" });
     } catch (err) {
-      console.error("Push unsubscribe error:", err);
+      logger.error("Push unsubscribe error:", err);
     } finally {
       setLoading(false);
     }

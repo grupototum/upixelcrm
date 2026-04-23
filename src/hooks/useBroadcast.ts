@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +40,7 @@ export function useBroadcast() {
         .order("created_at", { ascending: false });
       
       if (error) {
-        console.error("Error fetching templates:", error);
+        logger.error("Error fetching templates:", error);
         return [];
       }
       return (data || []) as Template[];
@@ -64,7 +65,7 @@ export function useBroadcast() {
         .single();
       
       if (error && error.code !== "PGRST116") {
-        console.error("Error fetching credits:", error);
+        logger.error("Error fetching credits:", error);
         return 0;
       }
       return (data?.config as any)?.balance || 0;
@@ -122,7 +123,7 @@ export function useBroadcast() {
          
           if (profile) {
             // Credits deduction - skip if no RPC available
-            console.log("Would deduct credits:", cost);
+            logger.log("Would deduct credits:", cost);
           }
       }
 

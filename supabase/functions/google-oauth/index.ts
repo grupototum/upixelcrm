@@ -1,10 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
@@ -56,13 +52,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log("google-oauth request", {
-      method: req.method,
-      url: req.url,
-      rawAction,
-      action,
-      id: url.searchParams.get("id"),
-    });
+    console.log("google-oauth request");
 
     // Helper: get stored Google credentials from integrations table config
     const getGoogleCreds = async () => {

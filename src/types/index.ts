@@ -39,6 +39,8 @@ export interface Lead {
   position?: string;
   city?: string;
   notes?: string;
+  notes_local?: string;
+  custom_fields?: Record<string, any>;
   origin?: string;
   tags: string[];
   column_id: string;

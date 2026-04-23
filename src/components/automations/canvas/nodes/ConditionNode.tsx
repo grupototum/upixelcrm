@@ -1,7 +1,43 @@
 import { Handle, Position } from 'reactflow';
 import { GitBranch } from 'lucide-react';
 
-export function ConditionNode({ data }: { data: { label?: string; configType?: string } }) {
+interface ConditionRule {
+  type: string;
+  operator?: string;
+  value?: string;
+}
+
+interface ConditionNodeData {
+  label?: string;
+  configType?: string;
+  conditions?: ConditionRule[];
+  conditionOperator?: 'and' | 'or';
+}
+
+const typeLabels: Record<string, string> = {
+  has_phone: 'Tem celular',
+  has_email: 'Tem email',
+  has_tag: 'Tem tag',
+  message_contains: 'Msg contém',
+  message_equals: 'Msg igual a',
+  message_starts_with: 'Msg começa com',
+  message_channel: 'Canal =',
+};
+
+function summarizeConditions(data: ConditionNodeData): string | null {
+  if (!data.conditions?.length) return null;
+  const joiner = data.conditionOperator === 'or' ? ' OU ' : ' E ';
+  return data.conditions
+    .map((c) => {
+      const label = typeLabels[c.type] || c.type;
+      return c.value ? `${label} "${c.value}"` : label;
+    })
+    .join(joiner);
+}
+
+export function ConditionNode({ data }: { data: ConditionNodeData }) {
+  const summary = summarizeConditions(data);
+
   return (
     <div className="w-[250px] shadow-lg rounded-md bg-card border border-border overflow-hidden relative">
       <Handle 
@@ -16,7 +52,12 @@ export function ConditionNode({ data }: { data: { label?: string; configType?: s
       </div>
       
       <div className="p-4 text-sm text-foreground min-h-[80px]">
-        <div className="mb-2">{data.label || 'Definir Condição'}</div>
+        <div className="mb-1">{data.label || 'Definir Condição'}</div>
+        {summary && (
+          <p className="text-[10px] text-muted-foreground leading-snug line-clamp-3" title={summary}>
+            {summary}
+          </p>
+        )}
       </div>
       
       <div className="absolute right-3 top-12 flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400">

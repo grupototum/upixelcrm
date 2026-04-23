@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { generateSecureToken } from "@/lib/crypto";
 import type { WebhookEndpoint } from "@/types";
 
 const AVAILABLE_EVENTS = [
@@ -32,9 +34,9 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
 
   const fetchWebhooks = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase.from as any)("webhook_endpoints").select("*").order("created_at", { ascending: false });
+    const { data, error } = await (supabase as any).from("webhook_endpoints").select("*").order("created_at", { ascending: false });
     if (error) {
-      console.error(error);
+      logger.error(error);
       toast.error("Erro ao carregar webhooks");
     } else {
       setWebhooks(data || []);
@@ -78,8 +80,10 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
     }
 
     if (editingId === "new") {
-      const secret = "wh_sec_" + Array.from({ length: 24 }, () => Math.random().toString(36)[2] || '0').join('');
-      const { data: row, error } = await (supabase.from as any)("webhook_endpoints").insert({
+      // FIX-02: Use crypto.getRandomValues() for webhook secret generation.
+      // Math.random() is not cryptographically random and makes secrets predictable.
+      const secret = generateSecureToken("wh_sec_", 24);
+      const { data: row, error } = await (supabase as any).from("webhook_endpoints").insert({
         url,
         description,
         events,
@@ -88,19 +92,19 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
       }).select().single();
 
       if (error) {
-        console.error(error);
+        logger.error(error);
         toast.error("Erro ao criar webhook.");
         return;
       }
       setWebhooks(prev => [row, ...prev]);
       toast.success("Webhook criado com sucesso.");
     } else {
-      const { error } = await (supabase.from as any)("webhook_endpoints")
+      const { error } = await (supabase as any).from("webhook_endpoints")
         .update({ url, description, events, active })
         .eq("id", editingId);
 
       if (error) {
-        console.error(error);
+        logger.error(error);
         toast.error("Erro ao atualizar webhook.");
         return;
       }
@@ -112,9 +116,9 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
 
   const handleDelete = async (id: string) => {
     if (!confirm("Deseja realmente excluir este webhook?")) return;
-    const { error } = await (supabase.from as any)("webhook_endpoints").delete().eq("id", id);
+    const { error } = await (supabase as any).from("webhook_endpoints").delete().eq("id", id);
     if (error) {
-      console.error(error);
+      logger.error(error);
       toast.error("Erro ao remover webhook.");
       return;
     }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import DOMPurify from "dompurify";
 import { Mail, Star, Paperclip, Send, Search, RefreshCw, Loader2, Inbox, Archive, Trash2, Filter, ChevronRight, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -304,9 +305,14 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
                     <span className="text-xs text-muted-foreground">Carregando mensagem...</span>
                   </div>
                 ) : (
-                  <div 
+                  <div
                     className="email-content text-sm text-foreground/90 leading-relaxed overflow-x-hidden pt-2"
-                    dangerouslySetInnerHTML={{ __html: viewEmail.body }}
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(viewEmail.body, {
+                        FORBID_TAGS: ["script", "style", "object", "embed", "form", "input", "button", "textarea", "select", "iframe", "frame", "frameset", "meta", "link", "base"],
+                        FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onmouseout", "onmouseenter", "onmouseleave", "onkeydown", "onkeyup", "onkeypress", "onsubmit", "onfocus", "onblur", "onchange"],
+                      })
+                    }}
                   />
                 )}
               </div>

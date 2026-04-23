@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { 
   CreditCard, CheckCircle2, Loader2, AlertCircle, 
@@ -43,7 +44,7 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
       setPaymentData(data);
       setStep("payment");
     } catch (error: any) {
-      console.error(error);
+      logger.error(error);
       toast.error(`Erro ao gerar pagamento: ${error.message}`);
     } finally {
       setLoading(false);

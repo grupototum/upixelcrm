@@ -1,6 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Brain, Bot, BookOpen } from "lucide-react";
-import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AssistantTab } from "@/components/intelligence/AssistantTab";
 import { AgentsTab } from "@/components/intelligence/AgentsTab";
@@ -16,10 +15,10 @@ export default function IntelligencePage() {
               <Brain className="h-3.5 w-3.5" /> Assistente Operacional
             </TabsTrigger>
             <TabsTrigger value="agents" className="text-xs gap-1.5">
-              <Bot className="h-3.5 w-3.5" /> Agentes IA <ComingSoonBadge />
+              <Bot className="h-3.5 w-3.5" /> Agentes IA
             </TabsTrigger>
             <TabsTrigger value="knowledge" className="text-xs gap-1.5">
-              <BookOpen className="h-3.5 w-3.5" /> Base de Conhecimento <ComingSoonBadge />
+              <BookOpen className="h-3.5 w-3.5" /> Base de Conhecimento
             </TabsTrigger>
           </TabsList>
 
