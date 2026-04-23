@@ -147,7 +147,7 @@ BEGIN
      22000, v_col_novo, v_client_id, v_tenant_id, now() - interval '1 day'),
 
     (v_l9, 'Thiago Carvalho', '(19) 90009-4567', 'thiago@logiexpress.com.br',
-     'LogiExpress', 'Campinas', 'cliente', 'indicacao',
+     'LogiExpress', 'Campinas', 'lead', 'indicacao',
      ARRAY['logística','transporte']::text[],
      'Contrato fechado! Onboarding agendado.',
      95000, v_col_ganho, v_client_id, v_tenant_id, now() - interval '20 days'),
