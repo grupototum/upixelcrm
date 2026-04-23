@@ -46,7 +46,7 @@ export default function SignupPage() {
       // Verificar em tenants E organizations
       const [{ data: tenantMatch }, { data: orgMatch }] = await Promise.all([
         supabase.from("tenants").select("id").eq("subdomain", subdomain).maybeSingle(),
-        (supabase.from as any)("organizations").select("id").eq("subdomain", subdomain).maybeSingle(),
+        supabase.from("organizations").select("id").eq("subdomain", subdomain).maybeSingle(),
       ]);
 
       setSubdomainStatus(tenantMatch || orgMatch ? "taken" : "available");
@@ -103,7 +103,7 @@ export default function SignupPage() {
       tenantId = tenantData.id;
 
       // 2. Criar organization com o subdomain público
-      const { data: orgData, error: orgError } = await (supabase.from as any)("organizations")
+      const { data: orgData, error: orgError } = await supabase.from("organizations")
         .insert({
           name: companyName.trim(),
           slug: subdomain,
@@ -136,7 +136,7 @@ export default function SignupPage() {
       });
 
       if (authError || !authData.user) {
-        await (supabase.from as any)("organizations").delete().eq("id", orgId);
+        await supabase.from("organizations").delete().eq("id", orgId);
         await supabase.from("tenants").delete().eq("id", tenantId);
         setError(authError?.message ?? "Erro ao criar conta. Tente novamente.");
         setLoading(false);
@@ -149,21 +149,20 @@ export default function SignupPage() {
         .update({ owner_id: authData.user.id })
         .eq("id", tenantId);
 
-      await (supabase.from as any)("organizations")
+      await supabase.from("organizations")
         .update({ owner_id: authData.user.id })
         .eq("id", orgId);
 
-      // 5. Vincular profile à organization
-      await supabase
-        .from("profiles")
-        .update({ organization_id: orgId } as any)
+      // 5. Atualizar organization_id no profile
+      await supabase.from("profiles")
+        .update({ organization_id: orgId })
         .eq("id", authData.user.id);
 
       setCreatedSubdomain(subdomain);
       setStep("success");
     } catch {
       if (orgId) {
-        await (supabase.from as any)("organizations").delete().eq("id", orgId);
+        await supabase.from("organizations").delete().eq("id", orgId);
       }
       if (tenantId) {
         await supabase.from("tenants").delete().eq("id", tenantId);

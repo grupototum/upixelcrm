@@ -89,7 +89,7 @@ export function OrganizationSection() {
       const slug = newOrgName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       const orgSubdomain = newOrgSubdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || slug;
       
-      const { data: newOrg, error } = await (supabase.from as any)("organizations")
+      const { data: newOrg, error } = await supabase.from("organizations")
         .insert({
           name: newOrgName.trim(),
           slug: `${slug}-${Date.now()}`,

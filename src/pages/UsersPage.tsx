@@ -145,7 +145,7 @@ export default function UsersPage() {
 
   const fetchAuditLogs = useCallback(async () => {
     setAuditLoading(true);
-    const { data, error } = await (supabase.from as any)("audit_log")
+    const { data, error } = await supabase.from("audit_log")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
@@ -155,7 +155,7 @@ export default function UsersPage() {
 
   const logAudit = async (action: string, details?: Record<string, any>) => {
     try {
-      await (supabase.from as any)("audit_log").insert({
+      await supabase.from("audit_log").insert({
         user_id: user?.id,
         user_name: user?.name || "Sistema",
         action,
