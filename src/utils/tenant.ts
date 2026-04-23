@@ -1,4 +1,4 @@
-const ROOT_DOMAINS = ["upixel.com.br", "localhost", "lovableproject.com", "lovable.app"];
+const ROOT_DOMAINS = ["upixel.app", "upixel.com.br", "localhost", "lovableproject.com", "lovable.app"];
 
 /**
  * Extrai o subdomínio do hostname atual.
