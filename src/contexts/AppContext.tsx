@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { mockAutomations } from "@/lib/mock-data";
 import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
 import type { Node, Edge } from "reactflow";
@@ -74,22 +75,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const { tenant } = useTenant();
+  const { user } = useAuth();
+
+  // Master view: master user no subdomínio "master" vê dados de TODOS os tenants (RLS permite)
+  const isMasterView = user?.role === "master" && tenant?.subdomain === "master";
 
   const executeAutomationsRef = useRef<((leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => Promise<void>) | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
-      // Usa o tenant_id::text como client_id para RLS (retrocompatível com get_user_client_id)
       const clientId = tenant?.id ?? "";
 
+      // Em master view, não filtra por client_id — retorna tudo.
+      const withClient = <T extends { eq: (k: string, v: string) => T }>(q: T): T =>
+        isMasterView ? q : q.eq("client_id", clientId);
+
       const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
-        (supabase.from as any)("pipelines").select("*").eq("client_id", clientId).order("name"),
-        supabase.from("pipeline_columns").select("*").eq("client_id", clientId).order("order"),
-        supabase.from("leads").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
-        supabase.from("tasks").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
-        supabase.from("timeline_events").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(100),
-        (supabase.from as any)("automations").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
-        (supabase.from as any)("automation_rules").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
+        withClient((supabase.from as any)("pipelines").select("*")).order("name"),
+        withClient(supabase.from("pipeline_columns").select("*")).order("order"),
+        withClient(supabase.from("leads").select("*")).order("created_at", { ascending: false }),
+        withClient(supabase.from("tasks").select("*")).order("created_at", { ascending: false }),
+        withClient(supabase.from("timeline_events").select("*")).order("created_at", { ascending: false }).limit(100),
+        withClient((supabase.from as any)("automations").select("*")).order("created_at", { ascending: false }),
+        withClient((supabase.from as any)("automation_rules").select("*")).order("created_at", { ascending: false }),
       ]);
 
       if (pipeRes.data) {
@@ -110,7 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPipelineId, tenant]);
+  }, [currentPipelineId, tenant, isMasterView]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
