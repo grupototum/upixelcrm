@@ -248,18 +248,18 @@ BEGIN
   INSERT INTO public.timeline_events
     (lead_id, type, content, user_name, client_id, tenant_id, created_at)
   VALUES
-    (v_l1, 'status_change', 'Lead movido para "Em Negociação"', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '2 days'),
+    (v_l1, 'stage_change', 'Lead movido para "Em Negociação"', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '2 days'),
     (v_l1, 'note', 'Carlos confirmou interesse no plano Enterprise. Budget aprovado.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '3 days'),
-    (v_l1, 'meeting', 'Call de descoberta realizado. 45 min. Tom positivo.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '5 days'),
-    (v_l5, 'status_change', 'Lead movido para "Em Negociação"', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '5 days'),
+    (v_l1, 'call', 'Call de descoberta realizado. 45 min. Tom positivo.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '5 days'),
+    (v_l5, 'stage_change', 'Lead movido para "Em Negociação"', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '5 days'),
     (v_l5, 'note', 'Bruno quer integração com ZAP Imóveis e Viva Real.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '8 days'),
-    (v_l9, 'status_change', 'Lead movido para "Fechado Ganho" 🎉', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '3 days'),
+    (v_l9, 'stage_change', 'Lead movido para "Fechado Ganho" 🎉', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '3 days'),
     (v_l9, 'note', 'Contrato de R$ 95.000/ano assinado.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '4 days'),
-    (v_l9, 'meeting', 'Demo técnica realizada com equipe de TI.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '10 days'),
-    (v_l10, 'status_change', 'Lead movido para "Fechado Perdido"', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '15 days'),
+    (v_l9, 'call', 'Demo técnica realizada com equipe de TI.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '10 days'),
+    (v_l10, 'stage_change', 'Lead movido para "Fechado Perdido"', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '15 days'),
     (v_l10, 'note', 'Perdido por preço. Concorrente 40% mais barato.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '15 days'),
     (v_l11, 'note', 'Processo de licitação aberto.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '20 days'),
-    (v_l11, 'meeting', 'Reunião inicial com equipe de compras.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '25 days');
+    (v_l11, 'call', 'Reunião inicial com equipe de compras.', 'Demo uPixel', v_client_id, v_tenant_id, now() - interval '25 days');
 
   -- ── 8. Automações ───────────────────────────────────────────
   INSERT INTO public.automations
