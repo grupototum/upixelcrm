@@ -237,6 +237,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       column_id: columnId,
       value: data.value ?? null,
       client_id: clientId,
+      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar lead"); return null; }
@@ -302,6 +303,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: row, error } = await supabase.from("pipelines").insert({
       name,
       client_id: clientId,
+      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar funil"); return; }
@@ -312,9 +314,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Criar colunas padrão para o novo funil
       const defaultCols = [
-        { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id, client_id: clientId },
-        { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id, client_id: clientId },
-        { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id, client_id: clientId },
+        { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id, client_id: clientId, ...(tenant?.id ? { tenant_id: tenant.id } : {}) },
+        { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id, client_id: clientId, ...(tenant?.id ? { tenant_id: tenant.id } : {}) },
+        { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id, client_id: clientId, ...(tenant?.id ? { tenant_id: tenant.id } : {}) },
       ];
       
       const { data: colRows } = await supabase.from("pipeline_columns").insert(defaultCols).select();
@@ -456,6 +458,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       trigger: (data.trigger as any) || { type: "card_entered" },
       actions: (data.actions as any) || [],
       exceptions: (data.exceptions as any) || [],
+      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar automação"); return; }

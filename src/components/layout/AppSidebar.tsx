@@ -5,6 +5,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
@@ -39,6 +40,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { logout, user } = useAuth();
+  const { canAccessModule } = usePermissions();
 
   const isMaster = user?.role === "master";
 
@@ -65,7 +67,9 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {navItems.map((item) => {
+              {navItems
+                .filter((item) => canAccessModule(item.url))
+                .map((item) => {
                 const isActive = item.url === "/"
                   ? location.pathname === "/"
                   : location.pathname.startsWith(item.url);

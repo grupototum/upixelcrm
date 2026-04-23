@@ -43,13 +43,13 @@ export default function SignupPage() {
 
     setSubdomainStatus("checking");
     const timer = setTimeout(async () => {
-      const { data } = await supabase
-        .from("tenants")
-        .select("id")
-        .eq("subdomain", subdomain)
-        .maybeSingle();
+      // Verificar em tenants E organizations
+      const [{ data: tenantMatch }, { data: orgMatch }] = await Promise.all([
+        supabase.from("tenants").select("id").eq("subdomain", subdomain).maybeSingle(),
+        (supabase.from as any)("organizations").select("id").eq("subdomain", subdomain).maybeSingle(),
+      ]);
 
-      setSubdomainStatus(data ? "taken" : "available");
+      setSubdomainStatus(tenantMatch || orgMatch ? "taken" : "available");
     }, 500);
 
     return () => clearTimeout(timer);
@@ -85,11 +85,13 @@ export default function SignupPage() {
     setLoading(true);
 
     let tenantId: string | null = null;
+    let orgId: string | null = null;
 
     try {
+      // 1. Criar tenant (entidade-pai)
       const { data: tenantData, error: tenantError } = await supabase
         .from("tenants")
-        .insert({ name: companyName.trim(), subdomain })
+        .insert({ name: companyName.trim(), subdomain: `t-${subdomain}` })
         .select("id")
         .single();
 
@@ -100,6 +102,27 @@ export default function SignupPage() {
       }
       tenantId = tenantData.id;
 
+      // 2. Criar organization com o subdomain público
+      const { data: orgData, error: orgError } = await (supabase.from as any)("organizations")
+        .insert({
+          name: companyName.trim(),
+          slug: subdomain,
+          subdomain: subdomain,
+          tenant_id: tenantId,
+        })
+        .select("id")
+        .single();
+
+      if (orgError || !orgData) {
+        // Rollback tenant
+        await supabase.from("tenants").delete().eq("id", tenantId);
+        setError(orgError?.message ?? "Erro ao criar organização. Tente novamente.");
+        setLoading(false);
+        return;
+      }
+      orgId = orgData.id;
+
+      // 3. Criar conta de usuário (handle_new_user seta tenant_id via meta)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -113,20 +136,35 @@ export default function SignupPage() {
       });
 
       if (authError || !authData.user) {
+        await (supabase.from as any)("organizations").delete().eq("id", orgId);
         await supabase.from("tenants").delete().eq("id", tenantId);
         setError(authError?.message ?? "Erro ao criar conta. Tente novamente.");
         setLoading(false);
         return;
       }
 
+      // 4. Vincular proprietário ao tenant e à org
       await supabase
         .from("tenants")
         .update({ owner_id: authData.user.id })
         .eq("id", tenantId);
 
+      await (supabase.from as any)("organizations")
+        .update({ owner_id: authData.user.id })
+        .eq("id", orgId);
+
+      // 5. Vincular profile à organization
+      await supabase
+        .from("profiles")
+        .update({ organization_id: orgId } as any)
+        .eq("id", authData.user.id);
+
       setCreatedSubdomain(subdomain);
       setStep("success");
     } catch {
+      if (orgId) {
+        await (supabase.from as any)("organizations").delete().eq("id", orgId);
+      }
       if (tenantId) {
         await supabase.from("tenants").delete().eq("id", tenantId);
       }

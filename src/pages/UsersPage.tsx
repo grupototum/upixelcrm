@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { z } from "zod";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +14,9 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Users, Building2, Shield, Mail, Search, Ban, CheckCircle2,
-  PencilLine, Trash2, UserPlus, UserMinus, ChevronDown, ChevronUp, Loader2, Clock, FileText, Plus
+  PencilLine, Trash2, UserPlus, UserMinus, ChevronDown, ChevronUp, Loader2, Clock, FileText, Plus, RefreshCw
 } from "lucide-react";
-import { ComingSoonBadge } from "@/components/ui/coming-soon";
+import { PERMISSION_MATRIX } from "@/hooks/usePermissions";
 
 interface ProfileRow {
   id: string;
@@ -24,6 +25,7 @@ interface ProfileRow {
   role: string;
   is_blocked: boolean;
   client_id: string;
+  tenant_id: string | null;
   organization_id: string | null;
   created_at: string;
   org_name?: string;
@@ -40,13 +42,52 @@ interface OrgRow {
   members?: ProfileRow[];
 }
 
+interface AuditLogRow {
+  id: string;
+  user_id: string | null;
+  user_name: string | null;
+  action: string;
+  details: Record<string, any> | null;
+  created_at: string;
+}
+
+// All permission keys used in the system
+const ALL_PERMISSIONS = [
+  { key: "crm.view", label: "CRM — Visualizar" },
+  { key: "crm.edit", label: "CRM — Editar" },
+  { key: "crm.delete", label: "CRM — Excluir" },
+  { key: "crm.export", label: "CRM — Exportar" },
+  { key: "crm.transfer", label: "CRM — Transferir Lead" },
+  { key: "inbox.view", label: "Inbox — Visualizar" },
+  { key: "inbox.reply", label: "Inbox — Responder" },
+  { key: "tasks.view", label: "Tarefas — Visualizar" },
+  { key: "tasks.create", label: "Tarefas — Criar" },
+  { key: "tasks.delete", label: "Tarefas — Excluir" },
+  { key: "automations.view", label: "Automações — Visualizar" },
+  { key: "automations.edit", label: "Automações — Editar" },
+  { key: "reports.view", label: "Relatórios — Dashboard" },
+  { key: "users.view", label: "Usuários — Visualizar" },
+  { key: "users.manage", label: "Usuários — Gerenciar" },
+  { key: "intelligence.view", label: "Inteligência — Visualizar" },
+  { key: "settings.view", label: "Configurações — Visualizar" },
+];
+
+const ROLES_DISPLAY = [
+  { key: "supervisor", label: "Supervisor", color: "text-primary" },
+  { key: "atendente", label: "Atendente", color: "text-blue-500" },
+  { key: "vendedor", label: "Vendedor", color: "text-muted-foreground" },
+] as const;
+
 export default function UsersPage() {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   
   // Edit Role Modal
   const [editModal, setEditModal] = useState<ProfileRow | null>(null);
@@ -60,6 +101,7 @@ export default function UsersPage() {
   const [addingMember, setAddingMember] = useState(false);
 
   const isMaster = user?.role === "master";
+  const currentTenantId = tenant?.id || user?.tenant_id || null;
 
   const fetchData = async () => {
     setLoading(true);
@@ -75,8 +117,10 @@ export default function UsersPage() {
     let profilesList = (profilesRes.data || []) as ProfileRow[];
     const orgsList = (orgsRes.data || []) as OrgRow[];
 
-    // If not master, filter only profiles from the user's organization
-    if (!isMaster && user?.organization_id) {
+    // If not master, filter profiles by tenant_id (primary) or organization_id (fallback)
+    if (!isMaster && currentTenantId) {
+      profilesList = profilesList.filter(p => p.tenant_id === currentTenantId || p.id === user?.id);
+    } else if (!isMaster && user?.organization_id) {
       profilesList = profilesList.filter(p => p.organization_id === user.organization_id || p.id === user.id);
     }
 
@@ -99,7 +143,30 @@ export default function UsersPage() {
     setLoading(false);
   };
 
+  const fetchAuditLogs = useCallback(async () => {
+    setAuditLoading(true);
+    const { data, error } = await (supabase.from as any)("audit_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (!error && data) setAuditLogs(data as AuditLogRow[]);
+    setAuditLoading(false);
+  }, []);
+
+  const logAudit = async (action: string, details?: Record<string, any>) => {
+    try {
+      await (supabase.from as any)("audit_log").insert({
+        user_id: user?.id,
+        user_name: user?.name || "Sistema",
+        action,
+        details: details || null,
+        tenant_id: currentTenantId,
+      });
+    } catch (_) { /* silent */ }
+  };
+
   useEffect(() => { fetchData(); }, [isMaster, user]);
+  useEffect(() => { if (user) fetchAuditLogs(); }, [user, fetchAuditLogs]);
 
   const filteredProfiles = profiles.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -123,8 +190,11 @@ export default function UsersPage() {
       block_status: !profile.is_blocked,
     });
     if (error) { toast.error("Erro: " + error.message); return; }
-    toast.success(profile.is_blocked ? "Usuário desbloqueado" : "Usuário bloqueado");
+    const action = profile.is_blocked ? "Usuário desbloqueado" : "Usuário bloqueado";
+    toast.success(action);
+    await logAudit(action, { target_user: profile.name, target_id: profile.id });
     fetchData();
+    fetchAuditLogs();
   };
 
   const saveRole = async () => {
@@ -143,8 +213,10 @@ export default function UsersPage() {
     });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Permissão atualizada com sucesso.");
+    await logAudit("Permissão alterada", { target_user: editModal.name, target_id: editModal.id, old_role: editModal.role, new_role: editRole });
     setEditModal(null);
     fetchData();
+    fetchAuditLogs();
   };
 
   // Org actions (Master only)
@@ -391,49 +463,52 @@ export default function UsersPage() {
           )}
 
           <TabsContent value="roles">
-            <div className="bg-card ghost-border rounded-xl mx-auto max-w-4xl overflow-hidden">
+            <div className="bg-card ghost-border rounded-xl mx-auto max-w-5xl overflow-hidden">
               <div className="px-4 py-3 ghost-border border-b flex justify-between items-center">
                 <div>
                   <h2 className="text-sm font-semibold text-foreground">Matriz de Permissões — RBAC</h2>
                   <p className="text-xs text-muted-foreground">O que cada função pode acessar no sistema</p>
                 </div>
-                <ComingSoonBadge />
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-secondary/50">
-                      <th className="text-left px-4 py-2 font-semibold text-muted-foreground">Recurso</th>
-                      <th className="text-center px-3 py-2 font-semibold text-primary">Supervisor</th>
-                      <th className="text-center px-3 py-2 font-semibold text-accent">Atendente</th>
-                      <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Vendedor</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Recurso</th>
+                      {ROLES_DISPLAY.map(r => (
+                        <th key={r.key} className={`text-center px-3 py-2.5 font-semibold ${r.color}`}>{r.label}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {[
-                      { perm: "CRM — Visualizar e Criar", sup: true, att: true, ven: true },
-                      { perm: "CRM — Editar qualquer Lead", sup: true, att: false, ven: false },
-                      { perm: "CRM — Excluir Lead", sup: true, att: false, ven: false },
-                      { perm: "CRM — Exportar em Massa", sup: true, att: false, ven: false },
-                      { perm: "CRM — Transferir Lead para outro responsável", sup: true, att: false, ven: false },
-                      { perm: "Inbox — Visualizar conversas (todas)", sup: true, att: false, ven: false },
-                      { perm: "Inbox — Visualizar fila de espera", sup: true, att: true, ven: true },
-                      { perm: "Inbox — Responder e Assumir", sup: true, att: true, ven: true },
-                      { perm: "Tarefas — Visualizar de todos", sup: true, att: false, ven: false },
-                      { perm: "Automações — Criar e Editar", sup: true, att: false, ven: false },
-                      { perm: "Relatórios — Dashboard", sup: true, att: false, ven: false },
-                      { perm: "Configurações Globais. Canais, Integrações", sup: true, att: false, ven: false },
-                      { perm: "Gerenciar Usuários (Bloquear, Mudar Role)", sup: true, att: false, ven: false },
-                    ].map((row) => (
-                      <tr key={row.perm} className="hover:bg-card-hover transition-colors">
-                        <td className="px-4 py-2 font-medium text-foreground">{row.perm}</td>
-                        <td className="text-center px-3 py-2">{row.sup ? "✅" : "❌"}</td>
-                        <td className="text-center px-3 py-2">{row.att ? "✅" : "❌"}</td>
-                        <td className="text-center px-3 py-2">{row.ven ? "✅" : "❌"}</td>
+                    {ALL_PERMISSIONS.map((perm) => (
+                      <tr key={perm.key} className="hover:bg-card-hover transition-colors">
+                        <td className="px-4 py-2.5 font-medium text-foreground">
+                          <span>{perm.label}</span>
+                          <span className="ml-2 text-[10px] text-muted-foreground/60 font-mono">{perm.key}</span>
+                        </td>
+                        {ROLES_DISPLAY.map(r => {
+                          const allowed = PERMISSION_MATRIX[perm.key];
+                          const hasIt = allowed ? allowed.includes(r.key as any) : false;
+                          return (
+                            <td key={r.key} className="text-center px-3 py-2.5">
+                              <span className={`inline-flex items-center justify-center h-6 w-6 rounded-md text-xs font-bold transition-colors ${
+                                hasIt
+                                  ? "bg-emerald-500/15 text-emerald-500"
+                                  : "bg-destructive/10 text-destructive/50"
+                              }`}>
+                                {hasIt ? "✓" : "✕"}
+                              </span>
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="px-4 py-3 border-t ghost-border">
+                <p className="text-[10px] text-muted-foreground">⚡ Usuários com role <strong>Master</strong> possuem acesso irrestrito a todas as permissões acima.</p>
               </div>
             </div>
           </TabsContent>
@@ -442,24 +517,47 @@ export default function UsersPage() {
             <div className="bg-card ghost-border rounded-xl mx-auto max-w-4xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 ghost-border border-b">
                  <div>
-                    <h2 className="text-sm font-semibold text-foreground">Log de Auditoria de Acesso</h2>
-                    <p className="text-xs text-muted-foreground">Histórico de ações de sistema recentes da organização (Em breve)</p>
+                    <h2 className="text-sm font-semibold text-foreground">Log de Auditoria</h2>
+                    <p className="text-xs text-muted-foreground">Histórico de ações recentes na gestão de usuários e permissões</p>
                  </div>
-                 <ComingSoonBadge />
+                 <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={fetchAuditLogs} disabled={auditLoading}>
+                   {auditLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                   Atualizar
+                 </Button>
               </div>
-              <div className="divide-y divide-border">
-                {[
-                  { user: "Sistema", action: "Integração viva da listagem de usuários com Supabase concluída", date: new Date().toISOString().split("T")[0] },
-                ].map((log, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-3 transition-colors">
-                    <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground">{log.action}</p>
-                      <p className="text-[10px] text-muted-foreground">{log.user} · {log.date}</p>
+              {auditLoading && auditLogs.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">Carregando logs...</div>
+              ) : auditLogs.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">Nenhum registro de auditoria encontrado.</div>
+              ) : (
+                <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
+                  {auditLogs.map((log) => (
+                    <div key={log.id} className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Clock className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">{log.action}</p>
+                        {log.details && (
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {log.details.target_user && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">Alvo: {log.details.target_user}</Badge>
+                            )}
+                            {log.details.old_role && log.details.new_role && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                {log.details.old_role} → {log.details.new_role}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {log.user_name || "Sistema"} · {new Date(log.created_at).toLocaleString("pt-BR")}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

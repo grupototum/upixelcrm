@@ -30,3 +30,6 @@ migration-dump/
 
 # Credenciais de migração — NUNCA commitar
 .env.migration
+
+# Agent Skills e configs locais do AI Assistant
+.agents/
