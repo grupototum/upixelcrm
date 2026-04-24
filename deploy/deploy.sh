@@ -24,7 +24,8 @@ echo "npm:  $(npm --version 2>/dev/null || echo 'não encontrado')"
 
 echo "[1/5] Pulling latest code..."
 cd "$APP_DIR"
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 
 echo "[2/5] Installing dependencies..."
 npm ci --prefer-offline 2>/dev/null || npm install
