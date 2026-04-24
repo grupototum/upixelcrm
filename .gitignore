@@ -33,3 +33,4 @@ migration-dump/
 
 # Agent Skills e configs locais do AI Assistant
 .agents/
+supabase/.temp/
