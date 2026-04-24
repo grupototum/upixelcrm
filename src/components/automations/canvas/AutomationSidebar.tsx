@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useReactFlow } from 'reactflow';
-import { TerminalSquare, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useReactFlow, Node } from 'reactflow';
+import { TerminalSquare, Trash2, Sparkles, Zap, MessageSquare, Clock, Globe, GitBranch, Variable } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { TriggerConfig } from './sidebar/TriggerConfig';
 import { ConditionConfig, type ConditionRule } from './sidebar/ConditionConfig';
+import { toast } from 'sonner';
 
 interface SidebarProps {
   selectedNodeId: string | null;
@@ -16,22 +17,21 @@ interface SidebarProps {
 
 export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps) {
   const { getNode, setNodes } = useReactFlow();
-  const [nodeName, setNodeName] = useState('');
-  const [nodeConfigType, setNodeConfigType] = useState('');
-  const [keywords, setKeywords] = useState('');
-  const [conditions, setConditions] = useState<ConditionRule[]>([]);
-  const [conditionOperator, setConditionOperator] = useState<'and' | 'or'>('and');
+  const [localData, setLocalData] = useState<Record<string, any>>({});
+  const lastFocusedRef = useRef<{ element: HTMLInputElement | HTMLTextAreaElement | null; start: number; end: number }>({
+    element: null,
+    start: 0,
+    end: 0
+  });
 
   const selectedNode = selectedNodeId ? getNode(selectedNodeId) : null;
-  const [lastFocusedElement, setLastFocusedElement] = useState<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
+  // Sync local data when node selection changes
   useEffect(() => {
     if (selectedNode) {
-      setNodeName(selectedNode.data.label || '');
-      setNodeConfigType(selectedNode.data.configType || '');
-      setKeywords(selectedNode.data.keywords || '');
-      setConditions(selectedNode.data.conditions || []);
-      setConditionOperator(selectedNode.data.conditionOperator || 'and');
+      setLocalData(selectedNode.data || {});
+    } else {
+      setLocalData({});
     }
   }, [selectedNodeId]);
 
@@ -51,7 +51,11 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
     );
   }
 
-  const handleUpdate = (updates: Record<string, unknown>) => {
+  const handleUpdate = (updates: Record<string, any>) => {
+    const newData = { ...localData, ...updates };
+    setLocalData(newData);
+    
+    // Update React Flow state
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === selectedNodeId) {
@@ -63,7 +67,45 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
   };
 
   const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setLastFocusedElement(e.target);
+    lastFocusedRef.current = {
+      element: e.target,
+      start: e.target.selectionStart || 0,
+      end: e.target.selectionEnd || 0
+    };
+  };
+
+  const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    // Save selection range on blur so we can insert variables even after focus is lost
+    lastFocusedRef.current.start = e.target.selectionStart || 0;
+    lastFocusedRef.current.end = e.target.selectionEnd || 0;
+  };
+
+  const injectVariable = (variable: string) => {
+    const { element, start, end } = lastFocusedRef.current;
+    
+    if (element) {
+      const field = element.name || element.getAttribute('data-field');
+      if (!field) return;
+
+      const currentValue = localData[field] || '';
+      const newValue = currentValue.substring(0, start) + variable + currentValue.substring(end);
+      
+      handleUpdate({ [field]: newValue });
+      
+      // Attempt to restore focus and set cursor position
+      setTimeout(() => {
+        element.focus();
+        const newPos = start + variable.length;
+        element.setSelectionRange(newPos, newPos);
+        lastFocusedRef.current.start = newPos;
+        lastFocusedRef.current.end = newPos;
+      }, 0);
+      
+      toast.success(`Variável inserida!`);
+    } else {
+      navigator.clipboard.writeText(variable);
+      toast.info(`Variável ${variable} copiada! (Foque um campo primeiro)`);
+    }
   };
 
   const renderTypeOptions = () => {
@@ -71,11 +113,10 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
       case 'trigger':
         return (
           <TriggerConfig
-            configType={nodeConfigType}
-            keywords={keywords}
-            onFocus={onFocus}
-            onConfigTypeChange={(v) => { setNodeConfigType(v); handleUpdate({ configType: v }); }}
-            onKeywordsChange={(v) => { setKeywords(v); handleUpdate({ keywords: v }); }}
+            configType={localData.configType || ''}
+            keywords={localData.keywords || ''}
+            onConfigTypeChange={(v) => handleUpdate({ configType: v })}
+            onKeywordsChange={(v) => handleUpdate({ keywords: v })}
           />
         );
       case 'action':
@@ -83,8 +124,8 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
           <div className="space-y-4">
             <Label className="text-xs font-semibold">Ação no CRM</Label>
             <Select 
-               value={nodeConfigType} 
-               onValueChange={(v) => { setNodeConfigType(v); handleUpdate({ configType: v }); }}
+               value={localData.configType || ''} 
+               onValueChange={(v) => handleUpdate({ configType: v })}
             >
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
@@ -94,54 +135,44 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                 <SelectItem value="leave_note">Adicionar Nota</SelectItem>
               </SelectContent>
             </Select>
-            {nodeConfigType === 'add_tag' && (
+            {localData.configType === 'add_tag' && (
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Nome da Tag</Label>
                 <Input 
+                  name="tag"
                   className="h-8 text-sm" 
                   placeholder="Ex: cliente-vip" 
-                  data-field="tag"
                   onFocus={onFocus}
-                  value={selectedNode.data.tag || ''}
+                  onBlur={onBlur}
+                  value={localData.tag || ''}
                   onChange={(e) => handleUpdate({ tag: e.target.value })}
                 />
               </div>
             )}
-            {nodeConfigType === 'change_status' && (
+            {localData.configType === 'change_status' && (
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">ID da Etapa</Label>
                 <Input 
+                  name="status"
                   className="h-8 text-sm" 
                   placeholder="ID da etapa..." 
-                  data-field="status"
                   onFocus={onFocus}
-                  value={selectedNode.data.status || ''}
+                  onBlur={onBlur}
+                  value={localData.status || ''}
                   onChange={(e) => handleUpdate({ status: e.target.value })}
                 />
               </div>
             )}
-            {nodeConfigType === 'assign_user' && (
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold text-muted-foreground">ID do Usuário</Label>
-                <Input 
-                  className="h-8 text-sm" 
-                  placeholder="ID do atendente..." 
-                  data-field="userId"
-                  onFocus={onFocus}
-                  value={selectedNode.data.userId || ''}
-                  onChange={(e) => handleUpdate({ userId: e.target.value })}
-                />
-              </div>
-            )}
-            {nodeConfigType === 'leave_note' && (
+            {localData.configType === 'leave_note' && (
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Conteúdo da Nota</Label>
                 <Textarea 
+                  name="note"
                   className="text-sm resize-none" 
                   placeholder="Escreva a nota..." 
-                  data-field="note"
                   onFocus={onFocus}
-                  value={selectedNode.data.note || ''}
+                  onBlur={onBlur}
+                  value={localData.note || ''}
                   onChange={(e) => handleUpdate({ note: e.target.value })}
                 />
               </div>
@@ -151,11 +182,10 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
       case 'condition':
         return (
           <ConditionConfig
-            conditions={conditions}
-            conditionOperator={conditionOperator}
-            onFocus={onFocus}
-            onConditionsChange={(c) => { setConditions(c); handleUpdate({ conditions: c }); }}
-            onOperatorChange={(op) => { setConditionOperator(op); handleUpdate({ conditionOperator: op }); }}
+            conditions={localData.conditions || []}
+            conditionOperator={localData.conditionOperator || 'and'}
+            onConditionsChange={(c) => handleUpdate({ conditions: c })}
+            onOperatorChange={(op) => handleUpdate({ conditionOperator: op })}
           />
         );
       case 'delay':
@@ -163,7 +193,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
           <div className="space-y-4">
              <Label className="text-xs font-semibold">Configurar Espera</Label>
              <Select 
-                value={selectedNode.data.delayType || 'fixed'} 
+                value={localData.delayType || 'fixed'} 
                 onValueChange={(v) => handleUpdate({ delayType: v })}
              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -173,13 +203,15 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                 </SelectContent>
              </Select>
 
-             {selectedNode.data.delayType === 'dynamic' ? (
+             {localData.delayType === 'dynamic' ? (
                 <div className="space-y-2">
                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Campo de Data</Label>
                    <Input 
+                      name="dynamicDate"
                       placeholder="{{lead.custom.agendamento}}" 
-                      data-field="dynamicDate" onFocus={onFocus}
-                      value={selectedNode.data.dynamicDate || ''}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      value={localData.dynamicDate || ''}
                       onChange={(e) => handleUpdate({ dynamicDate: e.target.value })}
                       className="h-8 text-xs font-mono"
                    />
@@ -187,13 +219,15 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
              ) : (
                 <div className="flex items-center gap-2">
                    <Input 
+                     name="amount"
                      type="number" min="1" placeholder="1" className="w-20 h-8" 
-                     data-field="amount" onFocus={onFocus}
-                     value={selectedNode.data.amount || ''}
+                     onFocus={onFocus}
+                     onBlur={onBlur}
+                     value={localData.amount || ''}
                      onChange={(e) => handleUpdate({ amount: e.target.value })}
                    />
                    <Select 
-                     value={selectedNode.data.unit || 'days'} 
+                     value={localData.unit || 'days'} 
                      onValueChange={(v) => handleUpdate({ unit: v })}
                    >
                      <SelectTrigger className="flex-1 h-8"><SelectValue /></SelectTrigger>
@@ -212,8 +246,8 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
           <div className="space-y-4">
              <Label className="text-xs font-semibold">Canal de Envio</Label>
              <Select 
-                value={nodeConfigType || 'whatsapp'} 
-                onValueChange={(v) => { setNodeConfigType(v); handleUpdate({ configType: v }); }}
+                value={localData.configType || 'whatsapp'} 
+                onValueChange={(v) => handleUpdate({ configType: v })}
              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -225,11 +259,12 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
              
              <Label className="text-xs font-semibold">Mensagem</Label>
              <Textarea 
+                name="text"
                 placeholder="Olá {{lead.name}}, tudo bem?" 
                 className="min-h-[120px] text-sm resize-none"
-                data-field="text"
                 onFocus={onFocus}
-                value={selectedNode.data.text || ''}
+                onBlur={onBlur}
+                value={localData.text || ''}
                 onChange={(e) => handleUpdate({ text: e.target.value })}
              />
           </div>
@@ -239,15 +274,17 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
           <div className="space-y-4">
              <Label className="text-xs font-semibold">Endpoint Webhook</Label>
              <Input 
+                name="url"
                 placeholder="https://api.exemplo.com/hook" 
-                data-field="url" onFocus={onFocus}
-                value={selectedNode.data.url || ''}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                value={localData.url || ''}
                 onChange={(e) => handleUpdate({ url: e.target.value })}
                 className="h-8 text-xs font-mono"
              />
              
              <Label className="text-xs font-semibold">Método HTTP</Label>
-             <Select value={selectedNode.data.method || 'POST'} onValueChange={(v) => handleUpdate({ method: v })}>
+             <Select value={localData.method || 'POST'} onValueChange={(v) => handleUpdate({ method: v })}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                    <SelectItem value="GET">GET</SelectItem>
@@ -258,9 +295,11 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
 
              <Label className="text-xs font-semibold">Corpo (JSON)</Label>
              <Textarea 
+                name="body"
                 placeholder='{"name": "{{lead.name}}"}' 
-                data-field="body" onFocus={onFocus}
-                value={selectedNode.data.body || ''}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                value={localData.body || ''}
                 onChange={(e) => handleUpdate({ body: e.target.value })}
                 className="text-xs font-mono min-h-[100px]"
              />
@@ -274,9 +313,11 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                 <div className="flex-1 text-center">
                    <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Caminho A (%)</div>
                    <Input 
+                      name="percentageA"
                       type="number" max="100" min="0" 
-                      data-field="percentageA" onFocus={onFocus}
-                      value={selectedNode.data.percentageA || '50'}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      value={localData.percentageA || '50'}
                       onChange={(e) => handleUpdate({ percentageA: e.target.value })}
                       className="h-8 text-center"
                    />
@@ -285,7 +326,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                    <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Caminho B (%)</div>
                    <Input 
                       disabled 
-                      value={100 - (Number(selectedNode.data.percentageA) || 50)} 
+                      value={100 - (Number(localData.percentageA) || 50)} 
                       className="h-8 text-center bg-muted"
                    />
                 </div>
@@ -297,21 +338,23 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
           <div className="space-y-4">
              <Label className="text-xs font-semibold">Prompt da IA</Label>
              <Textarea 
+                name="prompt"
                 placeholder="Você é um assistente... Use {{lead.name}}" 
                 className="min-h-[150px] text-sm resize-none"
-                data-field="prompt"
                 onFocus={onFocus}
-                value={selectedNode.data.prompt || ''}
+                onBlur={onBlur}
+                value={localData.prompt || ''}
                 onChange={(e) => handleUpdate({ prompt: e.target.value })}
              />
              
              <div className="space-y-2 border-t border-border pt-4">
                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Salvar Resposta Em</Label>
                <Input 
+                  name="outputField"
                   placeholder="slug_do_campo (ex: resumo)" 
-                  data-field="outputField"
                   onFocus={onFocus}
-                  value={selectedNode.data.outputField || ''}
+                  onBlur={onBlur}
+                  value={localData.outputField || ''}
                   onChange={(e) => handleUpdate({ outputField: e.target.value })}
                   className="h-8 text-xs font-mono"
                />
@@ -321,38 +364,8 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
              </div>
           </div>
         );
-    }
-  };
-
-  const injectVariable = (variable: string) => {
-    if (lastFocusedElement) {
-      const start = lastFocusedElement.selectionStart || 0;
-      const end = lastFocusedElement.selectionEnd || 0;
-      const value = lastFocusedElement.value;
-      const newValue = value.substring(0, start) + variable + value.substring(end);
-      
-      // Update element value
-      lastFocusedElement.value = newValue;
-      
-      // Trigger update logic
-      if (lastFocusedElement.name === 'nodeName') {
-        setNodeName(newValue);
-        handleUpdate({ label: newValue });
-      } else {
-        const field = lastFocusedElement.getAttribute('data-field');
-        if (field) handleUpdate({ [field]: newValue });
-      }
-      
-      // Set cursor after the inserted variable
-      setTimeout(() => {
-        lastFocusedElement.focus();
-        lastFocusedElement.setSelectionRange(start + variable.length, start + variable.length);
-      }, 0);
-      
-      toast.success(`Variável inserida!`);
-    } else {
-      navigator.clipboard.writeText(variable);
-      toast.info(`Variável ${variable} copiada! (Nenhum campo focado)`);
+      default:
+        return <p className="text-xs text-muted-foreground">Este tipo de módulo não possui configurações extras.</p>;
     }
   };
 
@@ -380,13 +393,11 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
           <div className="space-y-2">
             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Rótulo no Canvas</Label>
             <Input 
-              name="nodeName"
-              value={nodeName} 
+              name="label"
+              value={localData.label || ''} 
               onFocus={onFocus}
-              onChange={(e) => {
-                setNodeName(e.target.value);
-                handleUpdate({ label: e.target.value });
-              }}
+              onBlur={onBlur}
+              onChange={(e) => handleUpdate({ label: e.target.value })}
               placeholder="Digite um nome..."
               className="h-9 text-sm border-muted-foreground/20 focus:border-primary"
             />
@@ -396,44 +407,61 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
             {renderTypeOptions()}
           </div>
 
-          <div className="space-y-3 pt-6 border-t border-border mt-8">
-            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Variáveis Úteis</Label>
-            <div className="grid grid-cols-2 gap-2">
+          {/* Variable Inserter */}
+          <div className="mt-6 pt-4 border-t border-border">
+            <div className="flex items-center gap-2 mb-2">
+               <Variable className="w-3 h-3 text-muted-foreground" />
+               <Label className="text-[10px] uppercase font-bold text-muted-foreground block">Variáveis Dinâmicas</Label>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
               {[
-                ['Nome', '{{lead.name}}'],
-                ['Telefone', '{{lead.phone}}'],
-                ['Mensagem', '{{message}}'],
-                ['E-mail', '{{lead.email}}'],
-                ['Empresa', '{{lead.company}}'],
-                ['Campo', '{{lead.custom.slug}}'],
-              ].map(([label, variable]) => (
-                <Button
-                  key={variable}
-                  variant="outline"
-                  size="sm"
-                  className="text-[10px] h-7 px-2 justify-start border-muted-foreground/10 hover:border-primary/50 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary"
-                  onClick={() => injectVariable(variable)}
+                { label: 'Nome', val: '{{lead.name}}' },
+                { label: 'Telefone', val: '{{lead.phone}}' },
+                { label: 'Email', val: '{{lead.email}}' },
+                { label: 'Cidade', val: '{{lead.city}}' },
+                { label: 'Empresa', val: '{{lead.company}}' },
+                { label: 'Mensagem', val: '{{message}}' }
+              ].map(v => (
+                <Button 
+                  key={v.val}
+                  variant="outline" 
+                  size="sm" 
+                  className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary border-dashed"
+                  onClick={() => injectVariable(v.val)}
                 >
-                  {label}
+                  {v.label}
                 </Button>
               ))}
             </div>
-            <p className="text-[9px] text-muted-foreground italic leading-tight">
-              * Clique para inserir na posição do cursor do campo focado.
+            <p className="text-[9px] text-muted-foreground italic leading-tight mt-2">
+              * Clique para inserir no campo focado.
             </p>
           </div>
         </div>
-      </div>
-      
-      <div className="p-4 border-t border-border bg-secondary/30 shrink-0">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onDeleteNode}
-          className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs transition-colors"
-        >
-           <Trash2 className="w-3.5 h-3.5" /> Excluir Módulo
-        </Button>
+
+        <div className="mt-auto pt-6 border-t border-border space-y-3">
+          <div className="flex items-center justify-between px-1">
+             <span className="text-xs font-medium">Status do Módulo</span>
+             <Button 
+               variant={localData.status === 'active' ? 'default' : 'secondary'} 
+               size="sm" 
+               className="h-7 text-[10px] rounded-full"
+               onClick={() => {
+                 const newStatus = localData.status === 'active' ? 'disabled' : 'active';
+                 handleUpdate({ status: newStatus });
+               }}
+             >
+               {localData.status === 'active' ? 'Ligado' : 'Desligado'}
+             </Button>
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 h-9 text-xs font-semibold gap-2 transition-colors rounded-lg"
+            onClick={onDeleteNode}
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Excluir Módulo
+          </Button>
+        </div>
       </div>
     </div>
   );
