@@ -50,6 +50,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Subdomínio "master" tem acesso irrestrito — não precisa de registro no banco
+    if (subdomain === "master") {
+      setTenant({ id: "master", name: "Master", subdomain: "master", plan: "master", owner_id: null, is_active: true, created_at: "", updated_at: "" });
+      setIsLoading(false);
+      return;
+    }
+
     async function resolve() {
       // 1. Tentar resolver como organization (subdomain na tabela organizations)
       const { data: orgData } = await supabase.from("organizations")
