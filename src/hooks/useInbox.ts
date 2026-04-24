@@ -51,8 +51,8 @@ export function useInbox(onLeadCreated?: () => void) {
   const { user } = useAuth();
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-  // Use tenant_id (or client_id) for filtering conversations
-  const clientId = tenant?.id ?? user?.client_id;
+  // user.client_id is the correct tenant scope for conversations
+  const clientId = user?.client_id ?? tenant?.id;
 
   // Load conversations grouped by lead
   const loadConversations = useCallback(async () => {
@@ -151,11 +151,18 @@ export function useInbox(onLeadCreated?: () => void) {
   const loadMessages = useCallback(async (leadId: string) => {
     if (!clientId) return;
 
-    const { data: convs } = await supabase
+    let convQuery = supabase
       .from("conversations")
       .select("id, channel")
-      .eq("lead_id", leadId)
       .eq("client_id", clientId);
+
+    if (leadId === "unassigned") {
+      convQuery = convQuery.is("lead_id", null) as typeof convQuery;
+    } else {
+      convQuery = convQuery.eq("lead_id", leadId) as typeof convQuery;
+    }
+
+    const { data: convs } = await convQuery;
 
     if (!convs || convs.length === 0) {
       setMessages([]);
@@ -593,9 +600,6 @@ export function useInbox(onLeadCreated?: () => void) {
       .channel(`inbox-realtime:${clientId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
-
-        // Only process messages from this client
-        if (newMsg.client_id !== clientId) return;
 
         const { data: conv } = await supabase.from("conversations")
           .select("lead_id, channel")
