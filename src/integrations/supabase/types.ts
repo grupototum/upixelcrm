@@ -10,10 +10,88 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          id: string
+          last_used_at: string | null
+          name: string
+          token_hash: string
+          token_preview: string
+        }
+        Insert: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          name: string
+          token_hash: string
+          token_preview: string
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          token_hash?: string
+          token_preview?: string
+        }
+        Relationships: []
+      }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          tenant_id: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_rules: {
         Row: {
           actions: Json
@@ -25,6 +103,7 @@ export type Database = {
           id: string
           name: string
           pipeline_id: string | null
+          tenant_id: string | null
           trigger: Json
           updated_at: string
         }
@@ -38,6 +117,7 @@ export type Database = {
           id?: string
           name?: string
           pipeline_id?: string | null
+          tenant_id?: string | null
           trigger?: Json
           updated_at?: string
         }
@@ -51,10 +131,19 @@ export type Database = {
           id?: string
           name?: string
           pipeline_id?: string | null
+          tenant_id?: string | null
           trigger?: Json
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "automation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       automations: {
         Row: {
@@ -65,6 +154,7 @@ export type Database = {
           name: string
           nodes: Json
           status: string
+          tenant_id: string | null
           trigger_type: string | null
           updated_at: string
         }
@@ -76,6 +166,7 @@ export type Database = {
           name: string
           nodes?: Json
           status?: string
+          tenant_id?: string | null
           trigger_type?: string | null
           updated_at?: string
         }
@@ -87,48 +178,180 @@ export type Database = {
           name?: string
           nodes?: Json
           status?: string
+          tenant_id?: string | null
           trigger_type?: string | null
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canned_responses: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string
+          id: string
+          short_code: string
+          title: string
+        }
+        Insert: {
+          client_id?: string
+          content: string
+          created_at?: string
+          id?: string
+          short_code: string
+          title: string
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          short_code?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      client_credits: {
+        Row: {
+          balance: number
+          client_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          client_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          client_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      conversation_label_assignments: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          label_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          label_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          label_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_label_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_label_assignments_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_labels: {
+        Row: {
+          client_id: string
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          client_id?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          client_id?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
       conversations: {
         Row: {
+          assignee_id: string | null
           channel: string
           client_id: string
           created_at: string
+          first_reply_at: string | null
           id: string
           last_message: string | null
           last_message_at: string | null
           lead_id: string | null
           metadata: Json
+          priority: string | null
+          resolved_at: string | null
+          snoozed_until: string | null
           status: string
+          tenant_id: string | null
           unread_count: number
           updated_at: string
         }
         Insert: {
+          assignee_id?: string | null
           channel?: string
           client_id?: string
           created_at?: string
+          first_reply_at?: string | null
           id?: string
           last_message?: string | null
           last_message_at?: string | null
           lead_id?: string | null
           metadata?: Json
+          priority?: string | null
+          resolved_at?: string | null
+          snoozed_until?: string | null
           status?: string
+          tenant_id?: string | null
           unread_count?: number
           updated_at?: string
         }
         Update: {
+          assignee_id?: string | null
           channel?: string
           client_id?: string
           created_at?: string
+          first_reply_at?: string | null
           id?: string
           last_message?: string | null
           last_message_at?: string | null
           lead_id?: string | null
           metadata?: Json
+          priority?: string | null
+          resolved_at?: string | null
+          snoozed_until?: string | null
           status?: string
+          tenant_id?: string | null
           unread_count?: number
           updated_at?: string
         }
@@ -138,6 +361,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -152,6 +382,7 @@ export type Database = {
           provider: string
           refresh_token: string | null
           status: string
+          tenant_id: string | null
           token_expires_at: string | null
           updated_at: string
         }
@@ -164,6 +395,7 @@ export type Database = {
           provider: string
           refresh_token?: string | null
           status?: string
+          tenant_id?: string | null
           token_expires_at?: string | null
           updated_at?: string
         }
@@ -176,14 +408,23 @@ export type Database = {
           provider?: string
           refresh_token?: string | null
           status?: string
+          tenant_id?: string | null
           token_expires_at?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "integrations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leads: {
         Row: {
-          category: string
+          category: string | null
           city: string | null
           client_id: string
           column_id: string | null
@@ -198,11 +439,12 @@ export type Database = {
           position: string | null
           responsible_id: string | null
           tags: string[]
+          tenant_id: string | null
           updated_at: string
           value: number | null
         }
         Insert: {
-          category?: string
+          category?: string | null
           city?: string | null
           client_id?: string
           column_id?: string | null
@@ -217,11 +459,12 @@ export type Database = {
           position?: string | null
           responsible_id?: string | null
           tags?: string[]
+          tenant_id?: string | null
           updated_at?: string
           value?: number | null
         }
         Update: {
-          category?: string
+          category?: string | null
           city?: string | null
           client_id?: string
           column_id?: string | null
@@ -236,6 +479,7 @@ export type Database = {
           position?: string | null
           responsible_id?: string | null
           tags?: string[]
+          tenant_id?: string | null
           updated_at?: string
           value?: number | null
         }
@@ -247,40 +491,56 @@ export type Database = {
             referencedRelation: "pipeline_columns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leads_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       messages: {
         Row: {
           client_id: string
           content: string
+          content_type: string
           conversation_id: string
           created_at: string
           direction: string
           id: string
+          is_private: boolean
           metadata: Json
           sender_name: string | null
+          tenant_id: string | null
           type: string
         }
         Insert: {
           client_id?: string
           content?: string
+          content_type?: string
           conversation_id: string
           created_at?: string
           direction?: string
           id?: string
+          is_private?: boolean
           metadata?: Json
           sender_name?: string | null
+          tenant_id?: string | null
           type?: string
         }
         Update: {
           client_id?: string
           content?: string
+          content_type?: string
           conversation_id?: string
           created_at?: string
           direction?: string
           id?: string
+          is_private?: boolean
           metadata?: Json
           sender_name?: string | null
+          tenant_id?: string | null
           type?: string
         }
         Relationships: [
@@ -289,6 +549,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -300,6 +567,8 @@ export type Database = {
           name: string
           owner_id: string | null
           slug: string
+          subdomain: string | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -308,6 +577,8 @@ export type Database = {
           name: string
           owner_id?: string | null
           slug: string
+          subdomain?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -316,9 +587,19 @@ export type Database = {
           name?: string
           owner_id?: string | null
           slug?: string
+          subdomain?: string | null
+          tenant_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pipeline_columns: {
         Row: {
@@ -329,6 +610,7 @@ export type Database = {
           name: string
           order: number
           pipeline_id: string
+          tenant_id: string | null
         }
         Insert: {
           client_id?: string
@@ -338,6 +620,7 @@ export type Database = {
           name: string
           order?: number
           pipeline_id?: string
+          tenant_id?: string | null
         }
         Update: {
           client_id?: string
@@ -347,8 +630,17 @@ export type Database = {
           name?: string
           order?: number
           pipeline_id?: string
+          tenant_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_columns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pipelines: {
         Row: {
@@ -356,20 +648,31 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          tenant_id: string | null
         }
         Insert: {
           client_id?: string
           created_at?: string
           id?: string
           name: string
+          tenant_id?: string | null
         }
         Update: {
           client_id?: string
           created_at?: string
           id?: string
           name?: string
+          tenant_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pipelines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -382,6 +685,7 @@ export type Database = {
           name: string
           organization_id: string | null
           role: string
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -394,6 +698,7 @@ export type Database = {
           name?: string
           organization_id?: string | null
           role?: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -406,6 +711,7 @@ export type Database = {
           name?: string
           organization_id?: string | null
           role?: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -414,6 +720,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -425,6 +738,7 @@ export type Database = {
           endpoint: string
           id: string
           keys: Json
+          tenant_id: string | null
           updated_at: string
           user_agent: string | null
           user_id: string
@@ -435,6 +749,7 @@ export type Database = {
           endpoint: string
           id?: string
           keys?: Json
+          tenant_id?: string | null
           updated_at?: string
           user_agent?: string | null
           user_id: string
@@ -445,11 +760,20 @@ export type Database = {
           endpoint?: string
           id?: string
           keys?: Json
+          tenant_id?: string | null
           updated_at?: string
           user_agent?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rag_context: {
         Row: {
@@ -460,6 +784,7 @@ export type Database = {
           id: string
           query: string
           similarity_score: number
+          tenant_id: string | null
         }
         Insert: {
           agent_id?: string | null
@@ -469,6 +794,7 @@ export type Database = {
           id?: string
           query?: string
           similarity_score?: number
+          tenant_id?: string | null
         }
         Update: {
           agent_id?: string | null
@@ -478,13 +804,14 @@ export type Database = {
           id?: string
           query?: string
           similarity_score?: number
+          tenant_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "rag_context_document_id_fkey"
-            columns: ["document_id"]
+            foreignKeyName: "rag_context_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
-            referencedRelation: "rag_documents"
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -497,6 +824,7 @@ export type Database = {
           id: string
           is_global: boolean
           metadata: Json
+          tenant_id: string | null
           title: string
           type: string
           updated_at: string
@@ -508,6 +836,7 @@ export type Database = {
           id?: string
           is_global?: boolean
           metadata?: Json
+          tenant_id?: string | null
           title: string
           type?: string
           updated_at?: string
@@ -519,11 +848,20 @@ export type Database = {
           id?: string
           is_global?: boolean
           metadata?: Json
+          tenant_id?: string | null
           title?: string
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rag_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rag_embeddings: {
         Row: {
@@ -535,6 +873,7 @@ export type Database = {
           embedding: string | null
           id: string
           is_global: boolean
+          tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -546,6 +885,7 @@ export type Database = {
           embedding?: string | null
           id?: string
           is_global?: boolean
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -557,6 +897,7 @@ export type Database = {
           embedding?: string | null
           id?: string
           is_global?: boolean
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -567,7 +908,71 @@ export type Database = {
             referencedRelation: "rag_documents"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rag_embeddings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      recharge_intents: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string
+          credits_to_add: number
+          external_id: string | null
+          id: string
+          payment_link: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          client_id: string
+          created_at?: string
+          credits_to_add: number
+          external_id?: string | null
+          id?: string
+          payment_link?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string
+          credits_to_add?: number
+          external_id?: string | null
+          id?: string
+          payment_link?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permission: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission?: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
       }
       tasks: {
         Row: {
@@ -579,6 +984,7 @@ export type Database = {
           id: string
           lead_id: string | null
           status: string
+          tenant_id: string | null
           title: string
         }
         Insert: {
@@ -590,6 +996,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           status?: string
+          tenant_id?: string | null
           title: string
         }
         Update: {
@@ -601,6 +1008,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           status?: string
+          tenant_id?: string | null
           title?: string
         }
         Relationships: [
@@ -609,6 +1017,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -653,6 +1068,7 @@ export type Database = {
           created_at: string
           id: string
           lead_id: string | null
+          tenant_id: string | null
           type: string
           user_name: string | null
         }
@@ -662,6 +1078,7 @@ export type Database = {
           created_at?: string
           id?: string
           lead_id?: string | null
+          tenant_id?: string | null
           type: string
           user_name?: string | null
         }
@@ -671,6 +1088,7 @@ export type Database = {
           created_at?: string
           id?: string
           lead_id?: string | null
+          tenant_id?: string | null
           type?: string
           user_name?: string | null
         }
@@ -682,64 +1100,142 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "timeline_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      webhook_deliveries: {
+        Row: {
+          created_at: string
+          endpoint_id: string | null
+          event_type: string
+          id: string
+          payload: Json
+          response_body: string | null
+          response_status: number | null
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          endpoint_id?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          response_body?: string | null
+          response_status?: number | null
+          success: boolean
+        }
+        Update: {
+          created_at?: string
+          endpoint_id?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          response_body?: string | null
+          response_status?: number | null
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_deliveries_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_endpoints: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          description: string | null
+          events: string[]
+          id: string
+          secret: string
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          events?: string[]
+          id?: string
+          secret: string
+          url: string
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          events?: string[]
+          id?: string
+          secret?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      whatsapp_templates: {
+        Row: {
+          category: string
+          client_id: string
+          content: string
+          created_at: string
+          id: string
+          name: string
+          status: string | null
+          typebot_flow_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          client_id: string
+          content: string
+          created_at?: string
+          id?: string
+          name: string
+          status?: string | null
+          typebot_flow_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string | null
+          typebot_flow_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      admin_add_org_member: {
-        Args: { target_org_id: string; target_user_id: string }
-        Returns: undefined
-      }
-      admin_remove_org_member: {
-        Args: { target_user_id: string }
-        Returns: undefined
-      }
-      admin_set_role: {
-        Args: { new_role: string; target_user_id: string }
-        Returns: undefined
-      }
-      admin_toggle_block: {
-        Args: { block_status: boolean; target_user_id: string }
-        Returns: undefined
-      }
+      get_org_tenant_id: { Args: { org_id: string }; Returns: string }
       get_user_client_id: { Args: never; Returns: string }
+      get_user_tenant_id: { Args: never; Returns: string }
+      increment_client_credits: {
+        Args: { amount_param: number; client_id_param: string }
+        Returns: undefined
+      }
       is_master_user: { Args: never; Returns: boolean }
-      match_rag_documents: {
-        Args: {
-          match_count?: number
-          match_threshold?: number
-          p_client_id?: string
-          query_embedding: string
-        }
-        Returns: {
-          chunk_text: string
-          document_id: string
-          id: string
-          similarity: number
-        }[]
-      }
-      owner_add_org_member: {
-        Args: { target_org_id: string; target_user_id: string }
-        Returns: undefined
-      }
-      owner_remove_org_member: {
-        Args: { target_user_id: string }
-        Returns: undefined
-      }
-      supervisor_set_role: {
-        Args: { new_role: string; target_user_id: string }
-        Returns: undefined
-      }
-      supervisor_toggle_block: {
-        Args: { block_status: boolean; target_user_id: string }
-        Returns: undefined
-      }
+      is_user_blocked: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "supervisor" | "atendente" | "vendedor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -866,6 +1362,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["supervisor", "atendente", "vendedor"],
+    },
   },
 } as const

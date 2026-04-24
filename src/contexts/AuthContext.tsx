@@ -3,10 +3,12 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 
-export interface Organization {
+export interface AuthOrganization {
   id: string;
   name: string;
   slug: string;
+  subdomain?: string | null;
+  tenant_id?: string | null;
   owner_id: string | null;
 }
 
@@ -20,7 +22,7 @@ export interface AuthUser {
   client_id?: string;
   tenant_id?: string | null;
   organization_id?: string | null;
-  organization?: Organization | null;
+  organization?: AuthOrganization | null;
 }
 
 interface AuthContextType {
@@ -42,15 +44,14 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
 
   if (error || !data) return null;
 
-  let organization: Organization | null = null;
-  const orgId = (data as any).organization_id;
+  let organization: AuthOrganization | null = null;
+  const orgId = data.organization_id;
   if (orgId) {
-    const { data: orgData } = await supabase
-      .from("organizations")
+    const { data: orgData } = await supabase.from("organizations")
       .select("*")
       .eq("id", orgId)
       .single();
-    if (orgData) organization = orgData as Organization;
+    if (orgData) organization = orgData as AuthOrganization;
   }
 
   return {
@@ -61,7 +62,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
     avatar: data.avatar_url || undefined,
     is_blocked: data.is_blocked || false,
     client_id: data.client_id || data.id,
-    tenant_id: (data as any).tenant_id || null,
+    tenant_id: data.tenant_id || null,
     organization_id: orgId || null,
     organization,
   };
@@ -70,7 +71,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { tenant } = useTenant();
+  const { tenant, organization: currentOrg } = useTenant();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -112,23 +113,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, error: error.message };
 
-    // Valida se o usuário pertence ao tenant do subdomínio atual
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      await supabase.auth.signOut();
+      return { success: false, error: "Erro ao obter usuário." };
+    }
+
+    const profile = await fetchProfile(authUser.id);
+    if (!profile) {
+      await supabase.auth.signOut();
+      return { success: false, error: "Perfil não encontrado." };
+    }
+
+    // role='master' tem acesso irrestrito a todos os tenants e orgs
+    if (profile.role === "master") {
+      return { success: true };
+    }
+
+    // Validação por organization (quando subdomain resolve para uma org)
+    if (currentOrg) {
+      if (profile.organization_id !== currentOrg.id) {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: "Usuário não pertence a esta organização. Verifique o endereço de acesso.",
+        };
+      }
+      return { success: true };
+    }
+
+    // Validação por tenant (fallback quando subdomain resolve diretamente para tenant)
     if (tenant) {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        const profile = await fetchProfile(authUser.id);
-        if (!profile) {
-          await supabase.auth.signOut();
-          return { success: false, error: "Perfil não encontrado." };
-        }
-        // role='master' tem acesso irrestrito a todos os tenants
-        if (profile.role !== "master" && profile.tenant_id !== tenant.id) {
-          await supabase.auth.signOut();
-          return {
-            success: false,
-            error: "Usuário não pertence a esta empresa. Verifique o endereço de acesso.",
-          };
-        }
+      if (profile.tenant_id !== tenant.id) {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: "Usuário não pertence a esta empresa. Verifique o endereço de acesso.",
+        };
       }
     }
 
