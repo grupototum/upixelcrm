@@ -89,7 +89,7 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, supabaseKey);
     const { data: profile } = await adminClient
       .from("profiles")
-      .select("client_id, role")
+      .select("client_id, tenant_id, role")
       .eq("id", user.id)
       .single();
 
@@ -129,6 +129,7 @@ serve(async (req) => {
     for (const r of results.slice(0, 3)) {
       await adminClient.from("rag_context").insert({
         client_id: profile.client_id,
+        tenant_id: profile.tenant_id || null,
         document_id: r.documentId,
         query,
         similarity_score: r.similarity,

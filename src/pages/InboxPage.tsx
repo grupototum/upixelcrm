@@ -112,12 +112,12 @@ export default function InboxPage() { // force HMR reset
     [inbox.conversations, inbox.selectedLeadId]
   );
 
-  // Default to the first source conversation if none selected
+  // Sempre que o lead muda, reseta e define a primeira conversa como ativa
   useEffect(() => {
     if (selectedLeadGroup && selectedLeadGroup.source_conversations.length > 0) {
-      if (!activeConversationId || !selectedLeadGroup.source_conversations.some(sc => sc.id === activeConversationId)) {
-        setActiveConversationId(selectedLeadGroup.source_conversations[0].id);
-      }
+      setActiveConversationId(selectedLeadGroup.source_conversations[0].id);
+    } else {
+      setActiveConversationId(null);
     }
   }, [selectedLeadGroup?.lead_id]);
 

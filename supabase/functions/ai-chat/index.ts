@@ -79,7 +79,7 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, supabaseKey);
     const { data: profile } = await adminClient
       .from("profiles")
-      .select("client_id, role, name")
+      .select("client_id, tenant_id, role, name")
       .eq("id", user.id)
       .single();
     if (!profile) throw new Error("Profile not found");
@@ -121,6 +121,7 @@ serve(async (req) => {
         for (const r of ragDocuments.slice(0, 3)) {
           await adminClient.from("rag_context").insert({
             client_id: profile.client_id,
+            tenant_id: profile.tenant_id || null,
             document_id: r.id,
             query: userMessage,
             similarity_score: r.similarity,
