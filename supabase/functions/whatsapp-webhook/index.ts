@@ -195,12 +195,15 @@ async function downloadOfficialMedia(
 async function findOrCreateLead(
   adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>
 ): Promise<string | null> {
-  const phoneSuffix = phone.length >= 8 ? phone.slice(-8) : phone;
-  const phoneDigits = phoneSuffix.replace(/\D/g, '').split('').join('%');
+  const cleanPhone = phone.replace(/\D/g, '');
+  const phoneSuffix8 = cleanPhone.length >= 8 ? cleanPhone.slice(-8) : cleanPhone;
+  const phoneSuffix9 = cleanPhone.length >= 9 ? cleanPhone.slice(-9) : cleanPhone;
+  
+  // Try matching by suffix first (more precise)
   const { data: existingLeads } = await adminClient
-    .from("leads").select("id, created_at, tags, notes")
+    .from("leads").select("id, created_at, tags, notes, phone")
     .eq("client_id", clientId)
-    .ilike("phone", `%${phoneDigits}%`)
+    .or(`phone.ilike.%${phoneSuffix8},phone.ilike.%${phoneSuffix9}`)
     .order("created_at", { ascending: true });
 
   if (existingLeads && existingLeads.length > 0) {

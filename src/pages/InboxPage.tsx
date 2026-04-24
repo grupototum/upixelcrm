@@ -1050,7 +1050,7 @@ export default function InboxPage() { // force HMR reset
                     if (selectedLead) {
                       navigate(`/leads/${selectedLead.id}`);
                     } else {
-                      navigate(`/clients?search=${selectedLeadGroup.lead_name}`);
+                      navigate(`/crm?search=${selectedLeadGroup.lead_name}`);
                     }
                   }}
                 >

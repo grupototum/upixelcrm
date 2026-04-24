@@ -93,11 +93,20 @@ serve(async (req) => {
     // 1. Fetch automation definition
     const { data: auto, error: autoError } = await supabase
       .from("automations")
-      .select("nodes, edges")
+      .select("nodes, edges, status")
       .eq("id", automation_id)
       .single();
 
     if (autoError || !auto) throw new Error("Automation not found");
+    
+    // Check if automation is active
+    if (auto.status !== 'active' && node_id.includes('trigger')) {
+       console.log(`Automation ${automation_id} is not active (status: ${auto.status}). Skipping.`);
+       return new Response(JSON.stringify({ success: true, skipped: 'inactive' }), {
+         headers: { ...corsHeaders, "Content-Type": "application/json" },
+         status: 200,
+       });
+    }
 
     const nodes: Node[] = auto.nodes || [];
     const edges: Edge[] = auto.edges || [];
@@ -117,6 +126,32 @@ serve(async (req) => {
     const currentNode = nodes.find(n => n.id === node_id);
     if (!currentNode) throw new Error(`Node ${node_id} not found in automation`);
 
+    // Check if node itself is disabled
+    if (currentNode.data?.status === 'disabled') {
+       console.log(`Node ${node_id} is disabled. Skipping.`);
+       const outgoingEdge = edges.find(e => e.source === node_id);
+       if (outgoingEdge) {
+          // Bypass this node
+          return fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
+            },
+            body: JSON.stringify({
+              tenant_id: lead.tenant_id,
+              automation_id,
+              lead_id,
+              node_id: outgoingEdge.target,
+              context: leadContext
+            })
+          });
+       }
+       return new Response(JSON.stringify({ success: true, skipped: 'node_disabled' }), {
+         headers: { ...corsHeaders, "Content-Type": "application/json" },
+       });
+    }
+
     let nextNodeId: string | null = null;
     let outputData: any = {};
     let isWaiting = false;
@@ -129,7 +164,7 @@ serve(async (req) => {
       // For new_message trigger, check keywords if present
       if (nodeData.type === 'new_message' && nodeData.keywords) {
         const keywords = String(nodeData.keywords).split(',').map(k => k.trim().toLowerCase());
-        const message = String(leadContext.message || '').toLowerCase();
+        const message = String(leadContext.message || leadContext.last_message || '').toLowerCase();
         const matches = keywords.some(k => message.includes(k));
         
         if (!matches && keywords.length > 0) {
@@ -216,7 +251,7 @@ serve(async (req) => {
       const isSideA = rand <= sideA_pct;
       
       outputData = { picked: isSideA ? 'A' : 'B', randomValue: rand };
-      const sourceHandle = isSideA ? 'a' : 'b'; // Need to check what handles the randomizer has. Let's assume 'a' and 'b'
+      const sourceHandle = isSideA ? 'a' : 'b'; 
       const outgoingEdge = edges.find(e => e.source === node_id && e.sourceHandle === sourceHandle);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
     }
@@ -271,97 +306,80 @@ serve(async (req) => {
     }
     else if (nodeType === 'message') {
       // Send a message via whatsapp or email
-      const channel = nodeData.configType || 'whatsapp';
+      const targetChannel = nodeData.configType || 'whatsapp';
       const text = interpolate(nodeData.text || '', leadContext);
-      outputData = { channel, sent: false, textPreview: text.substring(0, 50) };
+      outputData = { channel: targetChannel, sent: false, textPreview: text.substring(0, 50) };
       
-      if (channel === 'whatsapp') {
-        // Query integration config directly
+      if (targetChannel === 'whatsapp' || targetChannel === 'whatsapp_official') {
         const clientId = lead.client_id;
         if (clientId) {
+          // Find active integration for the specified channel
           const { data: integration } = await supabase.from("integrations")
             .select("config")
             .eq("client_id", clientId)
-            .eq("provider", "whatsapp")
-            .single();
+            .eq("provider", targetChannel)
+            .eq("status", "connected")
+            .maybeSingle();
             
           if (integration && integration.config) {
             const config = integration.config;
             const cleanPhone = (lead.phone || '').replace(/\D/g, "");
             const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-            const instancePath = config.instance_name;
+            
+            if (targetChannel === 'whatsapp') {
+              // Evolution API
+              const instancePath = config.instance_name;
+              let apiUrl = config.api_url || '';
+              if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
 
-            try {
-              const sendRes = await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
-                method: "POST",
-                headers: { apikey: config.api_key, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  number: formattedPhone,
-                  text: text,
-                }),
-              });
-              if (sendRes.ok) {
-                 outputData.sent = true;
-                 
-                 // Save message to DB
-                 const { data: existingConv } = await supabase.from("conversations")
-                    .select("id")
-                    .eq("client_id", clientId)
-                    .eq("channel", "whatsapp")
-                    .eq("metadata->>phone", formattedPhone)
-                    .single();
-
-                 let convId = existingConv?.id;
-                 if (!convId) {
-                    const { data: newConv } = await supabase.from("conversations").insert({
-                      client_id: clientId,
-                      lead_id: lead.id,
-                      channel: "whatsapp",
-                      status: "open",
-                      last_message: text,
-                      last_message_at: new Date().toISOString(),
-                      metadata: { phone: formattedPhone },
-                    }).select("id").single();
-                    convId = newConv?.id;
-                 } else {
-                    await supabase.from("conversations").update({
-                      last_message: text,
-                      last_message_at: new Date().toISOString(),
-                    }).eq("id", convId);
-                 }
-
-                 if (convId) {
-                    await supabase.from("messages").insert({
-                      client_id: clientId,
-                      conversation_id: convId,
-                      content: text,
-                      type: "text",
-                      direction: "outbound",
-                      sender_name: "Automação",
-                      metadata: { channel: "whatsapp", auto_generated: true }
-                    });
-                 }
-                 
-              } else {
-                 outputData.error = `API Error: ${sendRes.status}`;
-              }
-            } catch (err: any) {
-              outputData.error = err.message;
+              try {
+                const sendRes = await fetch(`${apiUrl}/message/sendText/${instancePath}`, {
+                  method: "POST",
+                  headers: { apikey: config.api_key, "Content-Type": "application/json" },
+                  body: JSON.stringify({ number: formattedPhone, text }),
+                });
+                if (sendRes.ok) {
+                   outputData.sent = true;
+                   await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
+                } else {
+                   outputData.error = `API Error ${sendRes.status}`;
+                }
+              } catch (err: any) { outputData.error = err.message; }
+            } else {
+              // WhatsApp Official
+              const phoneNumberId = config.phone_number_id;
+              const accessToken = integration.access_token || config.access_token;
+              try {
+                const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ messaging_product: "whatsapp", to: formattedPhone, type: "text", text: { body: text } }),
+                });
+                if (sendRes.ok) {
+                  outputData.sent = true;
+                  await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
+                } else {
+                  outputData.error = `Official API Error ${sendRes.status}`;
+                }
+              } catch (err: any) { outputData.error = err.message; }
             }
           } else {
-            outputData.error = "WhatsApp integration not configured";
+            outputData.error = `Active integration for ${targetChannel} not found`;
           }
         }
+      } else if (targetChannel === 'email') {
+        // Simple SMTP or Cloud Function call for email
+        outputData.error = "Email automation not fully implemented in engine yet";
       }
       
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
     }
     else if (nodeType === 'ai_assistant') {
-      const prompt = interpolate(nodeData.prompt || '', leadContext);
+      const promptText = interpolate(nodeData.prompt || '', leadContext);
       const outputField = nodeData.outputField;
 
-      let aiResponseText = "Mock AI Response for demonstration."; // Default for local test
+      let aiResponseText = "";
 
       try {
         const openAiKey = Deno.env.get("OPENAI_API_KEY");
@@ -374,7 +392,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: 'gpt-4o-mini',
-              messages: [{ role: 'user', content: prompt }],
+              messages: [{ role: 'user', content: promptText }],
               temperature: 0.7,
               max_tokens: 500
             })
@@ -383,27 +401,25 @@ serve(async (req) => {
           if (aiRes.choices && aiRes.choices[0]) {
             aiResponseText = aiRes.choices[0].message.content.trim();
           } else {
-             outputData = { error: 'Invalid AI response' };
+             throw new Error(aiRes.error?.message || 'Invalid AI response');
           }
         } else {
-          outputData = { warning: 'OPENAI_API_KEY not configured, using mock response.' };
+          outputData.warning = 'OPENAI_API_KEY not configured';
+          aiResponseText = "[IA não configurada]";
         }
       } catch (err: any) {
-        outputData = { error: err.message };
-        aiResponseText = "Erro ao processar IA.";
+        outputData.error = err.message;
+        aiResponseText = `Erro IA: ${err.message}`;
       }
 
-      if (outputField) {
-        // Save to custom fields
-        const currentCustomFields = leadContext.custom_fields || {};
+      if (outputField && aiResponseText) {
+        const currentCustomFields = lead.custom_fields || {};
         const updatedCustomFields = { ...currentCustomFields, [outputField]: aiResponseText };
         await supabase.from("leads").update({ custom_fields: updatedCustomFields }).eq("id", lead_id);
-        
-        // Update context for next nodes
         leadContext.custom_fields = updatedCustomFields;
       }
 
-      outputData = { ...outputData, aiOutput: aiResponseText };
+      outputData.aiOutput = aiResponseText.substring(0, 100) + "...";
 
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
@@ -423,7 +439,6 @@ serve(async (req) => {
 
     // 6. Invoke Next Node (if not waiting for delay)
     if (nextNodeId && !isWaiting) {
-      // Async fire and forget to prevent blocking
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
         method: "POST",
         headers: {
@@ -437,7 +452,7 @@ serve(async (req) => {
           node_id: nextNodeId,
           context: leadContext
         })
-      }).catch(console.error);
+      }).catch(err => console.error("Async trigger error:", err));
     }
 
     return new Response(JSON.stringify({ success: true, nextNodeId, isWaiting }), {
@@ -452,3 +467,45 @@ serve(async (req) => {
     });
   }
 });
+
+async function recordOutboundMessage(supabase: any, lead: any, channel: string, text: string, phone: string) {
+  const { data: existingConv } = await supabase.from("conversations")
+    .select("id")
+    .eq("client_id", lead.client_id)
+    .eq("channel", channel)
+    .ilike("metadata->>phone", `%${phone.slice(-8)}%`)
+    .maybeSingle();
+
+  let convId = existingConv?.id;
+  if (!convId) {
+    const { data: newConv } = await supabase.from("conversations").insert({
+      client_id: lead.client_id,
+      lead_id: lead.id,
+      channel,
+      status: "open",
+      last_message: text,
+      last_message_at: new Date().toISOString(),
+      metadata: { phone },
+      tenant_id: lead.tenant_id
+    }).select("id").single();
+    convId = newConv?.id;
+  } else {
+    await supabase.from("conversations").update({
+      last_message: text,
+      last_message_at: new Date().toISOString(),
+    }).eq("id", convId);
+  }
+
+  if (convId) {
+    await supabase.from("messages").insert({
+      client_id: lead.client_id,
+      conversation_id: convId,
+      content: text,
+      type: "text",
+      direction: "outbound",
+      sender_name: "Automação",
+      tenant_id: lead.tenant_id,
+      metadata: { channel, auto_generated: true }
+    });
+  }
+}
