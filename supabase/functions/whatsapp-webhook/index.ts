@@ -307,6 +307,59 @@ function buildDisplayText(msgType: string, content: string, meta: Record<string,
   return content;
 }
 
+// Map disallowed message types to allowed ones (pre-migration constraint)
+function fallbackMessageType(type: string): string {
+  if (type === "video") return "file";
+  if (type === "sticker") return "image";
+  if (type === "document") return "file";
+  if (type === "location" || type === "contact") return "text";
+  return type;
+}
+
+// Insert conversation with fallbacks for missing columns / disallowed channels
+async function safeInsertConversation(adminClient: any, payload: any) {
+  let { data, error } = await adminClient.from("conversations").insert(payload).select("id").single();
+  if (!error) return { data, error: null };
+
+  // Fallback 1: integration_id column doesn't exist
+  if (error.message?.includes("integration_id") || error.code === "PGRST204") {
+    const { integration_id, ...rest } = payload;
+    ({ data, error } = await adminClient.from("conversations").insert(rest).select("id").single());
+    if (!error) return { data, error: null };
+  }
+
+  // Fallback 2: channel not allowed by check constraint (e.g. whatsapp_official)
+  if (error?.code === "23514" || error?.message?.includes("conversations_channel_check")) {
+    const { integration_id, ...rest } = payload;
+    const fallbackPayload = {
+      ...rest,
+      channel: "whatsapp",
+      metadata: { ...(payload.metadata || {}), original_channel: payload.channel },
+    };
+    ({ data, error } = await adminClient.from("conversations").insert(fallbackPayload).select("id").single());
+  }
+
+  return { data, error };
+}
+
+// Insert message with fallback for disallowed types
+async function safeInsertMessage(adminClient: any, payload: any) {
+  let { data, error } = await adminClient.from("messages").insert(payload);
+  if (!error) return { data, error: null };
+
+  // Fallback: type not allowed by check constraint
+  if (error?.code === "23514" || error?.message?.includes("messages_type_check")) {
+    const fallbackPayload = {
+      ...payload,
+      type: fallbackMessageType(payload.type),
+      metadata: { ...(payload.metadata || {}), original_type: payload.type },
+    };
+    ({ data, error } = await adminClient.from("messages").insert(fallbackPayload));
+  }
+
+  return { data, error };
+}
+
 // ─── Upsert conversation and insert message ───
 async function upsertConversationAndMessage(
   adminClient: any, clientId: string, phone: string, senderName: string,
@@ -316,13 +369,14 @@ async function upsertConversationAndMessage(
 ) {
   const displayText = buildDisplayText(msgType, finalContent, msgMeta);
 
-  // Look up by integration_id + phone when available; fall back to channel + phone
-  let query = adminClient.from("conversations").select("id, unread_count, status")
+  // Look up existing conversation by (client_id, channel, phone)
+  // Note: avoid filtering by integration_id - column may not exist yet
+  const { data: existingConv } = await adminClient.from("conversations")
+    .select("id, unread_count, status")
     .eq("client_id", clientId)
     .eq("channel", channel)
-    .eq("metadata->>phone", phone);
-  if (integrationId) query = query.eq("integration_id", integrationId);
-  const { data: existingConv } = await query.maybeSingle();
+    .eq("metadata->>phone", phone)
+    .maybeSingle();
 
   let convId: string;
   if (existingConv) {
@@ -333,21 +387,24 @@ async function upsertConversationAndMessage(
     }).eq("id", convId);
   } else {
     const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config);
-    const { data: newConv, error: convError } = await adminClient.from("conversations").insert({
+    const insertPayload = {
       client_id: clientId, lead_id: leadId, channel, status: "open",
       last_message: displayText, last_message_at: new Date().toISOString(), unread_count: 1,
       integration_id: integrationId ?? null,
       metadata: { phone, lead_name: senderName, priority: "medium", instance_name: config?.instance_name ?? null },
-    }).select("id").single();
+    };
+    const { data: newConv, error: convError } = await safeInsertConversation(adminClient, insertPayload);
     if (convError) { console.error("Error creating conversation:", convError); return null; }
     convId = newConv.id;
   }
 
-  await adminClient.from("messages").insert({
+  const msgPayload = {
     client_id: clientId, conversation_id: convId, content: finalContent, type: msgType,
     direction: "inbound", sender_name: senderName,
     metadata: { whatsapp_message_id: messageId, ...msgMeta },
-  });
+  };
+  const { error: msgError } = await safeInsertMessage(adminClient, msgPayload);
+  if (msgError) console.error("Error inserting message:", msgError);
 
   return convId;
 }

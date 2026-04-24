@@ -525,12 +525,12 @@ Deno.serve(async (req) => {
       const data = await res.json();
 
       let convId: string | null = null;
+      const channel = type === "official" ? "whatsapp_official" : "whatsapp";
       const { data: existingConv } = await adminClient.from("conversations")
         .select("id")
         .eq("client_id", clientId)
-        .eq("channel", type === "official" ? "whatsapp_official" : "whatsapp")
+        .eq("channel", channel)
         .eq("metadata->>phone", formattedPhone)
-        .eq("integration_id", integration.id)
         .maybeSingle();
 
       if (existingConv) {
@@ -543,17 +543,30 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
 
-        const { data: newConv } = await adminClient.from("conversations").insert({
+        const convPayload: any = {
           client_id: clientId,
           lead_id: lead?.id || null,
-          channel: type === "official" ? "whatsapp_official" : "whatsapp",
-          integration_id: integration.id,
+          channel,
           status: "open",
           last_message: message,
           last_message_at: new Date().toISOString(),
           metadata: { phone: formattedPhone, instance_name: config.instance_name },
-        }).select("id").single();
-        convId = newConv?.id || null;
+        };
+        // Try with integration_id, fall back without it (column may not exist)
+        let inserted = await adminClient.from("conversations")
+          .insert({ ...convPayload, integration_id: integration.id }).select("id").single();
+        if (inserted.error) {
+          inserted = await adminClient.from("conversations").insert(convPayload).select("id").single();
+        }
+        // Final fallback: channel constraint blocks whatsapp_official
+        if (inserted.error && channel === "whatsapp_official") {
+          inserted = await adminClient.from("conversations").insert({
+            ...convPayload,
+            channel: "whatsapp",
+            metadata: { ...convPayload.metadata, original_channel: "whatsapp_official" },
+          }).select("id").single();
+        }
+        convId = inserted.data?.id || null;
       }
 
       if (convId) {
@@ -564,7 +577,7 @@ Deno.serve(async (req) => {
           type: "text",
           direction: "outbound",
           sender_name: "Você",
-          metadata: { channel: type === "official" ? "whatsapp_official" : "whatsapp" }
+          metadata: { channel }
         });
         await adminClient.from("conversations").update({
           last_message: message,
@@ -609,12 +622,12 @@ Deno.serve(async (req) => {
       const data = await res.json();
 
       let convId: string | null = null;
+      const mediaChannel = type === "official" ? "whatsapp_official" : "whatsapp";
       const { data: existingConv } = await adminClient.from("conversations")
         .select("id")
         .eq("client_id", clientId)
-        .eq("channel", type === "official" ? "whatsapp_official" : "whatsapp")
+        .eq("channel", mediaChannel)
         .eq("metadata->>phone", formattedPhone)
-        .eq("integration_id", integration.id)
         .maybeSingle();
 
       if (existingConv) {
@@ -627,7 +640,15 @@ Deno.serve(async (req) => {
           : mediaType === "image" ? "📷 Imagem"
           : `📎 ${fileName || "Arquivo"}`;
 
-        await adminClient.from("messages").insert({
+        // Map disallowed types to allowed ones if migration not yet applied
+        const fallbackType = (t: string) => {
+          if (t === "video") return "file";
+          if (t === "sticker") return "image";
+          if (t === "document") return "file";
+          if (t === "location" || t === "contact") return "text";
+          return t;
+        };
+        const msgPayload = {
           client_id: clientId,
           conversation_id: convId,
           content: mediaUrl,
@@ -637,9 +658,17 @@ Deno.serve(async (req) => {
           metadata: {
             media_url: mediaUrl,
             filename: fileName,
-            channel: type === "official" ? "whatsapp_official" : "whatsapp"
+            channel: mediaChannel
           },
-        });
+        };
+        const insertResult = await adminClient.from("messages").insert(msgPayload);
+        if (insertResult.error?.code === "23514") {
+          await adminClient.from("messages").insert({
+            ...msgPayload,
+            type: fallbackType(mediaType || "image"),
+            metadata: { ...msgPayload.metadata, original_type: mediaType },
+          });
+        }
         await adminClient.from("conversations").update({
           last_message: displayText,
           last_message_at: new Date().toISOString(),
