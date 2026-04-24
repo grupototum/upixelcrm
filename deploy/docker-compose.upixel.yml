@@ -1,0 +1,23 @@
+# This file shows the nginx-totum service changes needed in /docker/compose/docker-compose.yml
+# Add the volumes section below to the nginx-totum service.
+#
+# Example:
+#   services:
+#     nginx-totum:
+#       image: nginx:alpine
+#       volumes:
+#         - /docker/compose/nginx.conf:/etc/nginx/nginx.conf:ro
+#         - /var/www/upixelcrm/dist:/usr/share/nginx/html:ro   # <-- ADD THIS LINE
+#       ports:
+#         - "80:80"
+#       networks:
+#         - compose_totum
+#       restart: always
+
+version: "3.8"
+
+services:
+  nginx-totum:
+    volumes:
+      - /docker/compose/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /var/www/upixelcrm/dist:/usr/share/nginx/html:ro
