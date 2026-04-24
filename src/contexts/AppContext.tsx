@@ -26,6 +26,7 @@ interface AppState {
   updateLead: (id: string, data: Partial<Lead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
   moveLead: (id: string, toColumnId: string) => Promise<void>;
+  mergeLeads: (sourceLeadId: string, targetLeadId: string) => Promise<void>;
 
   addTask: (data: Partial<Task>) => Promise<Task | null>;
   updateTask: (id: string, data: Partial<Task>) => Promise<void>;
@@ -41,6 +42,7 @@ interface AppState {
   createAutomation: (name: string) => Promise<string | null>;
   updateAutomationNodes: (id: string, nodes: Node[], edges: Edge[]) => Promise<void>;
   deleteAutomation: (id: string) => Promise<void>;
+  toggleComplexAutomation: (id: string) => Promise<void>;
   
   toggleBasicAutomation: (id: string) => Promise<void>;
   deleteBasicAutomation: (id: string) => Promise<void>;
@@ -269,6 +271,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Lead excluído");
   }, []);
 
+  const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
+    try {
+      const { error: convError } = await supabase
+        .from("conversations")
+        .update({ lead_id: targetLeadId })
+        .eq("lead_id", sourceLeadId);
+      if (convError) throw convError;
+
+      await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      await supabase.from("timeline_events").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+
+      const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);
+      if (deleteError) throw deleteError;
+
+      setLeads((prev) => prev.filter((l) => l.id !== sourceLeadId));
+      toast.success("Leads mesclados com sucesso.");
+    } catch (err: any) {
+      logger.error(err);
+      toast.error(`Erro ao mesclar leads: ${err.message}`);
+    }
+  }, []);
+
   const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
     const { error } = await supabase.from("tasks").update(data).eq("id", id);
     if (error) { logger.error(error); return; }
@@ -421,6 +445,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const toggleComplexAutomation = useCallback(async (id: string) => {
+    const auto = complexAutomations.find(a => a.id === id);
+    if (!auto) return;
+    const newStatus = auto.status === 'active' ? 'draft' : 'active';
+    
+    setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
+    
+    const { error } = await supabase.from("automations").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      logger.error(error);
+      setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: auto.status } : a));
+      toast.error("Erro ao alterar status do fluxo");
+    } else {
+      toast.success("Fluxo " + (newStatus === 'active' ? "Ativado" : "Desativado"));
+    }
+  }, [complexAutomations]);
+
   const deleteAutomation = useCallback(async (id: string) => {
     const { error } = await supabase.from("automations").delete().eq("id", id);
     if (error) { logger.error(error); toast.error("Erro ao excluir"); return; }
@@ -572,10 +613,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, updateColumn, deleteColumn, addTimelineEvent, 
-      createAutomation, updateAutomationNodes, deleteAutomation,
+      createAutomation, updateAutomationNodes, deleteAutomation, toggleComplexAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
       addGlobalTag, deleteGlobalTag,
       refreshData: fetchAll,
+      mergeLeads
     }}>
       {children}
     </AppContext.Provider>

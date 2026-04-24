@@ -114,6 +114,33 @@ export interface Tag {
   color: string;
 }
 
+export type CustomFieldType =
+  | 'text' | 'textarea' | 'number' | 'select' | 'multi_select'
+  | 'date' | 'datetime' | 'checkbox' | 'link' | 'radio';
+
+export interface CustomFieldDefinition {
+  id: string;
+  tenant_id: string;
+  name: string;
+  slug: string;
+  field_type: CustomFieldType;
+  options: Array<{ label: string; value: string }>;
+  is_required: boolean;
+  visible_pipelines: string[];
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TagMeta {
+  id: string;
+  tenant_id: string;
+  name: string;
+  color: string;
+  category: string;
+  created_at: string;
+}
+
 export interface TimelineEvent {
   id: string;
   lead_id: string;

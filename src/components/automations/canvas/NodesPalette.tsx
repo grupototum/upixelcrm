@@ -1,5 +1,5 @@
 import { DragEvent } from 'react';
-import { Play, Zap, GitBranch, Clock, Shuffle, Globe } from 'lucide-react';
+import { Play, Zap, GitBranch, Clock, Shuffle, Globe, Sparkles } from 'lucide-react';
 
 const nodeTypes = [
   { type: 'trigger', label: 'Gatilho Inicial', icon: Play, desc: 'Ponto de partida do fluxo', color: 'bg-emerald-500' },
@@ -9,6 +9,7 @@ const nodeTypes = [
   { type: 'delay', label: 'Espera (Delay)', icon: Clock, desc: 'Pausa a execução', color: 'bg-muted-foreground' },
   { type: 'randomizer', label: 'Teste A/B', icon: Shuffle, desc: 'Divide o tráfego', color: 'bg-purple-500' },
   { type: 'webhook', label: 'Webhook HTTP', icon: Globe, desc: 'Requisição externa', color: 'bg-pink-500' },
+  { type: 'ai_assistant', label: 'Assistente IA', icon: Sparkles, desc: 'Gera texto com OpenAI', color: 'bg-amber-500' },
 ];
 
 export function NodesPalette() {

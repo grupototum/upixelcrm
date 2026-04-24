@@ -9,8 +9,19 @@ import {
   Check, CheckCheck, Clock,
   File, Download, Maximize2, Activity, X,
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
-  Instagram
+  Instagram, Merge, Trash2, AlertCircle
 } from "lucide-react";
+import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -104,6 +115,8 @@ export default function InboxPage() { // force HMR reset
   };
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [createTagModalOpen, setCreateTagModalOpen] = useState(false);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -412,6 +425,14 @@ export default function InboxPage() { // force HMR reset
                     onUpdatePriority={inbox.updatePriority}
                     onAssignToAgent={inbox.assignToAgent}
                     onUpdateLabels={inbox.updateLabels}
+                    onDeleteLead={(id) => {
+                      setSelectedLead(leads.find(l => l.id === id) || null);
+                      setDeleteConfirmOpen(true);
+                    }}
+                    onMergeLeads={(conv) => {
+                      setSelectedLead(leads.find(l => l.id === conv.lead_id) || null);
+                      setMergeModalOpen(true);
+                    }}
                   />
                 </div>
               </div>
@@ -1033,18 +1054,43 @@ export default function InboxPage() { // force HMR reset
                   variant="outline" 
                   size="sm" 
                   className="w-full text-xs font-bold gap-2 h-10 rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all shadow-sm"
-                  onClick={() => navigate(`/clients?search=${selectedLeadGroup.lead_name}`)}
+                  onClick={() => {
+                    if (selectedLead) {
+                      navigate(`/leads/${selectedLead.id}`);
+                    } else {
+                      navigate(`/crm?search=${selectedLeadGroup.lead_name}`);
+                    }
+                  }}
                 >
                   <ExternalLink className="h-3.5 w-3.5" /> VER NO CRM
                 </Button>
                 
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full text-[10px] font-bold gap-1.5 h-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
+                    onClick={() => setMergeModalOpen(true)}
+                  >
+                    <Merge className="h-3 w-3" /> Mesclar
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full text-[10px] font-bold gap-1.5 h-9 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive transition-all"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                  >
+                    <Trash2 className="h-3 w-3" /> Deletar
+                  </Button>
+                </div>
+
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="w-full text-xs font-bold gap-2 h-10 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive transition-all"
+                  className="w-full text-[10px] font-medium gap-2 h-8 rounded-xl opacity-50 hover:opacity-100 transition-all"
                   onClick={() => toast.success("Conversa arquivada")}
                 >
-                  <Search className="h-3.5 w-3.5 rotate-45" /> Arquivar Chat
+                  <Search className="h-3 w-3 rotate-45" /> Arquivar Chat
                 </Button>
               </div>
             </div>
@@ -1123,6 +1169,40 @@ export default function InboxPage() { // force HMR reset
           <CreateTaskModal open={taskModalOpen} onOpenChange={setTaskModalOpen} defaultLeadId={selectedLead.id} />
           <AddTagModal open={tagModalOpen} onOpenChange={setTagModalOpen} leadId={selectedLead.id} />
           <CreateTagModal open={createTagModalOpen} onOpenChange={setCreateTagModalOpen} />
+          
+          <MergeLeadsModal 
+            open={mergeModalOpen} 
+            onOpenChange={setMergeModalOpen} 
+            sourceLead={selectedLead} 
+            onMerge={inbox.mergeLeads} 
+          />
+
+          <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+            <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-xl font-bold flex items-center gap-3 text-destructive">
+                  <div className="h-10 w-10 rounded-2xl bg-destructive/20 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                  </div>
+                  Confirmar Exclusão
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm py-2">
+                  Tem certeza que deseja excluir o perfil de **"{selectedLead.name}"**? 
+                  <br /><br />
+                  Esta ação excluirá permanentemente o lead do CRM e todas as conversas vinculadas a ele.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2">
+                <AlertDialogCancel className="rounded-xl border-none bg-secondary/50 hover:bg-secondary transition-colors">Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => inbox.deleteLead(selectedLead.id)}
+                  className="rounded-xl bg-destructive hover:bg-destructive/90 text-white shadow-lg shadow-destructive/20 px-8"
+                >
+                  Sim, Excluir Perfil
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
       {/* Media Viewer Lightbox */}

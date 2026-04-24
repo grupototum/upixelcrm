@@ -20,6 +20,8 @@ interface ConversationActionsProps {
   onUpdatePriority: (leadId: string, priority: string) => Promise<void>;
   onAssignToAgent: (leadId: string, agentId: string | null) => Promise<void>;
   onUpdateLabels: (leadId: string, labels: { id: string; name: string; color: string }[]) => Promise<void>;
+  onDeleteLead?: (leadId: string) => void;
+  onMergeLeads?: (lead: any) => void;
 }
 
 const MOCK_USERS = [
@@ -29,7 +31,10 @@ const MOCK_USERS = [
   { id: "u4", name: "Carla Operadora" },
 ];
 
-export function ConversationActions({ conversation, onRefresh, onUpdateStatus, onUpdatePriority, onAssignToAgent, onUpdateLabels }: ConversationActionsProps) {
+export function ConversationActions({ 
+  conversation, onRefresh, onUpdateStatus, onUpdatePriority, 
+  onAssignToAgent, onUpdateLabels, onDeleteLead, onMergeLeads 
+}: ConversationActionsProps) {
   return (
     <div className="flex items-center gap-2">
       <LabelSelector 
@@ -107,8 +112,19 @@ export function ConversationActions({ conversation, onRefresh, onUpdateStatus, o
           </DropdownMenuSub>
 
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="py-2 text-xs font-medium text-destructive cursor-pointer">
-            Excluir conversa
+          
+          <DropdownMenuItem 
+            onClick={() => onMergeLeads?.(conversation)}
+            className="py-2 text-xs font-medium cursor-pointer"
+          >
+            Mesclar Perfil
+          </DropdownMenuItem>
+
+          <DropdownMenuItem 
+            onClick={() => onDeleteLead?.(conversation.lead_id)}
+            className="py-2 text-xs font-medium text-destructive cursor-pointer"
+          >
+            Excluir Perfil
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
