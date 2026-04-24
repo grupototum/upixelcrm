@@ -41,6 +41,8 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
       });
 
       if (error) throw error;
+      if (data && data.error) throw new Error(data.error + (data.details ? " - " + JSON.stringify(data.details) : ""));
+      
       setPaymentData(data);
       setStep("payment");
     } catch (error: any) {

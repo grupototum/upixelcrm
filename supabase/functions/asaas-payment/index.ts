@@ -41,14 +41,14 @@ Deno.serve(async (req) => {
 
     if (!amount || amount < 5) {
       return new Response(JSON.stringify({ error: "Valor mínimo R$ 5,00" }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (!ASAAS_API_KEY) {
       return new Response(JSON.stringify({ error: "Serviço de pagamento não configurado (ASAAS_API_KEY)" }), {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       const createCustData = await createCustRes.json();
       if (!createCustRes.ok) {
         return new Response(JSON.stringify({ error: "Erro ao criar cliente no Asaas", details: createCustData }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
       asaasCustomerId = createCustData.id;
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
     if (!asaasResponse.ok) {
       console.error("Asaas Error:", asaasData);
       return new Response(JSON.stringify({ error: "Erro ao gerar pagamento no Asaas", details: asaasData }), {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
 
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
