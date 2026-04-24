@@ -114,10 +114,12 @@ export default function InboxPage() { // force HMR reset
 
   // Default to the first source conversation if none selected
   useEffect(() => {
-    if (selectedLeadGroup && !activeConversationId) {
-      setActiveConversationId(selectedLeadGroup.source_conversations[0]?.id || null);
+    if (selectedLeadGroup && selectedLeadGroup.source_conversations.length > 0) {
+      if (!activeConversationId || !selectedLeadGroup.source_conversations.some(sc => sc.id === activeConversationId)) {
+        setActiveConversationId(selectedLeadGroup.source_conversations[0].id);
+      }
     }
-  }, [selectedLeadGroup, activeConversationId]);
+  }, [selectedLeadGroup?.lead_id]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -726,7 +728,11 @@ export default function InboxPage() { // force HMR reset
                   onSendMedia={async (file, targetId) => {
                     setSending(true);
                     try {
-                      await inbox.sendWhatsAppMedia(inbox.selectedLeadId!, file, targetId);
+                      if (!inbox.selectedLeadId) {
+                        toast.error("Selecione um contato primeiro.");
+                        return;
+                      }
+                      await inbox.sendWhatsAppMedia(inbox.selectedLeadId, file, targetId);
                     } finally {
                       setSending(false);
                     }
