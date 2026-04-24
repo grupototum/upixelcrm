@@ -425,12 +425,10 @@ export default function InboxPage() { // force HMR reset
                     onUpdatePriority={inbox.updatePriority}
                     onAssignToAgent={inbox.assignToAgent}
                     onUpdateLabels={inbox.updateLabels}
-                    onDeleteLead={(id) => {
-                      setSelectedLead(leads.find(l => l.id === id) || null);
+                    onDeleteLead={() => {
                       setDeleteConfirmOpen(true);
                     }}
-                    onMergeLeads={(conv) => {
-                      setSelectedLead(leads.find(l => l.id === conv.lead_id) || null);
+                    onMergeLeads={() => {
                       setMergeModalOpen(true);
                     }}
                   />
