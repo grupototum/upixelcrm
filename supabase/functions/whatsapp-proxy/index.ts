@@ -145,11 +145,12 @@ Deno.serve(async (req) => {
     }
 
     if (action === "get-config") {
-      const { data: integration } = await supabase
+      const { data: integration } = await adminClient
         .from("integrations")
         .select("status, config")
+        .eq("client_id", clientId)
         .eq("provider", provider)
-        .single();
+        .maybeSingle();
 
       return new Response(
         JSON.stringify({
