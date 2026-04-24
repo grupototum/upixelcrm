@@ -28,26 +28,15 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
   const invokeFunction = useCallback(async (action: string, body?: Record<string, unknown>) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error("Not authenticated");
-
-    const url = `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=${action}&type=${type}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      },
-      body: body ? JSON.stringify(body) : undefined,
+    const { data, error } = await supabase.functions.invoke(`whatsapp-proxy?action=${action}&type=${type}`, {
+      body: body ? body : undefined,
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Request failed");
+    if (error) {
+      throw new Error(error.message || "Request failed");
     }
-    return res.json();
-  }, [projectId]);
+    return data;
+  }, [type]);
 
   const loadConfig = useCallback(async () => {
     try {
