@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useReactFlow, Node } from 'reactflow';
 import { TerminalSquare, Trash2, Sparkles, Zap, MessageSquare, Clock, Globe, GitBranch, Variable } from 'lucide-react';
 import { Input } from '@/components/ui/input';

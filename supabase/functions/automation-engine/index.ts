@@ -99,8 +99,9 @@ serve(async (req) => {
 
     if (autoError || !auto) throw new Error("Automation not found");
     
-    // Check if automation is active
-    if (auto.status !== 'active' && node_id.includes('trigger')) {
+    // Check if automation is active (evaluated after loading the node to use node.type)
+    const currentNodeForStatusCheck = (auto.nodes || []).find((n: Node) => n.id === node_id);
+    if (auto.status !== 'active' && currentNodeForStatusCheck?.type === 'trigger') {
        console.log(`Automation ${automation_id} is not active (status: ${auto.status}). Skipping.`);
        return new Response(JSON.stringify({ success: true, skipped: 'inactive' }), {
          headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -204,6 +205,7 @@ serve(async (req) => {
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) {
         await supabase.from("automation_queue").insert({
+          client_id: lead.client_id,
           tenant_id: lead.tenant_id,
           automation_id,
           lead_id,
@@ -315,7 +317,7 @@ serve(async (req) => {
         if (clientId) {
           // Find active integration for the specified channel
           const { data: integration } = await supabase.from("integrations")
-            .select("config")
+            .select("config, access_token")
             .eq("client_id", clientId)
             .eq("provider", targetChannel)
             .eq("status", "connected")
@@ -427,6 +429,7 @@ serve(async (req) => {
 
     // 5. Log Execution
     await supabase.from("automation_executions").insert({
+      client_id: lead.client_id,
       tenant_id: lead.tenant_id,
       automation_id,
       lead_id,
