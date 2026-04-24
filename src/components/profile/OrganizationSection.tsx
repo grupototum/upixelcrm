@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,8 @@ export function OrganizationSection() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [newOrgSubdomain, setNewOrgSubdomain] = useState("");
+  const { tenant } = useTenant();
 
   const fetchOrg = async () => {
     if (!user) return;
@@ -84,10 +87,16 @@ export function OrganizationSection() {
     setCreating(true);
     try {
       const slug = newOrgName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      const orgSubdomain = newOrgSubdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || slug;
       
-      const { data: newOrg, error } = await supabase
-        .from("organizations")
-        .insert({ name: newOrgName.trim(), slug: `${slug}-${Date.now()}`, owner_id: user.id })
+      const { data: newOrg, error } = await supabase.from("organizations")
+        .insert({
+          name: newOrgName.trim(),
+          slug: `${slug}-${Date.now()}`,
+          subdomain: orgSubdomain,
+          tenant_id: tenant?.id || null,
+          owner_id: user.id,
+        })
         .select()
         .single();
 
@@ -104,6 +113,7 @@ export function OrganizationSection() {
       toast.success("Empresa criada com sucesso!");
       setCreateOpen(false);
       setNewOrgName("");
+      setNewOrgSubdomain("");
       fetchOrg();
     } catch (e: any) {
       toast.error(e.message || "Erro ao criar empresa");
@@ -236,6 +246,17 @@ export function OrganizationSection() {
                       className="rounded-xl"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Subdomínio</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Ex: totum"
+                        value={newOrgSubdomain}
+                        onChange={(e) => setNewOrgSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                        className="rounded-xl"
+                      />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">.upixel.app</span>
+                    </div>                  </div>
                   <Button onClick={handleCreateOrg} disabled={creating || !newOrgName.trim()} className="w-full rounded-xl">
                     {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Criar Empresa
@@ -261,6 +282,9 @@ export function OrganizationSection() {
             </CardTitle>
             <CardDescription className="text-xs mt-1">
               {members.length} membro{members.length !== 1 ? "s" : ""} · Dados compartilhados entre a equipe
+              {org.subdomain && (
+                <span className="ml-2 text-primary font-medium">· {org.subdomain}.upixel.app</span>
+              )}
             </CardDescription>
           </div>
           {isOwner && (
