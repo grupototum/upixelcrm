@@ -614,7 +614,7 @@ export function useInbox(onLeadCreated?: () => void) {
           .select("lead_id, channel")
           .eq("id", newMsg.conversation_id)
           .eq("client_id", clientId)
-          .single();
+          .maybeSingle();
 
         if (conv?.lead_id === selectedLeadId) {
           setMessages(prev => [...prev, {
