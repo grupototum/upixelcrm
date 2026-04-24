@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AIAgent {
   id: string;
@@ -55,6 +57,9 @@ const DEFAULT_PROMPTS: Record<string, string> = {
 };
 
 export function AgentsTab() {
+  const { tenant } = useTenant();
+  const { user } = useAuth();
+
   const [agents, setAgents] = useState<AIAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingAgent, setEditingAgent] = useState<AIAgent | null>(null);
@@ -69,12 +74,21 @@ export function AgentsTab() {
   const [formIcon, setFormIcon] = useState("Bot");
   const [formStatus, setFormStatus] = useState<"active" | "inactive">("inactive");
 
+  // Use tenant_id (or client_id) for filtering agents
+  const clientId = tenant?.id ?? user?.client_id;
+
   const fetchAgents = useCallback(async () => {
+    if (!clientId) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.from("integrations")
         .select("*")
         .eq("provider", "ai_agent")
+        .eq("client_id", clientId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -96,7 +110,7 @@ export function AgentsTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clientId]);
 
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
@@ -139,8 +153,10 @@ export function AgentsTab() {
       };
 
       if (isNew) {
-        const { data: userData } = await supabase.auth.getUser();
-        const clientId = userData.user?.user_metadata?.client_id || "c1";
+        if (!clientId) {
+          toast.error("Não foi possível determinar o cliente. Faça login novamente.");
+          return;
+        }
 
         const { error } = await supabase.from("integrations").insert({
           client_id: clientId,

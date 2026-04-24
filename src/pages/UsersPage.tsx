@@ -145,13 +145,20 @@ export default function UsersPage() {
 
   const fetchAuditLogs = useCallback(async () => {
     setAuditLoading(true);
-    const { data, error } = await supabase.from("audit_log")
+    let query = supabase.from("audit_log")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
+
+    // Filter by tenant_id if not master user
+    if (!isMaster && currentTenantId) {
+      query = query.eq("tenant_id", currentTenantId);
+    }
+
+    const { data, error } = await query;
     if (!error && data) setAuditLogs(data as AuditLogRow[]);
     setAuditLoading(false);
-  }, []);
+  }, [isMaster, currentTenantId]);
 
   const logAudit = async (action: string, details?: Record<string, any>) => {
     try {

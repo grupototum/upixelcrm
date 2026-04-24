@@ -2,6 +2,8 @@ import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface LeadConversation {
   lead_id: string;
@@ -45,13 +47,24 @@ export function useInbox(onLeadCreated?: () => void) {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const { tenant } = useTenant();
+  const { user } = useAuth();
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+  // Use tenant_id (or client_id) for filtering conversations
+  const clientId = tenant?.id ?? user?.client_id;
 
   // Load conversations grouped by lead
   const loadConversations = useCallback(async () => {
+    if (!clientId) {
+      setLoading(false);
+      return;
+    }
+
     const { data: convs, error: convError } = await supabase
       .from("conversations")
       .select("*")
+      .eq("client_id", clientId)
       .order("last_message_at", { ascending: false });
 
     if (convError) {
@@ -132,7 +145,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
     setConversations(result);
     setLoading(false);
-  }, []);
+  }, [clientId]);
 
   // Load messages for all conversations associated with a lead
   const loadMessages = useCallback(async (leadId: string) => {
@@ -547,6 +560,7 @@ export function useInbox(onLeadCreated?: () => void) {
       channel,
       lead_id: resolvedLeadId,
       status: "open",
+      client_id: clientId,
       metadata: { phone, email, lead_name: leadName },
     }).select("id").single();
 
@@ -558,20 +572,28 @@ export function useInbox(onLeadCreated?: () => void) {
     await loadConversations();
     if (resolvedLeadId) selectLead(resolvedLeadId);
     return data?.id;
-  }, [loadConversations, findOrCreateLead, selectLead]);
+  }, [loadConversations, findOrCreateLead, selectLead, clientId]);
 
   // Initial load
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   // Realtime subscription
   useEffect(() => {
+    if (!clientId || !selectedLeadId) return;
+
     const channel = supabase
-      .channel("inbox-realtime")
+      .channel(`inbox-realtime:${clientId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
 
+        // Only process messages from this client
+        if (newMsg.client_id !== clientId) return;
+
         const { data: conv } = await supabase.from("conversations")
-          .select("lead_id, channel").eq("id", newMsg.conversation_id).single();
+          .select("lead_id, channel")
+          .eq("id", newMsg.conversation_id)
+          .eq("client_id", clientId)
+          .maybeSingle();
 
         if (conv?.lead_id === selectedLeadId) {
           setMessages(prev => [...prev, {
@@ -594,13 +616,17 @@ export function useInbox(onLeadCreated?: () => void) {
 
         loadConversations();
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, () => {
-        loadConversations();
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, async (payload) => {
+        const updatedConv = payload.new as any;
+        // Only process updates from this client
+        if (updatedConv.client_id === clientId) {
+          loadConversations();
+        }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedLeadId, loadConversations, findOrCreateLead]);
+  }, [selectedLeadId, loadConversations, findOrCreateLead, clientId]);
 
   // Delete lead and its data
   const deleteLead = useCallback(async (leadId: string) => {
