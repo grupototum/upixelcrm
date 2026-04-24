@@ -312,6 +312,17 @@ export default function LeadProfilePage() {
                   {hasPermission("lead.view_sensitive") && (
                     <EditableDataRow icon={DollarSign} label="Valor" value={lead.value ? String(lead.value) : undefined} onSave={(v) => updateLead(lead.id, { value: parseFloat(v) || 0 })} />
                   )}
+                  {(lead.utm_campaign || lead.ad_campaign_id) && (
+                    <div className="space-y-1.5 pt-2 border-t border-border/50">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Atribuição de Anúncio</p>
+                      {lead.utm_campaign && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Campanha</span><span className="text-[11px] font-medium truncate max-w-[160px]">{lead.utm_campaign}</span></div>}
+                      {lead.utm_medium && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Meio</span><span className="text-[11px] font-medium">{lead.utm_medium}</span></div>}
+                      {lead.utm_source && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Fonte</span><span className="text-[11px] font-medium">{lead.utm_source}</span></div>}
+                      {lead.utm_content && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Conteúdo</span><span className="text-[11px] font-medium truncate max-w-[160px]">{lead.utm_content}</span></div>}
+                      {lead.fbclid && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Meta Click ID</span><span className="text-[11px] font-mono text-muted-foreground truncate max-w-[120px]">{lead.fbclid.slice(0, 12)}…</span></div>}
+                      {lead.gclid && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Google Click ID</span><span className="text-[11px] font-mono text-muted-foreground truncate max-w-[120px]">{lead.gclid.slice(0, 12)}…</span></div>}
+                    </div>
+                  )}
                 </div>
                 <div className="bg-card border border-border rounded-lg p-5 space-y-3">
                   <div className="flex items-center justify-between border-b border-border pb-3 mb-3">

@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield, Loader2 } from "lucide-react";
+import { MessageCircle, Instagram, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield, Loader2, Megaphone, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ const integrations: Integration[] = [
   { id: "whatsapp", name: "WhatsApp", description: "Conecte seu WhatsApp via API Oficial (Meta) ou QR Code (Lite) para atendimento omnichannel.", icon: MessageCircle, color: "text-success", status: "disconnected", category: "channel", configRoute: "/whatsapp" },
   { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "disconnected", category: "channel", configRoute: "/instagram" },
   { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "disconnected", category: "channel", configRoute: "/google" },
+  { id: "meta_ads", name: "Meta Ads", description: "Facebook & Instagram Ads — importe campanhas, métricas reais e capture leads de formulários automaticamente.", icon: Megaphone, color: "text-blue-600", status: "disconnected", category: "channel", configRoute: "/meta-ads" },
+  { id: "google_ads", name: "Google Ads", description: "Importe campanhas e métricas reais do Google Ads para o painel de campanhas.", icon: TrendingUp, color: "text-orange-500", status: "disconnected", category: "channel", configRoute: "/google-ads" },
   { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "disconnected", color: "text-accent", category: "developer" },
   { id: "api", name: "API uPixel", description: "Acesse a API REST do uPixel para integrações personalizadas.", icon: Code, status: "disconnected", color: "text-primary", category: "developer" },
   { id: "smtp", name: "E-mail (SMTP)", description: "Configure envio de e-mails transacionais e notificações pelo sistema.", icon: Mail, status: "coming_soon", color: "text-muted-foreground", category: "email" },
