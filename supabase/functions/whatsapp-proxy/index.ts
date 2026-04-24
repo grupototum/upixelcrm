@@ -97,18 +97,20 @@ Deno.serve(async (req) => {
 
     // ── list-instances: returns all WA instances for this client ──
     if (action === "list-instances") {
-      const { data: integrations } = await adminClient
+      const { data: integrations, error: listErr } = await adminClient
         .from("integrations")
-        .select("id, status, config, instance_name, provider")
+        .select("id, status, config, provider")
         .eq("client_id", clientId)
         .in("provider", ["whatsapp", "whatsapp_official"])
         .order("created_at", { ascending: true });
+
+      if (listErr) console.error("list-instances error:", listErr);
 
       return jsonResponse(
         (integrations || []).map((row: any) => ({
           id: row.id,
           provider: row.provider,
-          instance_name: row.instance_name || (row.config as any)?.instance_name || "",
+          instance_name: (row.config as any)?.instance_name || "",
           status: row.status || "disconnected",
           api_url: (row.config as any)?.api_url || "",
           has_api_key: !!(row.config as any)?.api_key,
@@ -132,13 +134,13 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Multi-instance: find row by (client_id, provider, instance_name)
+      // Multi-instance: find row by (client_id, provider, config->instance_name)
       const { data: existing } = await adminClient
         .from("integrations")
         .select("id, config")
         .eq("client_id", clientId)
         .eq("provider", provider)
-        .eq("instance_name", instance_name)
+        .filter("config->>instance_name", "eq", instance_name)
         .maybeSingle();
 
       let finalApiKey = api_key;
@@ -165,13 +167,11 @@ Deno.serve(async (req) => {
         await adminClient.from("integrations").update({
           status: "configured",
           config: newConfig,
-          instance_name,
         }).eq("id", existing.id);
       } else {
         await adminClient.from("integrations").insert({
           client_id: clientId,
           provider,
-          instance_name,
           status: "configured",
           config: newConfig,
         });
@@ -184,22 +184,22 @@ Deno.serve(async (req) => {
 
     // ── get-config: return config for a specific instance ──
     if (action === "get-config") {
-      const query = adminClient
+      const baseQuery = adminClient
         .from("integrations")
-        .select("status, config, instance_name")
+        .select("status, config")
         .eq("client_id", clientId)
         .eq("provider", provider);
 
       const { data: integration } = instanceNameParam
-        ? await query.eq("instance_name", instanceNameParam).maybeSingle()
-        : await query.order("created_at", { ascending: true }).limit(1).maybeSingle();
+        ? await baseQuery.filter("config->>instance_name", "eq", instanceNameParam).maybeSingle()
+        : await baseQuery.order("created_at", { ascending: true }).limit(1).maybeSingle();
 
       return new Response(
         JSON.stringify({
           configured: !!integration,
           status: integration?.status || "disconnected",
           api_url: (integration?.config as any)?.api_url || "",
-          instance_name: integration?.instance_name || (integration?.config as any)?.instance_name || "",
+          instance_name: (integration?.config as any)?.instance_name || "",
           has_api_key: !!(integration?.config as any)?.api_key,
           phone_number_id: (integration?.config as any)?.phone_number_id || "",
           business_id: (integration?.config as any)?.business_id || "",
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
       .eq("provider", provider);
 
     const { data: integration } = instanceNameParam
-      ? await instanceQuery.eq("instance_name", instanceNameParam).maybeSingle()
+      ? await instanceQuery.filter("config->>instance_name", "eq", instanceNameParam).maybeSingle()
       : await instanceQuery.order("created_at", { ascending: true }).limit(1).maybeSingle();
 
     if (!integration?.config) {
