@@ -25,10 +25,15 @@ export function useWhatsAppInstances() {
       const { data, error } = await supabase.functions.invoke(
         "whatsapp-proxy?action=list-instances"
       );
-      if (error) throw new Error(error.message);
-      setInstances((data as WaInstance[]) || []);
+      if (error) {
+        console.error("Proxy error:", error);
+        throw new Error(error.message);
+      }
+      console.log("Loaded instances:", data);
+      setInstances(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error("Failed to load WA instances:", err);
+      console.error("Failed to load WA instances:", err.message || err);
+      setInstances([]);
     } finally {
       setLoading(false);
     }
