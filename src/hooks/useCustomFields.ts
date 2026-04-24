@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { CustomFieldDefinition, CustomFieldType } from "@/types";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 function slugify(text: string): string {
   return text
@@ -16,11 +18,17 @@ export function useCustomFields() {
   const [definitions, setDefinitions] = useState<CustomFieldDefinition[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { tenant } = useTenant();
+  const { user } = useAuth();
+  const clientId = tenant?.id ?? user?.client_id;
+
   const fetchDefinitions = useCallback(async () => {
+    if (!clientId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("custom_field_definitions")
       .select("*")
+      .eq("client_id", clientId)
       .order("display_order", { ascending: true });
 
     if (error) {
@@ -29,7 +37,7 @@ export function useCustomFields() {
       setDefinitions((data as unknown as CustomFieldDefinition[]) || []);
     }
     setLoading(false);
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     fetchDefinitions();
@@ -43,10 +51,12 @@ export function useCustomFields() {
       is_required?: boolean;
       visible_pipelines?: string[];
     }) => {
+      if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
       const slug = slugify(params.name);
       const { data, error } = await supabase
         .from("custom_field_definitions")
         .insert({
+          client_id: clientId,
           name: params.name,
           slug,
           field_type: params.field_type,
@@ -66,7 +76,7 @@ export function useCustomFields() {
       setDefinitions((prev) => [...prev, data as unknown as CustomFieldDefinition]);
       return data;
     },
-    [definitions.length]
+    [clientId, definitions.length]
   );
 
   const updateField = useCallback(

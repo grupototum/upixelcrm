@@ -517,6 +517,7 @@ export function useInbox(onLeadCreated?: () => void) {
       const phoneSuffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
       const { data: duplicates } = await supabase
         .from("leads").select("id")
+        .eq("client_id", clientId)
         .or(`phone.ilike.%${phoneSuffix}%`)
         .order("created_at", { ascending: true });
       if (duplicates && duplicates.length > 0) return duplicates[0].id;
@@ -524,12 +525,15 @@ export function useInbox(onLeadCreated?: () => void) {
 
     if (email) {
       const { data: byEmail } = await supabase
-        .from("leads").select("id").ilike("email", email).limit(1);
+        .from("leads").select("id")
+        .eq("client_id", clientId)
+        .ilike("email", email).limit(1);
       if (byEmail && byEmail.length > 0) return byEmail[0].id;
     }
 
     const { data: firstCol } = await supabase
       .from("pipeline_columns").select("id")
+      .eq("client_id", clientId)
       .order("order", { ascending: true }).limit(1).maybeSingle();
 
     if (!firstCol) return null;
@@ -537,6 +541,7 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadName = name || phone || email || "Lead Automático";
     const { data: newLead, error } = await supabase
       .from("leads").insert({
+        client_id: clientId,
         name: leadName,
         phone: phone || null,
         email: email || null,
@@ -548,7 +553,7 @@ export function useInbox(onLeadCreated?: () => void) {
     if (error) return null;
     if (onLeadCreated) onLeadCreated();
     return newLead?.id ?? null;
-  }, [onLeadCreated]);
+  }, [clientId, onLeadCreated]);
 
   // Create new conversation
   const createConversation = useCallback(async (

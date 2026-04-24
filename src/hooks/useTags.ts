@@ -2,16 +2,24 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { TagMeta } from "@/types";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function useTags() {
   const [tags, setTags] = useState<TagMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { tenant } = useTenant();
+  const { user } = useAuth();
+  const clientId = tenant?.id ?? user?.client_id;
+
   const fetchTags = useCallback(async () => {
+    if (!clientId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("tags")
       .select("*")
+      .eq("client_id", clientId)
       .order("name", { ascending: true });
 
     if (error) {
@@ -20,7 +28,7 @@ export function useTags() {
       setTags((data as unknown as TagMeta[]) || []);
     }
     setLoading(false);
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     fetchTags();
@@ -28,9 +36,11 @@ export function useTags() {
 
   const createTag = useCallback(
     async (params: { name: string; color?: string; category?: string }) => {
+      if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
       const { data, error } = await supabase
         .from("tags")
         .insert({
+          client_id: clientId,
           name: params.name,
           color: params.color || "#6366f1",
           category: params.category || "general",
@@ -50,7 +60,7 @@ export function useTags() {
       setTags((prev) => [...prev, data as unknown as TagMeta].sort((a, b) => a.name.localeCompare(b.name)));
       return data;
     },
-    []
+    [clientId]
   );
 
   const updateTag = useCallback(
