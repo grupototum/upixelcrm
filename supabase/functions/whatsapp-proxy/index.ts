@@ -92,7 +92,35 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
     const type = url.searchParams.get("type") || "normal";
     const provider = type === "official" ? "whatsapp_official" : "whatsapp";
+    // instance_name URL param selects a specific WhatsApp instance
+    const instanceNameParam = url.searchParams.get("instance_name") || "";
 
+    // ── list-instances: returns all WA instances for this client ──
+    if (action === "list-instances") {
+      const { data: integrations } = await adminClient
+        .from("integrations")
+        .select("id, status, config, instance_name, provider")
+        .eq("client_id", clientId)
+        .in("provider", ["whatsapp", "whatsapp_official"])
+        .order("created_at", { ascending: true });
+
+      return jsonResponse(
+        (integrations || []).map((row: any) => ({
+          id: row.id,
+          provider: row.provider,
+          instance_name: row.instance_name || (row.config as any)?.instance_name || "",
+          status: row.status || "disconnected",
+          api_url: (row.config as any)?.api_url || "",
+          has_api_key: !!(row.config as any)?.api_key,
+          phone_number_id: (row.config as any)?.phone_number_id || "",
+          business_id: (row.config as any)?.business_id || "",
+          has_access_token: !!(row.config as any)?.access_token,
+          connected_number: (row.config as any)?.connected_number || "",
+        }))
+      );
+    }
+
+    // ── save-config: create or update a specific instance ──
     if (action === "save-config") {
       const body = await req.json();
       const { api_url, instance_name, api_key, phone_number_id, business_id, access_token } = body;
@@ -104,15 +132,17 @@ Deno.serve(async (req) => {
         });
       }
 
-      // If no new api_key provided, keep existing one
+      // Multi-instance: find row by (client_id, provider, instance_name)
+      const { data: existing } = await adminClient
+        .from("integrations")
+        .select("id, config")
+        .eq("client_id", clientId)
+        .eq("provider", provider)
+        .eq("instance_name", instance_name)
+        .maybeSingle();
+
       let finalApiKey = api_key;
       if (!finalApiKey) {
-        const { data: existing } = await adminClient
-          .from("integrations")
-          .select("config")
-          .eq("client_id", clientId)
-          .eq("provider", provider)
-          .single();
         finalApiKey = (existing?.config as any)?.api_key;
         if (!finalApiKey) {
           return new Response(JSON.stringify({ error: "API Key is required" }), {
@@ -122,42 +152,54 @@ Deno.serve(async (req) => {
         }
       }
 
-      await adminClient.from("integrations").upsert(
-        {
-          client_id: clientId,
-          provider: provider,
+      const newConfig = {
+        api_url,
+        instance_name,
+        api_key: finalApiKey,
+        phone_number_id: phone_number_id ?? (existing?.config as any)?.phone_number_id,
+        business_id: business_id ?? (existing?.config as any)?.business_id,
+        access_token: access_token ?? (existing?.config as any)?.access_token,
+      };
+
+      if (existing) {
+        await adminClient.from("integrations").update({
           status: "configured",
-          config: { 
-            api_url, 
-            instance_name, 
-            api_key: finalApiKey,
-            phone_number_id,
-            business_id,
-            access_token
-          },
-        },
-        { onConflict: "client_id,provider" }
-      );
+          config: newConfig,
+          instance_name,
+        }).eq("id", existing.id);
+      } else {
+        await adminClient.from("integrations").insert({
+          client_id: clientId,
+          provider,
+          instance_name,
+          status: "configured",
+          config: newConfig,
+        });
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // ── get-config: return config for a specific instance ──
     if (action === "get-config") {
-      const { data: integration } = await adminClient
+      const query = adminClient
         .from("integrations")
-        .select("status, config")
+        .select("status, config, instance_name")
         .eq("client_id", clientId)
-        .eq("provider", provider)
-        .maybeSingle();
+        .eq("provider", provider);
+
+      const { data: integration } = instanceNameParam
+        ? await query.eq("instance_name", instanceNameParam).maybeSingle()
+        : await query.order("created_at", { ascending: true }).limit(1).maybeSingle();
 
       return new Response(
         JSON.stringify({
           configured: !!integration,
           status: integration?.status || "disconnected",
           api_url: (integration?.config as any)?.api_url || "",
-          instance_name: (integration?.config as any)?.instance_name || "",
+          instance_name: integration?.instance_name || (integration?.config as any)?.instance_name || "",
           has_api_key: !!(integration?.config as any)?.api_key,
           phone_number_id: (integration?.config as any)?.phone_number_id || "",
           business_id: (integration?.config as any)?.business_id || "",
@@ -168,24 +210,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Proxy actions to Evolution API
-    const { data: integration } = await adminClient
+    // ── Lookup integration for all remaining actions ──
+    // When instance_name param given, select that specific row; otherwise first row of this provider
+    const instanceQuery = adminClient
       .from("integrations")
       .select("*")
       .eq("client_id", clientId)
-      .eq("provider", provider)
-      .single();
+      .eq("provider", provider);
+
+    const { data: integration } = instanceNameParam
+      ? await instanceQuery.eq("instance_name", instanceNameParam).maybeSingle()
+      : await instanceQuery.order("created_at", { ascending: true }).limit(1).maybeSingle();
 
     if (!integration?.config) {
       if (action === "status") {
         return jsonResponse({ status: "disconnected", configured: false, instance: { state: "disconnected" }, reachable: false });
       }
+      if (action === "delete-instance") {
+        return jsonResponse({ success: true }); // nothing to delete
+      }
       return jsonResponse({ error: "WhatsApp not configured" }, 400);
     }
 
-    const rawConfig = integration.config as { 
-      api_url: string; 
-      instance_name: string; 
+    const rawConfig = integration.config as {
+      api_url: string;
+      instance_name: string;
       api_key: string;
       phone_number_id?: string;
       business_id?: string;
@@ -202,19 +251,38 @@ Deno.serve(async (req) => {
     const instancePath = encodeURIComponent(config.instance_name || "");
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
 
+    // Helper: update this specific integration row
+    const updateIntegration = (fields: Record<string, unknown>) =>
+      adminClient.from("integrations").update(fields).eq("id", integration.id);
+
+    // ── delete-instance: logout + delete from Evolution API + remove DB row ──
+    if (action === "delete-instance") {
+      try {
+        await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
+          method: "DELETE",
+          headers: { apikey: config.api_key },
+        });
+        await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
+          method: "DELETE",
+          headers: { apikey: config.api_key },
+        });
+      } catch { /* ignore Evolution API errors */ }
+
+      await adminClient.from("integrations").delete().eq("id", integration.id);
+      return jsonResponse({ success: true });
+    }
+
     if (action === "connect") {
       const fallbackStatus = getFallbackStatus(integration?.status, type, config);
 
       try {
         // ── Official (Cloud API) flow ──
         if (type === "official") {
-          // Check if instance already exists
           const checkRes = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
             headers: { apikey: config.api_key },
           });
 
           if (checkRes.status === 404) {
-            // Create instance with correct Evolution API v2 payload for WHATSAPP-BUSINESS
             const createRes = await fetch(`${config.api_url}/instance/create`, {
               method: "POST",
               headers: { apikey: config.api_key, "Content-Type": "application/json" },
@@ -229,8 +297,7 @@ Deno.serve(async (req) => {
             });
             const createData = await readResponseBody(createRes);
             if (!createRes.ok) {
-              await adminClient.from("integrations").update({ status: fallbackStatus })
-                .eq("client_id", clientId).eq("provider", provider);
+              await updateIntegration({ status: fallbackStatus });
               return jsonResponse({
                 connected: false,
                 instance: { state: fallbackStatus },
@@ -243,17 +310,14 @@ Deno.serve(async (req) => {
               });
             }
           } else {
-            await checkRes.text(); // consume body
+            await checkRes.text();
           }
 
-          // Cloud API connects automatically after creation — no QR needed
-          // Mark as connected directly
-          await adminClient.from("integrations").update({
+          await updateIntegration({
             status: "connected",
             config: { ...config, connected_number: config.phone_number_id || "" },
-          }).eq("client_id", clientId).eq("provider", provider);
+          });
 
-          // Set Webhook for Official
           await fetch(`${config.api_url}/webhook/set/${instancePath}`, {
             method: "POST",
             headers: { apikey: config.api_key, "Content-Type": "application/json" },
@@ -270,7 +334,7 @@ Deno.serve(async (req) => {
           return jsonResponse({ connected: true, instance: { state: "open" }, status: "connected", reachable: true });
         }
 
-        // ── Lite (Baileys) flow — unchanged ──
+        // ── Lite (Baileys) flow ──
         const checkRes = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
           headers: { apikey: config.api_key },
         });
@@ -287,8 +351,7 @@ Deno.serve(async (req) => {
           });
           const createData = await readResponseBody(createRes);
           if (!createRes.ok) {
-            await adminClient.from("integrations").update({ status: fallbackStatus })
-              .eq("client_id", clientId).eq("provider", provider);
+            await updateIntegration({ status: fallbackStatus });
             return jsonResponse({
               connected: false,
               instance: { state: fallbackStatus },
@@ -312,16 +375,15 @@ Deno.serve(async (req) => {
 
         if (payload.base64 || payload.instance?.state === "open" || payload.instance?.state === "connecting") {
           const newStatus = (payload.instance?.state === "open") ? "connected" : "connecting";
-          await adminClient.from("integrations").update({
+          await updateIntegration({
             status: newStatus,
             config: {
               ...config,
               ...(payload.instance?.owner ? { connected_number: payload.instance.owner } : {}),
             }
-          }).eq("client_id", clientId).eq("provider", provider);
+          });
         }
 
-        // Set Webhook for Lite
         await fetch(`${config.api_url}/webhook/set/${instancePath}`, {
           method: "POST",
           headers: { apikey: config.api_key, "Content-Type": "application/json" },
@@ -338,9 +400,7 @@ Deno.serve(async (req) => {
         return jsonResponse(data, res.status);
       } catch (err) {
         if (isConnectionTimeout(err)) {
-          await adminClient.from("integrations").update({ status: fallbackStatus })
-            .eq("client_id", clientId).eq("provider", provider);
-
+          await updateIntegration({ status: fallbackStatus });
           return jsonResponse({
             connected: false,
             instance: { state: fallbackStatus },
@@ -349,7 +409,6 @@ Deno.serve(async (req) => {
             error: "Evolution API is unavailable or timed out while starting the instance connection.",
           });
         }
-
         throw err;
       }
     }
@@ -370,9 +429,7 @@ Deno.serve(async (req) => {
 
           if (type === "official") {
             const configuredStatus = config.access_token ? "configured" : fallbackStatus;
-            await adminClient.from("integrations").update({ status: configuredStatus })
-              .eq("client_id", clientId).eq("provider", provider);
-
+            await updateIntegration({ status: configuredStatus });
             return jsonResponse({
               instance: { state: configuredStatus },
               status: configuredStatus,
@@ -396,13 +453,13 @@ Deno.serve(async (req) => {
         else if (state === "connecting") newStatus = "connecting";
         else if (type === "official" && config.access_token) newStatus = "configured";
 
-        await adminClient.from("integrations").update({
+        await updateIntegration({
           status: newStatus,
           config: {
             ...config,
             ...(payload.instance?.owner ? { connected_number: payload.instance.owner } : {}),
           },
-        }).eq("client_id", clientId).eq("provider", provider);
+        });
 
         return jsonResponse({ ...payload, status: newStatus, reachable: true });
       } catch (err) {
@@ -414,38 +471,30 @@ Deno.serve(async (req) => {
             error: "Evolution API is unavailable or timed out while checking the instance status.",
           });
         }
-
         throw err;
       }
     }
 
     if (action === "disconnect") {
       try {
-        // Try logout first
         const logoutRes = await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
           method: "DELETE",
           headers: { apikey: config.api_key },
         });
-        
-        // If logout fails (e.g. 404), try delete
         if (!logoutRes.ok) {
           await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
             method: "DELETE",
             headers: { apikey: config.api_key },
           });
         }
-      } catch (err) { 
+      } catch (err) {
         console.error("Error during disconnect:", err);
       }
 
-      // Always update local status to disconnected
-      await adminClient.from("integrations").update({ 
+      await updateIntegration({
         status: "disconnected",
-        config: {
-          ...config,
-          connected_number: null
-        }
-      }).eq("client_id", clientId).eq("provider", provider);
+        config: { ...config, connected_number: null }
+      });
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -462,7 +511,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Format phone: remove non-digits, ensure country code
       const cleanPhone = phone.replace(/\D/g, "");
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
@@ -476,35 +524,34 @@ Deno.serve(async (req) => {
       });
       const data = await res.json();
 
-      // Save message to DB
-      // Find or create conversation
       let convId: string | null = null;
-        const { data: existingConv } = await adminClient.from("conversations")
+      const { data: existingConv } = await adminClient.from("conversations")
         .select("id")
         .eq("client_id", clientId)
         .eq("channel", type === "official" ? "whatsapp_official" : "whatsapp")
         .eq("metadata->>phone", formattedPhone)
-        .single();
+        .eq("integration_id", integration.id)
+        .maybeSingle();
 
       if (existingConv) {
         convId = existingConv.id;
       } else {
-        // Try to find lead by phone
         const { data: lead } = await adminClient.from("leads")
           .select("id")
           .eq("client_id", clientId)
           .or(`phone.ilike.%${cleanPhone.slice(-8)}%`)
           .limit(1)
-          .single();
+          .maybeSingle();
 
         const { data: newConv } = await adminClient.from("conversations").insert({
           client_id: clientId,
           lead_id: lead?.id || null,
           channel: type === "official" ? "whatsapp_official" : "whatsapp",
+          integration_id: integration.id,
           status: "open",
           last_message: message,
           last_message_at: new Date().toISOString(),
-          metadata: { phone: formattedPhone },
+          metadata: { phone: formattedPhone, instance_name: config.instance_name },
         }).select("id").single();
         convId = newConv?.id || null;
       }
@@ -544,7 +591,6 @@ Deno.serve(async (req) => {
       const cleanPhone = phone.replace(/\D/g, "");
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
-      // Determine Evolution API endpoint based on media type
       const endpoint = "sendMedia";
       const payload: Record<string, any> = {
         number: formattedPhone,
@@ -553,7 +599,6 @@ Deno.serve(async (req) => {
         fileName: fileName || "arquivo",
         caption: caption || ""
       };
-
       if (mimetype) payload.mimetype = mimetype;
 
       const res = await fetch(`${config.api_url}/message/${endpoint}/${instancePath}`, {
@@ -563,21 +608,21 @@ Deno.serve(async (req) => {
       });
       const data = await res.json();
 
-      // Save message to DB
       let convId: string | null = null;
       const { data: existingConv } = await adminClient.from("conversations")
         .select("id")
         .eq("client_id", clientId)
         .eq("channel", type === "official" ? "whatsapp_official" : "whatsapp")
         .eq("metadata->>phone", formattedPhone)
-        .single();
+        .eq("integration_id", integration.id)
+        .maybeSingle();
 
       if (existingConv) {
         convId = existingConv.id;
       }
 
       if (convId) {
-        const displayText = mediaType === "audio" ? "🎵 Áudio" 
+        const displayText = mediaType === "audio" ? "🎵 Áudio"
           : mediaType === "video" ? "🎥 Vídeo"
           : mediaType === "image" ? "📷 Imagem"
           : `📎 ${fileName || "Arquivo"}`;
@@ -589,10 +634,10 @@ Deno.serve(async (req) => {
           type: mediaType || "image",
           direction: "outbound",
           sender_name: "Você",
-          metadata: { 
-            media_url: mediaUrl, 
-            filename: fileName, 
-            channel: type === "official" ? "whatsapp_official" : "whatsapp" 
+          metadata: {
+            media_url: mediaUrl,
+            filename: fileName,
+            channel: type === "official" ? "whatsapp_official" : "whatsapp"
           },
         });
         await adminClient.from("conversations").update({

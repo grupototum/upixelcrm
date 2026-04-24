@@ -311,12 +311,18 @@ function buildDisplayText(msgType: string, content: string, meta: Record<string,
 async function upsertConversationAndMessage(
   adminClient: any, clientId: string, phone: string, senderName: string,
   finalContent: string, msgType: string, msgMeta: Record<string, unknown>,
-  channel: string, config: Record<string, any>, messageId?: string
+  channel: string, config: Record<string, any>, messageId?: string,
+  integrationId?: string
 ) {
   const displayText = buildDisplayText(msgType, finalContent, msgMeta);
 
-  const { data: existingConv } = await adminClient.from("conversations").select("id, unread_count, status")
-    .eq("client_id", clientId).eq("channel", channel).eq("metadata->>phone", phone).maybeSingle();
+  // Look up by integration_id + phone when available; fall back to channel + phone
+  let query = adminClient.from("conversations").select("id, unread_count, status")
+    .eq("client_id", clientId)
+    .eq("channel", channel)
+    .eq("metadata->>phone", phone);
+  if (integrationId) query = query.eq("integration_id", integrationId);
+  const { data: existingConv } = await query.maybeSingle();
 
   let convId: string;
   if (existingConv) {
@@ -330,7 +336,8 @@ async function upsertConversationAndMessage(
     const { data: newConv, error: convError } = await adminClient.from("conversations").insert({
       client_id: clientId, lead_id: leadId, channel, status: "open",
       last_message: displayText, last_message_at: new Date().toISOString(), unread_count: 1,
-      metadata: { phone, lead_name: senderName, priority: "medium" },
+      integration_id: integrationId ?? null,
+      metadata: { phone, lead_name: senderName, priority: "medium", instance_name: config?.instance_name ?? null },
     }).select("id").single();
     if (convError) { console.error("Error creating conversation:", convError); return null; }
     convId = newConv.id;
@@ -355,9 +362,9 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
   const remoteJid = messageData.key?.remoteJid || "";
   if (remoteJid.endsWith("@g.us")) return { ok: true, skipped: "group_message" };
 
-  // Find integration by instance name
-  const { data: integrations } = await adminClient.from("integrations").select("client_id, config")
-    .eq("provider", "whatsapp").eq("status", "connected").limit(100);
+  // Find integration by instance name — also accept non-connected (configured) instances
+  const { data: integrations } = await adminClient.from("integrations").select("id, client_id, config")
+    .eq("provider", "whatsapp").limit(200);
 
   const match = (integrations || []).find((i: any) => (i.config as any)?.instance_name === instanceName);
   if (!match) {
@@ -366,6 +373,7 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
   }
 
   const clientId = match.client_id;
+  const integrationId = match.id as string;
   const matchConfig = (match.config || {}) as Record<string, any>;
   const phone = remoteJid.replace("@s.whatsapp.net", "");
   const senderName = messageData.pushName || phone;
@@ -382,7 +390,7 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
 
   const convId = await upsertConversationAndMessage(
     adminClient, clientId, phone, senderName, finalContent, msgType, msgMeta,
-    "whatsapp", matchConfig, messageData.key?.id
+    "whatsapp", matchConfig, messageData.key?.id, integrationId
   );
 
   // Trigger Automations
@@ -427,9 +435,9 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
 
       const phoneNumberId = value.metadata?.phone_number_id;
 
-      // Find integration by phone_number_id (accept any active status)
-      const { data: integrations } = await adminClient.from("integrations").select("client_id, config, access_token")
-        .eq("provider", "whatsapp_official").in("status", ["connected", "configured", "connecting"]).limit(100);
+      // Find integration by phone_number_id
+      const { data: integrations } = await adminClient.from("integrations").select("id, client_id, config, access_token")
+        .eq("provider", "whatsapp_official").limit(200);
 
       const match = (integrations || []).find((i: any) => (i.config as any)?.phone_number_id === phoneNumberId);
       if (!match) {
@@ -438,6 +446,7 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
       }
 
       const clientId = match.client_id;
+      const integrationId = match.id as string;
       const matchConfig = (match.config || {}) as Record<string, any>;
       const accessToken = matchConfig.access_token || match.access_token || "";
 
@@ -463,7 +472,7 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
 
         const convId = await upsertConversationAndMessage(
           adminClient, clientId, senderPhone, senderName, finalContent, msgType, msgMeta,
-          "whatsapp_official", matchConfig, msg.id
+          "whatsapp_official", matchConfig, msg.id, integrationId
         );
 
         // Trigger Automations

@@ -13,10 +13,13 @@ interface WhatsAppConfig {
   access_token?: string;
 }
 
-export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
+export function useWhatsAppIntegration(
+  type: "normal" | "official" = "normal",
+  instanceName?: string
+) {
   const [config, setConfig] = useState<WhatsAppConfig>({
     api_url: "",
-    instance_name: "",
+    instance_name: instanceName || "",
     has_api_key: false,
     status: "disconnected",
     configured: false,
@@ -25,18 +28,26 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
   const [qrData, setQrData] = useState<string | null>(null);
   const [connectedNumber, setConnectedNumber] = useState("");
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const buildParams = useCallback(
+    (action: string) => {
+      const p = new URLSearchParams({ action, type });
+      if (instanceName) p.set("instance_name", instanceName);
+      return p.toString();
+    },
+    [type, instanceName]
+  );
 
-  const invokeFunction = useCallback(async (action: string, body?: Record<string, unknown>) => {
-    const { data, error } = await supabase.functions.invoke(`whatsapp-proxy?action=${action}&type=${type}`, {
-      body: body ? body : undefined,
-    });
-
-    if (error) {
-      throw new Error(error.message || "Request failed");
-    }
-    return data;
-  }, [type]);
+  const invokeFunction = useCallback(
+    async (action: string, body?: Record<string, unknown>) => {
+      const { data, error } = await supabase.functions.invoke(
+        `whatsapp-proxy?${buildParams(action)}`,
+        { body: body ? body : undefined }
+      );
+      if (error) throw new Error(error.message || "Request failed");
+      return data;
+    },
+    [buildParams]
+  );
 
   const loadConfig = useCallback(async () => {
     try {
@@ -56,34 +67,37 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
     loadConfig();
   }, [loadConfig]);
 
-  const saveConfig = useCallback(async (
-    apiUrl: string, 
-    instanceName: string, 
-    apiKey: string,
-    phoneNumberId?: string,
-    businessId?: string,
-    accessToken?: string
-  ) => {
-    try {
-      await invokeFunction("save-config", { 
-        api_url: apiUrl, 
-        instance_name: instanceName, 
-        api_key: apiKey,
-        phone_number_id: phoneNumberId,
-        business_id: businessId,
-        access_token: accessToken
-      });
-      toast.success("Credenciais salvas com sucesso!");
-      await loadConfig();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  }, [invokeFunction, loadConfig]);
+  const saveConfig = useCallback(
+    async (
+      apiUrl: string,
+      instanceNameArg: string,
+      apiKey: string,
+      phoneNumberId?: string,
+      businessId?: string,
+      accessToken?: string
+    ) => {
+      try {
+        await invokeFunction("save-config", {
+          api_url: apiUrl,
+          instance_name: instanceNameArg,
+          api_key: apiKey,
+          phone_number_id: phoneNumberId,
+          business_id: businessId,
+          access_token: accessToken,
+        });
+        toast.success("Credenciais salvas com sucesso!");
+        await loadConfig();
+      } catch (err: any) {
+        toast.error(err.message);
+      }
+    },
+    [invokeFunction, loadConfig]
+  );
 
   const checkStatus = useCallback(async () => {
     try {
       const data = await invokeFunction("status");
-      setConfig(prev => ({ ...prev, status: data.status }));
+      setConfig((prev) => ({ ...prev, status: data.status }));
       if (data.status === "connected" && data.instance?.owner) {
         setConnectedNumber(data.instance.owner);
       }
@@ -99,7 +113,7 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
       const data = await invokeFunction("connect");
 
       if (data?.status) {
-        setConfig(prev => ({ ...prev, status: data.status }));
+        setConfig((prev) => ({ ...prev, status: data.status }));
       }
 
       if (data?.reachable === false) {
@@ -108,19 +122,17 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
       }
 
       if (type === "official") {
-        // Official: no QR code, connection is immediate
         if (data.connected || data.instance?.state === "open") {
-          setConfig(prev => ({ ...prev, status: "connected" }));
+          setConfig((prev) => ({ ...prev, status: "connected" }));
           toast.success("WhatsApp Oficial conectado!");
         }
         await checkStatus();
       } else {
-        // Lite: show QR code
         if (data.base64) {
           setQrData(data.base64);
-          setConfig(prev => ({ ...prev, status: "connecting" }));
+          setConfig((prev) => ({ ...prev, status: "connecting" }));
         } else if (data.instance?.state === "open") {
-          setConfig(prev => ({ ...prev, status: "connected" }));
+          setConfig((prev) => ({ ...prev, status: "connected" }));
         }
       }
       return data;
@@ -133,7 +145,7 @@ export function useWhatsAppIntegration(type: "normal" | "official" = "normal") {
   const disconnect = useCallback(async () => {
     try {
       await invokeFunction("disconnect");
-      setConfig(prev => ({ ...prev, status: "disconnected" }));
+      setConfig((prev) => ({ ...prev, status: "disconnected" }));
       setConnectedNumber("");
       setQrData(null);
       toast.info("WhatsApp desconectado.");
