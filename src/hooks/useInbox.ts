@@ -600,13 +600,21 @@ export function useInbox(onLeadCreated?: () => void) {
 
   // Realtime subscription
   useEffect(() => {
+    if (!clientId || !selectedLeadId) return;
+
     const channel = supabase
-      .channel("inbox-realtime")
+      .channel(`inbox-realtime:${clientId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
 
+        // Only process messages from this client
+        if (newMsg.client_id !== clientId) return;
+
         const { data: conv } = await supabase.from("conversations")
-          .select("lead_id, channel").eq("id", newMsg.conversation_id).single();
+          .select("lead_id, channel")
+          .eq("id", newMsg.conversation_id)
+          .eq("client_id", clientId)
+          .single();
 
         if (conv?.lead_id === selectedLeadId) {
           setMessages(prev => [...prev, {
@@ -629,13 +637,17 @@ export function useInbox(onLeadCreated?: () => void) {
 
         loadConversations();
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, () => {
-        loadConversations();
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, async (payload) => {
+        const updatedConv = payload.new as any;
+        // Only process updates from this client
+        if (updatedConv.client_id === clientId) {
+          loadConversations();
+        }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedLeadId, loadConversations, findOrCreateLead]);
+  }, [selectedLeadId, loadConversations, findOrCreateLead, clientId]);
 
   // Transcribe audio message
   const transcribeAudio = useCallback(async (messageId: string) => {
