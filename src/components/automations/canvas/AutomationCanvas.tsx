@@ -25,6 +25,7 @@ import { MessageNode } from './nodes/MessageNode';
 import { DelayNode } from './nodes/DelayNode';
 import { RandomizerNode } from './nodes/RandomizerNode';
 import { WebhookNode } from './nodes/WebhookNode';
+import { AIAssistantNode } from './nodes/AIAssistantNode';
 
 import { AutomationSidebar } from './AutomationSidebar';
 import { NodesPalette } from './NodesPalette';
@@ -41,6 +42,7 @@ const nodeTypes: NodeTypes = {
   delay: DelayNode,
   randomizer: RandomizerNode,
   webhook: WebhookNode,
+  ai_assistant: AIAssistantNode,
 };
 
 const initialNodes: Node[] = [
