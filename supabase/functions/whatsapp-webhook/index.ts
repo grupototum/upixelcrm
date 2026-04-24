@@ -196,9 +196,11 @@ async function findOrCreateLead(
   adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>
 ): Promise<string | null> {
   const phoneSuffix = phone.length >= 8 ? phone.slice(-8) : phone;
+  const phoneDigits = phoneSuffix.replace(/\D/g, '').split('').join('%');
   const { data: existingLeads } = await adminClient
     .from("leads").select("id, created_at, tags, notes")
-    .eq("client_id", clientId).or(`phone.ilike.%${phoneSuffix}%`)
+    .eq("client_id", clientId)
+    .ilike("phone", `%${phoneDigits}%`)
     .order("created_at", { ascending: true });
 
   if (existingLeads && existingLeads.length > 0) {
@@ -243,6 +245,9 @@ async function findOrCreateLead(
   });
   console.log("Created lead:", newLead.id);
 
+  // Trigger automation for new lead
+  triggerAutomations(adminClient, clientId, "new_lead", newLead.id, { origin: "whatsapp" });
+
   // Push notification for new lead (broadcast to all users of this client)
   sendPushNotification(adminClient, {
     title: "🆕 Novo Lead",
@@ -256,7 +261,40 @@ async function findOrCreateLead(
   return newLead.id;
 }
 
-// ─── Build display text from message type ───
+// ─── Trigger Complex Automations ───
+async function triggerAutomations(adminClient: any, clientId: string, eventType: string, leadId: string, context: any) {
+  try {
+    const { data: automations } = await adminClient.from("automations").select("*")
+      .eq("client_id", clientId).eq("status", "active");
+
+    for (const auto of automations || []) {
+      const nodes = auto.nodes || [];
+      const triggerNodes = nodes.filter((n: any) => n.type === 'trigger' && n.data?.type === eventType);
+      
+      for (const trigger of triggerNodes) {
+        console.log(`Triggering automation ${auto.id} via node ${trigger.id}`);
+        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
+          },
+          body: JSON.stringify({
+            tenant_id: auto.tenant_id,
+            automation_id: auto.id,
+            lead_id: leadId,
+            node_id: trigger.id,
+            context
+          })
+        }).catch((err: any) => console.error("Error invoking engine:", err));
+      }
+    }
+  } catch (err) {
+    console.error("Error finding automations:", err);
+  }
+}
+
+// Build display text from message type
 function buildDisplayText(msgType: string, content: string, meta: Record<string, unknown>): string {
   if (msgType === "text") return content;
   if (msgType === "audio") return "🎵 Áudio";
@@ -344,11 +382,19 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
     "whatsapp", matchConfig, messageData.key?.id
   );
 
-  // Push notification to responsible user
+  // Trigger Automations
   if (convId) {
     const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
     if (conv?.lead_id) {
-      const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
+       // Check if lead was just created (can be detected if there are no messages yet, or just always trigger new_message)
+       triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, { 
+         message: finalContent, 
+         message_type: msgType, 
+         channel: "whatsapp" 
+       });
+
+       // Push notification
+       const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
       const targetUserId = lead?.responsible_id;
       if (targetUserId) {
         sendPushNotification(adminClient, {
@@ -417,10 +463,16 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
           "whatsapp_official", matchConfig, msg.id
         );
 
-        // Push notification to responsible user
+        // Trigger Automations
         if (convId) {
           const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
           if (conv?.lead_id) {
+            triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, { 
+              message: finalContent, 
+              message_type: msgType, 
+              channel: "whatsapp_official" 
+            });
+
             const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
             const targetUserId = lead?.responsible_id;
             if (targetUserId) {

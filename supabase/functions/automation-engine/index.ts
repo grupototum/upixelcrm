@@ -126,7 +126,21 @@ serve(async (req) => {
     const nodeData = currentNode.data || {};
 
     if (nodeType === 'trigger') {
-      // Just passthrough
+      // For new_message trigger, check keywords if present
+      if (nodeData.type === 'new_message' && nodeData.keywords) {
+        const keywords = String(nodeData.keywords).split(',').map(k => k.trim().toLowerCase());
+        const message = String(leadContext.message || '').toLowerCase();
+        const matches = keywords.some(k => message.includes(k));
+        
+        if (!matches && keywords.length > 0) {
+           console.log(`Automation ${automation_id} skipped: Keywords do not match.`);
+           return new Response(JSON.stringify({ success: true, skipped: 'keywords_mismatch' }), {
+             headers: { ...corsHeaders, "Content-Type": "application/json" },
+             status: 200,
+           });
+        }
+      }
+
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
     } 
@@ -172,10 +186,11 @@ serve(async (req) => {
       let bodyStr = undefined;
       
       try {
-         bodyStr = interpolate(typeof nodeData.body === 'object' ? JSON.stringify(nodeData.body) : String(nodeData.body), leadContext);
+         const rawBody = typeof nodeData.body === 'object' ? JSON.stringify(nodeData.body) : String(nodeData.body || '');
+         bodyStr = interpolate(rawBody, leadContext);
          // attempt to parse if POST/PUT
-         if (['POST', 'PUT', 'PATCH'].includes(method)) {
-             bodyStr = JSON.stringify(JSON.parse(bodyStr)); // ensure valid json
+         if (['POST', 'PUT', 'PATCH'].includes(method) && bodyStr) {
+             try { JSON.parse(bodyStr); } catch(e) { bodyStr = JSON.stringify({ content: bodyStr }); }
          }
       } catch (e) {
          // ignore
@@ -211,13 +226,43 @@ serve(async (req) => {
       outputData = { action: actionType };
       
       if (actionType === 'add_tag') {
-        // We need a tag name or ID from nodeData
-        const tag = interpolate(nodeData.tag || '', leadContext);
-        // We'd push this to leads array or a relation table, assume custom_fields for now if tag is undefined
+        const tagToAdd = interpolate(nodeData.tag || '', leadContext);
+        if (tagToAdd) {
+          const currentTags = lead.tags || [];
+          if (!currentTags.includes(tagToAdd)) {
+            const updatedTags = [...currentTags, tagToAdd];
+            await supabase.from("leads").update({ tags: updatedTags }).eq("id", lead_id);
+            leadContext.tags = updatedTags;
+            outputData.success = true;
+            outputData.tag = tagToAdd;
+          }
+        }
       } else if (actionType === 'change_status') {
-        const newStatus = interpolate(nodeData.status || '', leadContext);
-        if (newStatus) {
-           await supabase.from("leads").update({ pipeline_id: newStatus }).eq("id", lead_id);
+        const newColId = interpolate(nodeData.status || '', leadContext);
+        if (newColId) {
+           await supabase.from("leads").update({ column_id: newColId }).eq("id", lead_id);
+           leadContext.column_id = newColId;
+           outputData.success = true;
+        }
+      } else if (actionType === 'assign_user') {
+        const userId = interpolate(nodeData.userId || '', leadContext);
+        if (userId) {
+          await supabase.from("leads").update({ responsible_id: userId }).eq("id", lead_id);
+          leadContext.responsible_id = userId;
+          outputData.success = true;
+        }
+      } else if (actionType === 'leave_note') {
+        const note = interpolate(nodeData.note || '', leadContext);
+        if (note) {
+          await supabase.from("timeline_events").insert({
+            lead_id,
+            type: 'note',
+            content: note,
+            client_id: lead.client_id,
+            tenant_id: lead.tenant_id,
+            user_name: 'Automação'
+          });
+          outputData.success = true;
         }
       }
       
