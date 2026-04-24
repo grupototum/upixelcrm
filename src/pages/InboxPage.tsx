@@ -127,10 +127,12 @@ export default function InboxPage() { // force HMR reset
 
   // Default to the first source conversation if none selected
   useEffect(() => {
-    if (selectedLeadGroup && !activeConversationId) {
-      setActiveConversationId(selectedLeadGroup.source_conversations[0]?.id || null);
+    if (selectedLeadGroup && selectedLeadGroup.source_conversations.length > 0) {
+      if (!activeConversationId || !selectedLeadGroup.source_conversations.some(sc => sc.id === activeConversationId)) {
+        setActiveConversationId(selectedLeadGroup.source_conversations[0].id);
+      }
     }
-  }, [selectedLeadGroup, activeConversationId]);
+  }, [selectedLeadGroup?.lead_id]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -734,47 +736,53 @@ export default function InboxPage() { // force HMR reset
                 )}
               </div>
 
-              <ReplyBox
-                onSend={async (text, isPrivate, targetId) => {
-                  setSending(true);
-                  try {
-                    await inbox.sendMessage(text, targetId, isPrivate);
-                  } finally {
-                    setSending(false);
-                  }
-                }}
-                onSendMedia={async (file, targetId) => {
-                  setSending(true);
-                  try {
-                    await inbox.sendWhatsAppMedia(inbox.selectedLeadId!, file, targetId);
-                  } finally {
-                    setSending(false);
-                  }
-                }}
-                sending={sending}
-                sourceConversations={selectedLeadGroup.source_conversations}
-                activeConversationId={activeConversationId || undefined}
-                setActiveConversationId={id => setActiveConversationId(id)}
-                leadName={selectedLeadGroup.lead_name}
-                leadPhone={selectedLeadGroup.lead_phone}
-                leadEmail={selectedLeadGroup.lead_email}
-                onAddChannel={async (channel) => {
-                  const phone = selectedLeadGroup.lead_phone || "";
-                  const email = selectedLeadGroup.lead_email || "";
-                  const name = selectedLeadGroup.lead_name || "";
-                  const newId = await inbox.createConversation(
-                    channel, 
-                    selectedLeadGroup.lead_id, 
-                    phone, 
-                    email, 
-                    name
-                  );
-                  if (newId) {
-                    setActiveConversationId(newId);
-                    toast.success(`Canal ${channelLabels[channel] || channel} adicionado!`);
-                  }
-                }}
-              />
+              {selectedLeadGroup && (
+                <ReplyBox
+                  onSend={async (text, isPrivate, targetId) => {
+                    setSending(true);
+                    try {
+                      await inbox.sendMessage(text, targetId, isPrivate);
+                    } finally {
+                      setSending(false);
+                    }
+                  }}
+                  onSendMedia={async (file, targetId) => {
+                    setSending(true);
+                    try {
+                      if (!inbox.selectedLeadId) {
+                        toast.error("Selecione um contato primeiro.");
+                        return;
+                      }
+                      await inbox.sendWhatsAppMedia(inbox.selectedLeadId, file, targetId);
+                    } finally {
+                      setSending(false);
+                    }
+                  }}
+                  sending={sending}
+                  sourceConversations={selectedLeadGroup.source_conversations || []}
+                  activeConversationId={activeConversationId || undefined}
+                  setActiveConversationId={id => setActiveConversationId(id)}
+                  leadName={selectedLeadGroup.lead_name}
+                  leadPhone={selectedLeadGroup.lead_phone}
+                  leadEmail={selectedLeadGroup.lead_email}
+                  onAddChannel={async (channel) => {
+                    const phone = selectedLeadGroup.lead_phone || "";
+                    const email = selectedLeadGroup.lead_email || "";
+                    const name = selectedLeadGroup.lead_name || "";
+                    const newId = await inbox.createConversation(
+                      channel,
+                      selectedLeadGroup.lead_id,
+                      phone,
+                      email,
+                      name
+                    );
+                    if (newId) {
+                      setActiveConversationId(newId);
+                      toast.success(`Canal ${channelLabels[channel] || channel} adicionado!`);
+                    }
+                  }}
+                />
+              )}
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">

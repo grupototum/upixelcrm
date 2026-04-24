@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateDocumentEmbeddings } from "@/services/embeddingService";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RagDoc {
   id: string;
@@ -27,6 +29,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export function KnowledgeBaseTab() {
+  const { tenant } = useTenant();
+  const { user } = useAuth();
+
   const [documents, setDocuments] = useState<RagDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -35,11 +40,20 @@ export function KnowledgeBaseTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Use tenant_id (or client_id) for filtering documents
+  const clientId = tenant?.id ?? user?.client_id;
+
   const fetchDocuments = useCallback(async () => {
+    if (!clientId) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const { data, error } = await supabase
       .from("rag_documents")
       .select("id, title, content, type, created_at, is_global")
+      .eq("client_id", clientId)
       .order("created_at", { ascending: false });
     if (error) {
       logger.error(error);
@@ -47,7 +61,7 @@ export function KnowledgeBaseTab() {
       setDocuments(data || []);
     }
     setLoading(false);
-  }, []);
+  }, [clientId]);
 
   useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
@@ -99,8 +113,9 @@ export function KnowledgeBaseTab() {
         content = `[Arquivo carregado: ${file.name}]\nURL: ${urlData.publicUrl}\n\n[O conteúdo deste arquivo pode ser extraído manualmente ou via processamento futuro. Copie e cole o conteúdo do documento aqui para gerar embeddings de alta qualidade.]`;
       }
 
-      // Insert into rag_documents
+      // Insert into rag_documents with tenant isolation
       const { error: insertError } = await supabase.from("rag_documents").insert({
+        client_id: clientId,
         title: file.name.replace(/\.[^.]+$/, ""),
         content: content.slice(0, 50000), // Limit to 50k chars
         type: "uploaded_file",

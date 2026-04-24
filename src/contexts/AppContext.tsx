@@ -403,12 +403,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const createAutomation = useCallback(async (name: string): Promise<string | null> => {
-    // client_id é gerenciado pelo trigger do Supabase RLS ou é optional.
+    const clientId = tenant?.id ?? user?.client_id;
+    if (!clientId) {
+      toast.error("Sessão inválida. Faça login novamente.");
+      return null;
+    }
+
     const { data: row, error } = await supabase.from("automations").insert({
+      client_id: clientId,
       name,
       status: "draft",
       nodes: [],
-      edges: []
+      edges: [],
+      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar fluxo"); return null; }
@@ -418,7 +425,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return newAuto.id;
     }
     return null;
-  }, []);
+  }, [tenant, user?.client_id]);
 
   const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
@@ -505,7 +512,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (error) { logger.error(error); toast.error("Erro ao criar automação"); return; }
     if (row) setAutomations(prev => [mapAutomationRule(row), ...prev]);
     toast.success("Automação criada!");
-  }, [currentPipelineId, user?.client_id]);
+  }, [currentPipelineId, user?.client_id, tenant]);
 
   const updateBasicAutomation = useCallback(async (id: string, data: Partial<Automation>) => {
     const updateData: any = {};
