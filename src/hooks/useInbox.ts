@@ -149,10 +149,13 @@ export function useInbox(onLeadCreated?: () => void) {
 
   // Load messages for all conversations associated with a lead
   const loadMessages = useCallback(async (leadId: string) => {
+    if (!clientId) return;
+
     const { data: convs } = await supabase
       .from("conversations")
       .select("id, channel")
-      .eq("lead_id", leadId);
+      .eq("lead_id", leadId)
+      .eq("client_id", clientId);
 
     if (!convs || convs.length === 0) {
       setMessages([]);
@@ -203,7 +206,7 @@ export function useInbox(onLeadCreated?: () => void) {
     setConversations(prev =>
       prev.map(c => c.lead_id === leadId ? { ...c, unread_count: 0 } : c)
     );
-  }, []);
+  }, [clientId]);
 
   const selectLead = useCallback((id: string) => {
     setSelectedLeadId(id);

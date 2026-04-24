@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, Smile, Paperclip as AttachIcon, Shield, ChevronDown, Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,15 +51,7 @@ export function ReplyBox({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Inicializa activeConversationId se não estiver definido
-  useEffect(() => {
-    if (sourceConversations.length > 0 && !activeConversationId) {
-      setActiveConversationId(sourceConversations[0].id);
-    }
-  }, [sourceConversations.length, activeConversationId, setActiveConversationId]);
 
-  // Ensure we have a valid active conversation
-  const hasValidActive = activeConversationId && sourceConversations.some(sc => sc.id === activeConversationId);
   const activeSource = sourceConversations.find(sc => sc.id === activeConversationId);
   const firstConversation = sourceConversations.length > 0 ? sourceConversations[0] : null;
   const activeChannel = activeSource?.channel || firstConversation?.channel || "whatsapp";

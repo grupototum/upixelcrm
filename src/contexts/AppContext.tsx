@@ -124,7 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPipelineId, tenant, user?.client_id, isMasterView]);
+  }, [currentPipelineId, tenant?.id, user?.client_id, isMasterView]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -401,7 +401,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return newAuto.id;
     }
     return null;
-  }, [tenant, user?.client_id]);
+  }, [tenant?.id, user?.client_id]);
 
   const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
@@ -471,7 +471,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (error) { logger.error(error); toast.error("Erro ao criar automação"); return; }
     if (row) setAutomations(prev => [mapAutomationRule(row), ...prev]);
     toast.success("Automação criada!");
-  }, [currentPipelineId, user?.client_id, tenant]);
+  }, [currentPipelineId, user?.client_id, tenant?.id]);
 
   const updateBasicAutomation = useCallback(async (id: string, data: Partial<Automation>) => {
     const updateData: any = {};
