@@ -177,10 +177,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (!integration?.config) {
-      return new Response(JSON.stringify({ error: "WhatsApp not configured" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (action === "status") {
+        return jsonResponse({ status: "disconnected", configured: false, instance: { state: "disconnected" }, reachable: false });
+      }
+      return jsonResponse({ error: "WhatsApp not configured" }, 400);
     }
 
     const rawConfig = integration.config as { 
