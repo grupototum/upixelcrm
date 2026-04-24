@@ -80,8 +80,8 @@ export default function WhatsAppPage() {
   useEffect(() => {
     const interval = setInterval(async () => {
       if (!qrModalOpen) {
-        await waNormal.checkStatus();
-        await waOfficial.checkStatus();
+        if (waNormal.config.configured) await waNormal.checkStatus();
+        if (waOfficial.config.configured) await waOfficial.checkStatus();
       }
     }, 10000);
     return () => clearInterval(interval);
