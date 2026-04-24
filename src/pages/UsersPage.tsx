@@ -107,7 +107,7 @@ export default function UsersPage() {
     setLoading(true);
     
     // Default queries
-    let profilesQuery = supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    const profilesQuery = supabase.from("profiles").select("*").order("created_at", { ascending: false });
     
     const [profilesRes, orgsRes] = await Promise.all([
       profilesQuery,
