@@ -23,7 +23,7 @@ const navItems = [
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Automações", url: "/automations", icon: Zap },
   { title: "Inteligência", url: "/intelligence", icon: Brain },
-  { title: "Alexandria", url: "/alexandria/rag", icon: BookOpen },
+  { title: "Biblioteca", url: "/alexandria/rag", icon: BookOpen },
   { title: "Campanhas", url: "/campaigns", icon: Megaphone },
   { title: "Relatórios", url: "/reports", icon: BarChart3 },
   { title: "Google", url: "/google", icon: Globe },
