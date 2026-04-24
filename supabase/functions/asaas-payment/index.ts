@@ -53,9 +53,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 1. Create a customer in Asaas (or find existing)
-    // For simplicity, we create a one-off payment without linking to a specific asaas customer ID first, 
-    // or we can just send the customer data in the payment request.
+    // 1. Create or Find Customer in Asaas
+    let asaasCustomerId = null;
+    const searchRes = await fetch(`${ASAAS_API_URL}/customers?email=${encodeURIComponent(profile.email)}`, {
+      headers: { "access_token": ASAAS_API_KEY }
+    });
+    const searchData = await searchRes.json();
+    
+    if (searchData?.data?.length > 0) {
+      asaasCustomerId = searchData.data[0].id;
+    } else {
+      const createCustRes = await fetch(`${ASAAS_API_URL}/customers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "access_token": ASAAS_API_KEY },
+        body: JSON.stringify({
+          name: profile.name || "Cliente Upixel",
+          email: profile.email,
+          externalReference: profile.client_id,
+        })
+      });
+      const createCustData = await createCustRes.json();
+      if (!createCustRes.ok) {
+        return new Response(JSON.stringify({ error: "Erro ao criar cliente no Asaas", details: createCustData }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      asaasCustomerId = createCustData.id;
+    }
     
     // 2. Create Payment in Asaas (Pix)
     const asaasResponse = await fetch(`${ASAAS_API_URL}/payments`, {
@@ -65,9 +89,8 @@ Deno.serve(async (req) => {
         "access_token": ASAAS_API_KEY,
       },
       body: JSON.stringify({
+        customer: asaasCustomerId,
         billingType: "PIX",
-        name: profile.name,
-        email: profile.email,
         value: amount,
         dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString().split('T')[0], // 24h from now
         description: `Recarga de ${creditsToIndicate} créditos - Upixel CRM`,
