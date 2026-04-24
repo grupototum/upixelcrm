@@ -34,3 +34,9 @@ migration-dump/
 # Agent Skills e configs locais do AI Assistant
 .agents/
 supabase/.temp/
+
+# Debug/env files
+.env.debug
+.env.local
+debug-*.mjs
+
