@@ -51,8 +51,11 @@ export function ReplyBox({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Ensure we have a valid active conversation
+  const hasValidActive = activeConversationId && sourceConversations.some(sc => sc.id === activeConversationId);
   const activeSource = sourceConversations.find(sc => sc.id === activeConversationId);
-  const activeChannel = activeSource?.channel || sourceConversations[0]?.channel || "whatsapp";
+  const firstConversation = sourceConversations.length > 0 ? sourceConversations[0] : null;
+  const activeChannel = activeSource?.channel || firstConversation?.channel || "whatsapp";
   const activeConfig = channelConfig[activeChannel] || channelConfig.whatsapp;
   const ActiveIcon = activeConfig.icon;
 
@@ -92,6 +95,11 @@ export function ReplyBox({
   };
 
   const handleSend = async () => {
+    if (!message.trim()) return;
+    if (!isPrivate && !activeConversationId) {
+      toast.error("Selecione um canal para enviar a mensagem.");
+      return;
+    }
     await onSend(message, isPrivate, activeConversationId);
     setMessage("");
     setShowCannedPicker(false);
@@ -103,10 +111,20 @@ export function ReplyBox({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      await onSendMedia(file, activeConversationId);
+    if (!file) return;
+
+    if (!activeConversationId) {
+      toast.error("Selecione um canal para enviar a mídia.");
+      return;
     }
-    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    try {
+      await onSendMedia(file, activeConversationId);
+    } catch (err) {
+      toast.error("Erro ao enviar mídia. Tente novamente.");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleAddChannel = async (channel: string) => {
