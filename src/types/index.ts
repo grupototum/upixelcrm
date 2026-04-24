@@ -144,7 +144,7 @@ export interface TagMeta {
 export interface TimelineEvent {
   id: string;
   lead_id: string;
-  type: "message" | "stage_change" | "note" | "task" | "automation" | "call";
+  type: "message" | "stage_change" | "note" | "task" | "automation" | "call" | "field_changed";
   content: string;
   created_at: string;
   user_name?: string;

@@ -130,6 +130,16 @@ export default function CRMPage() {
       const max = parseFloat(crmFilters.maxValue);
       result = result.filter((l) => (l.value ?? 0) <= max);
     }
+    const cfEntries = Object.entries(crmFilters.customFields ?? {}).filter(([, v]) => v.trim());
+    if (cfEntries.length > 0) {
+      result = result.filter((l) =>
+        cfEntries.every(([slug, val]) =>
+          String((l.custom_fields as Record<string, unknown>)?.[slug] ?? "")
+            .toLowerCase()
+            .includes(val.toLowerCase())
+        )
+      );
+    }
     return result;
   }, [leads, searchQuery, crmFilters]);
 

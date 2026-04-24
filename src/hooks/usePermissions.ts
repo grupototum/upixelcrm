@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useAuth, type AuthUser } from "@/contexts/AuthContext";
+import type { Lead } from "@/types";
 
 // Permission matrix: which roles can do what
 const PERMISSION_MATRIX: Record<string, AuthUser["role"][]> = {
@@ -9,6 +10,10 @@ const PERMISSION_MATRIX: Record<string, AuthUser["role"][]> = {
   "crm.delete": ["supervisor"],
   "crm.export": ["supervisor", "vendedor"],
   "crm.transfer": ["supervisor"],
+
+  // Lead sensitive data (financial fields, value)
+  "lead.view_sensitive": ["supervisor"],
+  "lead.change_category": ["supervisor"],
 
   // Inbox
   "inbox.view": ["supervisor", "atendente", "vendedor"],
@@ -60,7 +65,6 @@ export function usePermissions() {
 
     const hasPermission = (permission: string): boolean => {
       if (!role) return false;
-      // Master has access to everything
       if (role === "master") return true;
       const allowed = PERMISSION_MATRIX[permission];
       return allowed ? allowed.includes(role) : false;
@@ -75,7 +79,22 @@ export function usePermissions() {
       return hasPermission(permission);
     };
 
-    return { hasPermission, canAccessModule, role };
+    /**
+     * Returns true if the current user may edit fields on a lead
+     * with the given category.
+     * - collaborator leads: only supervisor/master can edit
+     * - partner leads: supervisor/master/vendedor can edit
+     * - regular leads: anyone with crm.edit
+     */
+    const canEditLeadCategory = (category: Lead["category"]): boolean => {
+      if (!role) return false;
+      if (role === "master" || role === "supervisor") return true;
+      if (category === "collaborator") return false;
+      if (category === "partner") return role === "vendedor";
+      return hasPermission("crm.edit");
+    };
+
+    return { hasPermission, canAccessModule, canEditLeadCategory, role };
   }, [user]);
 }
 
