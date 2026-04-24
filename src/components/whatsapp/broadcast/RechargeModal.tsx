@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,18 +30,27 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
   const [loading, setLoading] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [cpfCnpj, setCpfCnpj] = useState("");
 
   const handleGeneratePayment = async () => {
+    if (!cpfCnpj || cpfCnpj.replace(/\D/g, '').length < 11) {
+      toast.error("Informe um CPF ou CNPJ válido para gerar a cobrança.");
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("asaas-payment", {
         body: { 
           amount: selectedPack.amount, 
-          creditsToIndicate: selectedPack.credits 
+          creditsToIndicate: selectedPack.credits,
+          cpfCnpj: cpfCnpj.replace(/\D/g, '')
         }
       });
 
       if (error) throw error;
+      if (data && data.error) throw new Error(data.error + (data.details ? " - " + JSON.stringify(data.details) : ""));
+      
       setPaymentData(data);
       setStep("payment");
     } catch (error: any) {
@@ -60,10 +70,8 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
     }
   };
 
-  // Simulation: Check for payment success (Polling or just a manual check button)
   const checkPayment = async () => {
     toast.info("Verificando pagamento...");
-    // Ideally, polling or real-time subscription to recharge_intents
   };
 
   return (
@@ -110,10 +118,21 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
                 ))}
               </div>
 
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="cpfCnpj" className="text-xs font-bold text-muted-foreground">CPF / CNPJ (Obrigatório para Pix)</Label>
+                <Input 
+                  id="cpfCnpj" 
+                  placeholder="000.000.000-00" 
+                  value={cpfCnpj}
+                  onChange={(e) => setCpfCnpj(e.target.value)}
+                  className="h-12 border-2 bg-muted/20"
+                />
+              </div>
+
               <Button 
                 onClick={handleGeneratePayment}
                 className="w-full h-14 rounded-2xl bg-primary hover:bg-primary-hover text-white font-heading font-black text-base shadow-xl shadow-primary/20 group"
-                disabled={loading}
+                disabled={loading || !cpfCnpj}
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                   <span className="flex items-center gap-2 uppercase tracking-tighter">

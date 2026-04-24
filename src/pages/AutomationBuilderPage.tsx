@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 function BuilderHeader({ id }: { id: string }) {
   const navigate = useNavigate();
-  const { complexAutomations, updateAutomationNodes } = useAppState();
+  const { complexAutomations, updateAutomationNodes, toggleComplexAutomation } = useAppState();
   const { getNodes, getEdges } = useReactFlow();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -53,13 +53,26 @@ function BuilderHeader({ id }: { id: string }) {
         </div>
 
         <div className="flex items-center gap-3">
+          {auto && (
+            <div className="flex items-center gap-2 mr-4 border-r border-border pr-4">
+              <span className="text-xs font-medium text-muted-foreground">
+                {auto.status === 'active' ? 'Ativo' : 'Pausado'}
+              </span>
+              <button 
+                onClick={() => toggleComplexAutomation(id)}
+                className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${auto.status === 'active' ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white transition-transform ${auto.status === 'active' ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          )}
           <Button variant="outline" size="sm" className="h-8 gap-2">
             <Play className="h-3.5 w-3.5" />
             Testar Fluxo
           </Button>
           <Button size="sm" className="h-8 gap-2" onClick={handleSave} disabled={isSaving || !auto}>
             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Salvar e Publicar
+            Salvar
           </Button>
         </div>
       </header>
