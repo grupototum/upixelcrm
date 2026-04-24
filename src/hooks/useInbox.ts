@@ -2,6 +2,8 @@ import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface LeadConversation {
   lead_id: string;
@@ -45,13 +47,24 @@ export function useInbox(onLeadCreated?: () => void) {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const { tenant } = useTenant();
+  const { user } = useAuth();
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+  // Use tenant_id (or client_id) for filtering conversations
+  const clientId = tenant?.id ?? user?.client_id;
 
   // Load conversations grouped by lead
   const loadConversations = useCallback(async () => {
+    if (!clientId) {
+      setLoading(false);
+      return;
+    }
+
     const { data: convs, error: convError } = await supabase
       .from("conversations")
       .select("*")
+      .eq("client_id", clientId)
       .order("last_message_at", { ascending: false });
 
     if (convError) {
@@ -132,7 +145,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
     setConversations(result);
     setLoading(false);
-  }, []);
+  }, [clientId]);
 
   // Load messages for all conversations associated with a lead
   const loadMessages = useCallback(async (leadId: string) => {
@@ -568,6 +581,7 @@ export function useInbox(onLeadCreated?: () => void) {
       channel,
       lead_id: resolvedLeadId,
       status: "open",
+      client_id: clientId,
       metadata: { phone, email, lead_name: leadName },
     }).select("id").single();
 
@@ -579,7 +593,7 @@ export function useInbox(onLeadCreated?: () => void) {
     await loadConversations();
     if (resolvedLeadId) selectLead(resolvedLeadId);
     return data?.id;
-  }, [loadConversations, findOrCreateLead, selectLead]);
+  }, [loadConversations, findOrCreateLead, selectLead, clientId]);
 
   // Initial load
   useEffect(() => { loadConversations(); }, [loadConversations]);
