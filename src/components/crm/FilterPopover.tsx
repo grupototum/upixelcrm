@@ -1,22 +1,32 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState } from "react";
-import { Filter, X } from "lucide-react";
+import { Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { useCustomFields } from "@/hooks/useCustomFields";
 
 export interface CRMFilters {
   origins: string[];
   tags: string[];
   minValue: string;
   maxValue: string;
+  customFields: Record<string, string>;
 }
 
-const EMPTY_FILTERS: CRMFilters = { origins: [], tags: [], minValue: "", maxValue: "" };
+const EMPTY_FILTERS: CRMFilters = {
+  origins: [],
+  tags: [],
+  minValue: "",
+  maxValue: "",
+  customFields: {},
+};
 
 const ORIGIN_OPTIONS = ["Meta Ads", "Google Ads", "Website", "Indicação", "Evento", "Outbound", "Manual"];
 
@@ -28,12 +38,17 @@ interface FilterPopoverProps {
 
 export function FilterPopover({ filters, onFiltersChange, availableTags }: FilterPopoverProps) {
   const [open, setOpen] = useState(false);
+  const { definitions } = useCustomFields();
+
+  const cfFilters = filters.customFields ?? {};
+  const cfActiveCount = Object.values(cfFilters).filter(Boolean).length;
 
   const activeCount =
     filters.origins.length +
     filters.tags.length +
     (filters.minValue ? 1 : 0) +
-    (filters.maxValue ? 1 : 0);
+    (filters.maxValue ? 1 : 0) +
+    cfActiveCount;
 
   const toggleOrigin = (o: string) => {
     const next = filters.origins.includes(o)
@@ -49,6 +64,12 @@ export function FilterPopover({ filters, onFiltersChange, availableTags }: Filte
     onFiltersChange({ ...filters, tags: next });
   };
 
+  const setCustomField = (slug: string, value: string) => {
+    const next = { ...cfFilters, [slug]: value };
+    if (!value) delete next[slug];
+    onFiltersChange({ ...filters, customFields: next });
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -61,7 +82,7 @@ export function FilterPopover({ filters, onFiltersChange, availableTags }: Filte
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-4 space-y-4">
+      <PopoverContent align="end" className="w-72 p-4 space-y-4 max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold">Filtros</p>
           {activeCount > 0 && (
@@ -136,6 +157,41 @@ export function FilterPopover({ filters, onFiltersChange, availableTags }: Filte
             />
           </div>
         </div>
+
+        {/* Custom Fields */}
+        {definitions.length > 0 && (
+          <div className="space-y-2">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Campos Personalizados</Label>
+            {definitions.map((def) => (
+              <div key={def.id} className="space-y-1">
+                <p className="text-[10px] text-muted-foreground">{def.name}</p>
+                {def.field_type === "select" && Array.isArray(def.options) && def.options.length > 0 ? (
+                  <Select
+                    value={cfFilters[def.slug] || "__all__"}
+                    onValueChange={(v) => setCustomField(def.slug, v === "__all__" ? "" : v)}
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue placeholder="Qualquer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Qualquer</SelectItem>
+                      {(def.options as string[]).map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={cfFilters[def.slug] || ""}
+                    onChange={(e) => setCustomField(def.slug, e.target.value)}
+                    placeholder={`Filtrar ${def.name}...`}
+                    className="h-7 text-xs"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

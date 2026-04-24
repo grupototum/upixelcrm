@@ -35,42 +35,78 @@ function interpolate(template: string, leadContext: any): string {
   });
 }
 
-function evaluateCondition(conditions: any[], operator: 'and'|'or', leadContext: any): boolean {
-  if (!conditions || conditions.length === 0) return true;
-  
-  const evaluateSingle = (c: any) => {
-    let actualValue: any = null;
-    
-    // Check where to get the value
-    if (c.type === 'has_phone') actualValue = leadContext.phone;
-    else if (c.type === 'has_email') actualValue = leadContext.email;
-    else if (c.type === 'has_tag') {
-      const tags = leadContext.tags || [];
-      return tags.includes(c.value);
-    }
-    else if (c.type.startsWith('custom.')) {
-      const fieldSlug = c.type.replace('custom.', '');
-      actualValue = leadContext.custom_fields?.[fieldSlug];
-    }
+function evaluateSingleRule(c: any, leadContext: any): boolean {
+  let actualValue: any = null;
 
-    const expectedValue = c.value;
-
-    switch(c.operator) {
-      case 'equals': return String(actualValue) === String(expectedValue);
-      case 'not_equals': return String(actualValue) !== String(expectedValue);
-      case 'contains': return String(actualValue || '').includes(String(expectedValue || ''));
-      case 'is_empty': return !actualValue;
-      case 'is_not_empty': return !!actualValue;
-      case 'greater_than': return Number(actualValue) > Number(expectedValue);
-      case 'less_than': return Number(actualValue) < Number(expectedValue);
-      default: return !!actualValue; // fallback to truthy check
-    }
-  };
-
-  if (operator === 'or') {
-    return conditions.some(evaluateSingle);
+  if (c.type === 'has_phone') actualValue = leadContext.phone;
+  else if (c.type === 'has_email') actualValue = leadContext.email;
+  else if (c.type === 'has_tag') {
+    const tags = leadContext.tags || [];
+    return tags.includes(c.value);
+  } else if (c.type?.startsWith('custom.')) {
+    const fieldSlug = c.type.replace('custom.', '');
+    actualValue = leadContext.custom_fields?.[fieldSlug];
+  } else if (c.type === 'message_contains') {
+    const msg = String(leadContext.message || leadContext.last_message || '').toLowerCase();
+    return msg.includes(String(c.value || '').toLowerCase());
+  } else if (c.type === 'message_equals') {
+    const msg = String(leadContext.message || leadContext.last_message || '').toLowerCase();
+    return msg === String(c.value || '').toLowerCase();
+  } else if (c.type === 'message_starts_with') {
+    const msg = String(leadContext.message || leadContext.last_message || '').toLowerCase();
+    return msg.startsWith(String(c.value || '').toLowerCase());
+  } else if (c.type === 'message_channel') {
+    return String(leadContext.channel || '') === String(c.value || '');
   }
-  return conditions.every(evaluateSingle);
+
+  const expectedValue = c.value;
+  switch (c.operator) {
+    case 'equals': return String(actualValue) === String(expectedValue);
+    case 'not_equals': return String(actualValue) !== String(expectedValue);
+    case 'contains': return String(actualValue || '').includes(String(expectedValue || ''));
+    case 'is_empty': return !actualValue;
+    case 'is_not_empty': return !!actualValue;
+    case 'greater_than': return Number(actualValue) > Number(expectedValue);
+    case 'less_than': return Number(actualValue) < Number(expectedValue);
+    default: return !!actualValue;
+  }
+}
+
+/**
+ * Evaluate a condition node's data against the lead context.
+ * Supports both legacy flat arrays and nested ConditionGroup arrays:
+ *   groups = [{ operator: 'and'|'or', rules: ConditionRule[] }]
+ * Top-level operator joins the groups.
+ */
+function evaluateCondition(
+  conditionsOrGroups: any[],
+  operator: 'and' | 'or',
+  leadContext: any
+): boolean {
+  if (!conditionsOrGroups || conditionsOrGroups.length === 0) return true;
+
+  // Detect nested group format: each item has { operator, rules[] }
+  const isGroupFormat = conditionsOrGroups[0]?.rules !== undefined;
+
+  if (isGroupFormat) {
+    const groupResults = conditionsOrGroups.map((group: any) => {
+      const rules: any[] = group.rules || [];
+      if (rules.length === 0) return true;
+      const groupOp: 'and' | 'or' = group.operator || 'and';
+      return groupOp === 'or'
+        ? rules.some((r) => evaluateSingleRule(r, leadContext))
+        : rules.every((r) => evaluateSingleRule(r, leadContext));
+    });
+    return operator === 'or'
+      ? groupResults.some(Boolean)
+      : groupResults.every(Boolean);
+  }
+
+  // Legacy flat array
+  if (operator === 'or') {
+    return conditionsOrGroups.some((c) => evaluateSingleRule(c, leadContext));
+  }
+  return conditionsOrGroups.every((c) => evaluateSingleRule(c, leadContext));
 }
 
 serve(async (req) => {

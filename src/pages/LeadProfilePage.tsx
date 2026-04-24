@@ -32,6 +32,7 @@ import {
   Handshake, Target, Merge
 } from "lucide-react";
 import type { Lead, Task, TimelineEvent } from "@/types";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string; label: string }> = {
   message: { icon: MessageSquare, color: "text-primary", label: "Mensagem" },
@@ -40,6 +41,7 @@ const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string
   task: { icon: ClipboardList, color: "text-success", label: "Tarefa" },
   automation: { icon: Zap, color: "text-warning", label: "Automação" },
   call: { icon: Phone, color: "text-primary", label: "Ligação" },
+  field_changed: { icon: Edit3, color: "text-accent", label: "Campo alterado" },
 };
 
 export default function LeadProfilePage() {
@@ -52,6 +54,7 @@ export default function LeadProfilePage() {
   } = useAppState();
   
   const { definitions, loading: cfLoading } = useCustomFields();
+  const { hasPermission, canEditLeadCategory } = usePermissions();
 
   const [activeTab, setActiveTab] = useState("dados");
   const [newNote, setNewNote] = useState("");
@@ -196,17 +199,21 @@ export default function LeadProfilePage() {
           >
             <ArrowLeft className="h-3 w-3" /> Voltar
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-xs gap-1.5 h-8" 
-            onClick={() => setShowMergeModal(true)}
-          >
-            <Merge className="h-3 w-3" /> Mesclar
-          </Button>
-          <Button variant="ghost" size="sm" className="text-xs gap-1 h-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDelete}>
-            <Trash2 className="h-3 w-3" /> Excluir
-          </Button>
+          {hasPermission("crm.delete") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5 h-8"
+              onClick={() => setShowMergeModal(true)}
+            >
+              <Merge className="h-3 w-3" /> Mesclar
+            </Button>
+          )}
+          {hasPermission("crm.delete") && (
+            <Button variant="ghost" size="sm" className="text-xs gap-1 h-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDelete}>
+              <Trash2 className="h-3 w-3" /> Excluir
+            </Button>
+          )}
         </div>
       }
     >
@@ -217,11 +224,12 @@ export default function LeadProfilePage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-xl font-bold text-foreground truncate">{lead.name}</h1>
-              <Select 
-                value={lead.category || "lead"} 
+              <Select
+                value={lead.category || "lead"}
                 onValueChange={(val: Lead["category"]) => {
-                  updateLead(lead.id, { category: val });
+                  if (hasPermission("lead.change_category")) updateLead(lead.id, { category: val });
                 }}
+                disabled={!hasPermission("lead.change_category")}
               >
                 <SelectTrigger className="w-auto h-7 text-[10px] uppercase font-bold tracking-wider px-3 rounded-lg border-primary/20 bg-primary/5 text-primary">
                   <SelectValue />
@@ -251,7 +259,7 @@ export default function LeadProfilePage() {
               ))}
             </div>
           </div>
-          {lead.value && (
+          {lead.value && hasPermission("lead.view_sensitive") && (
             <div className="text-right shrink-0">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Valor</p>
               <p className="text-2xl font-bold text-primary">R$ {lead.value.toLocaleString("pt-BR")}</p>
@@ -301,7 +309,9 @@ export default function LeadProfilePage() {
                 <div className="bg-card border border-border rounded-lg p-5 space-y-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem e campanha</h3>
                   <EditableDataRow icon={Globe} label="Origem" value={lead.origin} onSave={(v) => updateLead(lead.id, { origin: v })} />
-                  <EditableDataRow icon={DollarSign} label="Valor" value={lead.value ? String(lead.value) : undefined} onSave={(v) => updateLead(lead.id, { value: parseFloat(v) || 0 })} />
+                  {hasPermission("lead.view_sensitive") && (
+                    <EditableDataRow icon={DollarSign} label="Valor" value={lead.value ? String(lead.value) : undefined} onSave={(v) => updateLead(lead.id, { value: parseFloat(v) || 0 })} />
+                  )}
                 </div>
                 <div className="bg-card border border-border rounded-lg p-5 space-y-3">
                   <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
@@ -392,7 +402,7 @@ export default function LeadProfilePage() {
                               const updatedFields = { ...(lead.custom_fields as object), [slug]: newValue };
                               updateLead(lead.id, { custom_fields: updatedFields });
                             }}
-                            readOnly={lead.category === "collaborator"} // Exemplo de RBAC
+                            readOnly={!canEditLeadCategory(lead.category)}
                           />
                         );
                       })}

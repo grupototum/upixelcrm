@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const MAX_RETRIES = 4;
+
+/** Exponential backoff delay: 2^attempt minutes (2, 4, 8, 16 min) */
+function nextRetryAt(retryCount: number): string {
+  const delayMs = Math.pow(2, retryCount) * 60 * 1000;
+  return new Date(Date.now() + delayMs).toISOString();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -17,15 +25,18 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 1. Fetch pending queue items that are due
+    // Fetch pending queue items that are due (including retries whose next_retry_at has passed)
+    const now = new Date().toISOString();
     const { data: queueItems, error } = await supabase
       .from("automation_queue")
       .select("*")
       .eq("status", "pending")
-      .lte("scheduled_at", new Date().toISOString())
-      .limit(50); // Process in batches
+      .lte("scheduled_at", now)
+      .or(`next_retry_at.is.null,next_retry_at.lte.${now}`)
+      .limit(50);
 
     if (error) throw error;
+
     if (!queueItems || queueItems.length === 0) {
       return new Response(JSON.stringify({ message: "No items to process" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -35,57 +46,76 @@ serve(async (req) => {
 
     const processed = [];
 
-    // 2. Process each item
     for (const item of queueItems) {
-      // Mark as processing
+      // Mark as processing to prevent duplicate pickup
       await supabase
         .from("automation_queue")
         .update({ status: "processing" })
         .eq("id", item.id);
 
       try {
-        // Trigger automation engine
         const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           },
           body: JSON.stringify({
             tenant_id: item.tenant_id,
             automation_id: item.automation_id,
             lead_id: item.lead_id,
             node_id: item.node_id,
-            context: item.context
-          })
+            context: item.context,
+          }),
         });
 
         if (!res.ok) {
           const err = await res.text();
-          throw new Error(err);
+          throw new Error(`Engine ${res.status}: ${err}`);
         }
 
-        // Mark as completed
         await supabase
           .from("automation_queue")
-          .update({ 
+          .update({
             status: "completed",
-            executed_at: new Date().toISOString() 
+            executed_at: new Date().toISOString(),
           })
           .eq("id", item.id);
-          
-        processed.push({ id: item.id, status: 'success' });
+
+        processed.push({ id: item.id, status: "success" });
       } catch (err: any) {
-        // Mark as failed
-        await supabase
-          .from("automation_queue")
-          .update({ 
-            status: "failed", 
-            error: err.message 
-          })
-          .eq("id", item.id);
-          
-        processed.push({ id: item.id, status: 'failed', error: err.message });
+        const retryCount = (item.retry_count ?? 0) + 1;
+
+        if (retryCount <= MAX_RETRIES) {
+          // Reschedule with exponential backoff
+          await supabase
+            .from("automation_queue")
+            .update({
+              status: "pending",
+              retry_count: retryCount,
+              next_retry_at: nextRetryAt(retryCount),
+              error: err.message,
+            })
+            .eq("id", item.id);
+
+          processed.push({
+            id: item.id,
+            status: "retrying",
+            retry_count: retryCount,
+            error: err.message,
+          });
+        } else {
+          // Exhausted all retries
+          await supabase
+            .from("automation_queue")
+            .update({
+              status: "failed",
+              error: `Max retries (${MAX_RETRIES}) exceeded. Last: ${err.message}`,
+            })
+            .eq("id", item.id);
+
+          processed.push({ id: item.id, status: "failed", error: err.message });
+        }
       }
     }
 
