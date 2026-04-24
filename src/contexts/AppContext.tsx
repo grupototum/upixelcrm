@@ -255,9 +255,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     toast.success("Lead criado com sucesso");
 
-    // Trigger automations for entry
+    // Trigger automations for entry and new lead
     if (executeAutomationsRef.current) {
       await executeAutomationsRef.current(newLead.id, "card_entered", columnId);
+      await executeAutomationsRef.current(newLead.id, "new_lead" as any);
     }
 
     return newLead;
@@ -571,10 +572,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [leads, updateLead, addTask, moveLead]);
 
+  // Maps AppContext basic-rule trigger types → complex automation visual-builder trigger types
+  const complexTriggerMap: Record<string, string[]> = {
+    stage_changed: ["status_change"],
+    card_entered:  ["status_change"],
+    new_lead:      ["new_lead"],
+    tag_added:     ["tag_added"],
+  };
+
   const executeAutomations = useCallback(async (leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => {
-    const activeRules = automations.filter(a => 
-      a.active && 
-      a.trigger.type === triggerType && 
+    // 1. Run basic automation rules (existing behaviour)
+    const activeRules = automations.filter(a =>
+      a.active &&
+      a.trigger.type === triggerType &&
       (!columnId || a.column_id === columnId)
     );
 
@@ -592,7 +602,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       for (const action of rule.actions) {
         await runAction(leadId, action);
       }
-      
+
       await addTimelineEvent({
         lead_id: leadId,
         type: "automation",
@@ -600,7 +610,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         user_name: "Sistema",
       });
     }
-  }, [automations, leads, runAction, addTimelineEvent]);
+
+    // 2. Trigger active complex (visual-builder) automations via edge function
+    const complexEventTypes = complexTriggerMap[triggerType] ?? [];
+    if (complexEventTypes.length === 0) return;
+
+    const activeComplex = complexAutomations.filter(a => a.status === "active");
+    for (const auto of activeComplex) {
+      const nodes: any[] = (auto as any).nodes || [];
+      const triggerNodes = nodes.filter(
+        (n: any) => n.type === "trigger" && complexEventTypes.includes(n.data?.type ?? n.data?.configType)
+      );
+      for (const trigger of triggerNodes) {
+        supabase.functions.invoke("automation-engine", {
+          body: {
+            automation_id: auto.id,
+            lead_id: leadId,
+            node_id: trigger.id,
+            context: columnId ? { column_id: columnId } : {},
+          },
+        }).catch((err: any) => logger.error("Complex automation trigger error:", err));
+      }
+    }
+  }, [automations, complexAutomations, leads, runAction, addTimelineEvent]);
 
   useEffect(() => {
     executeAutomationsRef.current = executeAutomations;

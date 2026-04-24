@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { DynamicFieldRenderer } from "@/components/crm/DynamicFieldRenderer";
 import { CustomFieldsManager } from "@/components/crm/CustomFieldsManager";
+import { TagsManager } from "@/components/crm/TagsManager";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -58,6 +59,7 @@ export default function LeadProfilePage() {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
   const [showTagModal, setShowTagModal] = useState(false);
+  const [showManageTags, setShowManageTags] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
@@ -302,7 +304,24 @@ export default function LeadProfilePage() {
                   <EditableDataRow icon={DollarSign} label="Valor" value={lead.value ? String(lead.value) : undefined} onSave={(v) => updateLead(lead.id, { value: parseFloat(v) || 0 })} />
                 </div>
                 <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tags</h3>
+                  <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tags</h3>
+                    <Dialog open={showManageTags} onOpenChange={setShowManageTags}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold">
+                          <Settings2 className="h-3 w-3 mr-1" /> Gerenciar Tags
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Gerenciador de Tags</DialogTitle>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <TagsManager />
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {lead.tags.length > 0 ? lead.tags.map((tag) => (
                       <Badge key={tag} variant="secondary" className="text-xs gap-1"><Tag className="h-3 w-3" /> {tag}</Badge>
