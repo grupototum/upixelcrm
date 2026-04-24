@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
 import { mockThreads, mockMessages } from "@/lib/mock-data";
 import { AddTagModal } from "@/components/crm/AddTagModal";
+import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ import {
   Plus, CheckCircle2, Circle, AlertTriangle, Clock,
   MessageSquare, ArrowRight, Zap, ClipboardList, StickyNote,
   MoreHorizontal, Send, ChevronRight, Smartphone, Monitor, X, Check, Settings2,
-  Handshake, Target
+  Handshake, Target, Merge
 } from "lucide-react";
 import type { Lead, Task, TimelineEvent } from "@/types";
 
@@ -43,7 +44,11 @@ const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string
 export default function LeadProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { leads, columns, tasks, timeline, automations: contextAutomations, toggleBasicAutomation, updateLead, deleteLead, addTask, toggleTaskStatus, addTimelineEvent } = useAppState();
+  const { 
+    leads, columns, tasks, timeline, automations: contextAutomations, 
+    toggleBasicAutomation, updateLead, deleteLead, addTask, 
+    toggleTaskStatus, addTimelineEvent, mergeLeads 
+  } = useAppState();
   
   const { definitions, loading: cfLoading } = useCustomFields();
 
@@ -54,6 +59,7 @@ export default function LeadProfilePage() {
   const [newTaskDue, setNewTaskDue] = useState("");
   const [showTagModal, setShowTagModal] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
 
@@ -187,6 +193,14 @@ export default function LeadProfilePage() {
             onClick={() => navigate(lead.category === "lead" ? "/crm" : "/contacts")}
           >
             <ArrowLeft className="h-3 w-3" /> Voltar
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs gap-1.5 h-8" 
+            onClick={() => setShowMergeModal(true)}
+          >
+            <Merge className="h-3 w-3" /> Mesclar
           </Button>
           <Button variant="ghost" size="sm" className="text-xs gap-1 h-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDelete}>
             <Trash2 className="h-3 w-3" /> Excluir
@@ -609,6 +623,16 @@ export default function LeadProfilePage() {
       {id && (
         <AddTagModal open={showTagModal} onOpenChange={setShowTagModal} leadId={id} />
       )}
+
+      <MergeLeadsModal 
+        open={showMergeModal} 
+        onOpenChange={setShowMergeModal} 
+        sourceLead={lead} 
+        onMerge={async (sourceId, targetId) => {
+          await mergeLeads(sourceId, targetId);
+          navigate(`/leads/${targetId}`);
+        }} 
+      />
     </AppLayout>
   );
 }

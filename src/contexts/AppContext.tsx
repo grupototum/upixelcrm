@@ -26,6 +26,7 @@ interface AppState {
   updateLead: (id: string, data: Partial<Lead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
   moveLead: (id: string, toColumnId: string) => Promise<void>;
+  mergeLeads: (sourceLeadId: string, targetLeadId: string) => Promise<void>;
 
   addTask: (data: Partial<Task>) => Promise<Task | null>;
   updateTask: (id: string, data: Partial<Task>) => Promise<void>;
@@ -268,6 +269,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLeads((prev) => prev.filter((l) => l.id !== id));
     setTasks((prev) => prev.filter((t) => t.lead_id !== id));
     toast.success("Lead excluído");
+  }, []);
+
+  const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
+    try {
+      const { error: convError } = await supabase
+        .from("conversations")
+        .update({ lead_id: targetLeadId })
+        .eq("lead_id", sourceLeadId);
+      if (convError) throw convError;
+
+      await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      await supabase.from("timeline_events").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+
+      const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);
+      if (deleteError) throw deleteError;
+
+      setLeads((prev) => prev.filter((l) => l.id !== sourceLeadId));
+      toast.success("Leads mesclados com sucesso.");
+    } catch (err: any) {
+      logger.error(err);
+      toast.error(`Erro ao mesclar leads: ${err.message}`);
+    }
   }, []);
 
   const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
@@ -587,6 +610,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
       addGlobalTag, deleteGlobalTag,
       refreshData: fetchAll,
+      mergeLeads
     }}>
       {children}
     </AppContext.Provider>
