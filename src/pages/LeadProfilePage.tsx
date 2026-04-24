@@ -12,11 +12,14 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { DynamicFieldRenderer } from "@/components/crm/DynamicFieldRenderer";
+import { CustomFieldsManager } from "@/components/crm/CustomFieldsManager";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Phone, Mail, Building, User, MapPin, Tag,
@@ -41,6 +44,8 @@ export default function LeadProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { leads, columns, tasks, timeline, automations: contextAutomations, toggleBasicAutomation, updateLead, deleteLead, addTask, toggleTaskStatus, addTimelineEvent } = useAppState();
+  
+  const { definitions, loading: cfLoading } = useCustomFields();
 
   const [activeTab, setActiveTab] = useState("dados");
   const [newNote, setNewNote] = useState("");
@@ -49,8 +54,6 @@ export default function LeadProfilePage() {
   const [newTaskDue, setNewTaskDue] = useState("");
   const [showTagModal, setShowTagModal] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
-  const [newFieldKey, setNewFieldKey] = useState("");
-  const [newFieldValue, setNewFieldValue] = useState("");
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
 
@@ -315,52 +318,59 @@ export default function LeadProfilePage() {
 
                 </div>
 
-                {/* Custom fields */}
+                {/* Custom fields tab/section */}
                 <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campos personalizados</h3>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAddField(true)}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
+                  <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campos Personalizados</h3>
+                    <Dialog open={showAddField} onOpenChange={setShowAddField}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold">
+                          <Settings2 className="h-3 w-3 mr-1" /> Gerenciar Campos
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Gerenciador de Campos Personalizados</DialogTitle>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <CustomFieldsManager />
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                  {showAddField && (
-                    <div className="flex gap-2">
-                      <Input placeholder="Campo" value={newFieldKey} onChange={(e) => setNewFieldKey(e.target.value)} className="h-7 text-xs flex-1" />
-                      <Input placeholder="Valor" value={newFieldValue} onChange={(e) => setNewFieldValue(e.target.value)} className="h-7 text-xs flex-1" />
-                      <Button size="icon" className="h-7 w-7 shrink-0" onClick={() => {
-                        if (newFieldKey.trim() && lead) {
-                          const updated = [...customFields, { key: newFieldKey.trim(), value: newFieldValue.trim() }];
-                          updateLead(lead.id, { custom_fields: updated });
-                          setNewFieldKey(""); setNewFieldValue(""); setShowAddField(false);
+                  
+                  {cfLoading ? (
+                    <div className="py-4 text-center text-[10px] text-muted-foreground">Carregando campos...</div>
+                  ) : definitions.length > 0 ? (
+                    <div className="space-y-1">
+                      {definitions.map((def) => {
+                        // Apenas mostra campos visíveis no pipeline atual, ou se for vazio mostra em todos
+                        if (def.visible_pipelines && def.visible_pipelines.length > 0) {
+                          if (column && !def.visible_pipelines.includes(column.pipeline_id)) return null;
                         }
-                      }}><Check className="h-3 w-3" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { setShowAddField(false); setNewFieldKey(""); setNewFieldValue(""); }}>
-                        <X className="h-3 w-3" />
+                        
+                        const val = lead.custom_fields?.[def.slug];
+                        return (
+                          <DynamicFieldRenderer
+                            key={def.id}
+                            definition={def}
+                            value={val}
+                            onChange={(slug, newValue) => {
+                              const updatedFields = { ...(lead.custom_fields as object), [slug]: newValue };
+                              updateLead(lead.id, { custom_fields: updatedFields });
+                            }}
+                            readOnly={lead.category === "collaborator"} // Exemplo de RBAC
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center space-y-2">
+                      <p className="text-xs text-muted-foreground italic">Nenhum campo personalizado definido.</p>
+                      <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => setShowAddField(true)}>
+                        Criar primeiro campo
                       </Button>
                     </div>
-                  )}
-                  {customFields.length > 0 ? (
-                    <div className="space-y-2">
-                      {customFields.map((f, idx) => (
-                        <div key={idx} className="flex items-center gap-2 group">
-                          <Settings2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-muted-foreground">{f.key}</p>
-                            <p className="text-sm text-foreground truncate">{f.value || "—"}</p>
-                          </div>
-                          <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
-                            if (lead) {
-                              const updated = customFields.filter((_, i) => i !== idx);
-                              updateLead(lead.id, { custom_fields: updated });
-                            }
-                          }}>
-                            <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : !showAddField && (
-                    <p className="text-xs text-muted-foreground italic">Nenhum campo personalizado</p>
                   )}
                 </div>
 

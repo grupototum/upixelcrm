@@ -37,10 +37,17 @@ Deno.serve(async (req) => {
     if (!profile) throw new Error("Profile not found");
 
     const body = await req.json();
-    const { amount, creditsToIndicate } = body;
+    const { amount, creditsToIndicate, cpfCnpj } = body;
 
     if (!amount || amount < 5) {
       return new Response(JSON.stringify({ error: "Valor mínimo R$ 5,00" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!cpfCnpj) {
+      return new Response(JSON.stringify({ error: "CPF ou CNPJ é obrigatório para gerar Pix" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -55,7 +62,7 @@ Deno.serve(async (req) => {
 
     // 1. Create or Find Customer in Asaas
     let asaasCustomerId = null;
-    const searchRes = await fetch(`${ASAAS_API_URL}/customers?email=${encodeURIComponent(profile.email)}`, {
+    const searchRes = await fetch(`${ASAAS_API_URL}/customers?cpfCnpj=${encodeURIComponent(cpfCnpj)}`, {
       headers: { "access_token": ASAAS_API_KEY }
     });
     const searchData = await searchRes.json();
@@ -69,6 +76,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           name: profile.name || "Cliente Upixel",
           email: profile.email,
+          cpfCnpj: cpfCnpj,
           externalReference: profile.client_id,
         })
       });
