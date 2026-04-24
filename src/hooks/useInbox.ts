@@ -602,37 +602,54 @@ export function useInbox(onLeadCreated?: () => void) {
     return () => { supabase.removeChannel(channel); };
   }, [selectedLeadId, loadConversations, findOrCreateLead]);
 
-  // Transcribe audio message
-  const transcribeAudio = useCallback(async (messageId: string) => {
+  // Delete lead and its data
+  const deleteLead = useCallback(async (leadId: string) => {
     try {
-      const { data: msg } = await supabase.from("messages").select("content, metadata").eq("id", messageId).single();
-      if (!msg) return;
-
-      // Simulation of transcription API call
-      // In a real scenario, this would call a Supabase Edge Function with OpenAI Whisper
-      // const res = await supabase.functions.invoke('transcribe', { body: { url: msg.content } });
+      const { error } = await supabase.from("leads").delete().eq("id", leadId);
+      if (error) throw error;
       
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate delay
-      const mockTranscript = "Esta é uma transcrição simulada do áudio. O áudio parece falar sobre o novo projeto de CRM.";
-
-      const newMeta = { ...(msg.metadata as any || {}), transcript: mockTranscript };
-      const { error: updateError } = await supabase.from("messages").update({ metadata: newMeta }).eq("id", messageId);
-      
-      if (updateError) throw updateError;
-
-      // Update local state
-      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, metadata: newMeta } : m));
-      toast.success("Áudio transcrito com sucesso!");
+      setSelectedLeadId(null);
+      await loadConversations();
+      toast.success("Lead excluído com sucesso.");
     } catch (err: any) {
-      toast.error(`Erro na transcrição: ${err.message}`);
+      toast.error(`Erro ao excluir lead: ${err.message}`);
     }
-  }, []);
+  }, [loadConversations]);
+
+  // Merge source lead into target lead
+  const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
+    try {
+      // 1. Move conversations
+      const { error: convError } = await supabase
+        .from("conversations")
+        .update({ lead_id: targetLeadId })
+        .eq("lead_id", sourceLeadId);
+      if (convError) throw convError;
+
+      // 2. Move tasks
+      await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      
+      // 3. Move notes
+      await supabase.from("notes").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+
+      // 4. Delete source lead
+      const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);
+      if (deleteError) throw deleteError;
+
+      setSelectedLeadId(targetLeadId);
+      await loadConversations();
+      await loadMessages(targetLeadId);
+      toast.success("Leads mesclados com sucesso.");
+    } catch (err: any) {
+      toast.error(`Erro ao mesclar leads: ${err.message}`);
+    }
+  }, [loadConversations, loadMessages]);
 
   return {
     conversations, messages, selectedLeadId, loading,
     selectLead, sendMessage, createConversation,
     updateStatus, updatePriority, assignToAgent, updateLabels,
-    transcribeAudio, sendWhatsAppMedia,
+    transcribeAudio, sendWhatsAppMedia, deleteLead, mergeLeads,
     refresh: loadConversations,
   };
 }
