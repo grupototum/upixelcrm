@@ -228,9 +228,86 @@ serve(async (req) => {
       // Send a message via whatsapp or email
       const channel = nodeData.configType || 'whatsapp';
       const text = interpolate(nodeData.text || '', leadContext);
-      outputData = { channel, sent: true, textPreview: text.substring(0, 50) };
+      outputData = { channel, sent: false, textPreview: text.substring(0, 50) };
       
-      // We would call our internal message proxy here
+      if (channel === 'whatsapp') {
+        // Query integration config directly
+        const clientId = lead.client_id;
+        if (clientId) {
+          const { data: integration } = await supabase.from("integrations")
+            .select("config")
+            .eq("client_id", clientId)
+            .eq("provider", "whatsapp")
+            .single();
+            
+          if (integration && integration.config) {
+            const config = integration.config;
+            const cleanPhone = (lead.phone || '').replace(/\D/g, "");
+            const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+            const instancePath = config.instance_name;
+
+            try {
+              const sendRes = await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
+                method: "POST",
+                headers: { apikey: config.api_key, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  number: formattedPhone,
+                  text: text,
+                }),
+              });
+              if (sendRes.ok) {
+                 outputData.sent = true;
+                 
+                 // Save message to DB
+                 const { data: existingConv } = await supabase.from("conversations")
+                    .select("id")
+                    .eq("client_id", clientId)
+                    .eq("channel", "whatsapp")
+                    .eq("metadata->>phone", formattedPhone)
+                    .single();
+
+                 let convId = existingConv?.id;
+                 if (!convId) {
+                    const { data: newConv } = await supabase.from("conversations").insert({
+                      client_id: clientId,
+                      lead_id: lead.id,
+                      channel: "whatsapp",
+                      status: "open",
+                      last_message: text,
+                      last_message_at: new Date().toISOString(),
+                      metadata: { phone: formattedPhone },
+                    }).select("id").single();
+                    convId = newConv?.id;
+                 } else {
+                    await supabase.from("conversations").update({
+                      last_message: text,
+                      last_message_at: new Date().toISOString(),
+                    }).eq("id", convId);
+                 }
+
+                 if (convId) {
+                    await supabase.from("messages").insert({
+                      client_id: clientId,
+                      conversation_id: convId,
+                      content: text,
+                      type: "text",
+                      direction: "outbound",
+                      sender_name: "Automação",
+                      metadata: { channel: "whatsapp", auto_generated: true }
+                    });
+                 }
+                 
+              } else {
+                 outputData.error = `API Error: ${sendRes.status}`;
+              }
+            } catch (err: any) {
+              outputData.error = err.message;
+            }
+          } else {
+            outputData.error = "WhatsApp integration not configured";
+          }
+        }
+      }
       
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
