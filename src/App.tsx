@@ -34,6 +34,8 @@ import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
 import RagDocumentsPage from "./pages/alexandria/RagDocuments";
+import MetaAdsPage from "./pages/MetaAdsPage";
+import GoogleAdsPage from "./pages/GoogleAdsPage";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 
 const queryClient = new QueryClient();
@@ -99,6 +101,8 @@ function AppRoutes() {
                 <Route path="/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
                 <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
                 <Route path="/alexandria/rag" element={<ProtectedRoute><RagDocumentsPage /></ProtectedRoute>} />
+                <Route path="/meta-ads" element={<ProtectedRoute><MetaAdsPage /></ProtectedRoute>} />
+                <Route path="/google-ads" element={<ProtectedRoute><GoogleAdsPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <PwaInstallPrompt />

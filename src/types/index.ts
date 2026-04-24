@@ -47,6 +47,17 @@ export interface Lead {
   responsible_id?: string;
   value?: number;
   category?: "lead" | "partner" | "collaborator";
+  // UTM & ads attribution
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  ad_campaign_id?: string;
+  ad_adset_id?: string;
+  ad_id?: string;
+  fbclid?: string;
+  gclid?: string;
   created_at: string;
   updated_at: string;
 }
