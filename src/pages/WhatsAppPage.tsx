@@ -577,6 +577,13 @@ export default function WhatsAppPage() {
       }
     >
       <div className="p-6 animate-fade-in space-y-6">
+        {/* Debug info */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="text-[10px] text-muted-foreground font-mono bg-secondary rounded p-2">
+            Debug: {loading ? "carregando..." : `${instances.length} instância(s)`}
+          </div>
+        )}
+
         {/* Summary badge */}
         <div className="flex items-center gap-3">
           <Badge
