@@ -77,7 +77,7 @@ export default function InboxPage() { // force HMR reset
   
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
-  const [inboxTab, setInboxTab] = useState<string>("todas");
+  const [inboxTab, setInboxTab] = useState<string>("abertas");
   const [sending, setSending] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
