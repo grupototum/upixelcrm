@@ -242,22 +242,15 @@ export function useInbox(onLeadCreated?: () => void) {
 
       const isOfficial = target.channel === "whatsapp_official";
       const isInstagram = target.channel === "instagram";
-      const url = isInstagram 
-        ? `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=send-message`
-        : `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-message${isOfficial ? "&type=official" : ""}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ phone, message: text }),
+      const functionName = isInstagram ? "instagram-proxy" : "whatsapp-proxy";
+      const queryString = isInstagram ? "?action=send-message" : `?action=send-message${isOfficial ? "&type=official" : ""}`;
+      
+      const { error } = await supabase.functions.invoke(`${functionName}${queryString}`, {
+        body: { phone, message: text },
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to send message");
+      if (error) {
+        throw new Error(error.message || "Failed to send message");
       }
 
       await loadMessages(leadId);
@@ -297,17 +290,11 @@ export function useInbox(onLeadCreated?: () => void) {
       // 2. Send via proxy
       const isOfficial = target.channel === "whatsapp_official";
       const isInstagram = target.channel === "instagram";
-      const proxyUrl = isInstagram
-        ? `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=send-media`
-        : `https://${projectId}.supabase.co/functions/v1/whatsapp-proxy?action=send-media${isOfficial ? "&type=official" : ""}`;
-      const res = await fetch(proxyUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ 
+      const functionName = isInstagram ? "instagram-proxy" : "whatsapp-proxy";
+      const queryString = isInstagram ? "?action=send-media" : `?action=send-media${isOfficial ? "&type=official" : ""}`;
+      
+      const { error } = await supabase.functions.invoke(`${functionName}${queryString}`, {
+        body: { 
           phone, 
           mediaUrl: url, 
           mediaType: file.type.startsWith('image') ? 'image' 
@@ -316,10 +303,10 @@ export function useInbox(onLeadCreated?: () => void) {
                    : 'document',
           mimetype: file.type,
           fileName: file.name
-        }),
+        },
       });
 
-      if (!res.ok) throw new Error("Failed to send media via proxy");
+      if (error) throw new Error(error.message || "Failed to send media via proxy");
 
       await loadMessages(leadId);
       await loadConversations();
@@ -353,20 +340,12 @@ export function useInbox(onLeadCreated?: () => void) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const url = `https://${projectId}.supabase.co/functions/v1/google-oauth?action=gmail-send`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ to: email, subject: "Re: Conversa uPixel", body: text }),
+      const { error } = await supabase.functions.invoke('google-oauth?action=gmail-send', {
+        body: { to: email, subject: "Re: Conversa uPixel", body: text },
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to send email");
+      if (error) {
+        throw new Error(error.message || "Failed to send email");
       }
 
       await supabase.from("messages").insert({
