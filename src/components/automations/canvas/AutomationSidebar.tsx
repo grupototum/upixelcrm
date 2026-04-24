@@ -61,7 +61,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
     );
   };
 
-  const TypeOptions = () => {
+  const renderTypeOptions = () => {
     switch (selectedNode.type) {
       case 'trigger':
         return (
@@ -259,9 +259,8 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
   };
 
   const injectVariable = (variable: string) => {
-    const newValue = nodeName + variable;
-    setNodeName(newValue);
-    handleUpdate({ label: newValue });
+    navigator.clipboard.writeText(variable);
+    toast.success(`Variável ${variable} copiada! Cole (Ctrl+V) onde desejar.`);
   };
 
   return (
@@ -291,7 +290,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
           </div>
 
           <div className="space-y-2 pt-2 border-t border-border mt-4">
-            <TypeOptions />
+            {renderTypeOptions()}
           </div>
 
           {['action', 'message', 'webhook', 'ai_assistant'].includes(selectedNode.type as string) && (

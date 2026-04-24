@@ -41,6 +41,7 @@ interface AppState {
   createAutomation: (name: string) => Promise<string | null>;
   updateAutomationNodes: (id: string, nodes: Node[], edges: Edge[]) => Promise<void>;
   deleteAutomation: (id: string) => Promise<void>;
+  toggleComplexAutomation: (id: string) => Promise<void>;
   
   toggleBasicAutomation: (id: string) => Promise<void>;
   deleteBasicAutomation: (id: string) => Promise<void>;
@@ -414,6 +415,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const toggleComplexAutomation = useCallback(async (id: string) => {
+    const auto = complexAutomations.find(a => a.id === id);
+    if (!auto) return;
+    const newStatus = auto.status === 'active' ? 'draft' : 'active';
+    
+    setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
+    
+    const { error } = await supabase.from("automations").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      logger.error(error);
+      setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: auto.status } : a));
+      toast.error("Erro ao alterar status do fluxo");
+    } else {
+      toast.success("Fluxo " + (newStatus === 'active' ? "Ativado" : "Desativado"));
+    }
+  }, [complexAutomations]);
+
   const deleteAutomation = useCallback(async (id: string) => {
     const { error } = await supabase.from("automations").delete().eq("id", id);
     if (error) { logger.error(error); toast.error("Erro ao excluir"); return; }
@@ -565,7 +583,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addLead, updateLead, deleteLead, moveLead,
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, updateColumn, deleteColumn, addTimelineEvent, 
-      createAutomation, updateAutomationNodes, deleteAutomation,
+      createAutomation, updateAutomationNodes, deleteAutomation, toggleComplexAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
       addGlobalTag, deleteGlobalTag,
       refreshData: fetchAll,
