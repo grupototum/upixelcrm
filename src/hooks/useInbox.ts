@@ -650,6 +650,38 @@ export function useInbox(onLeadCreated?: () => void) {
     }
   }, [loadConversations]);
 
+  // Transcribe an audio message via AI
+  const transcribeAudio = useCallback(async (messageId: string) => {
+    try {
+      const { data: msg } = await supabase
+        .from("messages")
+        .select("content, metadata")
+        .eq("id", messageId)
+        .single();
+
+      if (!msg?.content) throw new Error("Áudio não encontrado");
+
+      const { data, error } = await supabase.functions.invoke("ai-chat?action=transcribe", {
+        body: { message_id: messageId, audio_url: msg.content },
+      });
+
+      if (error) throw new Error(error.message);
+
+      const transcript = data?.transcript;
+      if (!transcript) throw new Error("Transcrição vazia");
+
+      const newMeta = { ...(msg.metadata || {}), transcript };
+      await supabase.from("messages").update({ metadata: newMeta }).eq("id", messageId);
+
+      setMessages(prev =>
+        prev.map(m => m.id === messageId ? { ...m, metadata: newMeta } : m)
+      );
+      toast.success("Áudio transcrito!");
+    } catch (err: any) {
+      toast.error(`Erro ao transcrever: ${err.message}`);
+    }
+  }, []);
+
   // Merge source lead into target lead
   const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
     try {
