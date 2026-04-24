@@ -24,13 +24,21 @@ const typeLabels: Record<string, string> = {
   message_channel: 'Canal =',
 };
 
+function formatConditionType(type: string) {
+  if (type.startsWith('custom.')) {
+    return `Campo: ${type.replace('custom.', '')}`;
+  }
+  return typeLabels[type] || type;
+}
+
 function summarizeConditions(data: ConditionNodeData): string | null {
   if (!data.conditions?.length) return null;
   const joiner = data.conditionOperator === 'or' ? ' OU ' : ' E ';
   return data.conditions
     .map((c) => {
-      const label = typeLabels[c.type] || c.type;
-      return c.value ? `${label} "${c.value}"` : label;
+      const label = formatConditionType(c.type);
+      const op = c.operator ? ` ${c.operator} ` : ' ';
+      return c.value ? `${label}${op}"${c.value}"` : label;
     })
     .join(joiner);
 }

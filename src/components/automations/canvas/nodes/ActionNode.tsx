@@ -13,8 +13,8 @@ export function ActionNode({ data }: { data: { label?: string; configType?: stri
         <Zap className="w-4 h-4" />
         <span className="font-semibold text-sm">Ação (Action)</span>
       </div>
-      <div className="p-4 text-sm text-foreground min-h-[60px] flex items-center">
-        {data.label || 'Configurar Ação'}
+      <div className="p-4 text-sm text-foreground min-h-[60px] flex items-center justify-center text-center">
+        {data.label || (data.configType === 'add_tag' ? 'Adicionar Tag' : data.configType === 'change_status' ? 'Mudar Etapa' : data.configType === 'assign_user' ? 'Transferir' : data.configType === 'leave_note' ? 'Adicionar Nota' : 'Configurar Ação')}
       </div>
       <Handle 
         type="source" 

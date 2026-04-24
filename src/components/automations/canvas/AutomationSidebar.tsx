@@ -88,6 +88,28 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                 <SelectItem value="leave_note">Adicionar Nota (Histórico)</SelectItem>
               </SelectContent>
             </Select>
+            {nodeConfigType === 'add_tag' && (
+              <div className="mt-4 space-y-2">
+                <Label className="text-xs">Nome ou ID da Tag</Label>
+                <Input 
+                  className="h-8 text-sm" 
+                  placeholder="Ex: cliente-vip" 
+                  value={selectedNode.data.tag || ''}
+                  onChange={(e) => handleUpdate({ tag: e.target.value })}
+                />
+              </div>
+            )}
+            {nodeConfigType === 'change_status' && (
+              <div className="mt-4 space-y-2">
+                <Label className="text-xs">ID do Pipeline/Etapa</Label>
+                <Input 
+                  className="h-8 text-sm" 
+                  placeholder="ID da etapa..." 
+                  value={selectedNode.data.status || ''}
+                  onChange={(e) => handleUpdate({ status: e.target.value })}
+                />
+              </div>
+            )}
           </>
         );
       case 'condition':
@@ -140,6 +162,8 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                  <div className="mt-4 space-y-2 border-t border-border pt-4">
                     <Label className="text-xs">Texto da Mensagem</Label>
                     <Textarea 
+                       value={selectedNode.data.text || ''}
+                       onChange={(e) => handleUpdate({ text: e.target.value })}
                        placeholder="Olá {{lead.name}}..." 
                        className="h-24 resize-none"
                     />
@@ -152,37 +176,81 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
            <>
               <Label>Método HTTP</Label>
               <Select 
-                  value={nodeConfigType} 
-                  onValueChange={(v) => { setNodeConfigType(v); handleUpdate({ configType: v }); }}
+                  value={selectedNode.data.method || 'post'} 
+                  onValueChange={(v) => handleUpdate({ method: v })}
                 >
                   <SelectTrigger><SelectValue placeholder="GET / POST" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="post">POST (Enviar Dados)</SelectItem>
                     <SelectItem value="get">GET (Buscar Dados)</SelectItem>
+                    <SelectItem value="put">PUT</SelectItem>
+                    <SelectItem value="patch">PATCH</SelectItem>
                   </SelectContent>
               </Select>
               <div className="mt-4 space-y-2">
                  <Label className="text-xs">URL Específica (Endpoint)</Label>
-                 <Input className="text-xs font-mono" placeholder="https://hook.integromat.com/..." />
+                 <Input 
+                   className="text-xs font-mono" 
+                   placeholder="https://hook.integromat.com/..." 
+                   value={selectedNode.data.url || ''}
+                   onChange={(e) => handleUpdate({ url: e.target.value })}
+                 />
               </div>
            </>
          );
       case 'randomizer':
+         const pA = selectedNode.data.percentageA || 50;
+         const pB = 100 - pA;
          return (
            <>
              <Label>Distribuição de Tráfego (%)</Label>
              <div className="mt-2 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs bg-secondary px-2 py-1 rounded w-20 text-center font-medium text-foreground">Lado A</span>
-                  <Input type="number" defaultValue="50" className="w-16 h-8 text-center text-xs" />
+                  <Input 
+                    type="number" 
+                    value={pA} 
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (val >= 0 && val <= 100) {
+                        handleUpdate({ percentageA: val });
+                      }
+                    }}
+                    className="w-16 h-8 text-center text-xs" 
+                  />
                   <span className="text-xs text-muted-foreground">%</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs bg-secondary px-2 py-1 rounded w-20 text-center font-medium text-foreground">Lado B</span>
-                  <Input type="number" defaultValue="50" className="w-16 h-8 text-center text-xs" />
+                  <Input type="number" value={pB} disabled className="w-16 h-8 text-center text-xs bg-muted" />
                   <span className="text-xs text-muted-foreground">%</span>
                 </div>
              </div>
+           </>
+         );
+      case 'ai_assistant':
+         return (
+           <>
+              <Label>Prompt da Inteligência Artificial</Label>
+              <div className="mt-2 space-y-2">
+                 <Textarea 
+                   value={selectedNode.data.prompt || ''}
+                   onChange={(e) => handleUpdate({ prompt: e.target.value })}
+                   placeholder="Analise o perfil e sugira uma abordagem..." 
+                   className="h-32 resize-none text-xs"
+                 />
+                 <p className="text-[10px] text-muted-foreground">Você pode usar variáveis como {'{{lead.custom.slug}}'}</p>
+              </div>
+              <div className="mt-4 space-y-2 border-t border-border pt-4">
+                 <Label className="text-xs">Salvar resposta no campo (slug)</Label>
+                 <Input 
+                   value={selectedNode.data.outputField || ''}
+                   onChange={(e) => handleUpdate({ outputField: e.target.value })}
+                   placeholder="Ex: resumo_ia" 
+                   className="h-8 text-xs font-mono"
+                 />
+                 <p className="text-[10px] text-muted-foreground">O resultado da IA será salvo neste custom field.</p>
+              </div>
            </>
          );
       default:
@@ -226,21 +294,27 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
             <TypeOptions />
           </div>
 
-          {['action', 'message', 'webhook'].includes(selectedNode.type as string) && (
+          {['action', 'message', 'webhook', 'ai_assistant'].includes(selectedNode.type as string) && (
             <div className="space-y-2 pt-4 mt-4 border-t border-border">
               <Label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Variáveis Dinâmicas</Label>
               <div className="flex gap-2 flex-wrap">
                 <span 
-                  onClick={() => injectVariable(' {{lead.name}}')}
+                  onClick={() => injectVariable('{{lead.name}}')}
                   className="text-[10px] bg-primary/10 border-primary/20 border text-primary rounded px-1.5 py-0.5 cursor-pointer hover:bg-primary/20 transition-colors"
                 >
                   {'{'}{'{'}lead.name{'}'}{'}'}
                 </span>
                 <span 
-                  onClick={() => injectVariable(' {{lead.phone}}')}
+                  onClick={() => injectVariable('{{lead.phone}}')}
                   className="text-[10px] bg-primary/10 border-primary/20 border text-primary rounded px-1.5 py-0.5 cursor-pointer hover:bg-primary/20 transition-colors"
                 >
                   {'{'}{'{'}lead.phone{'}'}{'}'}
+                </span>
+                <span 
+                  onClick={() => injectVariable('{{lead.custom.slug}}')}
+                  className="text-[10px] bg-primary/10 border-primary/20 border text-primary rounded px-1.5 py-0.5 cursor-pointer hover:bg-primary/20 transition-colors"
+                >
+                  {'{'}{'{'}lead.custom.slug{'}'}{'}'}
                 </span>
               </div>
             </div>

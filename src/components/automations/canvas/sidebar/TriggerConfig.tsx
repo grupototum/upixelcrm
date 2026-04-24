@@ -21,6 +21,7 @@ export function TriggerConfig({ configType, keywords, onConfigTypeChange, onKeyw
           <SelectItem value="new_lead">Novo Lead Cadastrado</SelectItem>
           <SelectItem value="status_change">Mudança de Etapa de Funil</SelectItem>
           <SelectItem value="tag_added">Tag Adicionada ao Cliente</SelectItem>
+          <SelectItem value="field_changed">Campo Personalizado Alterado</SelectItem>
           <SelectItem value="message_received">📩 Mensagem Recebida (Qualquer Canal)</SelectItem>
           <SelectItem value="message_received_whatsapp">💬 Mensagem via WhatsApp</SelectItem>
           <SelectItem value="message_received_instagram">📸 Mensagem via Instagram</SelectItem>

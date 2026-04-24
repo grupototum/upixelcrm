@@ -1,7 +1,7 @@
 import { Handle, Position } from 'reactflow';
 import { Clock } from 'lucide-react';
 
-export function DelayNode({ data }: { data: { label?: string; configType?: string } }) {
+export function DelayNode({ data }: { data: { label?: string; configType?: string; delayType?: 'fixed'|'dynamic'; amount?: number; unit?: string; dynamicDate?: string } }) {
   return (
     <div className="w-[200px] shadow-lg rounded-md bg-card border border-border overflow-hidden relative">
       <Handle 
@@ -15,8 +15,10 @@ export function DelayNode({ data }: { data: { label?: string; configType?: strin
         <span className="font-semibold text-sm">Aguardar (Delay)</span>
       </div>
       
-      <div className="p-4 text-center font-bold text-foreground text-lg">
-        {data.label || '1 Dia'}
+      <div className="p-4 text-center font-bold text-foreground text-sm">
+        {data.delayType === 'dynamic' 
+          ? `Até: {{${data.dynamicDate || 'custom.data'}}}` 
+          : (data.label || `${data.amount || 1} ${data.unit || 'dias'}`)}
       </div>
       
       <Handle 

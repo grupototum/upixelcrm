@@ -1,7 +1,10 @@
 import { Handle, Position } from 'reactflow';
 import { Shuffle } from 'lucide-react';
 
-export function RandomizerNode({ data }: { data: { label?: string; configType?: string } }) {
+export function RandomizerNode({ data }: { data: { label?: string; configType?: string; percentageA?: number } }) {
+  const pA = data.percentageA || 50;
+  const pB = 100 - pA;
+  
   return (
     <div className="w-[200px] shadow-lg rounded-md bg-card border border-border overflow-hidden relative">
       <Handle 
@@ -16,11 +19,11 @@ export function RandomizerNode({ data }: { data: { label?: string; configType?: 
       </div>
       
       <div className="p-4 text-sm text-foreground font-medium pb-8 border-b border-border">
-        {data.label || 'Distribuição (50/50)'}
+        {data.label || `Distribuição (${pA}/${pB})`}
       </div>
 
       <div className="absolute right-3 top-20 flex items-center text-xs font-semibold text-muted-foreground">
-        Caminho A (50%)
+        Caminho A ({pA}%)
       </div>
       <Handle 
         type="source" 
@@ -31,7 +34,7 @@ export function RandomizerNode({ data }: { data: { label?: string; configType?: 
       />
 
       <div className="absolute right-3 top-[7.5rem] flex items-center text-xs font-semibold text-muted-foreground">
-        Caminho B (50%)
+        Caminho B ({pB}%)
       </div>
       <Handle 
         type="source" 

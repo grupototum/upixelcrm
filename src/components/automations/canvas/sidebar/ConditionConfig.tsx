@@ -17,7 +17,9 @@ interface ConditionConfigProps {
   onOperatorChange: (op: 'and' | 'or') => void;
 }
 
-const conditionTypes = [
+import { useCustomFields } from '@/hooks/useCustomFields';
+
+const baseConditionTypes = [
   { value: 'has_phone', label: 'Lead possui Celular?', needsValue: false },
   { value: 'has_email', label: 'Lead possui Email?', needsValue: false },
   { value: 'has_tag', label: 'Lead possui Tag X?', needsValue: true },
@@ -28,6 +30,17 @@ const conditionTypes = [
 ];
 
 export function ConditionConfig({ conditions, conditionOperator, onConditionsChange, onOperatorChange }: ConditionConfigProps) {
+  const { definitions } = useCustomFields();
+  
+  const conditionTypes = [
+    ...baseConditionTypes,
+    ...definitions.map(def => ({
+      value: `custom.${def.slug}`,
+      label: `Campo: ${def.name}`,
+      needsValue: true,
+      operator: true
+    }))
+  ];
   const addCondition = () => {
     onConditionsChange([...conditions, { type: '', value: '' }]);
   };
@@ -81,6 +94,23 @@ export function ConditionConfig({ conditions, conditionOperator, onConditionsCha
                 </SelectContent>
               </Select>
 
+              {meta?.operator && (
+                <Select value={condition.operator || 'equals'} onValueChange={(v) => updateCondition(index, { operator: v })}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Operador..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="equals">Igual a</SelectItem>
+                    <SelectItem value="not_equals">Diferente de</SelectItem>
+                    <SelectItem value="contains">Contém</SelectItem>
+                    <SelectItem value="is_empty">Está vazio</SelectItem>
+                    <SelectItem value="is_not_empty">Não está vazio</SelectItem>
+                    <SelectItem value="greater_than">Maior que</SelectItem>
+                    <SelectItem value="less_than">Menor que</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
               {meta?.needsValue && condition.type === 'message_channel' ? (
                 <Select value={condition.value || ''} onValueChange={(v) => updateCondition(index, { value: v })}>
                   <SelectTrigger className="h-8 text-xs">
@@ -93,7 +123,7 @@ export function ConditionConfig({ conditions, conditionOperator, onConditionsCha
                     <SelectItem value="webchat">Webchat</SelectItem>
                   </SelectContent>
                 </Select>
-              ) : meta?.needsValue ? (
+              ) : meta?.needsValue && condition.operator !== 'is_empty' && condition.operator !== 'is_not_empty' ? (
                 <Input
                   value={condition.value || ''}
                   onChange={(e) => updateCondition(index, { value: e.target.value })}
