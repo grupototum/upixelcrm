@@ -62,38 +62,11 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
     );
   };
 
-  const injectVariable = (variable: string) => {
-    if (lastFocusedElement) {
-      const start = lastFocusedElement.selectionStart || 0;
-      const end = lastFocusedElement.selectionEnd || 0;
-      const value = lastFocusedElement.value;
-      const newValue = value.substring(0, start) + variable + value.substring(end);
-      
-      lastFocusedElement.value = newValue;
-      lastFocusedElement.dispatchEvent(new Event('input', { bubbles: true }));
-      lastFocusedElement.focus();
-      
-      // Update state manually since we bypassed React's onChange slightly
-      if (lastFocusedElement.name === 'nodeName') {
-        setNodeName(newValue);
-        handleUpdate({ label: newValue });
-      } else {
-        // For other fields, we need to know which field it is.
-        // We can use the data-field attribute.
-        const field = lastFocusedElement.getAttribute('data-field');
-        if (field) handleUpdate({ [field]: newValue });
-      }
-      
-      toast.success(`Variável inserida!`);
-    } else {
-      navigator.clipboard.writeText(variable);
-      toast.info(`Variável ${variable} copiada! (Nenhum campo focado)`);
-    }
-  };
-
   const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setLastFocusedElement(e.target);
-   const renderTypeOptions = () => {
+  };
+
+  const renderTypeOptions = () => {
     switch (selectedNode.type) {
       case 'trigger':
         return (
