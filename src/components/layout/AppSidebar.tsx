@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone,
-  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake, ShieldCheck
+  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake, ShieldCheck, Copy
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
@@ -30,6 +30,7 @@ const navItems = [
   { title: "Disparos", url: "/whatsapp/broadcast", icon: Megaphone },
   { title: "Integrações", url: "/integrations", icon: Plug },
   { title: "Importação", url: "/import", icon: Upload },
+  { title: "Duplicatas", url: "/duplicates", icon: Copy },
   { title: "Usuários", url: "/users", icon: Users },
 ];
 

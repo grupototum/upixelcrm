@@ -389,15 +389,13 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
   if (convId) {
     const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
     if (conv?.lead_id) {
-       // Check if lead was just created (can be detected if there are no messages yet, or just always trigger new_message)
-       triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, { 
-         message: finalContent, 
-         message_type: msgType, 
-         channel: "whatsapp" 
-       });
+      triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, {
+        message: finalContent,
+        message_type: msgType,
+        channel: "whatsapp",
+      });
 
-       // Push notification
-       const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
+      const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
       const targetUserId = lead?.responsible_id;
       if (targetUserId) {
         sendPushNotification(adminClient, {
