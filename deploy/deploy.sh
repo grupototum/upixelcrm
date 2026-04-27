@@ -1,43 +1,60 @@
 #!/bin/bash
 set -e
 
-# Carrega nvm para shells não-interativos (GitHub Actions SSH)
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-if [ -s "$NVM_DIR/nvm.sh" ]; then
-  source "$NVM_DIR/nvm.sh" --no-use
-  nvm use --lts 2>/dev/null || nvm use node 2>/dev/null || true
-fi
+# Deploy do uPixel CRM rodando em container Docker.
+# O container `upixel-api` tem CMD que executa `npm ci --include=dev && npm run build && npm run preview`,
+# então um `docker restart` rebuilda automaticamente a partir do código atualizado em /docker/upixel.
 
-# Fallback: busca npm em locais comuns se ainda não estiver no PATH
-if ! command -v npm &>/dev/null; then
-  NPM_BIN=$(find /root/.nvm/versions /usr/local/bin /usr/bin -name "npm" 2>/dev/null | head -1)
-  [ -n "$NPM_BIN" ] && export PATH="$(dirname "$NPM_BIN"):$PATH"
-fi
-
-APP_DIR="/var/www/upixelcrm"
+APP_DIR="/docker/upixel"
+CONTAINER="upixel-api"
 NGINX_CONF_SRC="$APP_DIR/deploy/nginx.conf"
 NGINX_CONF_DST="/docker/compose/nginx.conf"
 
 echo "=== uPixel CRM Deploy ==="
-echo "Node: $(node --version 2>/dev/null || echo 'não encontrado')"
-echo "npm:  $(npm --version 2>/dev/null || echo 'não encontrado')"
+echo "Branch alvo: main"
+echo "Diretório:   $APP_DIR"
+echo "Container:   $CONTAINER"
 
-echo "[1/5] Pulling latest code..."
+echo ""
+echo "[1/4] Atualizando código..."
 cd "$APP_DIR"
 git fetch origin main
 git reset --hard origin/main
+echo "      HEAD: $(git rev-parse --short HEAD) - $(git log -1 --pretty=%s)"
 
-echo "[2/5] Installing dependencies..."
-npm ci --prefer-offline 2>/dev/null || npm install
+echo ""
+echo "[2/4] Atualizando nginx config (se existir)..."
+if [ -f "$NGINX_CONF_SRC" ] && [ -d "$(dirname "$NGINX_CONF_DST")" ]; then
+  cp "$NGINX_CONF_SRC" "$NGINX_CONF_DST"
+  docker exec nginx-totum nginx -t 2>/dev/null && \
+    docker exec nginx-totum nginx -s reload && \
+    echo "      nginx recarregado"
+else
+  echo "      nginx config não encontrado, pulando"
+fi
 
-echo "[3/5] Building application..."
-npm run build
+echo ""
+echo "[3/4] Reiniciando container (rebuild automático)..."
+docker restart "$CONTAINER" >/dev/null
+echo "      Container reiniciado, aguardando build..."
 
-echo "[4/5] Updating nginx config..."
-cp "$NGINX_CONF_SRC" "$NGINX_CONF_DST"
+echo ""
+echo "[4/4] Aguardando container ficar saudável..."
+for i in $(seq 1 60); do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo "unknown")
+  if [ "$STATUS" = "healthy" ]; then
+    echo "      ✓ Container saudável após ${i}0s"
+    break
+  fi
+  sleep 10
+  if [ $i -eq 60 ]; then
+    echo "      ⚠ Container ainda não saudável após 10min, continuando mesmo assim"
+  fi
+done
 
-echo "[5/5] Reloading nginx..."
-docker exec nginx-totum nginx -t && docker exec nginx-totum nginx -s reload
-
+echo ""
 echo "=== Deploy concluído ==="
-echo "Dist: $(du -sh $APP_DIR/dist | cut -f1) | $(ls $APP_DIR/dist | wc -l) arquivos"
+BUNDLE=$(docker exec "$CONTAINER" sh -c "ls /app/dist/assets/index-*.js 2>/dev/null | head -1" || echo "")
+if [ -n "$BUNDLE" ]; then
+  echo "Bundle ativo: $BUNDLE"
+fi
