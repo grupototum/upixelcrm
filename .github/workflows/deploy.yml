@@ -6,6 +6,37 @@ on:
       - main
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Build
+        run: npm run build
+
+      - name: Show bundle info
+        run: |
+          du -sh dist
+          ls dist/assets/index-*.js 2>/dev/null | head -1
+
+      - name: Package dist + deploy scripts
+        run: tar -czf upixel-deploy.tar.gz dist/ deploy/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: upixel-deploy
+          path: upixel-deploy.tar.gz
+          retention-days: 7
+
   deploy-functions:
     runs-on: ubuntu-latest
     steps:
@@ -23,16 +54,34 @@ jobs:
 
   deploy-vps:
     runs-on: ubuntu-latest
+    needs: build
     steps:
-      - name: Deploy na VPS
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: upixel-deploy
+          path: ./
+
+      - name: Copy bundle to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "upixel-deploy.tar.gz"
+          target: "/tmp/"
+
+      - name: Swap dist + reload nginx
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 10m
+          command_timeout: 3m
           script: |
-            cd /docker/upixel
-            git fetch origin main
-            git reset --hard origin/main
-            bash /docker/upixel/deploy/deploy.sh
+            set -e
+            rm -rf /tmp/upixel-extract
+            mkdir -p /tmp/upixel-extract
+            tar -xzf /tmp/upixel-deploy.tar.gz -C /tmp/upixel-extract
+            bash /tmp/upixel-extract/deploy/deploy.sh /tmp/upixel-extract
+            rm -rf /tmp/upixel-extract /tmp/upixel-deploy.tar.gz
