@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Upload, FileSpreadsheet, ArrowRight, CheckCircle2, X,
-  AlertCircle, Table, Loader2, SkipForward,
+  AlertCircle, Loader2, SkipForward,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +13,7 @@ import { useAppState } from "@/contexts/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { CSVPreview } from "@/components/import/CSVPreview";
 
 const systemFields = [
   { key: "name", label: "Nome", required: true },
@@ -376,35 +377,12 @@ export default function ImportPage() {
             </div>
 
             {/* Preview */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Table className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground">Preview dos dados (3 primeiros)</span>
-              </div>
-              <div className="ghost-border rounded-xl overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-muted">
-                      {csvData.headers.map((h) => (
-                        <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {csvData.rows.slice(0, 3).map((row, i) => (
-                      <tr key={i} className="hover:bg-card-hover">
-                        {row.map((cell, j) => (
-                          <td key={j} className="px-3 py-2 text-foreground max-w-[160px] truncate">{cell}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Mostrando 3 de {csvData.rows.length} registros
-              </p>
-            </div>
+            <CSVPreview
+              csvHeaders={csvData.headers}
+              csvRows={csvData.rows}
+              mapping={mapping}
+              previewCount={3}
+            />
 
             {/* Dedup notice */}
             <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 ghost-border">
