@@ -2,21 +2,22 @@
 set -e
 
 # Deploy do uPixel CRM com dist pré-compilada (build feito no GitHub Actions).
-# Recebe o caminho do diretório com dist/ + deploy/ extraídos como primeiro argumento.
-# Faz atomic swap do diretório dist + restart do container → downtime mínimo.
+# Recebe o caminho do diretório extraído como primeiro argumento.
+#
+# Arquitetura de deploy:
+#   - /docker/upixel/dist  → montado como /app/dist no upixel-api (vite preview)
+#   - /var/www/upixelcrm/dist → nginx fallback estático (via volume no nginx-totum)
+# Ambos são atualizados com a mesma dist para garantir consistência.
 
 EXTRACT_DIR="${1:-/tmp/upixel-extract}"
 APP_DIR="/docker/upixel"
 CONTAINER="upixel-api"
-# Arquitetura: nginx-totum faz proxy para upixel-api (vite preview na porta 3000).
-# upixel-api tem /docker/upixel montado como /app, então a dist em
-# /docker/upixel/dist é servida automaticamente pelo vite preview do container.
-# Atualizar esse diretório atualiza a dist servida — sem restart.
-DIST_CURRENT="$APP_DIR/dist"
-DIST_NEW="$APP_DIR/dist.new"
-DIST_OLD="$APP_DIR/dist.old"
 NGINX_CONF_SRC="$EXTRACT_DIR/deploy/nginx.conf"
 NGINX_CONF_DST="/docker/compose/nginx.conf"
+
+# Paths de dist (ambos recebem o mesmo conteúdo)
+DIST_PRIMARY="$APP_DIR/dist"            # upixel-api container (vite preview)
+DIST_FALLBACK="/var/www/upixelcrm/dist" # nginx static fallback
 
 if [ ! -d "$EXTRACT_DIR/dist" ]; then
   echo "ERRO: dist não encontrada em $EXTRACT_DIR/dist"
@@ -24,78 +25,83 @@ if [ ! -d "$EXTRACT_DIR/dist" ]; then
   exit 1
 fi
 
+NEW_BUNDLE=$(ls "$EXTRACT_DIR/dist/assets/index-"*.js 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "desconhecido")
 echo "=== uPixel CRM Deploy ==="
-echo "Origem:      $EXTRACT_DIR/dist"
-echo "Destino:     $DIST_CURRENT (montado em upixel-api:/app/dist)"
-NEW_BUNDLE=$(ls "$EXTRACT_DIR/dist/assets/index-"*.js 2>/dev/null | head -1)
 echo "Bundle novo: $NEW_BUNDLE"
+echo "Destinos:    $DIST_PRIMARY | $DIST_FALLBACK"
 
+# ---------- [1/5] Sync código fonte (referência) ----------
 echo ""
-echo "[1/5] Sincronizando código fonte (referência)..."
+echo "[1/5] Sincronizando código fonte..."
 if [ -d "$APP_DIR/.git" ]; then
   cd "$APP_DIR"
   git fetch origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null && \
-    echo "      HEAD: $(git rev-parse --short HEAD) - $(git log -1 --pretty=%s)" || \
-    echo "      ⚠ git sync falhou (não crítico — a dist enviada é o que vai pro ar)"
+    echo "      HEAD: $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)" || \
+    echo "      ⚠ git sync falhou (não crítico — a dist compilada é o que importa)"
 fi
 
+# ---------- [2/5] Atomic swap — dist primary (upixel-api) ----------
 echo ""
-echo "[2/5] Copiando dist nova para staging..."
-mkdir -p "$(dirname "$DIST_NEW")"
-rm -rf "$DIST_NEW"
-cp -r "$EXTRACT_DIR/dist" "$DIST_NEW"
-echo "      OK ($(du -sh "$DIST_NEW" | cut -f1))"
+echo "[2/5] Atualizando dist primary ($DIST_PRIMARY)..."
+rm -rf "${DIST_PRIMARY}.new"
+cp -r "$EXTRACT_DIR/dist" "${DIST_PRIMARY}.new"
+rm -rf "${DIST_PRIMARY}.old"
+[ -d "$DIST_PRIMARY" ] && mv "$DIST_PRIMARY" "${DIST_PRIMARY}.old"
+mv "${DIST_PRIMARY}.new" "$DIST_PRIMARY"
+( rm -rf "${DIST_PRIMARY}.old" 2>/dev/null & )
+echo "      OK ($(du -sh "$DIST_PRIMARY" | cut -f1))"
 
+# ---------- [3/5] Atomic swap — dist fallback (nginx static) ----------
 echo ""
-echo "[3/5] Atomic swap em $DIST_CURRENT..."
-rm -rf "$DIST_OLD"
-if [ -d "$DIST_CURRENT" ]; then
-  mv "$DIST_CURRENT" "$DIST_OLD"
-fi
-mv "$DIST_NEW" "$DIST_CURRENT"
-echo "      OK"
+echo "[3/5] Atualizando dist fallback ($DIST_FALLBACK)..."
+mkdir -p "$(dirname "$DIST_FALLBACK")"
+rm -rf "${DIST_FALLBACK}.new"
+cp -r "$EXTRACT_DIR/dist" "${DIST_FALLBACK}.new"
+rm -rf "${DIST_FALLBACK}.old"
+[ -d "$DIST_FALLBACK" ] && mv "$DIST_FALLBACK" "${DIST_FALLBACK}.old"
+mv "${DIST_FALLBACK}.new" "$DIST_FALLBACK"
+( rm -rf "${DIST_FALLBACK}.old" 2>/dev/null & )
+echo "      OK ($(du -sh "$DIST_FALLBACK" | cut -f1))"
 
+# ---------- [4/5] nginx config + reload ----------
 echo ""
-echo "[4/5] Atualizando nginx config + reload..."
+echo "[4/5] Atualizando nginx config..."
 if [ -f "$NGINX_CONF_SRC" ] && [ -d "$(dirname "$NGINX_CONF_DST")" ]; then
   cp "$NGINX_CONF_SRC" "$NGINX_CONF_DST"
-  if docker exec nginx-totum nginx -t 2>/dev/null; then
+  if docker exec nginx-totum nginx -t 2>&1 | grep -q "test is successful"; then
     docker exec nginx-totum nginx -s reload
-    echo "      nginx recarregado"
+    echo "      nginx recarregado com nova config"
   else
-    echo "      ⚠ nginx -t falhou — config não recarregada"
+    NGINX_ERR=$(docker exec nginx-totum nginx -t 2>&1 | tail -3)
+    echo "      ⚠ nginx -t falhou, mantendo config anterior:"
+    echo "        $NGINX_ERR"
   fi
 else
-  echo "      nginx config ou destino não encontrado, pulando"
+  echo "      Destino $NGINX_CONF_DST não encontrado — pulando"
 fi
 
+# ---------- [5/5] Container status ----------
 echo ""
-echo "[5/5] Container upixel-api..."
-# IMPORTANTE: por padrão NÃO reiniciamos o container.
-# Motivo: o CMD do container roda `npm ci && npm run build && npm run preview`,
-# que leva 5-10 minutos e causa downtime/504. A dist nova já está em
-# /docker/upixel/dist (montada como /app/dist no container) — vite preview serve
-# os arquivos automaticamente sem precisar de restart.
-#
-# Para forçar restart (ex: package.json mudou): RESTART_CONTAINER=1 bash deploy.sh
+echo "[5/5] Status do container..."
+CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}} (health: {{.State.Health.Status}})' "$CONTAINER" 2>/dev/null || echo "não encontrado")
+echo "      upixel-api: $CONTAINER_STATUS"
+echo ""
+echo "      Nota: dist atualizada em $DIST_PRIMARY (montada no container)."
+echo "      vite preview serve os novos arquivos sem restart."
+echo "      Se quiser forçar restart: RESTART_CONTAINER=1 bash $0 ..."
 if [ "${RESTART_CONTAINER:-0}" = "1" ]; then
-  if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER}\$"; then
-    docker restart "$CONTAINER" >/dev/null
-    echo "      Container reiniciado (RESTART_CONTAINER=1)"
-  else
-    echo "      Container $CONTAINER não encontrado"
-  fi
-else
-  STATUS=$(docker inspect --format='{{.State.Status}}' "$CONTAINER" 2>/dev/null || echo "missing")
-  echo "      Status atual: $STATUS (vite preview serve dist nova automaticamente)"
+  docker restart "$CONTAINER" >/dev/null 2>&1 && echo "      Container reiniciado." || echo "      ⚠ Restart falhou."
 fi
 
-# Limpa dist.old em background (não bloqueia o deploy)
-( rm -rf "$DIST_OLD" 2>/dev/null & )
-
+# ---------- Verificação final ----------
 echo ""
 echo "=== Deploy concluído ==="
-BUNDLE=$(ls "$DIST_CURRENT/assets/index-"*.js 2>/dev/null | head -1)
-if [ -n "$BUNDLE" ]; then
-  echo "Bundle ativo: $BUNDLE"
+ACTIVE_BUNDLE=$(ls "$DIST_PRIMARY/assets/index-"*.js 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "?")
+FALLBACK_BUNDLE=$(ls "$DIST_FALLBACK/assets/index-"*.js 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "?")
+echo "Bundle em primary:  $ACTIVE_BUNDLE"
+echo "Bundle em fallback: $FALLBACK_BUNDLE"
+if [ "$ACTIVE_BUNDLE" = "$FALLBACK_BUNDLE" ] && [ "$ACTIVE_BUNDLE" != "?" ]; then
+  echo "✓ Ambos os caminhos estão em sync com o bundle novo"
+else
+  echo "⚠ Divergência entre primary e fallback — investigar"
 fi
