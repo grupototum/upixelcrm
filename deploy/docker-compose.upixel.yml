@@ -1,23 +1,60 @@
-# This file shows the nginx-totum service changes needed in /docker/compose/docker-compose.yml
-# Add the volumes section below to the nginx-totum service.
+# =============================================================================
+# uPixel CRM — Referência de Configuração Docker
 #
-# Example:
+# Este arquivo documenta as configurações necessárias no
+# /docker/compose/docker-compose.yml e docker-compose.override.yml da VPS.
+#
+# Arquitetura:
+#   nginx-totum (porta 80) ──proxy──► upixel-api (porta 3000)
+#                            └─fallback─► /var/www/upixelcrm/dist (estático)
+#   GitHub Actions ──SCP──► /docker/upixel/dist ──atomic swap──► /var/www/upixelcrm/dist
+# =============================================================================
+
+# --- PARTE 1: nginx-totum ---
+# Adicione/confirme estes volumes no serviço nginx-totum:
+#
 #   services:
 #     nginx-totum:
 #       image: nginx:alpine
 #       volumes:
 #         - /docker/compose/nginx.conf:/etc/nginx/nginx.conf:ro
-#         - /var/www/upixelcrm/dist:/usr/share/nginx/html:ro   # <-- ADD THIS LINE
+#         - /var/www/upixelcrm/dist:/usr/share/nginx/html:ro  # fallback estático
 #       ports:
 #         - "80:80"
 #       networks:
 #         - compose_totum
+#       extra_hosts:
+#         - "host.docker.internal:host-gateway"  # necessário para evolution proxy
 #       restart: always
+
+# --- PARTE 2: upixel-api ---
+# O CMD padrão é `npm ci && npm run build && npm run preview` (lento, 5-10min).
+# Com o override abaixo, o container inicia em <5s pois a dist já está pronta.
+#
+# Crie /docker/compose/docker-compose.override.yml:
 
 version: "3.8"
 
 services:
+  # nginx-totum: garante que o fallback estático está disponível
   nginx-totum:
     volumes:
       - /docker/compose/nginx.conf:/etc/nginx/nginx.conf:ro
       - /var/www/upixelcrm/dist:/usr/share/nginx/html:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # upixel-api: skip rebuild, serve dist pré-compilada do volume
+  upixel-api:
+    # CMD otimizado: não executa npm ci nem npm run build.
+    # A dist é fornecida pelo deploy.sh via /docker/upixel/dist (volume).
+    command: sh -c "cd /app && npm run preview"
+    volumes:
+      - /docker/upixel:/app
+    networks:
+      - compose_totum
+    restart: unless-stopped
+
+networks:
+  compose_totum:
+    external: true
