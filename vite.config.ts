@@ -14,7 +14,9 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: ["upixel-api", "upixel.app", ".upixel.app", "localhost", "127.0.0.1"],
   },
   preview: {
-    allowedHosts: ["upixel-api", "upixel.app", ".upixel.app", "localhost", "127.0.0.1"],
+    host: "0.0.0.0",
+    port: 3000,
+    allowedHosts: true, // nginx faz controle de acesso externamente
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

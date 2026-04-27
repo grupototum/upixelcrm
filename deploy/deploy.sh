@@ -49,6 +49,8 @@ rm -rf "${DIST_PRIMARY}.old"
 [ -d "$DIST_PRIMARY" ] && mv "$DIST_PRIMARY" "${DIST_PRIMARY}.old"
 mv "${DIST_PRIMARY}.new" "$DIST_PRIMARY"
 ( rm -rf "${DIST_PRIMARY}.old" 2>/dev/null & )
+find "$DIST_PRIMARY" -type d -exec chmod 755 {} + 2>/dev/null
+find "$DIST_PRIMARY" -type f -exec chmod 644 {} + 2>/dev/null
 echo "      OK ($(du -sh "$DIST_PRIMARY" | cut -f1))"
 
 # ---------- [3/5] Atomic swap — dist fallback (nginx static) ----------
@@ -61,6 +63,8 @@ rm -rf "${DIST_FALLBACK}.old"
 [ -d "$DIST_FALLBACK" ] && mv "$DIST_FALLBACK" "${DIST_FALLBACK}.old"
 mv "${DIST_FALLBACK}.new" "$DIST_FALLBACK"
 ( rm -rf "${DIST_FALLBACK}.old" 2>/dev/null & )
+find "$DIST_FALLBACK" -type d -exec chmod 755 {} + 2>/dev/null
+find "$DIST_FALLBACK" -type f -exec chmod 644 {} + 2>/dev/null
 echo "      OK ($(du -sh "$DIST_FALLBACK" | cut -f1))"
 
 # ---------- [4/5] nginx config + reload ----------
