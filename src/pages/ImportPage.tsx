@@ -227,6 +227,7 @@ export default function ImportPage() {
     const clientId = user?.client_id ?? tenant?.id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
+    console.log("Import starting:", { clientId, customFieldDefsCount: customFieldDefs.length, csvRowCount: csvData.rows.length });
     setImporting(true);
 
     // Busca todos os telefones existentes direto do banco (paginado, evita usar
@@ -300,6 +301,9 @@ export default function ImportPage() {
           custom_fields[def.slug] = raw;
         }
       }
+      if (Object.keys(custom_fields).length > 0 && leadsToInsert.length === 0) {
+        console.log("First lead with custom fields:", { name, custom_fields });
+      }
 
       leadsToInsert.push({
         name,
@@ -320,6 +324,8 @@ export default function ImportPage() {
     let inserted = 0;
     let errors = 0;
     const CHUNK = 500; // Aumentado de 100 para 500 — melhor performance
+
+    console.log("Leads to insert:", { count: leadsToInsert.length, sample: leadsToInsert[0] });
 
     for (let i = 0; i < leadsToInsert.length; i += CHUNK) {
       const chunk = leadsToInsert.slice(i, i + CHUNK);
@@ -369,6 +375,8 @@ export default function ImportPage() {
         }
       }
     }
+
+    console.log("Import completed:", { inserted, errors, skipped });
 
     if (inserted > 0) await refreshData();
 
