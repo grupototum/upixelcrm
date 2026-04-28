@@ -56,10 +56,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function CRMPage() {
   const navigate = useNavigate();
-  const { 
-    leads, pipelines, columns, currentPipelineId, 
-    setPipeline, addPipeline, deletePipeline, addColumn, 
-    addLead, updateLead, deleteLead, moveLead 
+  const {
+    leads, pipelines, columns, currentPipelineId,
+    setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn,
+    addLead, updateLead, deleteLead, moveLead
   } = useAppState();
 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
@@ -78,6 +78,8 @@ export default function CRMPage() {
   const [configColumnTab, setConfigColumnTab] = useState<string>("general");
   const [crmFilters, setCrmFilters] = useState<CRMFilters>(EMPTY_FILTERS);
   const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
+  const [editingPipelineId, setEditingPipelineId] = useState<string | null>(null);
+  const [editingPipelineName, setEditingPipelineName] = useState("");
 
   const currentPipeline = useMemo(() => 
     pipelines.find(p => p.id === currentPipelineId) || pipelines[0]
@@ -102,7 +104,7 @@ export default function CRMPage() {
 
   const filteredLeads = useMemo(() => {
     let result = leads;
-    
+
     // Primary Category Filter - Only Leads
     result = result.filter(l => (l.category || "lead") === "lead");
 
@@ -116,12 +118,18 @@ export default function CRMPage() {
           l.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
+
+    // Origin filter
     if (crmFilters.origins.length > 0) {
       result = result.filter((l) => l.origin && crmFilters.origins.includes(l.origin));
     }
+
+    // Tags filter
     if (crmFilters.tags.length > 0) {
       result = result.filter((l) => l.tags.some((t) => crmFilters.tags.includes(t)));
     }
+
+    // Value range filter
     if (crmFilters.minValue) {
       const min = parseFloat(crmFilters.minValue);
       result = result.filter((l) => (l.value ?? 0) >= min);
@@ -130,6 +138,29 @@ export default function CRMPage() {
       const max = parseFloat(crmFilters.maxValue);
       result = result.filter((l) => (l.value ?? 0) <= max);
     }
+
+    // Status filter
+    if (crmFilters.status.length > 0) {
+      result = result.filter((l) => l.status && crmFilters.status.includes(l.status));
+    }
+
+    // Priority filter
+    if (crmFilters.priority.length > 0) {
+      result = result.filter((l) => l.priority && crmFilters.priority.includes(l.priority));
+    }
+
+    // Date range filter
+    if (crmFilters.dateRange) {
+      const now = new Date();
+      const days = crmFilters.dateRange === "7d" ? 7 : crmFilters.dateRange === "30d" ? 30 : 90;
+      const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      result = result.filter((l) => {
+        const leadDate = new Date(l.created_at || 0);
+        return leadDate >= cutoffDate;
+      });
+    }
+
+    // Custom fields filter
     const cfEntries = Object.entries(crmFilters.customFields ?? {}).filter(([, v]) => v.trim());
     if (cfEntries.length > 0) {
       result = result.filter((l) =>
@@ -140,6 +171,7 @@ export default function CRMPage() {
         )
       );
     }
+
     return result;
   }, [leads, searchQuery, crmFilters]);
 
@@ -216,6 +248,19 @@ export default function CRMPage() {
     }
   };
 
+  const handleEditPipeline = (pipeline: typeof pipelines[0]) => {
+    setEditingPipelineId(pipeline.id);
+    setEditingPipelineName(pipeline.name);
+  };
+
+  const handleSavePipelineName = async () => {
+    if (editingPipelineId && editingPipelineName.trim()) {
+      await updatePipeline(editingPipelineId, { name: editingPipelineName.trim() });
+      setEditingPipelineId(null);
+      setEditingPipelineName("");
+    }
+  };
+
   return (
     <AppLayout
       title="CRM"
@@ -237,16 +282,23 @@ export default function CRMPage() {
                   Seus Funis
                 </div>
                 {pipelines.map((p) => (
-                  <div key={p.id} className="group flex items-center pr-2">
-                    <DropdownMenuItem 
+                  <div key={p.id} className="group flex items-center pr-2 gap-1">
+                    <DropdownMenuItem
                       onClick={() => setPipeline(p.id)}
                       className={`flex-1 rounded-xl text-xs h-9 gap-3 cursor-pointer ${currentPipelineId === p.id ? "bg-primary/10 text-primary font-bold" : ""}`}
                     >
                       <div className={`h-1.5 w-1.5 rounded-full ${currentPipelineId === p.id ? "bg-primary" : "bg-muted-foreground/30"}`} />
                       {p.name}
                     </DropdownMenuItem>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleEditPipeline(p); }}
+                      className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent/10 hover:text-accent opacity-0 group-hover:opacity-100 transition-all"
+                      title="Editar nome do funil"
+                    >
+                      <span className="text-xs font-bold">✏️</span>
+                    </button>
                     {pipelines.length > 1 && (
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); setPipelineToDelete(p.id); }}
                         className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
                       >
@@ -425,6 +477,34 @@ export default function CRMPage() {
         onClose={() => setConfigColumn(null)}
         initialTab={configColumnTab}
       />
+
+      <Dialog open={!!editingPipelineId} onOpenChange={(open) => !open && setEditingPipelineId(null)}>
+        <DialogContent className="max-w-sm rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-3">
+              <span className="text-2xl">✏️</span>
+              Editar Nome do Funil
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-pipe-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Novo Nome</Label>
+              <Input
+                id="edit-pipe-name"
+                value={editingPipelineName}
+                onChange={(e) => setEditingPipelineName(e.target.value)}
+                placeholder="Ex: Vendas Enterprise"
+                className="h-11 rounded-xl bg-secondary/20 border-none focus:ring-2 focus:ring-primary"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingPipelineId(null)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleSavePipelineName} disabled={!editingPipelineName.trim()} className="rounded-xl bg-primary hover:bg-primary-hover px-8">Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!pipelineToDelete} onOpenChange={(open) => !open && setPipelineToDelete(null)}>
         <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">

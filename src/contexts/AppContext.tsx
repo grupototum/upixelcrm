@@ -26,6 +26,7 @@ interface AppState {
   updateLead: (id: string, data: Partial<Lead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
   moveLead: (id: string, toColumnId: string) => Promise<void>;
+  moveLeadToPipeline: (id: string, toPipelineId: string) => Promise<void>;
   mergeLeads: (sourceLeadId: string, targetLeadId: string) => Promise<void>;
 
   addTask: (data: Partial<Task>) => Promise<Task | null>;
@@ -52,6 +53,7 @@ interface AppState {
   addGlobalTag: (tag: string) => Promise<void>;
   deleteGlobalTag: (tag: string) => Promise<void>;
 
+  updatePipeline: (id: string, data: Partial<Pipeline>) => Promise<void>;
   deletePipeline: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -223,6 +225,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [leads, columns, addTimelineEvent]);
 
+  const moveLeadToPipeline = useCallback(async (id: string, toPipelineId: string) => {
+    const lead = leads.find((l) => l.id === id);
+    if (!lead) return;
+
+    const targetPipelineColumns = columns.filter(c => c.pipeline_id === toPipelineId);
+    if (targetPipelineColumns.length === 0) {
+      toast.error("Funil de destino não possui colunas");
+      return;
+    }
+
+    const firstColumnOfNewPipeline = targetPipelineColumns.sort((a, b) => a.order - b.order)[0];
+    const fromPipeline = pipelines.find(p => columns.find(c => c.id === lead.column_id)?.pipeline_id === p.id);
+    const toPipeline = pipelines.find(p => p.id === toPipelineId);
+
+    // Optimistic update
+    setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: firstColumnOfNewPipeline.id, updated_at: new Date().toISOString() } : l));
+
+    const { error } = await supabase.from("leads").update({ column_id: firstColumnOfNewPipeline.id }).eq("id", id);
+    if (error) {
+      logger.error(error);
+      // Rollback
+      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
+      toast.error("Erro ao mover lead entre funis");
+      return;
+    }
+
+    toast.success(`Lead movido de "${fromPipeline?.name}" para "${toPipeline?.name}"`);
+
+    await addTimelineEvent({
+      lead_id: id,
+      type: "stage_change",
+      content: `"${lead.name}" movido do funil "${fromPipeline?.name ?? "?"}" para "${toPipeline?.name ?? "?"}"`,
+      user_name: "Usuário",
+    });
+  }, [leads, columns, pipelines, addTimelineEvent]);
+
   const addLead = useCallback(async (data: Partial<Lead>, columnId: string): Promise<Lead | null> => {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return null; }
@@ -351,6 +389,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.client_id]);
 
+  const updatePipeline = useCallback(async (id: string, data: Partial<Pipeline>) => {
+    const { error } = await supabase.from("pipelines").update(data).eq("id", id);
+    if (error) { logger.error(error); toast.error("Erro ao atualizar funil"); return; }
+    setPipelines((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p));
+    toast.success("Funil atualizado");
+  }, []);
+
   const deletePipeline = useCallback(async (id: string) => {
     // Delete columns first to be safe (cascade should handle this but let's be explicitly)
     const { error: colError } = await supabase.from("pipeline_columns").delete().eq("pipeline_id", id);
@@ -358,7 +403,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const { error } = await supabase.from("pipelines").delete().eq("id", id);
     if (error) { logger.error(error); toast.error("Erro ao excluir funil"); return; }
-    
+
     setPipelines((prev) => {
       const filtered = prev.filter((p) => p.id !== id);
       if (currentPipelineId === id && filtered.length > 0) {
@@ -641,8 +686,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       leads, pipelines, columns, currentPipelineId, tasks, automations, complexAutomations, timeline, globalTags, loading,
-      setPipeline: setCurrentPipelineId, addPipeline, deletePipeline,
-      addLead, updateLead, deleteLead, moveLead,
+      setPipeline: setCurrentPipelineId, addPipeline, updatePipeline, deletePipeline,
+      addLead, updateLead, deleteLead, moveLead, moveLeadToPipeline,
       addTask, updateTask, deleteTask, toggleTaskStatus,
       addColumn, updateColumn, deleteColumn, addTimelineEvent, 
       createAutomation, updateAutomationNodes, deleteAutomation, toggleComplexAutomation,
