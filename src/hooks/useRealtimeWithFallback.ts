@@ -25,6 +25,8 @@ export function useRealtimeWithFallback(
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const hasErrorRef = useRef(false);
+  const lastPollTimeRef = useRef<number>(0);
+  const failedPollsRef = useRef(0);
 
   const startPolling = useCallback(() => {
     // Don't start polling if it's already running
@@ -33,9 +35,13 @@ export function useRealtimeWithFallback(
     logger.info('Starting polling fallback');
     const poll = async () => {
       try {
+        const startTime = Date.now();
         await fetchFallback();
+        lastPollTimeRef.current = startTime;
+        failedPollsRef.current = 0;
       } catch (err) {
-        logger.error('Polling fallback error:', err);
+        failedPollsRef.current += 1;
+        logger.error('Polling error (attempt ' + failedPollsRef.current + '):', err);
         onError?.(err);
       }
     };
@@ -65,21 +71,34 @@ export function useRealtimeWithFallback(
       return;
     }
 
-    try {
-      const subscription = setupSubscription();
-      unsubscribeRef.current = subscription.unsubscribe;
-      hasErrorRef.current = false;
+    // Try to establish realtime subscription
+    const trySubscribe = () => {
+      try {
+        const subscription = setupSubscription();
+        unsubscribeRef.current = subscription.unsubscribe;
+        hasErrorRef.current = false;
+        stopPolling();
+        logger.info('✓ Realtime subscription active');
+      } catch (err) {
+        logger.warn('Realtime unavailable, using polling:', err);
+        hasErrorRef.current = true;
+        startPolling();
+      }
+    };
 
-      // If subscription succeeds, stop polling
-      stopPolling();
-    } catch (err) {
-      logger.warn('Realtime subscription setup failed, starting polling:', err);
-      hasErrorRef.current = true;
-      startPolling();
-    }
+    trySubscribe();
+
+    // Health check: every 30s, if in polling mode, try to reconnect to realtime
+    const healthCheckInterval = setInterval(() => {
+      if (hasErrorRef.current && pollTimerRef.current) {
+        logger.info('Health check: attempting realtime reconnect...');
+        trySubscribe();
+      }
+    }, 30000);
 
     // Cleanup
     return () => {
+      clearInterval(healthCheckInterval);
       stopPolling();
       if (unsubscribeRef.current) {
         try {
