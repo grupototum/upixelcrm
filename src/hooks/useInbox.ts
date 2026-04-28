@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
@@ -46,6 +46,7 @@ export function useInbox(onLeadCreated?: () => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const realtimeSubscriptionRef = useRef<any>(null);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
@@ -608,12 +609,28 @@ export function useInbox(onLeadCreated?: () => void) {
           .maybeSingle();
 
         if (conv?.lead_id === selectedLeadId) {
+          const meta = (newMsg.metadata || {}) as Record<string, any>;
+          let resolvedContent = newMsg.content;
+          const isMedia = ["image", "audio", "video", "file", "sticker"].includes(newMsg.type);
+
+          // Resolve media URLs similar to loadMessages
+          if (isMedia) {
+            const isEncrypted = resolvedContent?.includes(".enc");
+            const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
+            const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
+
+            if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
+              resolvedContent = meta.media_url;
+            }
+          }
+
           setMessages(prev => [...prev, {
             ...newMsg,
+            content: resolvedContent,
             channel: conv.channel,
-            metadata: (newMsg.metadata || {}) as Record<string, any>,
-            is_private: (newMsg.metadata as any)?.is_private || false,
-            content_type: (newMsg.metadata as any)?.content_type || "text",
+            metadata: meta,
+            is_private: meta?.is_private || false,
+            content_type: meta?.content_type || "text",
           }]);
         }
 
