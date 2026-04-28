@@ -165,6 +165,8 @@ export function useDuplicateDetection() {
 
   // Mescla vários grupos de uma vez. Para cada grupo, escolhe o primary
   // automaticamente (campos mais preenchidos + mais recente).
+  // Usa paralelização agressiva para rapidez: reassign todos em paralelo,
+  // depois merge de todos em paralelo, depois delete de todos em lote.
   // Retorna { merged, failed } com a contagem.
   const mergeMany = useCallback(async (
     targetGroups: DuplicateGroup[],
@@ -173,24 +175,64 @@ export function useDuplicateDetection() {
     let merged = 0;
     let failed = 0;
     const successIds: string[] = [];
+    const allSourceIds: string[] = [];
 
-    for (let i = 0; i < targetGroups.length; i++) {
-      const g = targetGroups[i];
-      onProgress?.(i, targetGroups.length);
-      try {
-        const primaryId = pickPrimary(g.leads);
-        await merge(g, primaryId);
-        merged++;
-        successIds.push(g.id);
-      } catch (err) {
-        failed++;
+    // Prepare all groups
+    const prepared = targetGroups.map((g) => ({
+      group: g,
+      primaryId: pickPrimary(g.leads),
+      sourceIds: g.leads.filter((l) => l.id !== pickPrimary(g.leads)).map((l) => l.id),
+    }));
+
+    try {
+      // Reassign ALL records in parallel (conversations, tasks, timeline_events)
+      const reassignTasks = prepared.flatMap(({ primaryId, sourceIds }) => [
+        supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+        supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+        supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+      ]);
+
+      onProgress?.(0, targetGroups.length);
+      await Promise.all(reassignTasks);
+      onProgress?.(Math.round(targetGroups.length * 0.33), targetGroups.length);
+
+      // Merge tags/notes in parallel
+      const mergeTasks = prepared.map(async ({ group, primaryId }) => {
+        const primary = group.leads.find((l) => l.id === primaryId)!;
+        const duplicates = group.leads.filter((l) => l.id !== primaryId);
+
+        let mergedTags = [...(primary.tags || [])];
+        let mergedNotes = primary.notes || "";
+        duplicates.forEach((d) => {
+          (d.tags || []).forEach((t) => { if (!mergedTags.includes(t)) mergedTags.push(t); });
+          if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
+        });
+
+        return supabase.from("leads")
+          .update({ tags: mergedTags, notes: mergedNotes || null })
+          .eq("id", primaryId);
+      });
+
+      await Promise.all(mergeTasks);
+      onProgress?.(Math.round(targetGroups.length * 0.66), targetGroups.length);
+
+      // Collect all source IDs and delete in one batch
+      prepared.forEach(({ sourceIds }) => allSourceIds.push(...sourceIds));
+      if (allSourceIds.length > 0) {
+        await supabase.from("leads").delete().in("id", allSourceIds);
       }
+
+      merged = targetGroups.length;
+      successIds.push(...targetGroups.map((g) => g.id));
+    } catch (err: any) {
+      console.error("mergeMany error:", err);
+      failed = targetGroups.length - merged;
     }
 
     onProgress?.(targetGroups.length, targetGroups.length);
     setGroups((prev) => prev.filter((g) => !successIds.includes(g.id)));
     return { merged, failed };
-  }, [merge, pickPrimary]);
+  }, [pickPrimary]);
 
   const totalDuplicates = groups.reduce((sum, g) => sum + g.leads.length - 1, 0);
 
