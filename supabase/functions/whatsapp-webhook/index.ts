@@ -281,12 +281,57 @@ async function findOrCreateLead(
   return newLead.id;
 }
 
-// ─── Trigger Complex Automations ───
-async function triggerAutomations(adminClient: any, clientId: string, eventType: string, leadId: string, context: any) {
+// ─── Check message deduplication ───
+async function isDuplicateMessage(
+  adminClient: any,
+  clientId: string,
+  whatsappMsgId: string | undefined,
+  source: string
+): Promise<boolean> {
+  if (!whatsappMsgId) return false;
+
+  const { data: existing } = await adminClient
+    .from("whatsapp_message_dedup")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("whatsapp_msg_id", whatsappMsgId)
+    .eq("source", source)
+    .limit(1);
+
+  return (existing?.length || 0) > 0;
+}
+
+// ─── Record message as processed ───
+async function recordMessageProcessed(
+  adminClient: any,
+  clientId: string,
+  whatsappMsgId: string | undefined,
+  source: string
+) {
+  if (!whatsappMsgId) return;
+
+  try {
+    await adminClient.from("whatsapp_message_dedup").insert({
+      client_id: clientId,
+      whatsapp_msg_id: whatsappMsgId,
+      source,
+    });
+  } catch (err) {
+    // Ignore duplicate key error - means message was already recorded
+    console.log("Message already recorded:", whatsappMsgId);
+  }
+}
+
+// ─── Trigger Complex Automations with retry logic ───
+async function triggerAutomations(
+  adminClient: any,
+  clientId: string,
+  eventType: string,
+  leadId: string,
+  context: any
+) {
   try {
     // PARTE 1 (Salesbot): retoma runs em status='waiting' para esse lead.
-    // Quando o lead manda uma mensagem, qualquer automação parada num
-    // wait_for_reply deve continuar a partir do próximo nó.
     if (eventType === "new_message" || eventType?.startsWith("message_received")) {
       const { data: waitingRuns } = await adminClient
         .from("automation_runs")
@@ -309,7 +354,6 @@ async function triggerAutomations(adminClient: any, clientId: string, eventType:
             edges.find((e: any) => e.source === run.current_node_id);
 
           if (!replyEdge) {
-            // Sem próximo nó — finaliza o run
             await adminClient
               .from("automation_runs")
               .update({ status: "completed", finished_at: new Date().toISOString() })
@@ -317,7 +361,6 @@ async function triggerAutomations(adminClient: any, clientId: string, eventType:
             continue;
           }
 
-          // Salva a mensagem do lead em context[saveAs] e retoma o engine
           const saveAs = (run.context as any)?._wait_save_as ?? "last_reply";
           const newContext = {
             ...(run.context as any),
@@ -330,21 +373,8 @@ async function triggerAutomations(adminClient: any, clientId: string, eventType:
             .update({ status: "running", context: newContext })
             .eq("id", run.id);
 
-          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            },
-            body: JSON.stringify({
-              tenant_id: (run.context as any)?.tenant_id,
-              automation_id: run.automation_id,
-              lead_id: leadId,
-              node_id: replyEdge.target,
-              context: newContext,
-              run_id: run.id,
-            }),
-          }).catch((err: any) => console.error("Error resuming run:", err));
+          // Use async fire-and-forget with better error handling
+          invokeEngineWithRetry(run.automation_id, leadId, replyEdge.target, newContext, run.id);
         } catch (innerErr) {
           console.error("Failed to resume run:", run.id, innerErr);
         }
@@ -361,25 +391,50 @@ async function triggerAutomations(adminClient: any, clientId: string, eventType:
 
       for (const trigger of triggerNodes) {
         console.log(`Triggering automation ${auto.id} via node ${trigger.id}`);
-        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
-          },
-          body: JSON.stringify({
-            tenant_id: auto.tenant_id,
-            automation_id: auto.id,
-            lead_id: leadId,
-            node_id: trigger.id,
-            context
-          })
-        }).catch((err: any) => console.error("Error invoking engine:", err));
+        invokeEngineWithRetry(auto.id, leadId, trigger.id, context, undefined);
       }
     }
   } catch (err) {
     console.error("Error finding automations:", err);
   }
+}
+
+// ─── Invoke engine with retry logic ───
+function invokeEngineWithRetry(
+  automationId: string,
+  leadId: string,
+  nodeId: string,
+  context: any,
+  runId?: string,
+  attempt: number = 0
+) {
+  const maxAttempts = 3;
+  const baseDelay = 1000; // 1s
+
+  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({
+      automation_id: automationId,
+      lead_id: leadId,
+      node_id: nodeId,
+      context,
+      run_id: runId,
+    }),
+  }).catch((err: any) => {
+    if (attempt < maxAttempts) {
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.warn(`Engine invoke failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`);
+      setTimeout(() => {
+        invokeEngineWithRetry(automationId, leadId, nodeId, context, runId, attempt + 1);
+      }, delay);
+    } else {
+      console.error("Engine invoke failed after max retries:", automationId, err);
+    }
+  });
 }
 
 // Build display text from message type
@@ -450,12 +505,21 @@ async function upsertConversationAndMessage(
   adminClient: any, clientId: string, phone: string, senderName: string,
   finalContent: string, msgType: string, msgMeta: Record<string, unknown>,
   channel: string, config: Record<string, any>, messageId?: string,
-  integrationId?: string
+  integrationId?: string, source?: string
 ) {
   const displayText = buildDisplayText(msgType, finalContent, msgMeta);
 
+  // Check for duplicate message
+  if (messageId && source) {
+    const isDuplicate = await isDuplicateMessage(adminClient, clientId, messageId, source);
+    if (isDuplicate) {
+      console.log("Duplicate message detected:", messageId);
+      return null; // Skip processing
+    }
+    await recordMessageProcessed(adminClient, clientId, messageId, source);
+  }
+
   // Look up existing conversation by (client_id, channel, phone)
-  // Note: avoid filtering by integration_id - column may not exist yet
   const { data: existingConv } = await adminClient.from("conversations")
     .select("id, unread_count, status")
     .eq("client_id", clientId)
@@ -466,10 +530,19 @@ async function upsertConversationAndMessage(
   let convId: string;
   if (existingConv) {
     convId = existingConv.id;
-    await adminClient.from("conversations").update({
-      last_message: displayText, last_message_at: new Date().toISOString(),
-      unread_count: (existingConv.unread_count || 0) + 1, status: "open", updated_at: new Date().toISOString(),
-    }).eq("id", convId);
+    // Update conversation with retries
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await adminClient.from("conversations").update({
+          last_message: displayText, last_message_at: new Date().toISOString(),
+          unread_count: (existingConv.unread_count || 0) + 1, status: "open", updated_at: new Date().toISOString(),
+        }).eq("id", convId);
+        break;
+      } catch (err) {
+        if (attempt === 2) throw err;
+        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+      }
+    }
   } else {
     const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config);
     const insertPayload = {
@@ -532,7 +605,7 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
 
   const convId = await upsertConversationAndMessage(
     adminClient, clientId, phone, senderName, finalContent, msgType, msgMeta,
-    "whatsapp", matchConfig, messageData.key?.id, integrationId
+    "whatsapp", matchConfig, messageData.key?.id, integrationId, "evolution"
   );
 
   // Trigger Automations
@@ -612,7 +685,7 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
 
         const convId = await upsertConversationAndMessage(
           adminClient, clientId, senderPhone, senderName, finalContent, msgType, msgMeta,
-          "whatsapp_official", matchConfig, msg.id, integrationId
+          "whatsapp_official", matchConfig, msg.id, integrationId, "official"
         );
 
         // Trigger Automations
