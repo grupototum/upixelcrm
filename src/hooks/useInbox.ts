@@ -223,21 +223,36 @@ export function useInbox(onLeadCreated?: () => void) {
 
   // Upload file to Supabase Storage
   const uploadFile = async (file: File) => {
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split('.').pop() || 'bin';
     const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('whatsapp_media')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'application/octet-stream',
+      });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      logger.error("Storage upload error:", uploadError);
+      throw new Error(`Falha no upload: ${uploadError.message}`);
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from('whatsapp_media')
       .getPublicUrl(filePath);
 
     return publicUrl;
+  };
+
+  // Detect media type from file
+  const detectMediaType = (file: File): "image" | "video" | "audio" | "document" => {
+    if (file.type.startsWith('image')) return 'image';
+    if (file.type.startsWith('video')) return 'video';
+    if (file.type.startsWith('audio')) return 'audio';
+    return 'document';
   };
 
   // Send message via WhatsApp
@@ -284,59 +299,95 @@ export function useInbox(onLeadCreated?: () => void) {
     }
   }, [conversations, projectId, loadMessages, loadConversations]);
 
-  // Send message with media via WhatsApp
+  // Send message with media (unified - WhatsApp, Instagram, or fallback for other channels)
   const sendWhatsAppMedia = useCallback(async (leadId: string, file: File, targetConversationId?: string) => {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
-    if (!leadGroup) return;
-
-    const target = targetConversationId
-      ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
-      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp" || sc.channel === "whatsapp_official" || sc.channel === "instagram");
-
-    if (!target) {
-      toast.error("Nenhuma conexão de mensageria encontrada.");
+    if (!leadGroup) {
+      toast.error("Lead não encontrado.");
       return;
     }
 
-    const phone = target.metadata?.phone || leadGroup.lead_phone;
-    if (!phone) {
-      toast.error("Número não encontrado.");
+    const target = targetConversationId
+      ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
+      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp" || sc.channel === "whatsapp_official" || sc.channel === "instagram")
+        ?? leadGroup.source_conversations[0];
+
+    if (!target) {
+      toast.error("Nenhuma conexão encontrada para este lead.");
       return;
     }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      if (!session) throw new Error("Sessão expirada. Faça login novamente.");
 
-      // 1. Upload
+      // 1. Upload to Supabase Storage
       const url = await uploadFile(file);
+      const mediaType = detectMediaType(file);
 
-      // 2. Send via proxy
-      const isOfficial = target.channel === "whatsapp_official";
-      const isInstagram = target.channel === "instagram";
-      const functionName = isInstagram ? "instagram-proxy" : "whatsapp-proxy";
-      const queryString = isInstagram ? "?action=send-media" : `?action=send-media${isOfficial ? "&type=official" : ""}`;
-      
-      const { error } = await supabase.functions.invoke(`${functionName}${queryString}`, {
-        body: { 
-          phone, 
-          mediaUrl: url, 
-          mediaType: file.type.startsWith('image') ? 'image' 
-                   : file.type.startsWith('video') ? 'video' 
-                   : file.type.startsWith('audio') ? 'audio' 
-                   : 'document',
-          mimetype: file.type,
-          fileName: file.name
-        },
-      });
+      // 2. Send via appropriate proxy/channel
+      if (target.channel === "whatsapp" || target.channel === "whatsapp_official") {
+        const phone = target.metadata?.phone || leadGroup.lead_phone;
+        if (!phone) throw new Error("Número de telefone não encontrado para este contato.");
 
-      if (error) throw new Error(error.message || "Failed to send media via proxy");
+        const isOfficial = target.channel === "whatsapp_official";
+        const queryString = `?action=send-media${isOfficial ? "&type=official" : ""}`;
+
+        const { error } = await supabase.functions.invoke(`whatsapp-proxy${queryString}`, {
+          body: {
+            phone,
+            mediaUrl: url,
+            mediaType,
+            mimetype: file.type,
+            fileName: file.name,
+          },
+        });
+
+        if (error) throw new Error(error.message || "Falha ao enviar via WhatsApp.");
+      } else if (target.channel === "instagram") {
+        const phone = target.metadata?.phone || leadGroup.lead_phone || "";
+        const { error } = await supabase.functions.invoke("instagram-proxy?action=send-media", {
+          body: {
+            phone,
+            mediaUrl: url,
+            mediaType,
+            mimetype: file.type,
+            fileName: file.name,
+          },
+        });
+
+        if (error) throw new Error(error.message || "Falha ao enviar via Instagram.");
+      } else {
+        // Webchat/email/outros: apenas registra a mensagem com o link da mídia.
+        // Para email, idealmente usaríamos anexo via Gmail API, mas isso requer extensão futura.
+        const { error: msgError } = await supabase.from("messages").insert({
+          conversation_id: target.id,
+          content: url,
+          type: mediaType === "video" || mediaType === "document" ? "file" : mediaType,
+          direction: "outbound",
+          sender_name: "Você",
+          metadata: {
+            media_url: url,
+            filename: file.name,
+            mimetype: file.type,
+            channel: target.channel,
+          },
+        });
+        if (msgError) throw new Error(msgError.message);
+
+        await supabase.from("conversations").update({
+          last_message: mediaType === "image" ? "📷 Imagem" : mediaType === "audio" ? "🎵 Áudio" : mediaType === "video" ? "🎥 Vídeo" : `📎 ${file.name}`,
+          last_message_at: new Date().toISOString(),
+        }).eq("id", target.id);
+      }
 
       await loadMessages(leadId);
       await loadConversations();
       toast.success("Mídia enviada!");
     } catch (err: any) {
+      logger.error("sendWhatsAppMedia error:", err);
       toast.error(`Erro ao enviar mídia: ${err.message}`);
+      throw err;
     }
   }, [conversations, projectId, loadMessages, loadConversations]);
 
