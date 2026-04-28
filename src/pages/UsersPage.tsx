@@ -101,6 +101,17 @@ export default function UsersPage() {
   const [addMemberEmail, setAddMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
 
+  // Create User Modal
+  const [createUserModal, setCreateUserModal] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "vendedor" as const,
+    organization_id: "",
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
+
   const isMaster = user?.role === "master";
   const currentTenantId = tenant?.id || user?.tenant_id || null;
 
