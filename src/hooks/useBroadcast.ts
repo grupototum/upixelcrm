@@ -21,13 +21,24 @@ export interface BroadcastLead {
   id: string;
   phone: string;
   name?: string;
+  email?: string;
+  company?: string;
+}
+
+function interpolate(template: string, lead: BroadcastLead): string {
+  return template
+    .replace(/\{\{nome\}\}/gi, lead.name ?? "")
+    .replace(/\{\{name\}\}/gi, lead.name ?? "")
+    .replace(/\{\{email\}\}/gi, lead.email ?? "")
+    .replace(/\{\{empresa\}\}/gi, lead.company ?? "")
+    .replace(/\{\{company\}\}/gi, lead.company ?? "");
 }
 
 export interface BroadcastOptions {
   campaignName?: string;
   campaignId?: string;
   /** Delay in ms between each message. Defaults to random 3–8 s. */
-  delayMs?: number | "random";
+  delayMs?: number | "random" | { minMs: number; maxMs: number };
   maxRetries?: number;
   onProgress?: (sent: number, total: number, currentName?: string) => void;
 }
@@ -49,6 +60,9 @@ function resolveDelay(opt?: BroadcastOptions["delayMs"]): number {
   if (opt === "random" || opt === undefined) {
     // 3–8 s random to avoid WA rate-limit bans
     return 3000 + Math.random() * 5000;
+  }
+  if (typeof opt === "object" && opt !== null) {
+    return opt.minMs + Math.random() * (opt.maxMs - opt.minMs);
   }
   return opt;
 }
@@ -222,7 +236,8 @@ export function useBroadcast() {
         options.onProgress?.(i, leads.length, lead.name);
         setProgress({ sent: i, total: leads.length });
 
-        const result = await dispatchOne(lead, route, messageText, template, options.maxRetries ?? 2);
+        const personalizedText = interpolate(messageText, lead);
+        const result = await dispatchOne(lead, route, personalizedText, template, options.maxRetries ?? 2);
 
         // Log to campaign_dispatch_logs
         await (supabase.from("campaign_dispatch_logs") as any).insert({
