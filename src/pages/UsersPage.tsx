@@ -24,6 +24,7 @@ interface ProfileRow {
   email: string | null;
   role: string;
   is_blocked: boolean;
+  approval_status?: "pending" | "approved" | "rejected";
   client_id: string;
   tenant_id: string | null;
   organization_id: string | null;
@@ -229,6 +230,27 @@ export default function UsersPage() {
     fetchAuditLogs();
   };
 
+  const approveUser = async (profile: ProfileRow) => {
+    if (!isMaster) {
+      toast.error("Apenas masters podem aprovar usuários.");
+      return;
+    }
+
+    const { error } = await supabase.rpc("admin_approve_user" as any, {
+      target_user_id: profile.id,
+    });
+
+    if (error) {
+      toast.error("Erro: " + error.message);
+      return;
+    }
+
+    toast.success(`Usuário "${profile.name}" aprovado`);
+    await logAudit("Usuário aprovado", { target_user: profile.name, target_id: profile.id });
+    fetchData();
+    fetchAuditLogs();
+  };
+
   const saveRole = async () => {
     if (!editModal) return;
 
@@ -379,6 +401,7 @@ export default function UsersPage() {
                           <p className="text-sm font-medium text-foreground flex items-center gap-2">
                             {p.name}
                             {p.is_blocked && <Badge variant="destructive" className="text-[9px] px-1.5 py-0">Bloqueado</Badge>}
+                            {p.approval_status === "pending" && <Badge className="text-[9px] px-1.5 py-0 bg-yellow-500/15 text-yellow-600 border-yellow-500/30">Pendente</Badge>}
                           </p>
                           <p className="flex items-center gap-1 text-xs text-muted-foreground"><Mail className="h-3 w-3" /> {p.email || "—"}</p>
                           {isMaster && p.org_name && <p className="flex items-center gap-1 text-[10px] text-muted-foreground"><Building2 className="h-2.5 w-2.5" /> {p.org_name}</p>}
@@ -388,6 +411,11 @@ export default function UsersPage() {
                         <Badge variant="outline" className={roleBadge(p.role)}><Shield className="mr-1 h-3 w-3" /> {p.role}</Badge>
                         {(isMaster || user?.role === "supervisor") && (
                             <>
+                                {isMaster && p.approval_status === "pending" && p.id !== user?.id && (
+                                  <Button variant="default" size="sm" className="gap-1 text-xs bg-green-600 hover:bg-green-700" onClick={() => approveUser(p)}>
+                                    <CheckCircle2 className="h-3 w-3" /> Aprovar
+                                  </Button>
+                                )}
                                 <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => { setEditModal(p); setEditRole(p.role || "vendedor"); }}>
                                 <PencilLine className="h-3 w-3" /> Mudar Permissão
                                 </Button>
