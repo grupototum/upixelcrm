@@ -562,7 +562,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...(tenant?.id ? { tenant_id: tenant.id } : {}),
     }).select().single();
 
-    if (error) { logger.error(error); toast.error("Erro ao criar fluxo"); return null; }
+    if (error) {
+      logger.error(error);
+      const detail = (error as any)?.message || (error as any)?.details || "Tente novamente.";
+      toast.error(`Erro ao criar fluxo: ${detail}`);
+      return null;
+    }
     if (row) {
       const newAuto = mapComplexAutomation(row);
       setComplexAutomations(prev => [newAuto, ...prev]);

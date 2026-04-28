@@ -20,25 +20,57 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    // Fetch pending queue items that are due (including retries whose next_retry_at has passed)
+    if (!supabaseUrl || !serviceKey) {
+      console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env");
+      return new Response(JSON.stringify({ error: "missing_env", processed: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200, // soft-fail para não estourar o invoke do client
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Fetch pending queue items that are due. Tenta com next_retry_at;
+    // se a coluna não existir (migration antiga), faz fallback sem o filtro.
     const now = new Date().toISOString();
-    const { data: queueItems, error } = await supabase
-      .from("automation_queue")
-      .select("*")
-      .eq("status", "pending")
-      .lte("scheduled_at", now)
-      .or(`next_retry_at.is.null,next_retry_at.lte.${now}`)
-      .limit(50);
+    let queueItems: any[] | null = null;
+    let error: any = null;
 
-    if (error) throw error;
+    {
+      const res = await supabase
+        .from("automation_queue")
+        .select("*")
+        .eq("status", "pending")
+        .lte("scheduled_at", now)
+        .or(`next_retry_at.is.null,next_retry_at.lte.${now}`)
+        .limit(50);
+      queueItems = res.data;
+      error = res.error;
+    }
+
+    if (error) {
+      console.warn("Primary query failed, retrying without next_retry_at:", error.message);
+      const res = await supabase
+        .from("automation_queue")
+        .select("*")
+        .eq("status", "pending")
+        .lte("scheduled_at", now)
+        .limit(50);
+      queueItems = res.data;
+      if (res.error) {
+        console.error("Fallback query also failed:", res.error.message);
+        return new Response(JSON.stringify({ error: res.error.message, processed: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
 
     if (!queueItems || queueItems.length === 0) {
-      return new Response(JSON.stringify({ message: "No items to process" }), {
+      return new Response(JSON.stringify({ message: "No items to process", processed: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });

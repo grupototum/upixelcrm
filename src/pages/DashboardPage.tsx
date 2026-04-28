@@ -7,29 +7,50 @@ import {
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LeadsByPeriodChart, LeadsByOriginChart } from "@/components/dashboard/DashboardCharts";
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
+
+// Heurística para classificar o "estado" de um lead a partir do nome da coluna.
+function classifyColumnByName(name?: string): "won" | "lost" | "in_progress" | "new" {
+  const n = (name || "").toLowerCase();
+  if (/(ganho|fechad|won|conclu|venda|aprovad)/.test(n)) return "won";
+  if (/(perdid|lost|cancelad|recusad|descart)/.test(n)) return "lost";
+  if (/(novo|entrada|new|inicio|in[ií]cio|prospec)/.test(n)) return "new";
+  return "in_progress";
+}
 
 export default function DashboardPage() {
-  const { leads, tasks, columns, timeline } = useAppState();
-  const [loading, setLoading] = useState(true);
+  const { leads, tasks, columns, timeline, loading } = useAppState();
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
-  }, []);
+  const colState = useMemo(() => {
+    const map = new Map<string, "won" | "lost" | "in_progress" | "new">();
+    columns.forEach((c) => map.set(c.id, classifyColumnByName(c.name)));
+    return map;
+  }, [columns]);
 
-  const leadsInProgress = useMemo(() =>
-    leads.filter(l => ["col2", "col3", "col4"].includes(l.column_id || "")).length
-  , [leads]);
-  const leadsWon = useMemo(() => leads.filter(l => l.column_id === "col5").length, [leads]);
+  const counts = useMemo(() => {
+    let won = 0, lost = 0, inProgress = 0, newLeads = 0;
+    for (const l of leads) {
+      const state = colState.get(l.column_id) ?? "in_progress";
+      if (state === "won") won++;
+      else if (state === "lost") lost++;
+      else if (state === "new") newLeads++;
+      else inProgress++;
+    }
+    return { won, lost, inProgress: inProgress + newLeads, newLeads };
+  }, [leads, colState]);
+
+  const leadsLast30Days = useMemo(() => {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    return leads.filter((l) => new Date(l.created_at).getTime() >= cutoff).length;
+  }, [leads]);
 
   const stats = useMemo(() => [
-    { label: "Total de Leads", value: leads.length.toString(), change: "+12%", up: true, icon: Users, accent: "primary" },
-    { label: "Em andamento", value: leadsInProgress.toString(), change: "+4%", up: true, icon: Loader2, accent: "accent" },
-    { label: "Leads Ganhos", value: String(leadsWon), change: "+8%", up: true, icon: TrendingUp, accent: "success" },
-    { label: "Leads Perdidos", value: "1", change: "-5%", up: false, icon: TrendingDown, accent: "destructive" },
+    { label: "Total de Leads", value: leads.length.toString(), change: `${leadsLast30Days} últimos 30d`, up: leadsLast30Days > 0, icon: Users, accent: "primary" },
+    { label: "Em andamento", value: counts.inProgress.toString(), change: `${counts.newLeads} novos`, up: true, icon: Loader2, accent: "accent" },
+    { label: "Leads Ganhos", value: String(counts.won), change: leads.length > 0 ? `${Math.round((counts.won / leads.length) * 100)}% conversão` : "—", up: true, icon: TrendingUp, accent: "success" },
+    { label: "Leads Perdidos", value: counts.lost.toString(), change: leads.length > 0 ? `${Math.round((counts.lost / leads.length) * 100)}% perda` : "—", up: false, icon: TrendingDown, accent: "destructive" },
     { label: "Tarefas Pendentes", value: tasks.filter(t => t.status === "pending").length.toString(), change: `${tasks.filter(t => t.status === "overdue").length} atrasadas`, up: false, icon: CheckSquare, accent: "warning" },
-  ], [leads, leadsInProgress, leadsWon, tasks]);
+  ], [leads.length, leadsLast30Days, counts, tasks]);
 
   const comingSoonCards = [
     { label: "ROI de Campanhas", value: "—", icon: DollarSign, description: "Retorno sobre investimento em ads" },
