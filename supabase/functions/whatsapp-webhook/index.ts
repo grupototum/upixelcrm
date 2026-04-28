@@ -234,7 +234,24 @@ async function findOrCreateLead(
       .eq("client_id", clientId).order("order", { ascending: true }).limit(1).maybeSingle();
     targetColId = firstCol?.id;
   }
-  if (!targetColId) { console.error("No pipeline columns for client:", clientId); return null; }
+  if (!targetColId) {
+    // Cria pipeline padrão automaticamente para clients que ainda não configuraram
+    console.log("No pipeline columns — creating default for client:", clientId);
+    const defaultCols = [
+      { client_id: clientId, name: "Novo", order: 0, color: "#3b82f6" },
+      { client_id: clientId, name: "Em Atendimento", order: 1, color: "#f59e0b" },
+      { client_id: clientId, name: "Negociação", order: 2, color: "#8b5cf6" },
+      { client_id: clientId, name: "Ganho", order: 3, color: "#10b981" },
+      { client_id: clientId, name: "Perdido", order: 4, color: "#ef4444" },
+    ];
+    const { data: created, error: colErr } = await adminClient.from("pipeline_columns")
+      .insert(defaultCols).select("id").order("order", { ascending: true });
+    if (colErr || !created?.length) {
+      console.error("Failed to create default pipeline columns:", colErr);
+      return null;
+    }
+    targetColId = created[0].id;
+  }
 
   const { data: newLead, error: leadError } = await adminClient.from("leads").insert({
     client_id: clientId, name: senderName, phone, column_id: targetColId,
