@@ -204,6 +204,31 @@ export default function UsersPage() {
     fetchAuditLogs();
   };
 
+  const deleteUser = async (profile: ProfileRow) => {
+    if (!isMaster) {
+      toast.error("Apenas masters podem deletar usuários.");
+      return;
+    }
+
+    if (!confirm(`Excluir permanentemente o usuário "${profile.name}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    const { error } = await supabase.rpc("admin_delete_user" as any, {
+      target_user_id: profile.id,
+    });
+
+    if (error) {
+      toast.error("Erro: " + error.message);
+      return;
+    }
+
+    toast.success(`Usuário "${profile.name}" deletado permanentemente`);
+    await logAudit("Usuário deletado", { target_user: profile.name, target_id: profile.id });
+    fetchData();
+    fetchAuditLogs();
+  };
+
   const saveRole = async () => {
     if (!editModal) return;
 
@@ -367,10 +392,17 @@ export default function UsersPage() {
                                 <PencilLine className="h-3 w-3" /> Mudar Permissão
                                 </Button>
                                 {p.id !== user?.id && (
-                                    <Button variant={p.is_blocked ? "default" : "destructive"} size="sm" className="gap-1 text-xs" onClick={() => toggleBlock(p)}>
-                                    {p.is_blocked ? <CheckCircle2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
-                                    {p.is_blocked ? "Desbloquear" : "Bloquear"}
-                                    </Button>
+                                    <>
+                                        <Button variant={p.is_blocked ? "default" : "destructive"} size="sm" className="gap-1 text-xs" onClick={() => toggleBlock(p)}>
+                                        {p.is_blocked ? <CheckCircle2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
+                                        {p.is_blocked ? "Desbloquear" : "Bloquear"}
+                                        </Button>
+                                        {isMaster && (
+                                          <Button variant="destructive" size="sm" className="gap-1 text-xs" onClick={() => deleteUser(p)}>
+                                            <Trash2 className="h-3 w-3" /> Deletar
+                                          </Button>
+                                        )}
+                                    </>
                                 )}
                             </>
                         )}
