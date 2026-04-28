@@ -102,36 +102,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const withClient = <T extends { eq: (k: string, v: string) => T }>(q: T): T =>
         isMasterView ? q : q.eq("client_id", clientId);
 
-      // Lê leads paginados de 1000 em 1000 (Supabase default cap). Suporta até 50k+.
-      const fetchAllLeads = async () => {
-        const PAGE = 1000;
-        const MAX_PAGES = 60; // até 60.000 leads
-        const all: any[] = [];
-        for (let page = 0; page < MAX_PAGES; page++) {
-          const from = page * PAGE;
-          const to = from + PAGE - 1;
-          const q = withClient(supabase.from("leads").select("*"))
-            .order("created_at", { ascending: false })
-            .range(from, to);
-          const { data, error } = await q;
-          if (error) { logger.error("fetchAllLeads error:", error); break; }
-          if (!data || data.length === 0) break;
-          all.push(...data);
-          if (data.length < PAGE) break;
-        }
-        return all;
-      };
+      // FASE 1: estruturas + count rápido (libera UI em ~500ms)
+      // Carrega pipelines, columns, tasks, automations e SÓ os column_ids
+      // de todos os leads para calcular contagens. UI fica pronta antes
+      // de baixar os dados completos dos leads.
+      const PAGE = 1000;
 
-      const [pipeRes, colRes, leadsArr, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
+      const [pipeRes, colRes, taskRes, tlRes, autoRes, rulesRes, countRes] = await Promise.all([
         withClient((supabase.from as any)("pipelines").select("*")).order("name"),
         withClient(supabase.from("pipeline_columns").select("*")).order("order"),
-        fetchAllLeads(),
         withClient(supabase.from("tasks").select("*")).order("created_at", { ascending: false }).limit(5000),
         withClient(supabase.from("timeline_events").select("*")).order("created_at", { ascending: false }).limit(100),
         withClient((supabase.from as any)("automations").select("*")).order("created_at", { ascending: false }),
         withClient((supabase.from as any)("automation_rules").select("*")).order("created_at", { ascending: false }),
+        withClient(supabase.from("leads").select("*", { count: "exact", head: true })),
       ]);
 
+      // Aplica estruturas imediatamente (CRM já fica navegável)
       if (pipeRes.data) {
         setPipelines(pipeRes.data.map(mapPipeline));
         if (pipeRes.data.length > 0 && !currentPipelineId) {
@@ -139,33 +126,84 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
-      if (leadsArr) {
-        const mappedLeads = leadsArr.map(mapLead);
-        setLeads(mappedLeads);
+      if (taskRes.data) setTasks(taskRes.data.map(mapTask));
+      if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
+      if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
+      if (rulesRes.data) setAutomations(rulesRes.data.map(mapAutomationRule));
 
-        // Calcula contagem de leads por pipeline (evita recalcular em cada render)
+      // FASE 2: contagens por pipeline via column_id-only (rápido — só UUIDs)
+      // Permite mostrar quantos leads tem cada funil ANTES de baixar tudo
+      const total = countRes.count ?? 0;
+      if (total > 0) {
         const colToPipeline = new Map<string, string>();
         if (colRes.data) {
           colRes.data.forEach((c: any) => colToPipeline.set(c.id, c.pipeline_id));
         }
         const counts: Record<string, number> = {};
-        mappedLeads.forEach((l) => {
-          if (!l.column_id) return;
-          const pid = colToPipeline.get(l.column_id);
-          if (!pid) return;
-          counts[pid] = (counts[pid] ?? 0) + 1;
+        const pageCount = Math.ceil(total / PAGE);
+        const colIdRequests = Array.from({ length: pageCount }, (_, page) => {
+          const from = page * PAGE;
+          const to = from + PAGE - 1;
+          return withClient(supabase.from("leads").select("column_id"))
+            .range(from, to);
         });
+
+        // Paraleliza paginations leves (só column_id)
+        const BATCH = 5;
+        for (let i = 0; i < colIdRequests.length; i += BATCH) {
+          const batch = colIdRequests.slice(i, i + BATCH);
+          const results = await Promise.all(batch);
+          for (const r of results) {
+            if (r.error || !r.data) continue;
+            for (const row of r.data) {
+              const cid = (row as any).column_id;
+              if (!cid) continue;
+              const pid = colToPipeline.get(cid);
+              if (!pid) continue;
+              counts[pid] = (counts[pid] ?? 0) + 1;
+            }
+          }
+        }
         setLeadCountByPipeline(counts);
       }
-      if (taskRes.data) setTasks(taskRes.data.map(mapTask));
-      if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
-      if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
-      if (rulesRes.data) setAutomations(rulesRes.data.map(mapAutomationRule));
+
+      // Libera o loading principal — UI fica navegável agora
+      setLoading(false);
+
+      // FASE 3 (em background): baixa leads completos
+      // Não bloqueia o render. Quando chegar, atualiza estado.
+      if (total > 0) {
+        const pageCount = Math.ceil(total / PAGE);
+        const pageRequests = Array.from({ length: pageCount }, (_, page) => {
+          const from = page * PAGE;
+          const to = from + PAGE - 1;
+          return withClient(supabase.from("leads").select("*"))
+            .order("created_at", { ascending: false })
+            .range(from, to);
+        });
+
+        const BATCH = 5;
+        const all: any[] = [];
+        for (let i = 0; i < pageRequests.length; i += BATCH) {
+          const batch = pageRequests.slice(i, i + BATCH);
+          const results = await Promise.all(batch);
+          for (const r of results) {
+            if (r.error) { logger.error("fetchAllLeads page error:", r.error); continue; }
+            if (r.data) all.push(...r.data);
+          }
+          // Atualiza progressivamente: cada batch já aparece nos cards
+          setLeads(all.map(mapLead));
+        }
+      } else {
+        setLeads([]);
+      }
     } catch (err) {
       logger.error("Error fetching data:", err);
       toast.error("Erro ao carregar dados");
-    } finally {
       setLoading(false);
+    } finally {
+      // setLoading(false) já é chamado dentro do try após FASE 1.
+      // Garantimos aqui caso ocorra erro antes.
     }
   }, [currentPipelineId, tenant?.id, user?.client_id, isMasterView]);
 
