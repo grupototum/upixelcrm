@@ -175,6 +175,10 @@ export function useDuplicateDetection() {
     let failed = 0;
     const successIds: string[] = [];
 
+    // Acumula sourceIds de todos os grupos para fazer 1 delete em lote no final
+    const allSourceIds: string[] = [];
+    const groupSourceIds = new Map<string, string[]>();
+
     const processGroup = async (g: DuplicateGroup): Promise<boolean> => {
       try {
         const primaryId = pickPrimary(g.leads);
@@ -200,19 +204,13 @@ export function useDuplicateDetection() {
           supabase.from("leads").update({ tags: mergedTags, notes: mergedNotes || null }).eq("id", primaryId),
         ]);
 
-        // Loga falhas individuais mas continua
         results.forEach((r, idx) => {
           if (r.status === "rejected") {
             console.warn(`Group ${g.id} op ${idx} failed:`, r.reason);
           }
         });
 
-        // Delete dos duplicados
-        const { error: delError } = await supabase.from("leads").delete().in("id", sourceIds);
-        if (delError) {
-          console.error(`Group ${g.id} delete failed:`, delError);
-          return false;
-        }
+        groupSourceIds.set(g.id, sourceIds);
         return true;
       } catch (err: any) {
         console.error(`Group ${g.id} merge failed:`, err);
@@ -220,8 +218,9 @@ export function useDuplicateDetection() {
       }
     };
 
-    // Processa em batches de 3 grupos paralelos
-    const BATCH_SIZE = 3;
+    // Processa em batches de 10 grupos paralelos
+    // (4 ops por grupo × 10 grupos = 40 conexões — bem dentro do limite ~100)
+    const BATCH_SIZE = 10;
     for (let i = 0; i < targetGroups.length; i += BATCH_SIZE) {
       const batch = targetGroups.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(batch.map(processGroup));
@@ -234,6 +233,24 @@ export function useDuplicateDetection() {
         }
       });
       onProgress?.(Math.min(i + BATCH_SIZE, targetGroups.length), targetGroups.length);
+    }
+
+    // Delete em lote único de TODOS os duplicados (1 query só, super rápido)
+    successIds.forEach((id) => {
+      const ids = groupSourceIds.get(id);
+      if (ids) allSourceIds.push(...ids);
+    });
+
+    if (allSourceIds.length > 0) {
+      // Delete em chunks de 500 (limite seguro do PostgREST .in())
+      const DEL_CHUNK = 500;
+      for (let i = 0; i < allSourceIds.length; i += DEL_CHUNK) {
+        const slice = allSourceIds.slice(i, i + DEL_CHUNK);
+        const { error: delError } = await supabase.from("leads").delete().in("id", slice);
+        if (delError) {
+          console.error("Bulk delete failed:", delError);
+        }
+      }
     }
 
     setGroups((prev) => prev.filter((g) => !successIds.includes(g.id)));
