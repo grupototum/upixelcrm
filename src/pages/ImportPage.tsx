@@ -295,18 +295,69 @@ export default function ImportPage() {
 
     let inserted = 0;
     let errors = 0;
-    const CHUNK = 100;
+    const CHUNK = 500; // Aumentado de 100 para 500 — melhor performance
 
     for (let i = 0; i < leadsToInsert.length; i += CHUNK) {
       const chunk = leadsToInsert.slice(i, i + CHUNK);
-      const { error } = await supabase.from("leads").insert(chunk);
-      if (error) { console.error("Import error:", error); errors += chunk.length; }
-      else inserted += chunk.length;
+      const chunkNum = Math.floor(i / CHUNK) + 1;
+      const totalChunks = Math.ceil(leadsToInsert.length / CHUNK);
+
+      setImportResult({
+        inserted: inserted,
+        skipped,
+        errors,
+      });
+
+      let retries = 0;
+      const maxRetries = 3;
+      let success = false;
+
+      while (retries < maxRetries && !success) {
+        try {
+          const { error } = await supabase.from("leads").insert(chunk);
+
+          if (error) {
+            console.error(`Chunk ${chunkNum}/${totalChunks} error:`, error);
+            errors += chunk.length;
+
+            // Tenta novamente com backoff exponencial se for timeout/rate-limit
+            if (error.code === "408" || error.code === "429") {
+              retries++;
+              if (retries < maxRetries) {
+                const delayMs = Math.pow(2, retries) * 1000;
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+                continue;
+              }
+            }
+          } else {
+            inserted += chunk.length;
+            success = true;
+          }
+          break;
+        } catch (err: any) {
+          console.error(`Chunk ${chunkNum}/${totalChunks} exception:`, err);
+          errors += chunk.length;
+          retries++;
+          if (retries < maxRetries) {
+            const delayMs = Math.pow(2, retries) * 1000;
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        }
+      }
     }
 
     if (inserted > 0) await refreshData();
 
     setImportResult({ inserted, skipped, errors });
+
+    // Exibe feedback detalhado
+    if (errors > 0) {
+      toast.error(
+        `⚠️ Importação parcial: ${inserted} leads importados, ${errors} erros, ${skipped} ignorados. ` +
+        `Verifique o console para detalhes dos erros.`
+      );
+    }
+
     setImporting(false);
     setStep(4);
   };
