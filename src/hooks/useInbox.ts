@@ -48,6 +48,9 @@ export function useInbox(onLeadCreated?: () => void) {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const realtimeSubscriptionRef = useRef<any>(null);
+  const retryCountRef = useRef(0);
+  const maxRetriesRef = useRef(5);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
@@ -88,21 +91,33 @@ export function useInbox(onLeadCreated?: () => void) {
       }
     }
 
-    // Grouping logic
+    // Grouping logic: group by lead_id, but keep unassigned conversations separate by phone/email
     const groupedMap: Record<string, LeadConversation> = {};
 
     (convs || []).forEach(c => {
-      const lid = c.lead_id || "unassigned";
       const meta = (c.metadata || {}) as Record<string, any>;
-      
+
+      // Generate a unique key for unassigned conversations
+      // If conversation has no lead_id, use phone+channel or email+channel as key to avoid merging different people
+      let key: string;
+      if (c.lead_id) {
+        key = c.lead_id;
+      } else {
+        // For unassigned: use phone+channel as unique identifier
+        const phone = meta?.phone || '';
+        const email = meta?.email || '';
+        const identifier = phone || email || `unassigned-${c.id}`;
+        key = `unassigned:${identifier}:${c.channel}`;
+      }
+
       // Extract labels from metadata
       const labels = (meta.labels || []) as { id: string; name: string; color: string }[];
 
-      if (!groupedMap[lid]) {
-        const lead = leadsMap[lid];
-        groupedMap[lid] = {
-          lead_id: lid,
-          lead_name: lead?.name || meta?.lead_name || meta?.phone || "Desconhecido",
+      if (!groupedMap[key]) {
+        const lead = c.lead_id ? leadsMap[c.lead_id] : undefined;
+        groupedMap[key] = {
+          lead_id: c.lead_id || "unassigned",
+          lead_name: lead?.name || meta?.lead_name || meta?.phone || meta?.email || "Desconhecido",
           lead_phone: lead?.phone || meta?.phone,
           lead_email: lead?.email || meta?.email,
           lead_company: lead?.company,
@@ -118,11 +133,11 @@ export function useInbox(onLeadCreated?: () => void) {
           source_conversations: [{ id: c.id, channel: c.channel, metadata: meta }],
         };
       } else {
-        const group = groupedMap[lid];
+        const group = groupedMap[key];
         if (!group.channels.includes(c.channel)) group.channels.push(c.channel);
         group.source_conversations.push({ id: c.id, channel: c.channel, metadata: meta });
         group.unread_count += (c.unread_count || 0);
-        
+
         // Merge labels (unique)
         labels.forEach(l => {
           if (!group.labels.some(gl => gl.id === l.id)) group.labels.push(l);
@@ -642,10 +657,45 @@ export function useInbox(onLeadCreated?: () => void) {
     return data?.id;
   }, [loadConversations, findOrCreateLead, selectLead, clientId]);
 
-  // Initial load
-  useEffect(() => { loadConversations(); }, [loadConversations]);
+  // Initial load with retry logic
+  useEffect(() => {
+    if (!clientId) return;
 
-  // Realtime subscription with fallback to polling
+    const initialLoad = async () => {
+      try {
+        setLoading(true);
+        await loadConversations();
+        retryCountRef.current = 0;
+      } catch (err) {
+        logger.error("Initial load error:", err);
+        // Retry with exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 10000);
+        if (retryCountRef.current < maxRetriesRef.current) {
+          retryCountRef.current += 1;
+          retryTimeoutRef.current = setTimeout(initialLoad, delay);
+        }
+      }
+    };
+
+    initialLoad();
+
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, [clientId, loadConversations]);
+
+  // Cleanup retry timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Realtime subscription with fallback to polling and auto-retry
   useRealtimeWithFallback(
     () => {
       if (!clientId || !selectedLeadId) {
@@ -705,6 +755,7 @@ export function useInbox(onLeadCreated?: () => void) {
             }
 
             loadConversations();
+            retryCountRef.current = 0; // Reset retry count on successful message
           } catch (err) {
             logger.error("Realtime message insert handler error:", err);
           }
@@ -722,11 +773,12 @@ export function useInbox(onLeadCreated?: () => void) {
         })
         .subscribe((status) => {
           if (status === "SUBSCRIBED") {
-            logger.info("Realtime subscription established for inbox");
+            logger.info("✓ Realtime subscription established");
+            retryCountRef.current = 0;
           } else if (status === "CLOSED") {
             logger.info("Realtime subscription closed");
           } else if (status === "CHANNEL_ERROR") {
-            logger.warn("Realtime subscription error - falling back to polling");
+            logger.warn("⚠ Realtime error - using polling mode");
           }
         });
 
@@ -737,17 +789,21 @@ export function useInbox(onLeadCreated?: () => void) {
       };
     },
     async () => {
-      // Polling fallback - just reload conversations and messages periodically
-      await loadConversations();
-      if (selectedLeadId) {
-        await loadMessages(selectedLeadId);
+      // Polling fallback - reload conversations and messages periodically
+      try {
+        await loadConversations();
+        if (selectedLeadId) {
+          await loadMessages(selectedLeadId);
+        }
+      } catch (err) {
+        logger.error("Polling sync error:", err);
       }
     },
     {
-      pollInterval: 5000,
+      pollInterval: 3000, // More frequent polling for better responsiveness
       enabled: !!clientId && !!selectedLeadId,
       onError: (err) => {
-        logger.error("Realtime fallback polling error:", err);
+        logger.error("Realtime sync error:", err);
       }
     }
   );
