@@ -120,11 +120,14 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { tenant_id, automation_id, lead_id, node_id, context } = await req.json();
+    const { tenant_id, automation_id, lead_id, node_id, context, run_id: incoming_run_id } = await req.json();
 
     if (!automation_id || !lead_id || !node_id) {
       throw new Error("Missing required fields: automation_id, lead_id, node_id");
     }
+
+    // Track the run ID through the flow execution
+    let run_id: string | null = incoming_run_id ?? null;
 
     // 1. Fetch automation definition
     const { data: auto, error: autoError } = await supabase
@@ -180,7 +183,8 @@ serve(async (req) => {
               automation_id,
               lead_id,
               node_id: outgoingEdge.target,
-              context: leadContext
+              context: leadContext,
+              run_id,
             })
           });
        }
@@ -203,7 +207,7 @@ serve(async (req) => {
         const keywords = String(nodeData.keywords).split(',').map(k => k.trim().toLowerCase());
         const message = String(leadContext.message || leadContext.last_message || '').toLowerCase();
         const matches = keywords.some(k => message.includes(k));
-        
+
         if (!matches && keywords.length > 0) {
            console.log(`Automation ${automation_id} skipped: Keywords do not match.`);
            return new Response(JSON.stringify({ success: true, skipped: 'keywords_mismatch' }), {
@@ -213,9 +217,59 @@ serve(async (req) => {
         }
       }
 
+      // Salesbot-style: cria um run rastreável quando o trigger dispara.
+      // Se já existe um run waiting/running para este lead+automação e a
+      // automação não permite re-enroll, ignora o trigger.
+      if (!run_id) {
+        const { data: existingRun } = await supabase
+          .from("automation_runs")
+          .select("id, status")
+          .eq("automation_id", automation_id)
+          .eq("lead_id", lead_id)
+          .in("status", ["running", "waiting"])
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: autoMeta } = await supabase
+          .from("automations")
+          .select("allow_re_enroll")
+          .eq("id", automation_id)
+          .maybeSingle();
+
+        if (existingRun && !autoMeta?.allow_re_enroll) {
+          console.log(`Skipping trigger: run ${existingRun.id} already ${existingRun.status}`);
+          return new Response(
+            JSON.stringify({ success: true, skipped: "already_enrolled", run_id: existingRun.id }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          );
+        }
+
+        const { data: newRun, error: runErr } = await supabase
+          .from("automation_runs")
+          .insert({
+            client_id: lead.client_id,
+            tenant_id: lead.tenant_id,
+            automation_id,
+            lead_id,
+            current_node_id: node_id,
+            status: "running",
+            context: leadContext,
+            trigger_event: nodeData.type ?? nodeData.configType ?? "trigger",
+          })
+          .select("id")
+          .single();
+
+        if (runErr) {
+          console.error("Failed to create run:", runErr);
+        } else if (newRun) {
+          run_id = newRun.id;
+        }
+      }
+
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
-    } 
+    }
     else if (nodeType === 'condition') {
       const isTrue = evaluateCondition(nodeData.conditions || [], nodeData.conditionOperator || 'and', leadContext);
       outputData = { evaluatedTo: isTrue };
@@ -247,7 +301,7 @@ serve(async (req) => {
           lead_id,
           node_id: outgoingEdge.target,
           scheduled_at: scheduledAt.toISOString(),
-          context: leadContext
+          context: { ...leadContext, _run_id: run_id }
         });
       }
       isWaiting = true;
@@ -440,6 +494,143 @@ serve(async (req) => {
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
     }
+    else if (nodeType === 'wait_for_reply') {
+      // Salesbot core: pausa execução e espera o lead mandar mensagem.
+      // O run fica em status='waiting' até o webhook do canal acordar.
+      // Configuração:
+      //   • timeoutHours (opcional) — após X horas sem reply, segue por timeout
+      //   • saveAs (opcional) — slug em context onde gravar a mensagem do lead
+      const timeoutHours = Number(nodeData.timeoutHours) || 0;
+      const saveAs = nodeData.saveAs || "last_reply";
+
+      if (run_id) {
+        await supabase
+          .from("automation_runs")
+          .update({
+            status: "waiting",
+            current_node_id: node_id,
+            context: { ...leadContext, _wait_save_as: saveAs },
+            steps_executed: (leadContext._steps_executed ?? 0) + 1,
+          })
+          .eq("id", run_id);
+      }
+
+      // Se houver timeout, agenda um item na fila para sair da espera
+      if (timeoutHours > 0) {
+        const scheduledAt = new Date(Date.now() + timeoutHours * 3600 * 1000);
+        const timeoutEdge = edges.find(e => e.source === node_id && e.sourceHandle === "timeout");
+        const fallbackEdge = edges.find(e => e.source === node_id);
+        const targetNode = (timeoutEdge ?? fallbackEdge)?.target;
+        if (targetNode) {
+          await supabase.from("automation_queue").insert({
+            client_id: lead.client_id,
+            tenant_id: lead.tenant_id,
+            automation_id,
+            lead_id,
+            node_id: targetNode,
+            scheduled_at: scheduledAt.toISOString(),
+            context: { ...leadContext, _from_timeout: true, _run_id: run_id },
+          });
+        }
+      }
+
+      isWaiting = true;
+      outputData = { waiting: true, timeoutHours, saveAs };
+    }
+    else if (nodeType === 'send_media') {
+      // Envia mídia (imagem/áudio/vídeo/arquivo) por WhatsApp
+      const targetChannel = nodeData.configType || 'whatsapp';
+      const mediaUrl = interpolate(nodeData.mediaUrl || '', leadContext);
+      const mediaType = nodeData.mediaType || 'image';
+      const caption = interpolate(nodeData.caption || '', leadContext);
+      const fileName = nodeData.fileName || 'arquivo';
+
+      outputData = { channel: targetChannel, mediaType, mediaUrl, sent: false };
+
+      if (!mediaUrl) {
+        outputData.error = "mediaUrl não configurado no nó";
+      } else if (targetChannel === 'whatsapp' || targetChannel === 'whatsapp_official') {
+        const clientId = lead.client_id;
+        const { data: integration } = await supabase.from("integrations")
+          .select("config, access_token, status")
+          .eq("client_id", clientId)
+          .eq("provider", targetChannel)
+          .in("status", ["connected", "configured"])
+          .maybeSingle();
+
+        if (!integration?.config) {
+          outputData.error = `Integração ${targetChannel} não conectada`;
+        } else {
+          let config = integration.config;
+          if (typeof config === 'string') {
+            try { config = JSON.parse(config); } catch { config = null; }
+          }
+          if (!config) {
+            outputData.error = "Configuração inválida";
+          } else {
+            const cleanPhone = (lead.phone || '').replace(/\D/g, "");
+            const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+            if (targetChannel === 'whatsapp') {
+              let apiUrl = config.api_url || '';
+              if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
+              const instancePath = config.instance_name;
+              try {
+                const sendRes = await fetch(`${apiUrl}/message/sendMedia/${instancePath}`, {
+                  method: "POST",
+                  headers: { apikey: config.api_key, "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    number: formattedPhone,
+                    mediatype: mediaType,
+                    media: mediaUrl,
+                    fileName,
+                    caption,
+                  }),
+                });
+                if (sendRes.ok) {
+                  outputData.sent = true;
+                  await recordOutboundMessage(supabase, lead, targetChannel, caption || `[${mediaType}]`, formattedPhone, { media_url: mediaUrl, type: mediaType });
+                } else {
+                  const t = await sendRes.text();
+                  outputData.error = `WhatsApp ${sendRes.status}: ${t.substring(0, 200)}`;
+                }
+              } catch (err: any) { outputData.error = err.message; }
+            } else {
+              // WhatsApp Official — envia mídia via Graph API
+              const phoneNumberId = config.phone_number_id;
+              const accessToken = integration.access_token || config.access_token;
+              const mediaTypeMap: Record<string, string> = { image: 'image', video: 'video', audio: 'audio', document: 'document' };
+              const apiMediaType = mediaTypeMap[mediaType] || 'document';
+              try {
+                const body: any = {
+                  messaging_product: "whatsapp",
+                  to: formattedPhone,
+                  type: apiMediaType,
+                  [apiMediaType]: { link: mediaUrl, ...(caption ? { caption } : {}), ...(apiMediaType === 'document' ? { filename: fileName } : {}) },
+                };
+                const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                  body: JSON.stringify(body),
+                });
+                if (sendRes.ok) {
+                  outputData.sent = true;
+                  await recordOutboundMessage(supabase, lead, targetChannel, caption || `[${mediaType}]`, formattedPhone, { media_url: mediaUrl, type: mediaType });
+                } else {
+                  const t = await sendRes.text();
+                  outputData.error = `Official ${sendRes.status}: ${t.substring(0, 200)}`;
+                }
+              } catch (err: any) { outputData.error = err.message; }
+            }
+          }
+        }
+      } else {
+        outputData.error = `send_media: canal ${targetChannel} não suportado`;
+      }
+
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
     else if (nodeType === 'ai_assistant') {
       const promptText = interpolate(nodeData.prompt || '', leadContext);
       const outputField = nodeData.outputField;
@@ -499,11 +690,31 @@ serve(async (req) => {
       node_id,
       node_type: nodeType,
       input: { context: leadContext },
-      output: outputData,
+      output: { ...outputData, run_id },
       status: outputData.error ? 'failed' : 'success'
     });
 
-    // 6. Invoke Next Node (if not waiting for delay)
+    // 6. Atualiza o run com o estado atual
+    if (run_id && !isWaiting) {
+      const isTerminal = !nextNodeId; // sem próximo nó = fim do fluxo
+      await supabase
+        .from("automation_runs")
+        .update({
+          current_node_id: nextNodeId ?? node_id,
+          status: outputData.error
+            ? "failed"
+            : isTerminal
+            ? "completed"
+            : "running",
+          finished_at: isTerminal || outputData.error ? new Date().toISOString() : null,
+          error: outputData.error ?? null,
+          steps_executed: (leadContext._steps_executed ?? 0) + 1,
+          context: leadContext,
+        })
+        .eq("id", run_id);
+    }
+
+    // 7. Invoke Next Node (if not waiting for delay/reply)
     if (nextNodeId && !isWaiting) {
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
         method: "POST",
@@ -516,12 +727,13 @@ serve(async (req) => {
           automation_id,
           lead_id,
           node_id: nextNodeId,
-          context: leadContext
+          context: leadContext,
+          run_id,
         })
       }).catch(err => console.error("Async trigger error:", err));
     }
 
-    return new Response(JSON.stringify({ success: true, nextNodeId, isWaiting }), {
+    return new Response(JSON.stringify({ success: true, nextNodeId, isWaiting, run_id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -534,7 +746,14 @@ serve(async (req) => {
   }
 });
 
-async function recordOutboundMessage(supabase: any, lead: any, channel: string, text: string, phone: string) {
+async function recordOutboundMessage(
+  supabase: any,
+  lead: any,
+  channel: string,
+  text: string,
+  phone: string,
+  extra: { media_url?: string; type?: string } = {}
+) {
   const { data: existingConv } = await supabase.from("conversations")
     .select("id")
     .eq("client_id", lead.client_id)
@@ -563,15 +782,23 @@ async function recordOutboundMessage(supabase: any, lead: any, channel: string, 
   }
 
   if (convId) {
+    const isMedia = !!extra.media_url;
+    const messageType = isMedia
+      ? (extra.type === "video" || extra.type === "document" ? "file" : (extra.type ?? "image"))
+      : "text";
     await supabase.from("messages").insert({
       client_id: lead.client_id,
       conversation_id: convId,
-      content: text,
-      type: "text",
+      content: isMedia ? extra.media_url : text,
+      type: messageType,
       direction: "outbound",
       sender_name: "Automação",
       tenant_id: lead.tenant_id,
-      metadata: { channel, auto_generated: true }
+      metadata: {
+        channel,
+        auto_generated: true,
+        ...(isMedia ? { media_url: extra.media_url, original_type: extra.type } : {}),
+      },
     });
   }
 }

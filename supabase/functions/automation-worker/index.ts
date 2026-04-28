@@ -98,6 +98,8 @@ serve(async (req) => {
             lead_id: item.lead_id,
             node_id: item.node_id,
             context: item.context,
+            // Recupera o run_id armazenado no contexto da fila (delay/timeout)
+            run_id: (item.context as any)?._run_id ?? null,
           }),
         });
 

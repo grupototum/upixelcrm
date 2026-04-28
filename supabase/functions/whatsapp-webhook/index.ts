@@ -284,13 +284,81 @@ async function findOrCreateLead(
 // ─── Trigger Complex Automations ───
 async function triggerAutomations(adminClient: any, clientId: string, eventType: string, leadId: string, context: any) {
   try {
+    // PARTE 1 (Salesbot): retoma runs em status='waiting' para esse lead.
+    // Quando o lead manda uma mensagem, qualquer automação parada num
+    // wait_for_reply deve continuar a partir do próximo nó.
+    if (eventType === "new_message" || eventType?.startsWith("message_received")) {
+      const { data: waitingRuns } = await adminClient
+        .from("automation_runs")
+        .select("id, automation_id, current_node_id, context")
+        .eq("lead_id", leadId)
+        .eq("status", "waiting");
+
+      for (const run of waitingRuns ?? []) {
+        try {
+          const { data: auto } = await adminClient
+            .from("automations")
+            .select("nodes, edges")
+            .eq("id", run.automation_id)
+            .single();
+          if (!auto) continue;
+
+          const edges = auto.edges || [];
+          const replyEdge =
+            edges.find((e: any) => e.source === run.current_node_id && e.sourceHandle === "reply") ??
+            edges.find((e: any) => e.source === run.current_node_id);
+
+          if (!replyEdge) {
+            // Sem próximo nó — finaliza o run
+            await adminClient
+              .from("automation_runs")
+              .update({ status: "completed", finished_at: new Date().toISOString() })
+              .eq("id", run.id);
+            continue;
+          }
+
+          // Salva a mensagem do lead em context[saveAs] e retoma o engine
+          const saveAs = (run.context as any)?._wait_save_as ?? "last_reply";
+          const newContext = {
+            ...(run.context as any),
+            ...context,
+            [saveAs]: context.message ?? context.last_message ?? "",
+          };
+
+          await adminClient
+            .from("automation_runs")
+            .update({ status: "running", context: newContext })
+            .eq("id", run.id);
+
+          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              tenant_id: (run.context as any)?.tenant_id,
+              automation_id: run.automation_id,
+              lead_id: leadId,
+              node_id: replyEdge.target,
+              context: newContext,
+              run_id: run.id,
+            }),
+          }).catch((err: any) => console.error("Error resuming run:", err));
+        } catch (innerErr) {
+          console.error("Failed to resume run:", run.id, innerErr);
+        }
+      }
+    }
+
+    // PARTE 2: dispara triggers normais (cria novos runs)
     const { data: automations } = await adminClient.from("automations").select("*")
       .eq("client_id", clientId).eq("status", "active");
 
     for (const auto of automations || []) {
       const nodes = auto.nodes || [];
       const triggerNodes = nodes.filter((n: any) => n.type === 'trigger' && n.data?.type === eventType);
-      
+
       for (const trigger of triggerNodes) {
         console.log(`Triggering automation ${auto.id} via node ${trigger.id}`);
         fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {

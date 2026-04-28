@@ -1,15 +1,42 @@
 import { DragEvent } from 'react';
-import { Play, Zap, GitBranch, Clock, Shuffle, Globe, Sparkles } from 'lucide-react';
+import { Play, Zap, GitBranch, Clock, Shuffle, Globe, Sparkles, MessagesSquare, Image as ImageIcon, MessageSquare } from 'lucide-react';
 
-const nodeTypes = [
-  { type: 'trigger', label: 'Gatilho Inicial', icon: Play, desc: 'Ponto de partida do fluxo', color: 'bg-emerald-500' },
-  { type: 'action', label: 'Ação CRM', icon: Zap, desc: 'Adicionar Tag, Mudar Estágio', color: 'bg-blue-500' },
-  { type: 'message', label: 'Mensagem', icon: Play, desc: 'Enviar WhatsApp/Email', color: 'bg-indigo-500' },
-  { type: 'condition', label: 'Condição (If)', icon: GitBranch, desc: 'Roteamento Sim/Não', color: 'bg-orange-500' },
-  { type: 'delay', label: 'Espera (Delay)', icon: Clock, desc: 'Pausa a execução', color: 'bg-muted-foreground' },
-  { type: 'randomizer', label: 'Teste A/B', icon: Shuffle, desc: 'Divide o tráfego', color: 'bg-purple-500' },
-  { type: 'webhook', label: 'Webhook HTTP', icon: Globe, desc: 'Requisição externa', color: 'bg-pink-500' },
-  { type: 'ai_assistant', label: 'Assistente IA', icon: Sparkles, desc: 'Gera texto com OpenAI', color: 'bg-amber-500' },
+const nodeGroups = [
+  {
+    label: 'Início',
+    nodes: [
+      { type: 'trigger', label: 'Gatilho Inicial', icon: Play, desc: 'Ponto de partida do fluxo', color: 'bg-emerald-500' },
+    ],
+  },
+  {
+    label: 'Mensageria',
+    nodes: [
+      { type: 'message', label: 'Enviar Mensagem', icon: MessageSquare, desc: 'Texto via WhatsApp/Email', color: 'bg-indigo-500' },
+      { type: 'send_media', label: 'Enviar Mídia', icon: ImageIcon, desc: 'Foto/Áudio/Vídeo/Arquivo', color: 'bg-fuchsia-500' },
+      { type: 'wait_for_reply', label: 'Aguardar Resposta', icon: MessagesSquare, desc: 'Pausa até o lead responder', color: 'bg-cyan-500' },
+    ],
+  },
+  {
+    label: 'CRM',
+    nodes: [
+      { type: 'action', label: 'Ação CRM', icon: Zap, desc: 'Tag, mover etapa, atendente', color: 'bg-blue-500' },
+    ],
+  },
+  {
+    label: 'Lógica',
+    nodes: [
+      { type: 'condition', label: 'Condição (If)', icon: GitBranch, desc: 'Roteamento Sim/Não', color: 'bg-orange-500' },
+      { type: 'delay', label: 'Espera (Delay)', icon: Clock, desc: 'Pausa a execução', color: 'bg-muted-foreground' },
+      { type: 'randomizer', label: 'Teste A/B', icon: Shuffle, desc: 'Divide o tráfego', color: 'bg-purple-500' },
+    ],
+  },
+  {
+    label: 'Avançado',
+    nodes: [
+      { type: 'webhook', label: 'Webhook HTTP', icon: Globe, desc: 'Requisição externa', color: 'bg-pink-500' },
+      { type: 'ai_assistant', label: 'Assistente IA', icon: Sparkles, desc: 'Gera texto com OpenAI', color: 'bg-amber-500' },
+    ],
+  },
 ];
 
 export function NodesPalette() {
@@ -28,26 +55,35 @@ export function NodesPalette() {
         Clique e arraste os nós abaixo para o Canvas para desenhar o fluxo de automação.
       </p>
 
-      <div className="space-y-3">
-        {nodeTypes.map((node) => {
-          const Icon = node.icon;
-          return (
-            <div
-              key={node.type}
-              className="flex items-center gap-3 p-3 border border-border rounded-lg bg-secondary/50 cursor-grab active:cursor-grabbing hover:bg-secondary hover:border-border-hover transition-colors shadow-sm"
-              onDragStart={(event) => onDragStart(event, node.type, node.label)}
-              draggable
-            >
-              <div className={`w-8 h-8 rounded shrink-0 flex items-center justify-center text-white ${node.color}`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="block text-sm font-semibold text-foreground">{node.label}</span>
-                <span className="block text-[10px] text-muted-foreground">{node.desc}</span>
-              </div>
+      <div className="space-y-5">
+        {nodeGroups.map((group) => (
+          <div key={group.label}>
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">
+              {group.label}
+            </h4>
+            <div className="space-y-2">
+              {group.nodes.map((node) => {
+                const Icon = node.icon;
+                return (
+                  <div
+                    key={node.type}
+                    className="flex items-center gap-3 p-3 border border-border rounded-lg bg-secondary/50 cursor-grab active:cursor-grabbing hover:bg-secondary hover:border-border-hover transition-colors shadow-sm"
+                    onDragStart={(event) => onDragStart(event, node.type, node.label)}
+                    draggable
+                  >
+                    <div className={`w-8 h-8 rounded shrink-0 flex items-center justify-center text-white ${node.color}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">{node.label}</span>
+                      <span className="block text-[10px] text-muted-foreground">{node.desc}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
