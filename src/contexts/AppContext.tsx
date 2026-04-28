@@ -417,7 +417,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addColumn = useCallback(async (name: string, color: string) => {
     if (!currentPipelineId) { toast.error("Selecione um funil primeiro"); return; }
-    
+
+    const clientId = tenant?.id ?? user?.client_id;
+    if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
+
     // Get max order for current pipeline
     const pipelineCols = columns.filter(c => c.pipeline_id === currentPipelineId);
     const maxOrder = pipelineCols.length > 0 ? Math.max(...pipelineCols.map(c => c.order)) : -1;
@@ -427,12 +430,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       color,
       order: maxOrder + 1,
       pipeline_id: currentPipelineId,
+      client_id: clientId,
+      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
     }).select().single();
 
-    if (error) { logger.error(error); toast.error("Erro ao criar coluna"); return; }
+    if (error) { logger.error(error); toast.error("Erro ao criar coluna: " + error.message); return; }
     if (row) setColumns((prev) => [...prev, mapColumn(row)]);
     toast.success("Coluna criada");
-  }, [columns, currentPipelineId]);
+  }, [columns, currentPipelineId, tenant?.id, user?.client_id]);
 
   const updateColumn = useCallback(async (id: string, data: Partial<PipelineColumn>) => {
     const { error } = await supabase.from("pipeline_columns").update(data).eq("id", id);
