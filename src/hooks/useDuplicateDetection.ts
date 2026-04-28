@@ -218,9 +218,8 @@ export function useDuplicateDetection() {
       }
     };
 
-    // Processa em batches de 10 grupos paralelos
-    // (4 ops por grupo × 10 grupos = 40 conexões — bem dentro do limite ~100)
-    const BATCH_SIZE = 10;
+    // Processa em batches de 50 grupos paralelos
+    const BATCH_SIZE = 50;
     for (let i = 0; i < targetGroups.length; i += BATCH_SIZE) {
       const batch = targetGroups.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(batch.map(processGroup));
