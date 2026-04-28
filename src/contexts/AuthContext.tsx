@@ -19,6 +19,7 @@ export interface AuthUser {
   role: "supervisor" | "atendente" | "vendedor" | "master";
   avatar?: string;
   is_blocked?: boolean;
+  approval_status?: "pending" | "approved" | "rejected";
   client_id?: string;
   tenant_id?: string | null;
   organization_id?: string | null;
@@ -61,6 +62,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
     role: (data.role as AuthUser["role"]) || "vendedor",
     avatar: data.avatar_url || undefined,
     is_blocked: data.is_blocked || false,
+    approval_status: (data.approval_status as AuthUser["approval_status"]) || "approved",
     client_id: data.client_id || data.id,
     tenant_id: data.tenant_id || null,
     organization_id: orgId || null,
@@ -123,6 +125,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!profile) {
       await supabase.auth.signOut();
       return { success: false, error: "Perfil não encontrado." };
+    }
+
+    // Bloquear login de usuários pendentes ou rejeitados
+    if (profile.approval_status === "pending") {
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        error: "Sua conta está aguardando aprovação do administrador. Você receberá acesso assim que for aprovada.",
+      };
+    }
+    if (profile.approval_status === "rejected") {
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        error: "Sua conta foi recusada pelo administrador. Entre em contato com o suporte.",
+      };
     }
 
     // role='master' tem acesso irrestrito a todos os tenants e orgs
