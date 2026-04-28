@@ -100,11 +100,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const withClient = <T extends { eq: (k: string, v: string) => T }>(q: T): T =>
         isMasterView ? q : q.eq("client_id", clientId);
 
-      const [pipeRes, colRes, leadRes, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
+      // Lê leads paginados de 1000 em 1000 (Supabase default cap). Suporta até 50k+.
+      const fetchAllLeads = async () => {
+        const PAGE = 1000;
+        const MAX_PAGES = 60; // até 60.000 leads
+        const all: any[] = [];
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const from = page * PAGE;
+          const to = from + PAGE - 1;
+          const q = withClient(supabase.from("leads").select("*"))
+            .order("created_at", { ascending: false })
+            .range(from, to);
+          const { data, error } = await q;
+          if (error) { logger.error("fetchAllLeads error:", error); break; }
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < PAGE) break;
+        }
+        return all;
+      };
+
+      const [pipeRes, colRes, leadsArr, taskRes, tlRes, autoRes, rulesRes] = await Promise.all([
         withClient((supabase.from as any)("pipelines").select("*")).order("name"),
         withClient(supabase.from("pipeline_columns").select("*")).order("order"),
-        withClient(supabase.from("leads").select("*")).order("created_at", { ascending: false }),
-        withClient(supabase.from("tasks").select("*")).order("created_at", { ascending: false }),
+        fetchAllLeads(),
+        withClient(supabase.from("tasks").select("*")).order("created_at", { ascending: false }).limit(5000),
         withClient(supabase.from("timeline_events").select("*")).order("created_at", { ascending: false }).limit(100),
         withClient((supabase.from as any)("automations").select("*")).order("created_at", { ascending: false }),
         withClient((supabase.from as any)("automation_rules").select("*")).order("created_at", { ascending: false }),
@@ -117,7 +137,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
-      if (leadRes.data) setLeads(leadRes.data.map(mapLead));
+      if (leadsArr) setLeads(leadsArr.map(mapLead));
       if (taskRes.data) setTasks(taskRes.data.map(mapTask));
       if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
       if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));

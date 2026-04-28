@@ -81,9 +81,26 @@ export default function CRMPage() {
   const [editingPipelineId, setEditingPipelineId] = useState<string | null>(null);
   const [editingPipelineName, setEditingPipelineName] = useState("");
 
-  const currentPipeline = useMemo(() => 
+  const currentPipeline = useMemo(() =>
     pipelines.find(p => p.id === currentPipelineId) || pipelines[0]
   , [pipelines, currentPipelineId]);
+
+  // Quantidade total de leads por funil (via column_id → pipeline_id)
+  const leadCountByPipeline = useMemo(() => {
+    const colToPipeline = new Map<string, string>();
+    columns.forEach((c) => colToPipeline.set(c.id, c.pipeline_id));
+    const counts: Record<string, number> = {};
+    leads.forEach((l) => {
+      if (!l.column_id) return;
+      const pid = colToPipeline.get(l.column_id);
+      if (!pid) return;
+      counts[pid] = (counts[pid] ?? 0) + 1;
+    });
+    return counts;
+  }, [leads, columns]);
+
+  const totalLeads = leads.length;
+  const currentPipelineLeadCount = currentPipelineId ? leadCountByPipeline[currentPipelineId] ?? 0 : 0;
 
   const pipelineColumns = useMemo(() => 
     columns.filter(c => c.pipeline_id === currentPipelineId).sort((a, b) => a.order - b.order)
@@ -274,21 +291,34 @@ export default function CRMPage() {
                   <span className="text-xs font-bold text-foreground">
                     {currentPipeline?.name || "Selecionar Funil"}
                   </span>
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-primary/10 text-primary tabular-nums">
+                    {currentPipelineLeadCount.toLocaleString("pt-BR")}
+                  </span>
                   <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform duration-200" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 rounded-2xl shadow-2xl border-none p-1.5 backdrop-blur-xl bg-card/80">
-                <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                  Seus Funis
+              <DropdownMenuContent align="start" className="w-72 rounded-2xl shadow-2xl border-none p-1.5 backdrop-blur-xl bg-card/80">
+                <div className="px-2 py-1.5 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    Seus Funis
+                  </span>
+                  <span className="text-[10px] font-black text-foreground tabular-nums">
+                    {totalLeads.toLocaleString("pt-BR")} leads
+                  </span>
                 </div>
-                {pipelines.map((p) => (
+                {pipelines.map((p) => {
+                  const count = leadCountByPipeline[p.id] ?? 0;
+                  return (
                   <div key={p.id} className="group flex items-center pr-2 gap-1">
                     <DropdownMenuItem
                       onClick={() => setPipeline(p.id)}
                       className={`flex-1 rounded-xl text-xs h-9 gap-3 cursor-pointer ${currentPipelineId === p.id ? "bg-primary/10 text-primary font-bold" : ""}`}
                     >
                       <div className={`h-1.5 w-1.5 rounded-full ${currentPipelineId === p.id ? "bg-primary" : "bg-muted-foreground/30"}`} />
-                      {p.name}
+                      <span className="flex-1 truncate">{p.name}</span>
+                      <span className={`text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-md ${currentPipelineId === p.id ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                        {count.toLocaleString("pt-BR")}
+                      </span>
                     </DropdownMenuItem>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEditPipeline(p); }}
@@ -306,7 +336,8 @@ export default function CRMPage() {
                       </button>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 <DropdownMenuSeparator className="bg-border/20" />
                 <DropdownMenuItem 
                   onClick={() => setShowNewPipeline(true)}
