@@ -136,7 +136,63 @@ export function useDuplicateDetection() {
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
   }, []);
 
+  // Heurística para escolher o lead "principal" automaticamente:
+  // - Mais campos preenchidos vence
+  // - Em empate, o mais recente (created_at mais novo)
+  const pickPrimary = useCallback((leads: Lead[]): string => {
+    const score = (l: Lead) => {
+      let s = 0;
+      if (l.phone) s++;
+      if (l.email) s++;
+      if (l.company) s++;
+      if (l.position) s++;
+      if (l.city) s++;
+      if (l.value) s++;
+      if (l.tags?.length) s++;
+      if (l.notes) s++;
+      if (l.custom_fields && Object.keys(l.custom_fields).length > 0) s++;
+      return s;
+    };
+    const sorted = [...leads].sort((a, b) => {
+      const diff = score(b) - score(a);
+      if (diff !== 0) return diff;
+      const ad = new Date(a.created_at || 0).getTime();
+      const bd = new Date(b.created_at || 0).getTime();
+      return bd - ad;
+    });
+    return sorted[0].id;
+  }, []);
+
+  // Mescla vários grupos de uma vez. Para cada grupo, escolhe o primary
+  // automaticamente (campos mais preenchidos + mais recente).
+  // Retorna { merged, failed } com a contagem.
+  const mergeMany = useCallback(async (
+    targetGroups: DuplicateGroup[],
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ merged: number; failed: number }> => {
+    let merged = 0;
+    let failed = 0;
+    const successIds: string[] = [];
+
+    for (let i = 0; i < targetGroups.length; i++) {
+      const g = targetGroups[i];
+      onProgress?.(i, targetGroups.length);
+      try {
+        const primaryId = pickPrimary(g.leads);
+        await merge(g, primaryId);
+        merged++;
+        successIds.push(g.id);
+      } catch (err) {
+        failed++;
+      }
+    }
+
+    onProgress?.(targetGroups.length, targetGroups.length);
+    setGroups((prev) => prev.filter((g) => !successIds.includes(g.id)));
+    return { merged, failed };
+  }, [merge, pickPrimary]);
+
   const totalDuplicates = groups.reduce((sum, g) => sum + g.leads.length - 1, 0);
 
-  return { groups, scanning, scan, merge, dismiss, totalDuplicates };
+  return { groups, scanning, scan, merge, mergeMany, dismiss, totalDuplicates, pickPrimary };
 }

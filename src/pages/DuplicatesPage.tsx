@@ -2,11 +2,15 @@ import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import {
-  Copy, ScanSearch, GitMerge, X, Phone, Mail, Building2, User,
-  CheckCircle2, AlertTriangle, ChevronDown, ChevronUp,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Copy, ScanSearch, GitMerge, X, Phone, Mail, Building2,
+  CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Loader2, Zap,
 } from "lucide-react";
 import { useDuplicateDetection, DuplicateGroup } from "@/hooks/useDuplicateDetection";
 import { Lead } from "@/types";
@@ -81,16 +85,22 @@ function LeadCard({ lead, selected, onSelect }: { lead: Lead; selected: boolean;
 
 function DuplicateGroupCard({
   group,
+  selected,
+  onToggleSelect,
   onMerge,
   onDismiss,
+  defaultPrimaryId,
 }: {
   group: DuplicateGroup;
+  selected: boolean;
+  onToggleSelect: () => void;
   onMerge: (group: DuplicateGroup, primaryId: string) => Promise<void>;
   onDismiss: (id: string) => void;
+  defaultPrimaryId: string;
 }) {
-  const [primaryId, setPrimaryId] = useState(group.leads[0].id);
+  const [primaryId, setPrimaryId] = useState(defaultPrimaryId);
   const [merging, setMerging] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const conf = confidenceConfig[group.confidence];
 
@@ -107,13 +117,16 @@ function DuplicateGroupCard({
   };
 
   return (
-    <div className="bg-card ghost-border rounded-xl overflow-hidden">
+    <div className={`bg-card ghost-border rounded-xl overflow-hidden ${selected ? "ring-2 ring-primary" : ""}`}>
       {/* Header */}
-      <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-card-hover transition-colors"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <div className="flex-1 flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 px-4 py-3 hover:bg-card-hover transition-colors">
+        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+          <Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label="Selecionar grupo" />
+        </div>
+        <div
+          className="flex-1 flex items-center gap-2 min-w-0 cursor-pointer"
+          onClick={() => setExpanded((v) => !v)}
+        >
           <Copy className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium text-foreground truncate">
             {group.leads.length} leads · {reasonLabel[group.reason]}
@@ -125,11 +138,16 @@ function DuplicateGroupCard({
         <Badge variant="outline" className={`text-[10px] shrink-0 ${conf.className}`}>
           Confiança {conf.label}
         </Badge>
-        {expanded ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-        )}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 shrink-0" />
+          ) : (
+            <ChevronDown className="h-4 w-4 shrink-0" />
+          )}
+        </button>
       </div>
 
       {/* Body */}
@@ -178,18 +196,77 @@ function DuplicateGroupCard({
 }
 
 export default function DuplicatesPage() {
-  const { groups, scanning, scan, merge, dismiss, totalDuplicates } = useDuplicateDetection();
+  const { groups, scanning, scan, merge, mergeMany, dismiss, totalDuplicates, pickPrimary } = useDuplicateDetection();
   const [scanned, setScanned] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkMerging, setBulkMerging] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [confirmBulk, setConfirmBulk] = useState<null | "selected" | "all-high">(null);
 
   const handleScan = () => {
     const found = scan();
     setScanned(true);
+    setSelectedIds(new Set());
     if (found.length === 0) {
       toast.success("Nenhum lead duplicado encontrado.");
     } else {
       toast.info(`${found.length} grupo(s) de duplicatas encontrado(s).`);
     }
   };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(groups.map((g) => g.id)));
+  };
+
+  const selectAllHigh = () => {
+    setSelectedIds(new Set(groups.filter((g) => g.confidence === "alta").map((g) => g.id)));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const runBulkMerge = async (mode: "selected" | "all-high") => {
+    const targets = mode === "all-high"
+      ? groups.filter((g) => g.confidence === "alta")
+      : groups.filter((g) => selectedIds.has(g.id));
+
+    if (targets.length === 0) {
+      toast.error("Nenhum grupo selecionado.");
+      return;
+    }
+
+    setBulkMerging(true);
+    setBulkProgress({ done: 0, total: targets.length });
+
+    const { merged, failed } = await mergeMany(targets, (done, total) => {
+      setBulkProgress({ done, total });
+    });
+
+    setBulkMerging(false);
+    setBulkProgress(null);
+    setSelectedIds(new Set());
+    setConfirmBulk(null);
+
+    if (failed > 0) {
+      toast.error(`${merged} grupo(s) mesclado(s), ${failed} falha(s). Verifique o console.`);
+    } else {
+      toast.success(`${merged} grupo(s) mesclado(s) com sucesso!`);
+    }
+  };
+
+  const selectedCount = selectedIds.size;
+  const highCount = groups.filter((g) => g.confidence === "alta").length;
+  const totalLeadsInSelection = groups
+    .filter((g) => selectedIds.has(g.id))
+    .reduce((sum, g) => sum + g.leads.length - 1, 0);
 
   return (
     <AppLayout title="Duplicatas" subtitle="Detecte e mescle leads duplicados automaticamente">
@@ -224,13 +301,100 @@ export default function DuplicatesPage() {
           </div>
           <Button
             onClick={handleScan}
-            disabled={scanning}
+            disabled={scanning || bulkMerging}
             className="bg-primary hover:bg-primary-hover text-primary-foreground shrink-0"
           >
             <ScanSearch className="h-4 w-4 mr-2" />
             {scanning ? "Escaneando..." : "Escanear Duplicatas"}
           </Button>
         </div>
+
+        {/* Bulk action bar */}
+        {scanned && groups.length > 0 && (
+          <div className="bg-card ghost-border rounded-xl p-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={selectAll}
+                disabled={bulkMerging}
+              >
+                Selecionar todos ({groups.length})
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={selectAllHigh}
+                disabled={bulkMerging || highCount === 0}
+              >
+                Só alta confiança ({highCount})
+              </Button>
+              {selectedCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs text-muted-foreground"
+                  onClick={clearSelection}
+                  disabled={bulkMerging}
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Limpar seleção
+                </Button>
+              )}
+
+              <div className="flex-1" />
+
+              {highCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={() => setConfirmBulk("all-high")}
+                  disabled={bulkMerging}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  Mesclar todos de alta confiança
+                </Button>
+              )}
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+                onClick={() => setConfirmBulk("selected")}
+                disabled={bulkMerging || selectedCount === 0}
+              >
+                {bulkMerging ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Mesclando...</>
+                ) : (
+                  <><GitMerge className="h-3.5 w-3.5" /> Mesclar selecionados ({selectedCount})</>
+                )}
+              </Button>
+            </div>
+
+            {selectedCount > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                {totalLeadsInSelection} lead(s) duplicado(s) serão removidos. O lead "principal"
+                de cada grupo é escolhido automaticamente (mais campos preenchidos + mais recente).
+              </p>
+            )}
+
+            {bulkProgress && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Mesclando grupos...</span>
+                  <span className="tabular-nums">{bulkProgress.done} / {bulkProgress.total}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Legend */}
         {scanned && groups.length > 0 && (
@@ -265,12 +429,46 @@ export default function DuplicatesPage() {
                 <DuplicateGroupCard
                   key={group.id}
                   group={group}
+                  selected={selectedIds.has(group.id)}
+                  onToggleSelect={() => toggleSelect(group.id)}
+                  defaultPrimaryId={pickPrimary(group.leads)}
                   onMerge={merge}
                   onDismiss={dismiss}
                 />
               ))}
           </div>
         )}
+
+        {/* Confirmação de bulk merge */}
+        <AlertDialog open={confirmBulk !== null} onOpenChange={(o) => !o && setConfirmBulk(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mesclar grupos em lote?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmBulk === "all-high"
+                  ? `Você vai mesclar ${highCount} grupo(s) de alta confiança automaticamente. ` +
+                    `Para cada grupo, o lead com mais campos preenchidos será mantido como principal e os duplicados serão excluídos.`
+                  : `Você vai mesclar ${selectedCount} grupo(s) selecionado(s). ` +
+                    `${totalLeadsInSelection} lead(s) duplicado(s) serão excluídos permanentemente.`}
+                <br /><br />
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={bulkMerging}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (confirmBulk) runBulkMerge(confirmBulk);
+                }}
+                disabled={bulkMerging}
+                className="bg-primary hover:bg-primary-hover text-primary-foreground"
+              >
+                {bulkMerging ? "Mesclando..." : "Confirmar mesclagem"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
