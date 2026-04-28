@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRealtimeWithFallback } from "./useRealtimeWithFallback";
 
 export interface LeadConversation {
   lead_id: string;
@@ -644,69 +645,112 @@ export function useInbox(onLeadCreated?: () => void) {
   // Initial load
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // Realtime subscription
-  useEffect(() => {
-    if (!clientId || !selectedLeadId) return;
+  // Realtime subscription with fallback to polling
+  useRealtimeWithFallback(
+    () => {
+      if (!clientId || !selectedLeadId) {
+        return { unsubscribe: () => {} };
+      }
 
-    const channel = supabase
-      .channel(`inbox-realtime:${clientId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
-        const newMsg = payload.new as any;
+      const channel = supabase
+        .channel(`inbox-realtime:${clientId}`, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: clientId }
+          }
+        })
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
+          try {
+            const newMsg = payload.new as any;
 
-        const { data: conv } = await supabase.from("conversations")
-          .select("lead_id, channel")
-          .eq("id", newMsg.conversation_id)
-          .eq("client_id", clientId)
-          .maybeSingle();
+            const { data: conv } = await supabase.from("conversations")
+              .select("lead_id, channel")
+              .eq("id", newMsg.conversation_id)
+              .eq("client_id", clientId)
+              .maybeSingle();
 
-        if (conv?.lead_id === selectedLeadId) {
-          const meta = (newMsg.metadata || {}) as Record<string, any>;
-          let resolvedContent = newMsg.content;
-          const isMedia = ["image", "audio", "video", "file", "sticker"].includes(newMsg.type);
+            if (conv?.lead_id === selectedLeadId) {
+              const meta = (newMsg.metadata || {}) as Record<string, any>;
+              let resolvedContent = newMsg.content;
+              const isMedia = ["image", "audio", "video", "file", "sticker"].includes(newMsg.type);
 
-          // Resolve media URLs similar to loadMessages
-          if (isMedia) {
-            const isEncrypted = resolvedContent?.includes(".enc");
-            const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
-            const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
+              // Resolve media URLs similar to loadMessages
+              if (isMedia) {
+                const isEncrypted = resolvedContent?.includes(".enc");
+                const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
+                const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
 
-            if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
-              resolvedContent = meta.media_url;
+                if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
+                  resolvedContent = meta.media_url;
+                }
+              }
+
+              setMessages(prev => [...prev, {
+                ...newMsg,
+                content: resolvedContent,
+                channel: conv.channel,
+                metadata: meta,
+                is_private: meta?.is_private || false,
+                content_type: meta?.content_type || "text",
+              }]);
             }
+
+            if (newMsg.direction === "inbound" && conv && !conv.lead_id) {
+              const phone = (newMsg.metadata as any)?.phone;
+              const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
+              const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
+              if (leadId) {
+                await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
+              }
+            }
+
+            loadConversations();
+          } catch (err) {
+            logger.error("Realtime message insert handler error:", err);
           }
-
-          setMessages(prev => [...prev, {
-            ...newMsg,
-            content: resolvedContent,
-            channel: conv.channel,
-            metadata: meta,
-            is_private: meta?.is_private || false,
-            content_type: meta?.content_type || "text",
-          }]);
-        }
-
-        if (newMsg.direction === "inbound" && conv && !conv.lead_id) {
-          const phone = (newMsg.metadata as any)?.phone;
-          const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
-          const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
-          if (leadId) {
-            await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
+        })
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, async (payload) => {
+          try {
+            const updatedConv = payload.new as any;
+            // Only process updates from this client
+            if (updatedConv.client_id === clientId) {
+              loadConversations();
+            }
+          } catch (err) {
+            logger.error("Realtime conversation update handler error:", err);
           }
-        }
+        })
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            logger.info("Realtime subscription established for inbox");
+          } else if (status === "CLOSED") {
+            logger.info("Realtime subscription closed");
+          } else if (status === "CHANNEL_ERROR") {
+            logger.warn("Realtime subscription error - falling back to polling");
+          }
+        });
 
-        loadConversations();
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, async (payload) => {
-        const updatedConv = payload.new as any;
-        // Only process updates from this client
-        if (updatedConv.client_id === clientId) {
-          loadConversations();
+      return {
+        unsubscribe: () => {
+          supabase.removeChannel(channel);
         }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [selectedLeadId, loadConversations, findOrCreateLead, clientId]);
+      };
+    },
+    async () => {
+      // Polling fallback - just reload conversations and messages periodically
+      await loadConversations();
+      if (selectedLeadId) {
+        await loadMessages(selectedLeadId);
+      }
+    },
+    {
+      pollInterval: 5000,
+      enabled: !!clientId && !!selectedLeadId,
+      onError: (err) => {
+        logger.error("Realtime fallback polling error:", err);
+      }
+    }
+  );
 
   // Delete lead and its data
   const deleteLead = useCallback(async (leadId: string) => {
