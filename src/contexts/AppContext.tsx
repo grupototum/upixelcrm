@@ -126,12 +126,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
-      if (leadRes.data) {
-        if (leadRes.data.length > 0) {
-          logger.info("First lead from DB:", { name: leadRes.data[0].name, custom_fields: (leadRes.data[0] as any).custom_fields, utm_campaign: (leadRes.data[0] as any).utm_campaign });
-        }
-        setLeads(leadRes.data.map(mapLead));
-      }
       if (taskRes.data) setTasks(taskRes.data.map(mapTask));
       if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
       if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
@@ -196,6 +190,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           for (const r of results) {
             if (r.error) { logger.error("fetchAllLeads page error:", r.error); continue; }
             if (r.data) all.push(...r.data);
+          }
+          if (i === 0 && all.length > 0) {
+            logger.info("First lead from DB:", { name: all[0].name, custom_fields: all[0].custom_fields });
           }
           // Atualiza progressivamente: cada batch já aparece nos cards
           setLeads(all.map(mapLead));
