@@ -1,1 +1,15 @@
 project_id = "xusdhzwfkzufupjwbebt"
+
+# Webhooks externos (Evolution, Meta, Asaas, Instagram) — sem JWT
+# A própria função valida origem/assinatura por outros meios.
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.meta-leads-webhook]
+verify_jwt = false
+
+[functions.instagram-webhook]
+verify_jwt = false
+
+[functions.asaas-webhook]
+verify_jwt = false
