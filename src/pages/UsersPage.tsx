@@ -817,10 +817,10 @@ export default function UsersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Empresa (Opcional)</Label>
-                <Select value={createUserForm.organization_id || ""} onValueChange={(org_id) => setCreateUserForm({ ...createUserForm, organization_id: org_id })}>
+                <Select value={createUserForm.organization_id || "none"} onValueChange={(org_id) => setCreateUserForm({ ...createUserForm, organization_id: org_id === "none" ? "" : org_id })}>
                   <SelectTrigger><SelectValue placeholder="Nenhuma empresa" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma empresa</SelectItem>
+                    <SelectItem value="none">Nenhuma empresa</SelectItem>
                     {orgs && orgs.length > 0 && orgs.map((org) => (
                       <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
                     ))}
