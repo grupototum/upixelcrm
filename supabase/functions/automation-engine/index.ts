@@ -347,69 +347,96 @@ serve(async (req) => {
       const targetChannel = nodeData.configType || 'whatsapp';
       const text = interpolate(nodeData.text || '', leadContext);
       outputData = { channel: targetChannel, sent: false, textPreview: text.substring(0, 50) };
-      
+
       if (targetChannel === 'whatsapp' || targetChannel === 'whatsapp_official') {
         const clientId = lead.client_id;
         if (clientId) {
-          // Find active integration for the specified channel
+          // Find active integration for the specified channel (accept both 'connected' and 'configured' statuses)
           const { data: integration } = await supabase.from("integrations")
-            .select("config, access_token")
+            .select("config, access_token, status")
             .eq("client_id", clientId)
             .eq("provider", targetChannel)
-            .eq("status", "connected")
+            .in("status", ["connected", "configured"])
             .maybeSingle();
-            
-          if (integration && integration.config) {
-            const config = integration.config;
-            const cleanPhone = (lead.phone || '').replace(/\D/g, "");
-            const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-            
-            if (targetChannel === 'whatsapp') {
-              // Evolution API
-              const instancePath = config.instance_name;
-              let apiUrl = config.api_url || '';
-              if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
 
+          if (integration && integration.config) {
+            // Parse config if it's a JSON string
+            let config = integration.config;
+            if (typeof config === 'string') {
               try {
-                const sendRes = await fetch(`${apiUrl}/message/sendText/${instancePath}`, {
-                  method: "POST",
-                  headers: { apikey: config.api_key, "Content-Type": "application/json" },
-                  body: JSON.stringify({ number: formattedPhone, text }),
-                });
-                if (sendRes.ok) {
-                   outputData.sent = true;
-                   await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
-                } else {
-                   outputData.error = `API Error ${sendRes.status}`;
-                }
-              } catch (err: any) { outputData.error = err.message; }
+                config = JSON.parse(config);
+              } catch (e) {
+                outputData.error = `Invalid config JSON: ${e}`;
+                config = null;
+              }
+            }
+
+            if (!config) {
+              outputData.error = `Invalid integration configuration`;
             } else {
-              // WhatsApp Official
-              const phoneNumberId = config.phone_number_id;
-              const accessToken = integration.access_token || config.access_token;
-              try {
-                const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                  body: JSON.stringify({ messaging_product: "whatsapp", to: formattedPhone, type: "text", text: { body: text } }),
-                });
-                if (sendRes.ok) {
-                  outputData.sent = true;
-                  await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
+              const cleanPhone = (lead.phone || '').replace(/\D/g, "");
+              const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+              if (targetChannel === 'whatsapp') {
+                // Evolution API
+                const instancePath = config.instance_name;
+                let apiUrl = config.api_url || '';
+                if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
+
+                if (!instancePath || !apiUrl || !config.api_key) {
+                  outputData.error = `Missing Evolution API config: instance_name=${!!instancePath}, api_url=${!!apiUrl}, api_key=${!!config.api_key}`;
                 } else {
-                  outputData.error = `Official API Error ${sendRes.status}`;
+                  try {
+                    const sendRes = await fetch(`${apiUrl}/message/sendText/${instancePath}`, {
+                      method: "POST",
+                      headers: { apikey: config.api_key, "Content-Type": "application/json" },
+                      body: JSON.stringify({ number: formattedPhone, text }),
+                    });
+                    if (sendRes.ok) {
+                       outputData.sent = true;
+                       await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
+                    } else {
+                       const errorText = await sendRes.text();
+                       outputData.error = `API Error ${sendRes.status}: ${errorText.substring(0, 200)}`;
+                    }
+                  } catch (err: any) { outputData.error = `Fetch error: ${err.message}`; }
                 }
-              } catch (err: any) { outputData.error = err.message; }
+              } else {
+                // WhatsApp Official
+                const phoneNumberId = config.phone_number_id;
+                const accessToken = integration.access_token || config.access_token;
+
+                if (!phoneNumberId || !accessToken) {
+                  outputData.error = `Missing Official API config: phone_number_id=${!!phoneNumberId}, access_token=${!!accessToken}`;
+                } else {
+                  try {
+                    const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({ messaging_product: "whatsapp", to: formattedPhone, type: "text", text: { body: text } }),
+                    });
+                    if (sendRes.ok) {
+                      outputData.sent = true;
+                      await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
+                    } else {
+                      const errorText = await sendRes.text();
+                      outputData.error = `Official API Error ${sendRes.status}: ${errorText.substring(0, 200)}`;
+                    }
+                  } catch (err: any) { outputData.error = `Fetch error: ${err.message}`; }
+                }
+              }
             }
           } else {
-            outputData.error = `Active integration for ${targetChannel} not found`;
+            outputData.error = `No ${targetChannel} integration found with status 'connected' or 'configured' for client ${clientId}`;
           }
+        } else {
+          outputData.error = `No client_id found for lead`;
         }
       } else if (targetChannel === 'email') {
         // Simple SMTP or Cloud Function call for email
         outputData.error = "Email automation not fully implemented in engine yet";
       }
-      
+
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
     }

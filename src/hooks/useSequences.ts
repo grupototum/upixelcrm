@@ -209,6 +209,7 @@ export function useSequences() {
     if (updates.delay_value !== undefined) dbUpdates.delay_value = updates.delay_value;
     if (updates.delay_unit !== undefined) dbUpdates.delay_unit = updates.delay_unit;
     if (updates.step_order !== undefined) dbUpdates.step_order = updates.step_order;
+    if (updates.metadata !== undefined) dbUpdates.metadata = updates.metadata;
 
     const { error } = await supabase
       .from("message_sequence_steps")
@@ -223,6 +224,7 @@ export function useSequences() {
       ...s,
       steps: s.steps.map((st) => st.id === stepId ? { ...st, ...updates } : st),
     })));
+    toast.success("Etapa atualizada!");
     return true;
   }, []);
 

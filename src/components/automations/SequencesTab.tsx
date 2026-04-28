@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   MessageSquare, FileText, Mic, Paperclip,
   Plus, ChevronDown, ChevronRight, Clock, MoreHorizontal,
-  Trash2, Edit, Loader2, Check, X,
+  Trash2, Edit, Loader2, Check, X, Download, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -20,6 +20,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSequences, type SequenceStepType, type DelayUnit, type SequenceStep, type SequenceChannel } from "@/hooks/useSequences";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const stepTypeConfig: Record<SequenceStepType, { icon: typeof MessageSquare; label: string; color: string }> = {
   text: { icon: FileText, label: "Texto", color: "text-primary" },
@@ -46,6 +48,8 @@ export function SequencesTab() {
   const [newDescription, setNewDescription] = useState("");
   const [editingStep, setEditingStep] = useState<SequenceStep | null>(null);
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     sequences, loading,
@@ -75,12 +79,49 @@ export function SequencesTab() {
     await addStep(seqId, { type: "text", content: "Nova mensagem...", delay_value: 1, delay_unit: "hours" });
   };
 
+  const handleFileUpload = async (file: File, stepId: string) => {
+    setUploading(true);
+    try {
+      const fileName = `${Date.now()}_${file.name}`;
+      const { data, error } = await supabase.storage
+        .from("sequence_files")
+        .upload(`steps/${stepId}/${fileName}`, file);
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("sequence_files")
+        .getPublicUrl(data.path);
+
+      const metadata = {
+        file_id: data.path,
+        file_url: urlData.publicUrl,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        uploaded_at: new Date().toISOString(),
+      };
+
+      if (editingStep) {
+        setEditingStep({ ...editingStep, metadata });
+      }
+      toast.success(`Arquivo "${file.name}" enviado!`);
+    } catch (err: any) {
+      toast.error(`Erro ao enviar arquivo: ${err.message}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const handleSaveStep = async (step: SequenceStep) => {
     await updateStep(step.id, {
       type: step.type,
       content: step.content,
       delay_value: step.delay_value,
       delay_unit: step.delay_unit,
+      metadata: step.metadata,
     });
     setEditingStep(null);
   };
@@ -206,7 +247,7 @@ export function SequencesTab() {
                               <div className="flex items-center gap-2">
                                 <Select
                                   value={editingStep.type}
-                                  onValueChange={(v) => setEditingStep({ ...editingStep, type: v as SequenceStepType })}
+                                  onValueChange={(v) => setEditingStep({ ...editingStep, type: v as SequenceStepType, metadata: undefined })}
                                 >
                                   <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
                                   <SelectContent>
@@ -234,17 +275,83 @@ export function SequencesTab() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <Textarea
-                                value={editingStep.content}
-                                onChange={(e) => setEditingStep({ ...editingStep, content: e.target.value })}
-                                placeholder="Conteúdo da mensagem..."
-                                className="text-xs min-h-[60px]"
-                              />
+
+                              {editingStep.type === "text" && (
+                                <Textarea
+                                  value={editingStep.content}
+                                  onChange={(e) => setEditingStep({ ...editingStep, content: e.target.value })}
+                                  placeholder="Conteúdo da mensagem..."
+                                  className="text-xs min-h-[60px]"
+                                />
+                              )}
+
+                              {(editingStep.type === "audio" || editingStep.type === "file") && (
+                                <div className="space-y-2">
+                                  {editingStep.metadata?.file_url ? (
+                                    <div className="bg-card rounded p-2 border border-border">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="text-xs truncate">
+                                          <p className="font-semibold text-foreground">{editingStep.metadata.file_name}</p>
+                                          <p className="text-muted-foreground">{((editingStep.metadata.file_size as number) / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                        <a href={editingStep.metadata.file_url} download target="_blank" rel="noreferrer">
+                                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                                            <Download className="h-3 w-3" />
+                                          </Button>
+                                        </a>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 text-xs gap-1 w-full text-destructive mt-1"
+                                        onClick={() => setEditingStep({ ...editingStep, metadata: undefined })}
+                                      >
+                                        <Trash2 className="h-3 w-3" /> Remover arquivo
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          if (e.target.files?.[0]) {
+                                            handleFileUpload(e.target.files[0], step.id);
+                                          }
+                                        }}
+                                        accept={editingStep.type === "audio" ? "audio/*" : "*"}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs gap-1 w-full"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploading}
+                                      >
+                                        {uploading ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Upload className="h-3 w-3" />
+                                        )}
+                                        {uploading ? "Enviando..." : `Enviar ${editingStep.type === "audio" ? "Áudio" : "Arquivo"}`}
+                                      </Button>
+                                    </div>
+                                  )}
+                                  <Textarea
+                                    value={editingStep.content}
+                                    onChange={(e) => setEditingStep({ ...editingStep, content: e.target.value })}
+                                    placeholder="Descrição/legenda (opcional)..."
+                                    className="text-xs min-h-[40px]"
+                                  />
+                                </div>
+                              )}
+
                               <div className="flex items-center gap-2">
-                                <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleSaveStep(editingStep)}>
+                                <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleSaveStep(editingStep)} disabled={uploading}>
                                   <Check className="h-3 w-3" /> Salvar
                                 </Button>
-                                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setEditingStep(null)}>
+                                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setEditingStep(null)} disabled={uploading}>
                                   <X className="h-3 w-3" /> Cancelar
                                 </Button>
                                 <div className="flex-1" />
@@ -256,6 +363,7 @@ export function SequencesTab() {
                                     deleteStep(step.id);
                                     setEditingStep(null);
                                   }}
+                                  disabled={uploading}
                                 >
                                   <Trash2 className="h-3 w-3" /> Excluir etapa
                                 </Button>
@@ -277,7 +385,15 @@ export function SequencesTab() {
                                   <Edit className="h-3 w-3 text-muted-foreground hover:text-primary" />
                                 </button>
                               </div>
-                              <p className="text-xs text-foreground truncate">{step.content || <span className="italic text-muted-foreground">vazio</span>}</p>
+                              {step.metadata?.file_url ? (
+                                <div className="flex items-center gap-2 text-[10px]">
+                                  <Paperclip className="h-2.5 w-2.5 text-success" />
+                                  <span className="truncate text-foreground font-medium">{step.metadata.file_name}</span>
+                                  <span className="text-muted-foreground">({((step.metadata.file_size as number) / 1024).toFixed(1)} KB)</span>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-foreground truncate">{step.content || <span className="italic text-muted-foreground">vazio</span>}</p>
+                              )}
                             </>
                           )}
                         </div>
