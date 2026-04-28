@@ -229,12 +229,36 @@ export default function ImportPage() {
 
     setImporting(true);
 
-    // Build set of existing phone suffixes for deduplication
-    const existingPhoneSuffixes = new Set(
-      leads
-        .filter((l) => l.phone)
-        .map((l) => l.phone!.replace(/\D/g, "").slice(-8))
-    );
+    // Busca todos os telefones existentes direto do banco (paginado, evita usar
+    // o estado local que pode estar incompleto quando há mais de 1000 leads).
+    const existingPhoneSuffixes = new Set<string>();
+    try {
+      const PAGE = 1000;
+      for (let page = 0; page < 60; page++) {
+        const from = page * PAGE;
+        const to = from + PAGE - 1;
+        let q = supabase
+          .from("leads")
+          .select("phone")
+          .eq("client_id", clientId)
+          .not("phone", "is", null)
+          .range(from, to);
+        const { data, error } = await q;
+        if (error) break;
+        if (!data || data.length === 0) break;
+        for (const r of data) {
+          const ph = (r as any).phone as string | null;
+          if (ph) existingPhoneSuffixes.add(ph.replace(/\D/g, "").slice(-8));
+        }
+        if (data.length < PAGE) break;
+      }
+    } catch (err) {
+      console.warn("Falha ao carregar telefones existentes para dedup:", err);
+      // Fallback: usa só o que está em estado local
+      leads.filter((l) => l.phone).forEach((l) =>
+        existingPhoneSuffixes.add(l.phone!.replace(/\D/g, "").slice(-8))
+      );
+    }
 
     const getValue = (row: string[], fieldKey: string): string | null => {
       const csvCol = mapping[fieldKey];
