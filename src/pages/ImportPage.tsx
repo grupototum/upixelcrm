@@ -339,7 +339,8 @@ export default function ImportPage() {
         column_id: column,
         client_id: clientId,
         custom_fields: custom_fields,
-        ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+        // Só inclui tenant_id se for UUID (master view usa "master" sentinela)
+        ...(tenant?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenant.id) ? { tenant_id: tenant.id } : {}),
       });
     }
 

@@ -90,6 +90,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Master view: master user no subdomínio "master" vê dados de TODOS os tenants (RLS permite)
   const isMasterView = user?.role === "master" && tenant?.subdomain === "master";
 
+  // Em master view, tenant.id é a string "master" (sentinela, não UUID).
+  // Para inserts em colunas tenant_id (UUID), só inclui se for UUID válido.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const tenantIdForInsert = tenant?.id && UUID_RE.test(tenant.id) ? { tenant_id: tenant.id } : {};
+
   const executeAutomationsRef = useRef<((leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => Promise<void>) | null>(null);
 
   const fetchAll = useCallback(async () => {
@@ -367,7 +372,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ad_id: data.ad_id || null,
       fbclid: data.fbclid || null,
       gclid: data.gclid || null,
-      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+      ...tenantIdForInsert,
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar lead"); return null; }
@@ -456,7 +461,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: row, error } = await supabase.from("pipelines").insert({
       name,
       client_id: clientId,
-      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+      ...tenantIdForInsert,
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar funil"); return; }
@@ -467,9 +472,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Criar colunas padrão para o novo funil
       const defaultCols = [
-        { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id, client_id: clientId, ...(tenant?.id ? { tenant_id: tenant.id } : {}) },
-        { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id, client_id: clientId, ...(tenant?.id ? { tenant_id: tenant.id } : {}) },
-        { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id, client_id: clientId, ...(tenant?.id ? { tenant_id: tenant.id } : {}) },
+        { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
+        { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
+        { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
       ];
       
       const { data: colRows } = await supabase.from("pipeline_columns").insert(defaultCols).select();
@@ -521,7 +526,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       order: maxOrder + 1,
       pipeline_id: currentPipelineId,
       client_id: clientId,
-      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+      ...tenantIdForInsert,
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar coluna: " + error.message); return; }
@@ -556,7 +561,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       status: "draft",
       nodes: [],
       edges: [],
-      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+      ...tenantIdForInsert,
     }).select().single();
 
     if (error) {
@@ -652,7 +657,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       trigger: (data.trigger as any) || { type: "card_entered" },
       actions: (data.actions as any) || [],
       exceptions: (data.exceptions as any) || [],
-      ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+      ...tenantIdForInsert,
     }).select().single();
 
     if (error) { logger.error(error); toast.error("Erro ao criar automação"); return; }

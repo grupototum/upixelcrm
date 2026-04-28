@@ -17,6 +17,7 @@ import { useBroadcast, BroadcastRoute, Template, BroadcastLead } from "@/hooks/u
 import { useAppState } from "@/contexts/AppContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { isValidUuid } from "@/lib/tenant-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -196,7 +197,7 @@ export function BroadcastConfigModal() {
       const { error: campaignError } = await (supabase.from("broadcast_campaigns") as any).insert({
         id: campaignId,
         client_id: clientId,
-        tenant_id: tenant?.id ?? null,
+        tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
         name: campaignName,
         channel: "whatsapp",
         route,
