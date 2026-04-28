@@ -245,8 +245,8 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
         return (
           <div className="space-y-4">
              <Label className="text-xs font-semibold">Canal de Envio</Label>
-             <Select 
-                value={localData.configType || 'whatsapp'} 
+             <Select
+                value={localData.configType || 'whatsapp'}
                 onValueChange={(v) => handleUpdate({ configType: v })}
              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -256,17 +256,134 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                    <SelectItem value="email">E-mail (SMTP)</SelectItem>
                 </SelectContent>
              </Select>
-             
+
              <Label className="text-xs font-semibold">Mensagem</Label>
-             <Textarea 
+             <Textarea
                 name="text"
-                placeholder="Olá {{lead.name}}, tudo bem?" 
+                placeholder="Olá {{lead.name}}, tudo bem?"
                 className="min-h-[120px] text-sm resize-none"
                 onFocus={onFocus}
                 onBlur={onBlur}
                 value={localData.text || ''}
                 onChange={(e) => handleUpdate({ text: e.target.value })}
              />
+          </div>
+        );
+      case 'wait_for_reply':
+        return (
+          <div className="space-y-4">
+            <Label className="text-xs font-semibold">Aguardar Resposta do Lead</Label>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Pausa o fluxo até o lead enviar uma mensagem em qualquer canal. Quando responder, segue pelo handle "Resposta".
+            </p>
+
+            <div className="space-y-2">
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                Salvar resposta em (slug)
+              </Label>
+              <Input
+                name="saveAs"
+                placeholder="last_reply"
+                onFocus={onFocus}
+                onBlur={onBlur}
+                value={localData.saveAs || ''}
+                onChange={(e) => handleUpdate({ saveAs: e.target.value })}
+                className="h-8 text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Use {`{{`}<span className="font-mono">slug</span>{`}}`} nos próximos nós para usar a resposta.
+              </p>
+            </div>
+
+            <div className="space-y-2 border-t border-border pt-3">
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                Timeout (horas) — opcional
+              </Label>
+              <Input
+                name="timeoutHours"
+                type="number"
+                min="0"
+                placeholder="24"
+                onFocus={onFocus}
+                onBlur={onBlur}
+                value={localData.timeoutHours || ''}
+                onChange={(e) => handleUpdate({ timeoutHours: e.target.value })}
+                className="h-8 text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Se preenchido, libera o handle "Timeout" caso o lead não responda no tempo. 0 ou vazio = sem timeout.
+              </p>
+            </div>
+          </div>
+        );
+      case 'send_media':
+        return (
+          <div className="space-y-4">
+            <Label className="text-xs font-semibold">Canal</Label>
+            <Select
+              value={localData.configType || 'whatsapp'}
+              onValueChange={(v) => handleUpdate({ configType: v })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="whatsapp">WhatsApp Base (API)</SelectItem>
+                <SelectItem value="whatsapp_official">WhatsApp Official</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Label className="text-xs font-semibold">Tipo de Mídia</Label>
+            <Select
+              value={localData.mediaType || 'image'}
+              onValueChange={(v) => handleUpdate({ mediaType: v })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="image">Foto</SelectItem>
+                <SelectItem value="audio">Áudio</SelectItem>
+                <SelectItem value="video">Vídeo</SelectItem>
+                <SelectItem value="document">Documento</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Label className="text-xs font-semibold">URL pública da mídia</Label>
+            <Input
+              name="mediaUrl"
+              placeholder="https://exemplo.com/imagem.jpg"
+              onFocus={onFocus}
+              onBlur={onBlur}
+              value={localData.mediaUrl || ''}
+              onChange={(e) => handleUpdate({ mediaUrl: e.target.value })}
+              className="h-8 text-xs font-mono"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Aceita {`{{`}lead.custom.foto{`}}`} ou outras variáveis. Use Storage do Supabase para hospedar.
+            </p>
+
+            {(localData.mediaType === 'document' || !localData.mediaType) && (
+              <>
+                <Label className="text-xs font-semibold">Nome do arquivo</Label>
+                <Input
+                  name="fileName"
+                  placeholder="proposta.pdf"
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                  value={localData.fileName || ''}
+                  onChange={(e) => handleUpdate({ fileName: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </>
+            )}
+
+            <Label className="text-xs font-semibold">Legenda (opcional)</Label>
+            <Textarea
+              name="caption"
+              placeholder="Olá {{lead.name}}, segue o material!"
+              onFocus={onFocus}
+              onBlur={onBlur}
+              value={localData.caption || ''}
+              onChange={(e) => handleUpdate({ caption: e.target.value })}
+              className="text-xs min-h-[60px] resize-none"
+            />
           </div>
         );
       case 'webhook':

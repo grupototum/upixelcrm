@@ -7,11 +7,16 @@
 --
 -- Se short_code estiver preenchido, o template aparece no picker de "/" no
 -- ReplyBox. Sempre aparece no MessageTemplatePopover.
+--
+-- Convenção do schema:
+--   client_id é TEXT (UUID em string), sem FK
+--   tenant_id é UUID com FK em public.tenants
+--   RLS via public.get_user_client_id() / public.is_master_user()
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.inbox_templates (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id    UUID        NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  client_id    TEXT        NOT NULL,
   tenant_id    UUID        REFERENCES public.tenants(id) ON DELETE CASCADE,
   short_code   TEXT,                                        -- ex: "ola" → /ola
   title        TEXT        NOT NULL,                        -- ex: "Saudação"
@@ -42,57 +47,12 @@ CREATE TRIGGER trg_inbox_templates_updated_at
 -- ─── RLS ─────────────────────────────────────────────────────────────────────
 ALTER TABLE public.inbox_templates ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "inbox_templates_select" ON public.inbox_templates;
-CREATE POLICY "inbox_templates_select"
-  ON public.inbox_templates FOR SELECT
+DROP POLICY IF EXISTS "Tenant isolation on inbox_templates" ON public.inbox_templates;
+CREATE POLICY "Tenant isolation on inbox_templates"
+  ON public.inbox_templates FOR ALL TO authenticated
   USING (
-    client_id IN (SELECT client_id FROM public.profiles WHERE id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'master')
-  );
-
-DROP POLICY IF EXISTS "inbox_templates_insert" ON public.inbox_templates;
-CREATE POLICY "inbox_templates_insert"
-  ON public.inbox_templates FOR INSERT
+    client_id = public.get_user_client_id() OR public.is_master_user()
+  )
   WITH CHECK (
-    client_id IN (SELECT client_id FROM public.profiles WHERE id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'master')
+    client_id = public.get_user_client_id() OR public.is_master_user()
   );
-
-DROP POLICY IF EXISTS "inbox_templates_update" ON public.inbox_templates;
-CREATE POLICY "inbox_templates_update"
-  ON public.inbox_templates FOR UPDATE
-  USING (
-    client_id IN (SELECT client_id FROM public.profiles WHERE id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'master')
-  );
-
-DROP POLICY IF EXISTS "inbox_templates_delete" ON public.inbox_templates;
-CREATE POLICY "inbox_templates_delete"
-  ON public.inbox_templates FOR DELETE
-  USING (
-    client_id IN (SELECT client_id FROM public.profiles WHERE id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'master')
-  );
-
--- ─── Seed: templates padrão por client ──────────────────────────────────────
--- Insere apenas se o client ainda não tem templates
-INSERT INTO public.inbox_templates (client_id, title, content, category, short_code)
-SELECT
-  c.id,
-  t.title,
-  t.content,
-  t.category,
-  t.short_code
-FROM public.clients c
-CROSS JOIN (
-  VALUES
-    ('Saudação',       'Olá! Como posso ajudá-lo hoje?',                                                             'quick_reply', 'ola'),
-    ('Agradecimento',  'Obrigado pelo seu contato! Estamos à disposição.',                                            'quick_reply', 'obrigado'),
-    ('Boas-vindas',    'Olá! Obrigado por entrar em contato. Estamos aqui para ajudá-lo. O que posso fazer por você hoje?', 'template', NULL),
-    ('Follow-up',      'Olá! Gostaria de saber se teve a oportunidade de avaliar nossa proposta. Fico à disposição para qualquer dúvida!', 'template', NULL),
-    ('Reagendamento',  'Olá! Vi que não conseguimos conversar conforme combinado. Gostaria de reagendar para um horário mais conveniente?', 'template', NULL),
-    ('Encerramento',   'Se houver mais alguma dúvida, estou à disposição. Desejo um ótimo dia!',                       'template', NULL)
-) AS t(title, content, category, short_code)
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.inbox_templates WHERE client_id = c.id
-);

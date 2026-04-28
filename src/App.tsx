@@ -24,6 +24,7 @@ import LeadProfilePage from "./pages/LeadProfilePage";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import AutomationBuilderPage from "./pages/AutomationBuilderPage";
+import AutomationRunsPage from "./pages/AutomationRunsPage";
 import GooglePage from "./pages/GooglePage";
 import WhatsAppBroadcastPage from "./pages/WhatsAppBroadcastPage";
 import WhatsAppPage from "./pages/WhatsAppPage";
@@ -95,6 +96,7 @@ function AppRoutes() {
                 <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
                 <Route path="/automations" element={<ProtectedRoute requiredPermission="automations.view"><AutomationsPage /></ProtectedRoute>} />
                 <Route path="/automations/builder/:id" element={<ProtectedRoute requiredPermission="automations.view"><AutomationBuilderPage /></ProtectedRoute>} />
+                <Route path="/automations/builder/:id/runs" element={<ProtectedRoute requiredPermission="automations.view"><AutomationRunsPage /></ProtectedRoute>} />
                 <Route path="/intelligence" element={<ProtectedRoute requiredPermission="intelligence.view"><IntelligencePage /></ProtectedRoute>} />
                 <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><ReportsPage /></ProtectedRoute>} />
