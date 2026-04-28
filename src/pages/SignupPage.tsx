@@ -8,15 +8,14 @@ import { AlertCircle, CheckCircle2, Building2, Globe, Mail, Lock, User, ShieldCh
 
 const SUBDOMAIN_REGEX = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 const ROOT_DOMAIN = import.meta.env.VITE_ROOT_DOMAIN ?? "upixel.app";
-const SIGNUP_PASSWORD = import.meta.env.VITE_SIGNUP_PASSWORD ?? "";
+const SIGNUP_PASSWORD = import.meta.env.VITE_SIGNUP_PASSWORD ?? "Master123!";
 const GATE_STORAGE_KEY = "upixel.signup.unlocked";
 
 type Step = "form" | "success";
 
 export default function SignupPage() {
-  // Gate de senha
+  // Gate de senha — sempre obrigatório
   const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => {
-    if (!SIGNUP_PASSWORD) return true;
     return sessionStorage.getItem(GATE_STORAGE_KEY) === "1";
   });
   const [gatePassword, setGatePassword] = useState("");
