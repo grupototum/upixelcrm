@@ -57,7 +57,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function CRMPage() {
   const navigate = useNavigate();
   const {
-    leads, pipelines, columns, currentPipelineId,
+    leads, pipelines, columns, currentPipelineId, leadCountByPipeline,
     setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn,
     addLead, updateLead, deleteLead, moveLead
   } = useAppState();
@@ -84,20 +84,6 @@ export default function CRMPage() {
   const currentPipeline = useMemo(() =>
     pipelines.find(p => p.id === currentPipelineId) || pipelines[0]
   , [pipelines, currentPipelineId]);
-
-  // Quantidade total de leads por funil (via column_id → pipeline_id)
-  const leadCountByPipeline = useMemo(() => {
-    const colToPipeline = new Map<string, string>();
-    columns.forEach((c) => colToPipeline.set(c.id, c.pipeline_id));
-    const counts: Record<string, number> = {};
-    leads.forEach((l) => {
-      if (!l.column_id) return;
-      const pid = colToPipeline.get(l.column_id);
-      if (!pid) return;
-      counts[pid] = (counts[pid] ?? 0) + 1;
-    });
-    return counts;
-  }, [leads, columns]);
 
   const totalLeads = leads.length;
   const currentPipelineLeadCount = currentPipelineId ? leadCountByPipeline[currentPipelineId] ?? 0 : 0;

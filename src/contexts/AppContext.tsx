@@ -18,6 +18,7 @@ interface AppState {
   complexAutomations: ComplexAutomation[];
   timeline: TimelineEvent[];
   globalTags: string[];
+  leadCountByPipeline: Record<string, number>;
   loading: boolean;
 
   setPipeline: (id: string) => void;
@@ -81,6 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [complexAutomations, setComplexAutomations] = useState<ComplexAutomation[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [globalTags, setGlobalTags] = useState<string[]>(["Hot", "Warm", "Cold", "Enterprise", "Agência"]);
+  const [leadCountByPipeline, setLeadCountByPipeline] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const { tenant } = useTenant();
@@ -137,7 +139,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
-      if (leadsArr) setLeads(leadsArr.map(mapLead));
+      if (leadsArr) {
+        const mappedLeads = leadsArr.map(mapLead);
+        setLeads(mappedLeads);
+
+        // Calcula contagem de leads por pipeline (evita recalcular em cada render)
+        const colToPipeline = new Map<string, string>();
+        if (colRes.data) {
+          colRes.data.forEach((c: any) => colToPipeline.set(c.id, c.pipeline_id));
+        }
+        const counts: Record<string, number> = {};
+        mappedLeads.forEach((l) => {
+          if (!l.column_id) return;
+          const pid = colToPipeline.get(l.column_id);
+          if (!pid) return;
+          counts[pid] = (counts[pid] ?? 0) + 1;
+        });
+        setLeadCountByPipeline(counts);
+      }
       if (taskRes.data) setTasks(taskRes.data.map(mapTask));
       if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
       if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
@@ -721,10 +740,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       leads, pipelines, columns, currentPipelineId, tasks, automations, complexAutomations, timeline, globalTags, loading,
+      leadCountByPipeline,
       setPipeline: setCurrentPipelineId, addPipeline, updatePipeline, deletePipeline,
       addLead, updateLead, deleteLead, moveLead, moveLeadToPipeline,
       addTask, updateTask, deleteTask, toggleTaskStatus,
-      addColumn, updateColumn, deleteColumn, addTimelineEvent, 
+      addColumn, updateColumn, deleteColumn, addTimelineEvent,
       createAutomation, updateAutomationNodes, deleteAutomation, toggleComplexAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
       addGlobalTag, deleteGlobalTag,
