@@ -93,7 +93,7 @@ export default function ImportPage() {
   const { pipelines, columns, leads, refreshData } = useAppState();
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const { definitions: customFieldDefs, createField } = useCustomFields();
+  const { definitions: customFieldDefs, createField, fetchDefinitions } = useCustomFields();
 
   const [step, setStep] = useState(1);
   const [csvData, setCsvData] = useState<CsvData | null>(null);
@@ -213,9 +213,11 @@ export default function ImportPage() {
     setCreatingField(false);
     if (created) {
       const slug = (created as any).slug as string;
-      if (newFieldHeader) {
+      if (newFieldHeader && slug) {
         setMapping((prev) => ({ ...prev, [`cf:${slug}`]: newFieldHeader }));
       }
+      // Refetch para garantir que customFieldDefs está sincronizado com o banco
+      await fetchDefinitions();
       setShowCreateField(false);
       setNewFieldName("");
       setNewFieldHeader("");
@@ -227,8 +229,28 @@ export default function ImportPage() {
     const clientId = user?.client_id ?? tenant?.id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
-    console.log("Import starting:", { clientId, customFieldDefsCount: customFieldDefs.length, csvRowCount: csvData.rows.length });
     setImporting(true);
+
+    // Re-fetch das definitions DIRETO do banco para garantir que estamos
+    // usando a versão mais atualizada (evita race condition se o usuário
+    // criou um campo agora mesmo e o estado React ainda não propagou).
+    const { data: freshDefs, error: defsError } = await supabase
+      .from("custom_field_definitions")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("display_order", { ascending: true });
+
+    if (defsError) {
+      console.error("Erro ao carregar definições de campos:", defsError);
+    }
+
+    const activeDefs = (freshDefs as any[] | null) ?? customFieldDefs;
+    console.log("Import starting:", {
+      clientId,
+      customFieldDefsCount: activeDefs.length,
+      csvRowCount: csvData.rows.length,
+      mapping,
+    });
 
     // Busca todos os telefones existentes direto do banco (paginado, evita usar
     // o estado local que pode estar incompleto quando há mais de 1000 leads).
@@ -287,7 +309,7 @@ export default function ImportPage() {
 
       // Build custom_fields JSON from mapped custom field definitions
       const custom_fields: Record<string, any> = {};
-      for (const def of customFieldDefs) {
+      for (const def of activeDefs) {
         const raw = getValue(row, `cf:${def.slug}`);
         if (raw === null || raw === "") continue;
         if (def.field_type === "number") {
@@ -316,8 +338,8 @@ export default function ImportPage() {
         tags,
         column_id: column,
         client_id: clientId,
+        custom_fields: custom_fields,
         ...(tenant?.id ? { tenant_id: tenant.id } : {}),
-        ...(Object.keys(custom_fields).length > 0 ? { custom_fields } : {}),
       });
     }
 

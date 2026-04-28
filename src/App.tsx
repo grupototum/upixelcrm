@@ -38,8 +38,14 @@ import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import MetaAdsPage from "./pages/MetaAdsPage";
 import GoogleAdsPage from "./pages/GoogleAdsPage";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
+import { useAutomationWorker } from "./hooks/useAutomationWorker";
 
 const queryClient = new QueryClient();
+
+function AutomationWorkerRunner() {
+  useAutomationWorker();
+  return null;
+}
 
 function AppRoutes() {
   const { tenant, subdomain, isLoading, notFound } = useTenant();
@@ -78,6 +84,7 @@ function AppRoutes() {
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <AutomationWorkerRunner />
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
