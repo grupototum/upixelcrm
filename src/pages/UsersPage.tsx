@@ -101,6 +101,17 @@ export default function UsersPage() {
   const [addMemberEmail, setAddMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
 
+  // Create User Modal
+  const [createUserModal, setCreateUserModal] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "vendedor" as const,
+    organization_id: "",
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
+
   const isMaster = user?.role === "master";
   const currentTenantId = tenant?.id || user?.tenant_id || null;
 
@@ -251,6 +262,65 @@ export default function UsersPage() {
     fetchAuditLogs();
   };
 
+  const createUser = async () => {
+    if (!isMaster) {
+      toast.error("Apenas masters podem criar usuários.");
+      return;
+    }
+
+    const { name, email, password, role, organization_id } = createUserForm;
+
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      toast.error("Preenchimento obrigatório: nome, e-mail e senha");
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Você precisa estar autenticado");
+        return;
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-create-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          password: password.trim(),
+          role,
+          organization_id: organization_id || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || "Erro ao criar usuário");
+        return;
+      }
+
+      toast.success(`Usuário "${name}" criado com sucesso!`);
+      await logAudit("Usuário criado", { target_user: name, target_id: result.user.id, role });
+
+      setCreateUserModal(false);
+      setCreateUserForm({ name: "", email: "", password: "", role: "vendedor", organization_id: "" });
+      fetchData();
+      fetchAuditLogs();
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast.error(error.message || "Erro ao criar usuário");
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   const saveRole = async () => {
     if (!editModal) return;
 
@@ -381,9 +451,20 @@ export default function UsersPage() {
                   <h2 className="text-sm font-semibold text-foreground">Lista de Usuários</h2>
                   <p className="text-xs text-muted-foreground">Visão geral dos colaboradores e suas permissões</p>
                 </div>
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input placeholder="Buscar usuário..." className="pl-8 h-9 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <div className="flex items-center gap-2">
+                  {isMaster && (
+                    <Button
+                      size="sm"
+                      className="gap-1 text-xs bg-green-600 hover:bg-green-700"
+                      onClick={() => setCreateUserModal(true)}
+                    >
+                      <Plus className="h-3 w-3" /> Novo Usuário
+                    </Button>
+                  )}
+                  <div className="relative w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input placeholder="Buscar usuário..." className="pl-8 h-9 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
+                  </div>
                 </div>
               </div>
               
@@ -680,6 +761,82 @@ export default function UsersPage() {
                 Adicionar à Empresa
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isMaster && (
+        <Dialog open={createUserModal} onOpenChange={setCreateUserModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Criar Novo Usuário</DialogTitle>
+              <DialogDescription>Crie uma conta de usuário no sistema. O usuário será aprovado automaticamente.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome Completo</Label>
+                <Input
+                  placeholder="João Silva"
+                  value={createUserForm.name}
+                  onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
+                  disabled={creatingUser}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">E-mail</Label>
+                <Input
+                  placeholder="usuario@empresa.com"
+                  type="email"
+                  value={createUserForm.email}
+                  onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+                  disabled={creatingUser}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Senha Temporária</Label>
+                <Input
+                  placeholder="Senha segura"
+                  type="password"
+                  value={createUserForm.password}
+                  onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
+                  disabled={creatingUser}
+                />
+                <p className="text-[10px] text-muted-foreground">O usuário poderá alterar a senha no primeiro acesso</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Função/Permissão</Label>
+                <Select value={createUserForm.role} onValueChange={(role: any) => setCreateUserForm({ ...createUserForm, role })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="master">Master</SelectItem>
+                    <SelectItem value="supervisor">Supervisor</SelectItem>
+                    <SelectItem value="atendente">Atendente</SelectItem>
+                    <SelectItem value="vendedor">Vendedor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Empresa (Opcional)</Label>
+                <Select value={createUserForm.organization_id} onValueChange={(org_id) => setCreateUserForm({ ...createUserForm, organization_id: org_id })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhuma empresa" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhuma empresa</SelectItem>
+                    {orgs.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setCreateUserModal(false)} disabled={creatingUser}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={createUser} disabled={creatingUser}>
+                {creatingUser && <Loader2 className="h-3 w-3 animate-spin mr-2" />}
+                Criar Usuário
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
