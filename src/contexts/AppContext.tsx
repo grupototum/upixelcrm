@@ -277,6 +277,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       column_id: columnId,
       value: data.value ?? null,
       client_id: clientId,
+      utm_source: data.utm_source || null,
+      utm_medium: data.utm_medium || null,
+      utm_campaign: data.utm_campaign || null,
+      utm_content: data.utm_content || null,
+      utm_term: data.utm_term || null,
+      ad_campaign_id: data.ad_campaign_id || null,
+      ad_adset_id: data.ad_adset_id || null,
+      ad_id: data.ad_id || null,
+      fbclid: data.fbclid || null,
+      gclid: data.gclid || null,
       ...(tenant?.id ? { tenant_id: tenant.id } : {}),
     }).select().single();
 

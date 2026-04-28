@@ -76,9 +76,56 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
             </div>
             <div className="col-span-1">
               <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Origem</Label>
-              <Input value={form.origin ?? ""} onChange={(e) => setForm({ ...form, origin: e.target.value })} placeholder="Meta, Google..." className="mt-1 h-10 rounded-xl" />
+              <Select
+                value={form.origin || "Manual"}
+                onValueChange={(val) => setForm({ ...form, origin: val })}
+              >
+                <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
+                  <SelectValue placeholder="Origem do lead" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-none shadow-2xl bg-card">
+                  <SelectItem value="Meta Ads" className="rounded-lg">Meta Ads</SelectItem>
+                  <SelectItem value="Google Ads" className="rounded-lg">Google Ads</SelectItem>
+                  <SelectItem value="Website" className="rounded-lg">Website</SelectItem>
+                  <SelectItem value="Indicação" className="rounded-lg">Indicação</SelectItem>
+                  <SelectItem value="Evento" className="rounded-lg">Evento</SelectItem>
+                  <SelectItem value="Outbound" className="rounded-lg">Outbound</SelectItem>
+                  <SelectItem value="WhatsApp" className="rounded-lg">WhatsApp</SelectItem>
+                  <SelectItem value="Instagram" className="rounded-lg">Instagram</SelectItem>
+                  <SelectItem value="Manual" className="rounded-lg">Manual</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* UTM / Atribuição opcional */}
+          <details className="space-y-2 group">
+            <summary className="cursor-pointer text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1 hover:text-foreground transition-colors">
+              📊 Rastreamento (UTM/Anúncios) — opcional
+            </summary>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div>
+                <Label className="text-[10px] text-muted-foreground">UTM Source</Label>
+                <Input value={form.utm_source ?? ""} onChange={(e) => setForm({ ...form, utm_source: e.target.value })} placeholder="facebook" className="mt-1 h-9 rounded-xl text-xs" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">UTM Medium</Label>
+                <Input value={form.utm_medium ?? ""} onChange={(e) => setForm({ ...form, utm_medium: e.target.value })} placeholder="cpc" className="mt-1 h-9 rounded-xl text-xs" />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[10px] text-muted-foreground">UTM Campaign</Label>
+                <Input value={form.utm_campaign ?? ""} onChange={(e) => setForm({ ...form, utm_campaign: e.target.value })} placeholder="black-friday-2026" className="mt-1 h-9 rounded-xl text-xs" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">UTM Content</Label>
+                <Input value={form.utm_content ?? ""} onChange={(e) => setForm({ ...form, utm_content: e.target.value })} placeholder="banner-superior" className="mt-1 h-9 rounded-xl text-xs" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">UTM Term</Label>
+                <Input value={form.utm_term ?? ""} onChange={(e) => setForm({ ...form, utm_term: e.target.value })} placeholder="palavra-chave" className="mt-1 h-9 rounded-xl text-xs" />
+              </div>
+            </div>
+          </details>
 
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -1,6 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { BroadcastDashboard } from "@/components/whatsapp/broadcast/BroadcastDashboard";
-import { BroadcastModal } from "@/components/whatsapp/broadcast/BroadcastModal";
+import { BroadcastConfigModal } from "@/components/whatsapp/broadcast/BroadcastConfigModal";
 import { TemplateManager } from "@/components/whatsapp/broadcast/TemplateManager";
 import { ImplementationChecklist } from "@/components/whatsapp/broadcast/ImplementationChecklist";
 import { useBroadcast } from "@/hooks/useBroadcast";
@@ -15,7 +15,7 @@ export default function WhatsAppBroadcastPage() {
     <AppLayout
       title="Disparos de WhatsApp"
       subtitle="Gerencie campanhas massivas e modelos oficiais da Meta"
-      actions={<BroadcastModal />}
+      actions={<BroadcastConfigModal />}
     >
       <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
