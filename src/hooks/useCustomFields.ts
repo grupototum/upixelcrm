@@ -20,7 +20,7 @@ export function useCustomFields() {
 
   const { tenant } = useTenant();
   const { user } = useAuth();
-  const clientId = tenant?.id ?? user?.client_id;
+  const clientId = user?.client_id ?? tenant?.id;
 
   const fetchDefinitions = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }

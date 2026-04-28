@@ -126,6 +126,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       if (colRes.data) setColumns(colRes.data.map(mapColumn));
+      if (leadRes.data) {
+        if (leadRes.data.length > 0) {
+          logger.info("First lead from DB:", { name: leadRes.data[0].name, custom_fields: (leadRes.data[0] as any).custom_fields, utm_campaign: (leadRes.data[0] as any).utm_campaign });
+        }
+        setLeads(leadRes.data.map(mapLead));
+      }
       if (taskRes.data) setTasks(taskRes.data.map(mapTask));
       if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
       if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
@@ -833,6 +839,16 @@ function mapLead(row: Record<string, unknown>): Lead {
     column_id: row.column_id as string,
     responsible_id: (row.responsible_id as string) || undefined,
     value: (row.value as number) || undefined,
+    utm_source: (row.utm_source as string) || undefined,
+    utm_medium: (row.utm_medium as string) || undefined,
+    utm_campaign: (row.utm_campaign as string) || undefined,
+    utm_content: (row.utm_content as string) || undefined,
+    utm_term: (row.utm_term as string) || undefined,
+    ad_campaign_id: (row.ad_campaign_id as string) || undefined,
+    ad_adset_id: (row.ad_adset_id as string) || undefined,
+    ad_id: (row.ad_id as string) || undefined,
+    fbclid: (row.fbclid as string) || undefined,
+    gclid: (row.gclid as string) || undefined,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   };
