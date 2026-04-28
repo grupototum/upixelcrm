@@ -107,7 +107,7 @@ export default function UsersPage() {
     name: "",
     email: "",
     password: "",
-    role: "vendedor" as const,
+    role: "vendedor",
     organization_id: "",
   });
   const [creatingUser, setCreatingUser] = useState(false);
@@ -805,7 +805,7 @@ export default function UsersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Função/Permissão</Label>
-                <Select value={createUserForm.role} onValueChange={(role: any) => setCreateUserForm({ ...createUserForm, role })}>
+                <Select value={createUserForm.role || "vendedor"} onValueChange={(role) => setCreateUserForm({ ...createUserForm, role })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="master">Master</SelectItem>
@@ -817,11 +817,11 @@ export default function UsersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Empresa (Opcional)</Label>
-                <Select value={createUserForm.organization_id} onValueChange={(org_id) => setCreateUserForm({ ...createUserForm, organization_id: org_id })}>
+                <Select value={createUserForm.organization_id || ""} onValueChange={(org_id) => setCreateUserForm({ ...createUserForm, organization_id: org_id })}>
                   <SelectTrigger><SelectValue placeholder="Nenhuma empresa" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Nenhuma empresa</SelectItem>
-                    {orgs.map((org) => (
+                    {orgs && orgs.length > 0 && orgs.map((org) => (
                       <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
                     ))}
                   </SelectContent>
