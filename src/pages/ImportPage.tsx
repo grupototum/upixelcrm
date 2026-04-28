@@ -2,17 +2,23 @@ import { useState, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Upload, FileSpreadsheet, ArrowRight, CheckCircle2, X,
-  AlertCircle, Loader2, SkipForward,
+  AlertCircle, Loader2, SkipForward, Plus, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAppState } from "@/contexts/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import type { CustomFieldType } from "@/types";
 import { CSVPreview } from "@/components/import/CSVPreview";
 
 const systemFields = [
@@ -87,6 +93,7 @@ export default function ImportPage() {
   const { pipelines, columns, leads, refreshData } = useAppState();
   const { user } = useAuth();
   const { tenant } = useTenant();
+  const { definitions: customFieldDefs, createField } = useCustomFields();
 
   const [step, setStep] = useState(1);
   const [csvData, setCsvData] = useState<CsvData | null>(null);
@@ -98,6 +105,13 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // New custom field modal state
+  const [showCreateField, setShowCreateField] = useState(false);
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldType, setNewFieldType] = useState<CustomFieldType>("text");
+  const [newFieldHeader, setNewFieldHeader] = useState<string>("");
+  const [creatingField, setCreatingField] = useState(false);
 
   const availablePipelines = pipelines;
   const pipelineColumns = columns.filter((c) => c.pipeline_id === pipelineId);
@@ -177,6 +191,37 @@ export default function ImportPage() {
     setColumn(firstCol?.id ?? "");
   };
 
+  const openCreateFieldFor = (csvHeader?: string) => {
+    setNewFieldName(csvHeader ?? "");
+    setNewFieldHeader(csvHeader ?? "");
+    setNewFieldType("text");
+    setShowCreateField(true);
+  };
+
+  const handleCreateField = async () => {
+    if (!newFieldName.trim()) {
+      toast.error("Informe o nome do campo.");
+      return;
+    }
+    setCreatingField(true);
+    const created = await createField({
+      name: newFieldName.trim(),
+      field_type: newFieldType,
+      is_required: false,
+      options: [],
+    });
+    setCreatingField(false);
+    if (created) {
+      const slug = (created as any).slug as string;
+      if (newFieldHeader) {
+        setMapping((prev) => ({ ...prev, [`cf:${slug}`]: newFieldHeader }));
+      }
+      setShowCreateField(false);
+      setNewFieldName("");
+      setNewFieldHeader("");
+    }
+  };
+
   const handleImport = async () => {
     if (!csvData || !column) return;
     const clientId = user?.client_id ?? tenant?.id;
@@ -215,6 +260,23 @@ export default function ImportPage() {
       const tagsRaw = getValue(row, "tags");
       const tags = tagsRaw ? tagsRaw.split(";").map((t) => t.trim()).filter(Boolean) : [];
 
+      // Build custom_fields JSON from mapped custom field definitions
+      const custom_fields: Record<string, any> = {};
+      for (const def of customFieldDefs) {
+        const raw = getValue(row, `cf:${def.slug}`);
+        if (raw === null || raw === "") continue;
+        if (def.field_type === "number") {
+          const n = Number(raw.replace(",", "."));
+          if (!Number.isNaN(n)) custom_fields[def.slug] = n;
+        } else if (def.field_type === "checkbox") {
+          custom_fields[def.slug] = ["true", "1", "sim", "yes"].includes(raw.toLowerCase());
+        } else if (def.field_type === "multi_select") {
+          custom_fields[def.slug] = raw.split(";").map((s) => s.trim()).filter(Boolean);
+        } else {
+          custom_fields[def.slug] = raw;
+        }
+      }
+
       leadsToInsert.push({
         name,
         phone: phone || null,
@@ -227,6 +289,7 @@ export default function ImportPage() {
         column_id: column,
         client_id: clientId,
         ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+        ...(Object.keys(custom_fields).length > 0 ? { custom_fields } : {}),
       });
     }
 
@@ -376,6 +439,80 @@ export default function ImportPage() {
               ))}
             </div>
 
+            {/* Custom fields section */}
+            <div className="pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Campos Personalizados</h4>
+                  <Badge variant="outline" className="text-[9px]">{customFieldDefs.length}</Badge>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-[11px]"
+                  onClick={() => openCreateFieldFor()}
+                >
+                  <Plus className="h-3 w-3" /> Novo Campo
+                </Button>
+              </div>
+
+              {customFieldDefs.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground italic py-2">
+                  Nenhum campo personalizado. Crie um para mapear colunas extras do CSV (ex: CPF, Renda, Origem do Anúncio).
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {customFieldDefs.map((def) => (
+                    <div key={def.id} className="flex items-center gap-3">
+                      <div className="w-36 flex items-center gap-1.5 shrink-0">
+                        <span className="text-sm text-foreground truncate">{def.name}</span>
+                        <Badge variant="outline" className="text-[8px] px-1 py-0">{def.field_type}</Badge>
+                      </div>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <Select
+                        value={mapping[`cf:${def.slug}`] ?? "__skip"}
+                        onValueChange={(v) => setMapping((p) => ({ ...p, [`cf:${def.slug}`]: v }))}
+                      >
+                        <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__skip">— Ignorar —</SelectItem>
+                          {csvData.headers.map((h) => (
+                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Unmapped CSV headers - quick create */}
+              {(() => {
+                const usedHeaders = new Set(Object.values(mapping).filter((v) => v && v !== "__skip"));
+                const unmapped = csvData.headers.filter((h) => !usedHeaders.has(h));
+                if (unmapped.length === 0) return null;
+                return (
+                  <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
+                    <p className="text-[11px] text-muted-foreground mb-2">
+                      Colunas do CSV não mapeadas ({unmapped.length}). Crie campos personalizados para incluí-las:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {unmapped.map((h) => (
+                        <button
+                          key={h}
+                          onClick={() => openCreateFieldFor(h)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-card border border-border hover:border-primary hover:text-primary transition-colors"
+                        >
+                          <Plus className="h-2.5 w-2.5" /> {h}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Preview */}
             <CSVPreview
               csvHeaders={csvData.headers}
@@ -463,6 +600,67 @@ export default function ImportPage() {
             </div>
           </div>
         )}
+
+        {/* Create custom field modal */}
+        <Dialog open={showCreateField} onOpenChange={setShowCreateField}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader>
+              <DialogTitle>Criar Campo Personalizado</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome do Campo *</Label>
+                <Input
+                  value={newFieldName}
+                  onChange={(e) => setNewFieldName(e.target.value)}
+                  placeholder="Ex: CPF, Renda Mensal, Aniversário"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo</Label>
+                <Select value={newFieldType} onValueChange={(v) => setNewFieldType(v as CustomFieldType)}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Texto</SelectItem>
+                    <SelectItem value="textarea">Texto longo</SelectItem>
+                    <SelectItem value="number">Número</SelectItem>
+                    <SelectItem value="date">Data</SelectItem>
+                    <SelectItem value="datetime">Data e hora</SelectItem>
+                    <SelectItem value="checkbox">Checkbox (sim/não)</SelectItem>
+                    <SelectItem value="link">Link</SelectItem>
+                    <SelectItem value="multi_select">Múltipla escolha (separadas por ;)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {csvData && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Vincular à coluna do CSV (opcional)</Label>
+                  <Select value={newFieldHeader || "__none"} onValueChange={(v) => setNewFieldHeader(v === "__none" ? "" : v)}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma coluna" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">— Sem vínculo —</SelectItem>
+                      {csvData.headers.map((h) => (
+                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Esse campo aparecerá no perfil dos leads após a importação.
+                  </p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setShowCreateField(false)} disabled={creatingField}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleCreateField} disabled={creatingField || !newFieldName.trim()}>
+                {creatingField ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Criando...</> : "Criar Campo"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
