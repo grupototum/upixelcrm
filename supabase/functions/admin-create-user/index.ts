@@ -92,24 +92,34 @@ Deno.serve(async (req) => {
     }
 
     // Create profile entry (auto-approved for master-created users)
-    const { error: profileCreateError } = await adminClient
+    // First check if profile already exists
+    const { data: existingProfile } = await adminClient
       .from("profiles")
-      .insert({
-        id: newAuthUser.id,
-        name: name,
-        email: email.toLowerCase(),
-        role: role,
-        client_id: user.id, // Master's client_id
-        organization_id: organization_id || null,
-        approval_status: "approved", // Auto-approve master-created users
-        tenant_id: null,
-      });
+      .select("id")
+      .eq("id", newAuthUser.id)
+      .single();
 
-    if (profileCreateError) {
-      console.error("Profile creation error:", profileCreateError);
-      // Try to delete the auth user if profile creation fails
-      await adminClient.auth.admin.deleteUser(newAuthUser.id);
-      return json({ error: profileCreateError.message || "Failed to create user profile" }, 400);
+    if (!existingProfile) {
+      // Only insert if profile doesn't exist
+      const { error: profileCreateError } = await adminClient
+        .from("profiles")
+        .insert({
+          id: newAuthUser.id,
+          name: name,
+          email: email.toLowerCase(),
+          role: role,
+          client_id: user.id, // Master's client_id
+          organization_id: organization_id || null,
+          approval_status: "approved", // Auto-approve master-created users
+          tenant_id: null,
+        });
+
+      if (profileCreateError) {
+        console.error("Profile creation error:", profileCreateError);
+        // Try to delete the auth user if profile creation fails
+        await adminClient.auth.admin.deleteUser(newAuthUser.id);
+        return json({ error: profileCreateError.message || "Failed to create user profile" }, 400);
+      }
     }
 
     return json({
