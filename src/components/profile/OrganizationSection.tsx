@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { isValidUuid } from "@/lib/tenant-utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +95,7 @@ export function OrganizationSection() {
           name: newOrgName.trim(),
           slug: `${slug}-${Date.now()}`,
           subdomain: orgSubdomain,
-          tenant_id: tenant?.id || null,
+          tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
           owner_id: user.id,
         })
         .select()

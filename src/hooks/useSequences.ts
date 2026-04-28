@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { isValidUuid } from "@/lib/tenant-utils";
 
 export type SequenceChannel = "whatsapp" | "email";
 export type SequenceStepType = "text" | "audio" | "file";
@@ -100,7 +101,7 @@ export function useSequences() {
       .from("message_sequences")
       .insert({
         client_id: clientId,
-        tenant_id: tenant?.id ?? null,
+        tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
         name: params.name,
         description: params.description ?? null,
         channel: params.channel ?? "whatsapp",
