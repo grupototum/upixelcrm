@@ -12,6 +12,8 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { LabelSelector } from "./LabelSelector";
+import { useTenantUsers } from "@/hooks/useTenantUsers";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ConversationActionsProps {
   conversation: any;
@@ -24,17 +26,13 @@ interface ConversationActionsProps {
   onMergeLeads?: (lead: any) => void;
 }
 
-const MOCK_USERS = [
-  { id: "u1", name: "Admin Totum" },
-  { id: "u2", name: "Maria Gerente" },
-  { id: "u3", name: "João Operador" },
-  { id: "u4", name: "Carla Operadora" },
-];
-
-export function ConversationActions({ 
-  conversation, onRefresh, onUpdateStatus, onUpdatePriority, 
-  onAssignToAgent, onUpdateLabels, onDeleteLead, onMergeLeads 
+export function ConversationActions({
+  conversation, onRefresh, onUpdateStatus, onUpdatePriority,
+  onAssignToAgent, onUpdateLabels, onDeleteLead, onMergeLeads
 }: ConversationActionsProps) {
+  const { user } = useAuth();
+  const { users } = useTenantUsers(user?.organization_id);
+
   return (
     <div className="flex items-center gap-2">
       <LabelSelector 
@@ -98,13 +96,16 @@ export function ConversationActions({
             <DropdownMenuPortal>
               <DropdownMenuSubContent className="p-1">
                 <DropdownMenuItem onClick={() => onAssignToAgent(conversation.lead_id, null)} className="py-2 text-xs font-medium cursor-pointer">Nenhum</DropdownMenuItem>
-                {MOCK_USERS.map((user) => (
-                  <DropdownMenuItem 
-                    key={user.id} 
-                    onClick={() => onAssignToAgent(conversation.lead_id, user.id)}
+                {users.map((u) => (
+                  <DropdownMenuItem
+                    key={u.id}
+                    onClick={() => onAssignToAgent(conversation.lead_id, u.id)}
                     className="py-2 text-xs font-medium cursor-pointer"
                   >
-                    {user.name}
+                    <div className="flex flex-col">
+                      <span>{u.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{u.role}</span>
+                    </div>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuSubContent>

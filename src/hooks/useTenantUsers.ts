@@ -12,10 +12,11 @@ export interface TenantUser {
 }
 
 /**
- * Lista usuários do mesmo tenant para uso em seletores de atribuição.
- * Retorna apenas usuários ativos (não bloqueados) e do tenant atual.
+ * Lista usuários do mesmo tenant/organização para uso em seletores de atribuição.
+ * Retorna apenas usuários ativos (não bloqueados).
+ * Se organizationId é fornecido, filtra por organização em vez de tenant.
  */
-export function useTenantUsers() {
+export function useTenantUsers(organizationId?: string | null) {
   const { tenant } = useTenant();
   const { user } = useAuth();
   const [users, setUsers] = useState<TenantUser[]>([]);
@@ -23,6 +24,7 @@ export function useTenantUsers() {
 
   const tenantId = tenant?.id || user?.tenant_id || null;
   const isMaster = user?.role === "master";
+  const userOrgId = organizationId || user?.organization_id;
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -32,7 +34,9 @@ export function useTenantUsers() {
       .eq("is_blocked", false)
       .order("name", { ascending: true });
 
-    if (!isMaster && tenantId) {
+    if (userOrgId) {
+      query = query.eq("organization_id", userOrgId);
+    } else if (!isMaster && tenantId) {
       query = query.eq("tenant_id", tenantId);
     }
 
@@ -41,11 +45,11 @@ export function useTenantUsers() {
       setUsers(data as TenantUser[]);
     }
     setLoading(false);
-  }, [tenantId, isMaster]);
+  }, [tenantId, isMaster, userOrgId]);
 
   useEffect(() => {
-    if (tenantId || isMaster) fetchUsers();
-  }, [tenantId, isMaster, fetchUsers]);
+    if (tenantId || isMaster || userOrgId) fetchUsers();
+  }, [tenantId, isMaster, userOrgId, fetchUsers]);
 
   const findById = useCallback(
     (id?: string | null) => users.find((u) => u.id === id),
