@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
-import { Plus, Search, X, ChevronDown, LayoutGrid } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Plus, Search, X, ChevronDown, LayoutGrid, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,13 +50,14 @@ import { DragOverlayCard } from "@/components/crm/SortableLeadCard";
 import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
-import { FilterPopover, EMPTY_FILTERS, type CRMFilters } from "@/components/crm/FilterPopover";
+import { FilterPopover, EMPTY_FILTERS, UNASSIGNED_FILTER_VALUE, type CRMFilters } from "@/components/crm/FilterPopover";
 import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopover";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function CRMPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     leads, pipelines, columns, currentPipelineId, leadCountByPipeline,
     setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn,
@@ -77,6 +79,19 @@ export default function CRMPage() {
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
   const [configColumnTab, setConfigColumnTab] = useState<string>("general");
   const [crmFilters, setCrmFilters] = useState<CRMFilters>(EMPTY_FILTERS);
+
+  const myLeadsActive = useMemo(() => {
+    const ids = crmFilters.assignedTo ?? [];
+    return !!user?.id && ids.length === 1 && ids[0] === user.id;
+  }, [crmFilters.assignedTo, user?.id]);
+
+  const toggleMyLeads = () => {
+    if (!user?.id) return;
+    setCrmFilters((prev) => ({
+      ...prev,
+      assignedTo: myLeadsActive ? [] : [user.id],
+    }));
+  };
   const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
   const [editingPipelineId, setEditingPipelineId] = useState<string | null>(null);
   const [editingPipelineName, setEditingPipelineName] = useState("");
@@ -160,6 +175,17 @@ export default function CRMPage() {
       result = result.filter((l) => {
         const leadDate = new Date(l.created_at || 0);
         return leadDate >= cutoffDate;
+      });
+    }
+
+    // Assigned-to filter
+    const assignedTo = crmFilters.assignedTo ?? [];
+    if (assignedTo.length > 0) {
+      const wantsUnassigned = assignedTo.includes(UNASSIGNED_FILTER_VALUE);
+      const userIds = assignedTo.filter((x) => x !== UNASSIGNED_FILTER_VALUE);
+      result = result.filter((l) => {
+        if (!l.responsible_id) return wantsUnassigned;
+        return userIds.includes(l.responsible_id);
       });
     }
 
@@ -356,6 +382,18 @@ export default function CRMPage() {
           ) : (
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowSearch(true)}>
               <Search className="h-4 w-4" />
+            </Button>
+          )}
+          {user?.id && (
+            <Button
+              variant={myLeadsActive ? "default" : "outline"}
+              size="sm"
+              className="text-xs gap-1.5 h-8"
+              onClick={toggleMyLeads}
+              title="Filtrar apenas leads atribuídos a você"
+            >
+              <UserCheck className="h-3.5 w-3.5" />
+              Meus leads
             </Button>
           )}
           <FilterPopover

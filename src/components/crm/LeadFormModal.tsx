@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Lead, PipelineColumn } from "@/types";
+import { LeadAssignmentSelect } from "@/components/crm/LeadAssignmentSelect";
 
 interface LeadFormModalProps {
   open: boolean;
@@ -145,6 +146,16 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
             <div>
               <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Valor (R$)</Label>
               <Input type="number" value={form.value ?? ""} onChange={(e) => setForm({ ...form, value: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Responsável</Label>
+            <div className="mt-1">
+              <LeadAssignmentSelect
+                value={form.responsible_id}
+                onChange={(userId) => setForm({ ...form, responsible_id: userId || undefined })}
+              />
             </div>
           </div>
           

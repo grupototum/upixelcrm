@@ -35,6 +35,9 @@ import ContactsPage from "./pages/ContactsPage";
 import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
+import PrivacyPolicyPage from "./pages/legal/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/legal/TermsOfServicePage";
+import DataDeletionPage from "./pages/legal/DataDeletionPage";
 import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import MetaAdsPage from "./pages/MetaAdsPage";
 import GoogleAdsPage from "./pages/GoogleAdsPage";
@@ -70,6 +73,9 @@ function AppRoutes() {
       <BrowserRouter>
         <Routes>
           <Route path="/cadastro" element={<SignupPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+          <Route path="/data-deletion" element={<DataDeletionPage />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
@@ -89,6 +95,9 @@ function AppRoutes() {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                <Route path="/data-deletion" element={<DataDeletionPage />} />
                 <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                 <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />

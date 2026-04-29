@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Building, Phone, Mail, User, Tag, Clock } from "lucide-react";
+import { GripVertical, Building, Phone, Mail, User, Tag, Clock, UserX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Lead } from "@/types";
+import { useTenantUsers } from "@/hooks/useTenantUsers";
 
 export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
   const navigate = useNavigate();
+  const { displayName } = useTenantUsers();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: { type: "lead", lead },
   });
+
+  const responsibleName = displayName(lead.responsible_id);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -64,11 +68,19 @@ export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () =>
             ))}
           </div>
         )}
-        {lead.responsible_id && (
-          <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground">
-            <User className="h-3 w-3" /> {lead.responsible_id}
-          </div>
-        )}
+        <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground">
+          {lead.responsible_id ? (
+            <>
+              <User className="h-3 w-3 text-primary" />
+              <span className="truncate">{responsibleName || "Usuário removido"}</span>
+            </>
+          ) : (
+            <>
+              <UserX className="h-3 w-3" />
+              <span className="italic">Não atribuído</span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

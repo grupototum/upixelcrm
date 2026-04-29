@@ -187,6 +187,17 @@ export default function LandingPage() {
             alt="uPixel"
             className="h-6 opacity-70"
           />
+          <nav className="flex items-center gap-4 text-xs text-muted-foreground">
+            <Link to="/privacy-policy" className="hover:text-foreground transition-colors">
+              Política de Privacidade
+            </Link>
+            <Link to="/terms-of-service" className="hover:text-foreground transition-colors">
+              Termos de Serviço
+            </Link>
+            <Link to="/data-deletion" className="hover:text-foreground transition-colors">
+              Exclusão de Dados
+            </Link>
+          </nav>
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} uPixel. Todos os direitos reservados.
           </p>
