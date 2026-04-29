@@ -31,6 +31,7 @@ import WhatsAppPage from "./pages/WhatsAppPage";
 import InstagramPage from "./pages/InstagramPage";
 import ProfilePage from "./pages/ProfilePage";
 import SecurityPage from "./pages/SecurityPage";
+import HelpPage from "./pages/HelpPage";
 import ContactsPage from "./pages/ContactsPage";
 import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
@@ -120,6 +121,7 @@ function AppRoutes() {
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
                 <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
+                <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
                 <Route path="/alexandria/rag" element={<ProtectedRoute><RagDocumentsPage /></ProtectedRoute>} />
                 <Route path="/meta-ads" element={<ProtectedRoute><MetaAdsPage /></ProtectedRoute>} />
                 <Route path="/google-ads" element={<ProtectedRoute><GoogleAdsPage /></ProtectedRoute>} />
