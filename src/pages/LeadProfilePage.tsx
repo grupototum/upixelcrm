@@ -17,6 +17,7 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import { DynamicFieldRenderer } from "@/components/crm/DynamicFieldRenderer";
 import { CustomFieldsManager } from "@/components/crm/CustomFieldsManager";
 import { TagsManager } from "@/components/crm/TagsManager";
+import { LeadAssignmentSelect } from "@/components/crm/LeadAssignmentSelect";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -349,8 +350,8 @@ export default function LeadProfilePage() {
                     )) : <p className="text-xs text-muted-foreground italic">Nenhuma tag</p>}
                   </div>
                 </div>
-                <div className="bg-card border border-border rounded-lg p-5">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Funil de vendas</h3>
+                <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Funil e atribuição</h3>
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Etapas do Funil</Label>
                     <Select value={lead.column_id} onValueChange={async (val) => { await updateLead(lead.id, { column_id: val }); }}>
@@ -369,7 +370,15 @@ export default function LeadProfilePage() {
                       </SelectContent>
                     </Select>
                   </div>
-
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Responsável pelo Lead</Label>
+                    <LeadAssignmentSelect
+                      value={lead.responsible_id}
+                      onChange={async (userId) => {
+                        await updateLead(lead.id, { responsible_id: userId || undefined });
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Custom fields tab/section */}
