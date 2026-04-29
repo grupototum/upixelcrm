@@ -1,4 +1,15 @@
-import { Bell, Check, Clock, UserPlus, AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import {
+  Bell,
+  Check,
+  Clock,
+  UserPlus,
+  AlertTriangle,
+  Zap,
+  ArrowRightCircle,
+  MessageCircle,
+  CheckCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -7,56 +18,38 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+  useNotifications,
+  formatRelative,
+  type AppNotification,
+} from "@/hooks/useNotifications";
 
-const mockNotifications = [
-  {
-    id: "1",
-    title: "Novo Lead",
-    description: "Um novo lead vindo do WhatsApp acabou de entrar.",
-    time: "2 min atrás",
-    type: "new_lead",
-    unread: true,
-  },
-  {
-    id: "2",
-    title: "Tarefa Vencendo",
-    description: "A tarefa 'Retornar para João Marcos' vence em 1 hora.",
-    time: "45 min atrás",
-    type: "task_warning",
-    unread: true,
-  },
-  {
-    id: "3",
-    title: "Mensagem não respondida",
-    description: "Maria Silva enviou uma mensagem há 3 horas e não foi respondida.",
-    time: "3 horas atrás",
-    type: "unread_message",
-    unread: false,
-  },
-  {
-    id: "4",
-    title: "Automação Concluída",
-    description: "O fluxo 'Boas Vindas' foi concluído para 5 novos leads.",
-    time: "5 horas atrás",
-    type: "automation",
-    unread: false,
-  },
-];
+function getIcon(type: AppNotification["type"]) {
+  switch (type) {
+    case "new_lead":
+      return <UserPlus className="h-4 w-4 text-primary" />;
+    case "task_warning":
+      return <Clock className="h-4 w-4 text-warning" />;
+    case "task_overdue":
+      return <AlertTriangle className="h-4 w-4 text-destructive" />;
+    case "unread_message":
+      return <MessageCircle className="h-4 w-4 text-accent" />;
+    case "automation":
+      return <Zap className="h-4 w-4 text-warning" />;
+    case "stage_change":
+      return <ArrowRightCircle className="h-4 w-4 text-success" />;
+    default:
+      return <Check className="h-4 w-4 text-success" />;
+  }
+}
 
 export function NotificationPopover() {
-  const unreadCount = mockNotifications.filter((n) => n.unread).length;
+  const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications();
+  const navigate = useNavigate();
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case "new_lead":
-        return <UserPlus className="h-4 w-4 text-primary" />;
-      case "task_warning":
-        return <AlertTriangle className="h-4 w-4 text-warning" />;
-      case "unread_message":
-        return <Clock className="h-4 w-4 text-accent" />;
-      default:
-        return <Check className="h-4 w-4 text-success" />;
-    }
+  const handleClick = (n: AppNotification) => {
+    markAsRead(n.id);
+    if (n.href) navigate(n.href);
   };
 
   return (
@@ -76,17 +69,36 @@ export function NotificationPopover() {
       <PopoverContent className="w-80 p-0 shadow-2xl border-none" align="end">
         <div className="flex items-center justify-between p-4 ghost-border border-b bg-card/50 backdrop-blur-md">
           <h4 className="text-sm font-bold tracking-tight">Notificações</h4>
-          {unreadCount > 0 && (
-            <Badge variant="secondary" className="text-[10px] h-5">
-              {unreadCount} novas
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Badge variant="secondary" className="text-[10px] h-5">
+                {unreadCount} novas
+              </Badge>
+            )}
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                <CheckCheck className="h-3 w-3" /> Marcar todas
+              </button>
+            )}
+          </div>
         </div>
         <ScrollArea className="h-[350px]">
           <div className="flex flex-col">
-            {mockNotifications.map((n) => (
+            {notifications.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 px-6 text-center gap-2">
+                <Bell className="h-8 w-8 text-muted-foreground/30" />
+                <p className="text-xs text-muted-foreground">
+                  Nenhuma notificação no momento.
+                </p>
+              </div>
+            )}
+            {notifications.map((n) => (
               <button
                 key={n.id}
+                onClick={() => handleClick(n)}
                 className={`flex items-start gap-3 p-4 text-left transition-colors hover:bg-secondary/50 ghost-border border-b last:border-b-0 ${
                   n.unread ? "bg-primary/5" : ""
                 }`}
@@ -100,10 +112,10 @@ export function NotificationPopover() {
                       {n.title}
                     </p>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {n.time}
+                      {formatRelative(n.createdAt)}
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
                     {n.description}
                   </p>
                 </div>
@@ -112,8 +124,13 @@ export function NotificationPopover() {
           </div>
         </ScrollArea>
         <div className="p-2 ghost-border border-t bg-card/30">
-          <Button variant="ghost" size="sm" className="w-full text-[10px] font-medium h-8">
-            Ver todas as notificações
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-[10px] font-medium h-8"
+            onClick={() => navigate("/")}
+          >
+            Ir para o painel
           </Button>
         </div>
       </PopoverContent>
