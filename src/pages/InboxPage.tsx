@@ -763,6 +763,7 @@ export default function InboxPage() { // force HMR reset
                   leadName={selectedLeadGroup.lead_name}
                   leadPhone={selectedLeadGroup.lead_phone}
                   leadEmail={selectedLeadGroup.lead_email}
+                  channel={selectedLeadGroup.channels?.[0] || "whatsapp"}
                   onAddChannel={async (channel) => {
                     const phone = selectedLeadGroup.lead_phone || "";
                     const email = selectedLeadGroup.lead_email || "";
