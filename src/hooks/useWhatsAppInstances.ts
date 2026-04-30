@@ -13,6 +13,7 @@ export interface WaInstance {
   business_id: string;
   has_access_token: boolean;
   connected_number: string;
+  webhook_verify_token: string;
 }
 
 export function useWhatsAppInstances() {
