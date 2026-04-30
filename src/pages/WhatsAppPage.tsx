@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
-  Settings, Phone, Wifi, WifiOff, ArrowLeft, Plus, Trash2, Facebook,
+  Settings, Phone, Wifi, WifiOff, ArrowLeft, Plus, Trash2, Facebook, Copy, ExternalLink,
 } from "lucide-react";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,26 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant="outline" className={`text-[9px] ${cls}`}>{label}</Badge>;
 }
 
+function WebhookField({ label, value }: { label: string; value: string }) {
+  const copy = () => {
+    navigator.clipboard.writeText(value);
+    toast.success(`${label} copiado!`);
+  };
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <code className="text-[10px] bg-background border border-border/40 rounded px-1.5 py-0.5 flex-1 truncate">
+          {value}
+        </code>
+        <button type="button" onClick={copy} className="text-muted-foreground hover:text-foreground">
+          <Copy className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Per-instance card that manages its own connect/disconnect/qr state
 function InstanceCard({
   instance,
@@ -46,6 +66,7 @@ function InstanceCard({
   const [qrStep, setQrStep] = useState<"scan" | "success">("scan");
   const [working, setWorking] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [webhookOpen, setWebhookOpen] = useState(false);
 
   const type = instance.provider === "whatsapp_official" ? "official" : "normal";
   const isOfficial = type === "official";
@@ -200,6 +221,43 @@ function InstanceCard({
                 <p className="text-xs font-semibold text-foreground">{connectedNumber}</p>
                 <p className="text-[10px] text-muted-foreground">Sessão ativa</p>
               </div>
+            </div>
+          )}
+
+          {/* Webhook setup panel for official instances */}
+          {isOfficial && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setWebhookOpen((v) => !v)}
+                className="text-[11px] text-primary hover:underline flex items-center gap-1"
+              >
+                <Settings className="h-3 w-3" />
+                {webhookOpen ? "Ocultar" : "Ver"} configuração do Webhook
+              </button>
+              {webhookOpen && (
+                <div className="mt-2 space-y-2 bg-secondary/60 rounded-lg p-3">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Configure no Meta Developer Console → WhatsApp → Configuration → Webhook
+                  </p>
+                  <WebhookField
+                    label="Callback URL"
+                    value={`${supabase.supabaseUrl}/functions/v1/whatsapp-webhook`}
+                  />
+                  <WebhookField
+                    label="Verify Token"
+                    value={instance.webhook_verify_token || "—"}
+                  />
+                  <a
+                    href="https://developers.facebook.com/apps"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Abrir Meta Developer Console
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
