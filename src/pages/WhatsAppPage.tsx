@@ -3,8 +3,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
   Settings, RefreshCw, Phone, Wifi, WifiOff, Zap, ArrowLeft,
-  Plus, Trash2, ChevronDown, ChevronUp,
+  Plus, Trash2, ChevronDown, ChevronUp, Facebook,
 } from "lucide-react";
+import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -546,6 +547,7 @@ function InstanceFormModal({
 export default function WhatsAppPage() {
   const navigate = useNavigate();
   const { instances, loading, refresh } = useWhatsAppInstances();
+  const metaOAuth = useMetaOAuth();
   const [formOpen, setFormOpen] = useState(false);
   const [editingInstance, setEditingInstance] = useState<WaInstance | null>(null);
 
@@ -569,6 +571,16 @@ export default function WhatsAppPage() {
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
             <ArrowLeft className="h-3 w-3" /> Voltar
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs gap-1 border-blue-500/40 text-blue-500 hover:bg-blue-500/10"
+            onClick={() => metaOAuth.startOAuth("whatsapp", "/whatsapp")}
+            disabled={metaOAuth.loading}
+          >
+            {metaOAuth.loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Facebook className="h-3 w-3" />}
+            Conectar com Meta
           </Button>
           <Button size="sm" className="text-xs gap-1" onClick={handleAdd}>
             <Plus className="h-3 w-3" /> Adicionar número
