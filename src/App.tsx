@@ -41,6 +41,7 @@ import TermsOfServicePage from "./pages/legal/TermsOfServicePage";
 import DataDeletionPage from "./pages/legal/DataDeletionPage";
 import MetaCallbackPage from "./pages/oauth/MetaCallbackPage";
 import MetaSelectPage from "./pages/oauth/MetaSelectPage";
+import WhatsAppConnectPage from "./pages/oauth/WhatsAppConnectPage";
 import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import MetaAdsPage from "./pages/MetaAdsPage";
 import GoogleAdsPage from "./pages/GoogleAdsPage";
@@ -80,6 +81,7 @@ function AppRoutes() {
           <Route path="/terms-of-service" element={<TermsOfServicePage />} />
           <Route path="/data-deletion" element={<DataDeletionPage />} />
           <Route path="/oauth/meta/callback" element={<MetaCallbackPage />} />
+          <Route path="/oauth/whatsapp/connect" element={<WhatsAppConnectPage />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>

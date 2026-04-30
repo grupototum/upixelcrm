@@ -1,20 +1,26 @@
-// WhatsApp Embedded Signup — finalizes the connection after the user completes
-// Meta's hosted Embedded Signup flow on the frontend.
+// WhatsApp Embedded Signup — multi-tenant flow.
 //
-// The frontend uses FB.login() with a config_id of type "Embedded Signup" and
-// listens for postMessage events of type "WA_EMBEDDED_SIGNUP". On FINISH it
-// receives { code, waba_id, phone_number_id } and posts them here.
+// Because Meta's JS SDK requires every domain to be allowlisted explicitly
+// (no wildcards), we run the FB.login() popup ALWAYS on the root domain
+// (e.g. https://upixel.app/oauth/whatsapp/connect). The tenant subdomain
+// hands a HMAC-signed state to the popup that identifies the user/client,
+// so the popup can finalize the integration without needing auth on the
+// root domain.
 //
-// This function:
-//   1. Exchanges the code for a long-lived business token
-//   2. Registers the phone number on WhatsApp Cloud (POST /{phone-id}/register)
-//   3. Subscribes the app to the WABA so webhooks fire
-//   4. Persists the integration in the integrations table
+// Actions:
+//   POST ?action=initiate — authenticated. Tenant calls this to get a
+//                           popup_url (root domain) carrying a signed state.
+//   POST ?action=config   — public. Returns app_id + config_id for the SDK.
+//   POST ?action=finish   — public. Popup posts the embedded-signup result
+//                           with the signed state; we validate, exchange
+//                           code, register phone, subscribe webhook, and
+//                           persist the integration.
 //
 // Required Supabase secrets:
 //   META_APP_ID
 //   META_APP_SECRET
-//   APP_ROOT_DOMAIN  (used to mirror redirect_uri sent by FB.login)
+//   META_WA_EMBEDDED_SIGNUP_CONFIG_ID
+//   APP_ROOT_DOMAIN  (e.g. "upixel.app")
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -26,19 +32,68 @@ const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 
+// ─── HMAC helpers for signed state ───
+async function hmacSign(payload: string, secret: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function base64urlEncode(s: string): string {
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+function base64urlDecode(s: string): string {
+  const padded = s + "=".repeat((4 - (s.length % 4)) % 4);
+  return atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+}
+
+interface StatePayload {
+  user_id: string;
+  client_id: string;
+  tenant: string;
+  ts: number;
+  nonce: string;
+}
+
+async function buildSignedState(payload: StatePayload, secret: string): Promise<string> {
+  const body = base64urlEncode(JSON.stringify(payload));
+  const sig = await hmacSign(body, secret);
+  return `${body}.${sig}`;
+}
+
+async function verifySignedState(state: string, secret: string): Promise<StatePayload | null> {
+  const [body, sig] = state.split(".");
+  if (!body || !sig) return null;
+  const expected = await hmacSign(body, secret);
+  if (expected !== sig) return null;
+  try {
+    const payload = JSON.parse(base64urlDecode(body)) as StatePayload;
+    if (Date.now() - payload.ts > 30 * 60 * 1000) return null; // 30-min TTL
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Graph helpers ───
 function generateVerifyToken(): string {
   return crypto.randomUUID().replace(/-/g, "");
 }
 
 function generatePin(): string {
-  // 6-digit numeric PIN required by /register. We persist it so we can rotate later.
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 async function exchangeCodeForToken(code: string, appId: string, appSecret: string) {
-  // Embedded Signup uses code-based auth with no redirect_uri (response_type=code,
-  // override_default_response_type=true). Pass an empty redirect_uri to satisfy
-  // Graph's signature.
   const url =
     `${GRAPH_BASE}/oauth/access_token` +
     `?client_id=${appId}` +
@@ -84,6 +139,7 @@ Deno.serve(async (req) => {
 
   const appId = Deno.env.get("META_APP_ID");
   const appSecret = Deno.env.get("META_APP_SECRET");
+  const rootDomain = Deno.env.get("APP_ROOT_DOMAIN") || "upixel.app";
 
   if (!appId || !appSecret) {
     return json({ error: "META_APP_ID e META_APP_SECRET não configurados" }, 500);
@@ -92,20 +148,8 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action") || "config";
 
-  // ─── CONFIG ─── Public. Returns the JS SDK config (app_id + config_id) so the
-  // frontend can initialize FB.login() without exposing secrets.
-  if (action === "config") {
-    const configId = Deno.env.get("META_WA_EMBEDDED_SIGNUP_CONFIG_ID") || "";
-    return json({
-      app_id: appId,
-      config_id: configId,
-      graph_version: GRAPH_VERSION,
-    });
-  }
-
-  // ─── FINISH ─── Authenticated. Frontend hands over code + waba_id +
-  // phone_number_id captured from the WA_EMBEDDED_SIGNUP event.
-  if (action === "finish") {
+  // ─── INITIATE ─── Authenticated. Tenant gets a popup_url with signed state.
+  if (action === "initiate") {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
@@ -124,17 +168,55 @@ Deno.serve(async (req) => {
       .single();
     if (!profile) return json({ error: "Profile not found" }, 404);
 
+    const body = await req.json().catch(() => ({}));
+    const tenant = (body.tenant as string) || "";
+
+    const state = await buildSignedState(
+      {
+        user_id: user.id,
+        client_id: profile.client_id,
+        tenant,
+        ts: Date.now(),
+        nonce: crypto.randomUUID(),
+      },
+      appSecret
+    );
+
+    return json({
+      popup_url: `https://${rootDomain}/oauth/whatsapp/connect?state=${encodeURIComponent(state)}`,
+      state,
+    });
+  }
+
+  // ─── CONFIG ─── Public. Returns the JS SDK config (app_id + config_id).
+  if (action === "config") {
+    const configId = Deno.env.get("META_WA_EMBEDDED_SIGNUP_CONFIG_ID") || "";
+    return json({
+      app_id: appId,
+      config_id: configId,
+      graph_version: GRAPH_VERSION,
+    });
+  }
+
+  // ─── FINISH ─── Public. Validated by signed state (no auth header needed
+  // because the popup runs on the root domain without a user session).
+  if (action === "finish") {
     const body = await req.json();
-    const { code, waba_id, phone_number_id, instance_name } = body as {
+    const { state, code, waba_id, phone_number_id, instance_name } = body as {
+      state?: string;
       code?: string;
       waba_id?: string;
       phone_number_id?: string;
       instance_name?: string;
     };
 
+    if (!state) return json({ error: "state obrigatório" }, 400);
     if (!code || !waba_id || !phone_number_id) {
       return json({ error: "code, waba_id e phone_number_id são obrigatórios" }, 400);
     }
+
+    const decoded = await verifySignedState(state, appSecret);
+    if (!decoded) return json({ error: "state inválido ou expirado" }, 401);
 
     try {
       const tokenJson = await exchangeCodeForToken(code, appId, appSecret);
@@ -146,7 +228,6 @@ Deno.serve(async (req) => {
       }
       const accessToken = tokenJson.access_token as string;
 
-      // Best-effort enrichment — don't fail the whole flow if these fail
       const [phoneDetails, wabaDetails] = await Promise.all([
         fetchPhoneNumberDetails(phone_number_id, accessToken).catch(() => ({})),
         fetchWabaDetails(waba_id, accessToken).catch(() => ({})),
@@ -155,7 +236,6 @@ Deno.serve(async (req) => {
       const pin = generatePin();
       const registerResult = await registerPhoneNumber(phone_number_id, accessToken, pin)
         .catch((e) => ({ error: { message: String(e) } }));
-
       const subscribeResult = await subscribeAppToWaba(waba_id, accessToken)
         .catch((e) => ({ error: { message: String(e) } }));
 
@@ -186,11 +266,10 @@ Deno.serve(async (req) => {
         subscribe_result: subscribeResult,
       };
 
-      // Upsert by phone_number_id within client_id
       const { data: existing } = await adminClient
         .from("integrations")
         .select("id")
-        .eq("client_id", profile.client_id)
+        .eq("client_id", decoded.client_id)
         .eq("provider", "whatsapp_official")
         .eq("config->>phone_number_id", phone_number_id)
         .maybeSingle();
@@ -202,7 +281,7 @@ Deno.serve(async (req) => {
           .eq("id", existing.id);
       } else {
         await adminClient.from("integrations").insert({
-          client_id: profile.client_id,
+          client_id: decoded.client_id,
           provider: "whatsapp_official",
           status: "connected",
           config,
