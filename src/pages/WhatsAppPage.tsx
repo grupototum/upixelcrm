@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
-  Settings, RefreshCw, Phone, Wifi, WifiOff, Zap, ArrowLeft,
-  Plus, Trash2, ChevronDown, ChevronUp, Facebook,
+  Settings, Phone, Wifi, WifiOff, ArrowLeft,
+  Plus, Trash2, Facebook,
 } from "lucide-react";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { Button } from "@/components/ui/button";
@@ -208,12 +208,14 @@ function InstanceCard({
           <div className="border-t border-border/40 pt-4 flex items-center gap-2">
             {status === "connected" ? (
               <>
-                <Button size="sm" variant="outline" className="text-xs gap-1 flex-1" onClick={onEdit}>
-                  <Settings className="h-3 w-3" /> Config
-                </Button>
+                {!isOfficial && (
+                  <Button size="sm" variant="outline" className="text-xs gap-1 flex-1" onClick={onEdit}>
+                    <Settings className="h-3 w-3" /> Config
+                  </Button>
+                )}
                 <Button
                   size="sm" variant="outline"
-                  className="text-xs gap-1 text-destructive"
+                  className="text-xs gap-1 text-destructive flex-1"
                   onClick={handleDisconnect}
                   disabled={working}
                 >
@@ -233,19 +235,20 @@ function InstanceCard({
                   </Button>
                 )}
               </>
+            ) : isOfficial ? (
+              <p className="text-[11px] text-muted-foreground flex-1">
+                Use <strong>Conectar com Meta</strong> no topo da página para reconectar.
+              </p>
             ) : (
               <>
                 <Button
                   size="sm"
-                  className={`text-xs gap-1 flex-1 bg-${accentColor} hover:bg-${accentColor}/90 text-white`}
+                  className="text-xs gap-1 flex-1 bg-accent hover:bg-accent/90 text-white"
                   onClick={handleConnect}
                   disabled={working}
                 >
-                  {working
-                    ? <Loader2 className="h-3 w-3 animate-spin" />
-                    : isOfficial ? <Zap className="h-3 w-3" /> : <QrCode className="h-3 w-3" />
-                  }
-                  {isOfficial ? "Conectar" : "Conectar via QR"}
+                  {working ? <Loader2 className="h-3 w-3 animate-spin" /> : <QrCode className="h-3 w-3" />}
+                  Conectar via QR
                 </Button>
                 <Button size="sm" variant="outline" className="text-xs gap-1" onClick={onEdit}>
                   <Settings className="h-3 w-3" />
@@ -324,7 +327,8 @@ function InstanceCard({
   );
 }
 
-// Modal to add or edit an instance
+// Modal to add or edit an Evolution (QR Code) instance.
+// Official API instances are managed exclusively via Meta OAuth.
 function InstanceFormModal({
   open,
   onClose,
@@ -336,54 +340,32 @@ function InstanceFormModal({
   onSaved: () => void;
   editing?: WaInstance | null;
 }) {
-  const [instanceType, setInstanceType] = useState<"normal" | "official">("normal");
   const [apiUrl, setApiUrl] = useState("");
   const [instanceName, setInstanceName] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [phoneId, setPhoneId] = useState("");
-  const [businessId, setBusinessId] = useState("");
-  const [accessToken, setAccessToken] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const isOfficial = editing?.provider === "whatsapp_official";
+
   useEffect(() => {
-    if (editing) {
-      setInstanceType(editing.provider === "whatsapp_official" ? "official" : "normal");
+    if (editing && !isOfficial) {
       setApiUrl(editing.api_url);
       setInstanceName(editing.instance_name);
       setApiKey("");
-      setPhoneId(editing.phone_number_id);
-      setBusinessId(editing.business_id);
-      setAccessToken("");
     } else {
-      setInstanceType("normal");
       setApiUrl("");
       setInstanceName("");
       setApiKey("");
-      setPhoneId("");
-      setBusinessId("");
-      setAccessToken("");
     }
-  }, [editing, open]);
+  }, [editing, open, isOfficial]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const params = new URLSearchParams({
-        action: "save-config",
-        type: instanceType,
-      });
+      const params = new URLSearchParams({ action: "save-config", type: "normal" });
       const { error } = await supabase.functions.invoke(
         `whatsapp-proxy?${params.toString()}`,
-        {
-          body: {
-            api_url: apiUrl,
-            instance_name: instanceName,
-            api_key: apiKey,
-            phone_number_id: phoneId || undefined,
-            business_id: businessId || undefined,
-            access_token: accessToken || undefined,
-          },
-        }
+        { body: { api_url: apiUrl, instance_name: instanceName, api_key: apiKey || undefined } }
       );
       if (error) throw new Error(error.message);
       toast.success(editing ? "Instância atualizada!" : "Instância adicionada!");
@@ -396,15 +378,8 @@ function InstanceFormModal({
     }
   };
 
-  const isOfficial = instanceType === "official";
   const hasExistingApiKey = !!(editing?.has_api_key);
-  const hasExistingToken = !!(editing?.has_access_token);
-
-  const canSave =
-    apiUrl &&
-    instanceName &&
-    (apiKey || hasExistingApiKey) &&
-    (!isOfficial || phoneId);
+  const canSave = apiUrl && instanceName && (apiKey || hasExistingApiKey);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -412,133 +387,83 @@ function InstanceFormModal({
         <DialogHeader>
           <DialogTitle className="text-sm flex items-center gap-2">
             {editing ? <Settings className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {editing ? `Editar — ${editing.instance_name}` : "Adicionar número"}
+            {editing ? `Editar — ${editing.instance_name}` : "Adicionar número (QR Code)"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Type selector */}
-          {!editing && (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setInstanceType("normal")}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  instanceType === "normal"
-                    ? "border-accent bg-accent/10"
-                    : "border-border hover:border-accent/50"
-                }`}
-              >
-                <QrCode className="h-5 w-5 text-accent mb-1" />
-                <p className="text-xs font-semibold">QR Code</p>
-                <p className="text-[10px] text-muted-foreground">Via Evolution API</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstanceType("official")}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  instanceType === "official"
-                    ? "border-success bg-success/10"
-                    : "border-border hover:border-success/50"
-                }`}
-              >
-                <Shield className="h-5 w-5 text-success mb-1" />
-                <p className="text-xs font-semibold">API Oficial</p>
-                <p className="text-[10px] text-muted-foreground">Meta Business</p>
-              </button>
+        {isOfficial ? (
+          <div className="py-4 space-y-3">
+            <div className="flex items-start gap-3 bg-success/5 border border-success/20 rounded-lg p-4">
+              <Shield className="h-5 w-5 text-success shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">API Oficial da Meta</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Este número é gerenciado diretamente pela Meta via OAuth. Para reconfigurar,
+                  desconecte e use o botão <strong>Conectar com Meta</strong> no topo da página.
+                </p>
+              </div>
             </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">URL do Servidor Evolution API</Label>
-            <Input
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="https://api.evolution.com.br"
-              className="text-xs h-9 bg-secondary"
-            />
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
+                Fechar
+              </Button>
+            </div>
           </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Nome da Instância</Label>
-            <Input
-              value={instanceName}
-              onChange={(e) => setInstanceName(e.target.value)}
-              placeholder="meu-numero-1"
-              className="text-xs h-9 bg-secondary"
-              disabled={!!editing}
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Identificador único — use letras, números e hífens.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Evolution API Key</Label>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={hasExistingApiKey ? "••••••• (já configurada)" : "Sua API Key"}
-              className="text-xs h-9 bg-secondary"
-            />
-          </div>
-
-          {isOfficial && (
-            <>
-              <div className="h-px bg-border" />
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                Meta Business Platform
-              </p>
-
+        ) : (
+          <>
+            <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Phone Number ID</Label>
+                <Label className="text-xs font-semibold">URL do Servidor Evolution API</Label>
                 <Input
-                  value={phoneId}
-                  onChange={(e) => setPhoneId(e.target.value)}
-                  placeholder="ID do número de telefone"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="https://api.evolution.com.br"
                   className="text-xs h-9 bg-secondary"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Business ID</Label>
+                <Label className="text-xs font-semibold">Nome da Instância</Label>
                 <Input
-                  value={businessId}
-                  onChange={(e) => setBusinessId(e.target.value)}
-                  placeholder="ID da conta Business"
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="meu-numero-1"
                   className="text-xs h-9 bg-secondary"
+                  disabled={!!editing}
                 />
+                <p className="text-[10px] text-muted-foreground">
+                  Identificador único — use letras, números e hífens.
+                </p>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Meta Access Token</Label>
+                <Label className="text-xs font-semibold">Evolution API Key</Label>
                 <Input
                   type="password"
-                  value={accessToken}
-                  onChange={(e) => setAccessToken(e.target.value)}
-                  placeholder={hasExistingToken ? "••••••• (já configurado)" : "Token de acesso permanente"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={hasExistingApiKey ? "••••••• (já configurada)" : "Sua API Key"}
                   className="text-xs h-9 bg-secondary"
                 />
               </div>
-            </>
-          )}
-        </div>
+            </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-            Cancelar
-          </Button>
-          <Button
-            size="sm"
-            className="text-xs"
-            onClick={handleSave}
-            disabled={!canSave || saving}
-          >
-            {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-            {editing ? "Salvar" : "Adicionar"}
-          </Button>
-        </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                className="text-xs"
+                onClick={handleSave}
+                disabled={!canSave || saving}
+              >
+                {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                {editing ? "Salvar" : "Adicionar"}
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
