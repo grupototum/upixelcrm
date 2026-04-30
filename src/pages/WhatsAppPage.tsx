@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
-  Settings, Phone, Wifi, WifiOff, ArrowLeft, Plus, Trash2, Facebook, Copy, ExternalLink,
+  Settings, Phone, Wifi, WifiOff, ArrowLeft, Plus, Trash2, Facebook, Copy, ExternalLink, Zap,
 } from "lucide-react";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
+import { useWhatsAppEmbeddedSignup } from "@/hooks/useWhatsAppEmbeddedSignup";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -390,12 +391,16 @@ function InstanceFormModal({
   onSaved,
   editing,
   onConnectMeta,
+  onEmbeddedSignup,
+  embeddedSignupLoading,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   editing?: WaInstance | null;
   onConnectMeta: () => void;
+  onEmbeddedSignup: () => void;
+  embeddedSignupLoading: boolean;
 }) {
   const [instanceType, setInstanceType] = useState<"normal" | "official">("normal");
   const [apiUrl, setApiUrl] = useState("");
@@ -498,13 +503,27 @@ function InstanceFormModal({
                   </p>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-1 border-t border-border">
+              <div className="flex flex-wrap justify-end gap-2 pt-1 border-t border-border">
                 <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
                   Cancelar
                 </Button>
+                {!isEditingOfficial && (
+                  <Button
+                    size="sm"
+                    className="text-xs gap-1.5 bg-success hover:bg-success/90 text-white"
+                    onClick={() => { onClose(); onEmbeddedSignup(); }}
+                    disabled={embeddedSignupLoading}
+                  >
+                    {embeddedSignupLoading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Zap className="h-3.5 w-3.5" />}
+                    Conectar em 1 clique
+                  </Button>
+                )}
                 <Button
                   size="sm"
-                  className="text-xs gap-1.5 bg-blue-500 hover:bg-blue-600 text-white"
+                  variant={isEditingOfficial ? "default" : "outline"}
+                  className={`text-xs gap-1.5 ${isEditingOfficial ? "bg-blue-500 hover:bg-blue-600 text-white" : "border-blue-500/40 text-blue-500 hover:bg-blue-500/10"}`}
                   onClick={() => { onClose(); onConnectMeta(); }}
                 >
                   <Facebook className="h-3.5 w-3.5" /> Conectar com Meta
@@ -577,6 +596,7 @@ export default function WhatsAppPage() {
   const navigate = useNavigate();
   const { instances, loading, refresh } = useWhatsAppInstances();
   const metaOAuth = useMetaOAuth();
+  const embeddedSignup = useWhatsAppEmbeddedSignup();
   const [formOpen, setFormOpen] = useState(false);
   const [editingInstance, setEditingInstance] = useState<WaInstance | null>(null);
 
@@ -711,6 +731,11 @@ export default function WhatsAppPage() {
         onSaved={refresh}
         editing={editingInstance}
         onConnectMeta={() => metaOAuth.startOAuth("whatsapp", "/whatsapp")}
+        onEmbeddedSignup={async () => {
+          const result = await embeddedSignup.startSignup();
+          if (result) refresh();
+        }}
+        embeddedSignupLoading={embeddedSignup.loading}
       />
     </AppLayout>
   );
