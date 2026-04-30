@@ -297,10 +297,16 @@ export function useInbox(onLeadCreated?: () => void) {
 
       const isOfficial = target.channel === "whatsapp_official";
       const isInstagram = target.channel === "instagram";
-      const functionName = isInstagram ? "instagram-proxy" : "whatsapp-proxy";
-      const queryString = isInstagram ? "?action=send-message" : `?action=send-message${isOfficial ? "&type=official" : ""}`;
-      
-      const { error } = await supabase.functions.invoke(`${functionName}${queryString}`, {
+
+      // Official WhatsApp uses Meta's Graph API directly (whatsapp-official-send).
+      // Lite/Baileys still uses whatsapp-proxy unchanged.
+      const functionPath = isInstagram
+        ? "instagram-proxy?action=send-message"
+        : isOfficial
+          ? "whatsapp-official-send?action=send-text"
+          : "whatsapp-proxy?action=send-message";
+
+      const { error } = await supabase.functions.invoke(functionPath, {
         body: { phone, message: text },
       });
 
@@ -347,9 +353,13 @@ export function useInbox(onLeadCreated?: () => void) {
         if (!phone) throw new Error("Número de telefone não encontrado para este contato.");
 
         const isOfficial = target.channel === "whatsapp_official";
-        const queryString = `?action=send-media${isOfficial ? "&type=official" : ""}`;
 
-        const { error } = await supabase.functions.invoke(`whatsapp-proxy${queryString}`, {
+        // Official path → Meta Graph API directly. Lite path → Evolution proxy unchanged.
+        const functionPath = isOfficial
+          ? "whatsapp-official-send?action=send-media"
+          : "whatsapp-proxy?action=send-media";
+
+        const { error } = await supabase.functions.invoke(functionPath, {
           body: {
             phone,
             mediaUrl: url,
