@@ -116,7 +116,7 @@ export function useInbox(onLeadCreated?: () => void) {
       if (!groupedMap[key]) {
         const lead = c.lead_id ? leadsMap[c.lead_id] : undefined;
         groupedMap[key] = {
-          lead_id: c.lead_id || "unassigned",
+          lead_id: c.lead_id || key,
           lead_name: lead?.name || meta?.lead_name || meta?.phone || meta?.email || "Desconhecido",
           lead_phone: lead?.phone || meta?.phone,
           lead_email: lead?.email || meta?.email,
@@ -173,7 +173,7 @@ export function useInbox(onLeadCreated?: () => void) {
       .select("id, channel")
       .eq("client_id", clientId);
 
-    if (leadId === "unassigned") {
+    if (leadId === "unassigned" || leadId?.startsWith("unassigned:")) {
       convQuery = convQuery.is("lead_id", null) as typeof convQuery;
     } else {
       convQuery = convQuery.eq("lead_id", leadId) as typeof convQuery;
