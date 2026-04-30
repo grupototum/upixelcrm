@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
-  Settings, Phone, Wifi, WifiOff, ArrowLeft,
-  Plus, Trash2, Facebook,
+  Settings, Phone, Wifi, WifiOff, ArrowLeft, Plus, Trash2, Facebook,
 } from "lucide-react";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { Button } from "@/components/ui/button";
@@ -327,37 +326,40 @@ function InstanceCard({
   );
 }
 
-// Modal to add or edit an Evolution (QR Code) instance.
-// Official API instances are managed exclusively via Meta OAuth.
 function InstanceFormModal({
   open,
   onClose,
   onSaved,
   editing,
+  onConnectMeta,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   editing?: WaInstance | null;
+  onConnectMeta: () => void;
 }) {
+  const [instanceType, setInstanceType] = useState<"normal" | "official">("normal");
   const [apiUrl, setApiUrl] = useState("");
   const [instanceName, setInstanceName] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const isOfficial = editing?.provider === "whatsapp_official";
+  const isEditingOfficial = editing?.provider === "whatsapp_official";
 
   useEffect(() => {
-    if (editing && !isOfficial) {
-      setApiUrl(editing.api_url);
+    if (editing) {
+      setInstanceType(isEditingOfficial ? "official" : "normal");
+      setApiUrl(isEditingOfficial ? "" : editing.api_url);
       setInstanceName(editing.instance_name);
       setApiKey("");
     } else {
+      setInstanceType("normal");
       setApiUrl("");
       setInstanceName("");
       setApiKey("");
     }
-  }, [editing, open, isOfficial]);
+  }, [editing, open, isEditingOfficial]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -387,31 +389,75 @@ function InstanceFormModal({
         <DialogHeader>
           <DialogTitle className="text-sm flex items-center gap-2">
             {editing ? <Settings className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {editing ? `Editar — ${editing.instance_name}` : "Adicionar número (QR Code)"}
+            {editing ? `Editar — ${editing.instance_name}` : "Adicionar número"}
           </DialogTitle>
         </DialogHeader>
 
-        {isOfficial ? (
-          <div className="py-4 space-y-3">
-            <div className="flex items-start gap-3 bg-success/5 border border-success/20 rounded-lg p-4">
-              <Shield className="h-5 w-5 text-success shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-foreground">API Oficial da Meta</p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Este número é gerenciado diretamente pela Meta via OAuth. Para reconfigurar,
-                  desconecte e use o botão <strong>Conectar com Meta</strong> no topo da página.
-                </p>
+        <div className="space-y-4 py-2">
+          {/* Type selector — hidden when editing an official instance */}
+          {!isEditingOfficial && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setInstanceType("normal")}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  instanceType === "normal"
+                    ? "border-accent bg-accent/10"
+                    : "border-border hover:border-accent/50"
+                }`}
+              >
+                <QrCode className="h-5 w-5 text-accent mb-1" />
+                <p className="text-xs font-semibold">QR Code</p>
+                <p className="text-[10px] text-muted-foreground">Via Evolution API</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstanceType("official")}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  instanceType === "official"
+                    ? "border-success bg-success/10"
+                    : "border-border hover:border-success/50"
+                }`}
+              >
+                <Shield className="h-5 w-5 text-success mb-1" />
+                <p className="text-xs font-semibold">API Oficial</p>
+                <p className="text-[10px] text-muted-foreground">Meta Business</p>
+              </button>
+            </div>
+          )}
+
+          {/* Official: info + OAuth button */}
+          {(instanceType === "official" || isEditingOfficial) && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 bg-success/5 border border-success/20 rounded-lg p-4">
+                <Shield className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">API Oficial da Meta</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {isEditingOfficial
+                      ? "Este número é gerenciado via Meta OAuth. Para adicionar outro número clique em Conectar com Meta."
+                      : "Conecte via Meta OAuth. Você poderá escolher qual WABA e número vincular — múltiplas conexões são suportadas."}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1 border-t border-border">
+                <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-xs gap-1.5 bg-blue-500 hover:bg-blue-600 text-white"
+                  onClick={() => { onClose(); onConnectMeta(); }}
+                >
+                  <Facebook className="h-3.5 w-3.5" /> Conectar com Meta
+                </Button>
               </div>
             </div>
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-                Fechar
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-4 py-2">
+          )}
+
+          {/* Evolution: form fields */}
+          {instanceType === "normal" && !isEditingOfficial && (
+            <>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">URL do Servidor Evolution API</Label>
                 <Input
@@ -446,24 +492,24 @@ function InstanceFormModal({
                   className="text-xs h-9 bg-secondary"
                 />
               </div>
-            </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                className="text-xs"
-                onClick={handleSave}
-                disabled={!canSave || saving}
-              >
-                {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                {editing ? "Salvar" : "Adicionar"}
-              </Button>
-            </div>
-          </>
-        )}
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleSave}
+                  disabled={!canSave || saving}
+                >
+                  {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                  {editing ? "Salvar" : "Adicionar"}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -496,16 +542,6 @@ export default function WhatsAppPage() {
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
             <ArrowLeft className="h-3 w-3" /> Voltar
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-xs gap-1 border-blue-500/40 text-blue-500 hover:bg-blue-500/10"
-            onClick={() => metaOAuth.startOAuth("whatsapp", "/whatsapp")}
-            disabled={metaOAuth.loading}
-          >
-            {metaOAuth.loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Facebook className="h-3 w-3" />}
-            Conectar com Meta
           </Button>
           <Button size="sm" className="text-xs gap-1" onClick={handleAdd}>
             <Plus className="h-3 w-3" /> Adicionar número
@@ -616,6 +652,7 @@ export default function WhatsAppPage() {
         onClose={() => setFormOpen(false)}
         onSaved={refresh}
         editing={editingInstance}
+        onConnectMeta={() => metaOAuth.startOAuth("whatsapp", "/whatsapp")}
       />
     </AppLayout>
   );
