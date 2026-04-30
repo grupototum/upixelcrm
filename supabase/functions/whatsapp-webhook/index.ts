@@ -2,6 +2,45 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
+// ─── Meta X-Hub-Signature-256 verification ───
+// Meta signs official webhook payloads with HMAC-SHA256 using the App Secret.
+// We verify the signature only for the Official path; the Evolution/Lite path
+// does not send this header and is left untouched.
+async function verifyMetaSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
+  const appSecret = Deno.env.get("META_APP_SECRET") || Deno.env.get("FACEBOOK_APP_SECRET");
+  if (!appSecret) {
+    // No secret configured — skip verification but warn. Set META_APP_SECRET in
+    // Supabase secrets to enforce signature checks in production.
+    console.warn("META_APP_SECRET not set — skipping X-Hub-Signature-256 verification");
+    return true;
+  }
+  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
+    return false;
+  }
+  const expected = signatureHeader.slice("sha256=".length).toLowerCase();
+
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
+  const computed = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Constant-time comparison
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) {
+    diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 // ─── Push notification helper ───
 async function sendPushNotification(
   adminClient: any,
@@ -759,13 +798,34 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    // Read body as text first so we can verify HMAC signature on the raw payload.
+    const rawBody = await req.text();
+    let body: any;
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch (e) {
+      console.error("Webhook: invalid JSON body");
+      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.log("Webhook received");
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Detect format: Meta Official API has "object": "whatsapp_business_account"
     if (body.object === "whatsapp_business_account") {
+      // Verify X-Hub-Signature-256 (Meta-only). Lite/Evolution path is unaffected.
+      const signatureHeader = req.headers.get("x-hub-signature-256");
+      const valid = await verifyMetaSignature(rawBody, signatureHeader);
+      if (!valid) {
+        console.warn("Meta webhook signature verification failed");
+        return new Response(JSON.stringify({ error: "Invalid signature" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const result = await handleOfficialWebhook(body, adminClient);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
