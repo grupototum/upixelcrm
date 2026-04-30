@@ -39,6 +39,8 @@ import TenantNotFoundPage from "./pages/TenantNotFoundPage";
 import PrivacyPolicyPage from "./pages/legal/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/legal/TermsOfServicePage";
 import DataDeletionPage from "./pages/legal/DataDeletionPage";
+import MetaCallbackPage from "./pages/oauth/MetaCallbackPage";
+import MetaSelectPage from "./pages/oauth/MetaSelectPage";
 import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import MetaAdsPage from "./pages/MetaAdsPage";
 import GoogleAdsPage from "./pages/GoogleAdsPage";
@@ -77,6 +79,7 @@ function AppRoutes() {
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/terms-of-service" element={<TermsOfServicePage />} />
           <Route path="/data-deletion" element={<DataDeletionPage />} />
+          <Route path="/oauth/meta/callback" element={<MetaCallbackPage />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
@@ -99,6 +102,8 @@ function AppRoutes() {
                 <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                 <Route path="/terms-of-service" element={<TermsOfServicePage />} />
                 <Route path="/data-deletion" element={<DataDeletionPage />} />
+                <Route path="/oauth/meta/callback" element={<MetaCallbackPage />} />
+                <Route path="/oauth/meta/select" element={<ProtectedRoute><MetaSelectPage /></ProtectedRoute>} />
                 <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                 <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />

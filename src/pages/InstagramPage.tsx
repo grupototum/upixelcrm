@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useInstagramIntegration } from "@/hooks/useInstagramIntegration";
+import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 
 type ConnectionStatus = "disconnected" | "connected" | "error";
 
@@ -32,6 +33,7 @@ function FeatureTag({ label }: { label: string }) {
 export default function InstagramPage() {
   const navigate = useNavigate();
   const instagramApi = useInstagramIntegration();
+  const metaOAuth = useMetaOAuth();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -128,8 +130,17 @@ export default function InstagramPage() {
                   </>
                 ) : (
                   <div className="flex flex-col w-full gap-2">
-                    <Button size="sm" className="text-xs gap-1 w-full bg-pink-500 hover:bg-pink-600 text-white" onClick={() => setSettingsOpen(true)}>
-                      <Settings className="h-3 w-3" /> Configurar Credenciais
+                    <Button
+                      size="sm"
+                      className="text-xs gap-1 w-full bg-pink-500 hover:bg-pink-600 text-white"
+                      onClick={() => metaOAuth.startOAuth("instagram", "/instagram")}
+                      disabled={metaOAuth.loading}
+                    >
+                      {metaOAuth.loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Instagram className="h-3 w-3" />}
+                      Conectar com Meta
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-[10px] gap-1 w-full text-muted-foreground" onClick={() => setSettingsOpen(true)}>
+                      <Settings className="h-3 w-3" /> Configurar manualmente
                     </Button>
                   </div>
                 )}
