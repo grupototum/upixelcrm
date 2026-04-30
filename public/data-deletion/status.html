@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Status de Exclusão de Dados – uPixel</title>
+    <meta name="description" content="Status da sua solicitação de exclusão de dados da plataforma uPixel." />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background: #fff8f7;
+        color: #1d1b1b;
+        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 500px;
+        background: #fff;
+        border: 1px solid #e7bdb7;
+        border-radius: 12px;
+        padding: 40px 24px;
+        text-align: center;
+      }
+
+      .status-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #d4edda;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+      }
+
+      .status-icon svg {
+        width: 32px;
+        height: 32px;
+        color: #28a745;
+      }
+
+      h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+      p { font-size: 14px; color: #6b5e5b; margin-bottom: 16px; }
+
+      .code-box {
+        background: #f5f5f5;
+        border: 1px solid #e7bdb7;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 20px 0;
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        word-break: break-all;
+        color: #1d1b1b;
+      }
+
+      .timeline {
+        background: #fff8f7;
+        border-left: 3px solid #f76926;
+        padding: 16px;
+        margin: 20px 0;
+        text-align: left;
+        border-radius: 4px;
+      }
+
+      .timeline-item {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .timeline-item:last-child { margin-bottom: 0; }
+
+      .timeline-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #f76926;
+        color: #fff;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-weight: 700;
+      }
+
+      .timeline-content {
+        flex: 1;
+      }
+
+      .timeline-title { font-size: 13px; font-weight: 700; color: #1d1b1b; }
+      .timeline-desc { font-size: 12px; color: #6b5e5b; }
+
+      .info-box {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 20px;
+        font-size: 12px;
+        color: #6b5e5b;
+      }
+
+      a { color: #f76926; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="status-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+
+      <h1>Exclusão Iniciada</h1>
+      <p>Sua solicitação de exclusão de dados foi recebida e está sendo processada.</p>
+
+      <div class="code-box" id="confirmCode">
+        Código de confirmação será exibido aqui
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-icon">✓</div>
+          <div class="timeline-content">
+            <div class="timeline-title">Solicitação Recebida</div>
+            <div class="timeline-desc">Sua solicitação foi processada com sucesso</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-icon">2</div>
+          <div class="timeline-content">
+            <div class="timeline-title">Processamento (até 15 dias)</div>
+            <div class="timeline-desc">Seus dados estão sendo verificados e preparados para exclusão</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-icon">3</div>
+          <div class="timeline-content">
+            <div class="timeline-title">Exclusão (até 30 dias)</div>
+            <div class="timeline-desc">Seus dados serão removidos dos sistemas em produção</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-icon">4</div>
+          <div class="timeline-content">
+            <div class="timeline-title">Backup (até 90 dias)</div>
+            <div class="timeline-desc">Dados removidos dos backups conforme política de retenção</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <strong>O que acontece agora?</strong><br>
+        Você receberá um e-mail de confirmação no endereço associado à sua conta.
+        Guarde seu código de confirmação para futuras referências.
+      </div>
+
+      <p style="margin-top: 20px; font-size: 12px;">
+        <a href="/">Voltar à página inicial</a>
+      </p>
+    </div>
+
+    <script>
+      // Extract confirmation code from URL parameter
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        document.getElementById('confirmCode').textContent = code;
+      }
+    </script>
+  </body>
+</html>

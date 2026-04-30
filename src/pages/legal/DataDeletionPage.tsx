@@ -190,6 +190,19 @@ export default function DataDeletionPage() {
               para mais detalhes.
             </p>
           </section>
+
+          <section className="text-[11px] text-muted-foreground bg-secondary/5 rounded-lg p-4 mt-8 border border-border/50">
+            <p className="font-semibold text-foreground mb-2">Para desenvolvedores:</p>
+            <p className="mb-2">
+              Esta página serves como "Data Deletion Instructions URL" para Meta's App Dashboard.
+            </p>
+            <p>
+              Para integração com Meta's Data Deletion Callback, use o endpoint:{" "}
+              <code className="bg-secondary/20 px-2 py-1 rounded text-[10px] block mt-1 font-mono break-all">
+                https://[seu-projeto].supabase.co/functions/v1/data-deletion-callback
+              </code>
+            </p>
+          </section>
         </div>
       </main>
 
