@@ -6,6 +6,7 @@ import {
   Plus, Trash2, ChevronDown, ChevronUp, Facebook,
 } from "lucide-react";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
+import { useWhatsAppEmbeddedSignup } from "@/hooks/useWhatsAppEmbeddedSignup";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -548,6 +549,7 @@ export default function WhatsAppPage() {
   const navigate = useNavigate();
   const { instances, loading, refresh } = useWhatsAppInstances();
   const metaOAuth = useMetaOAuth();
+  const embeddedSignup = useWhatsAppEmbeddedSignup();
   const [formOpen, setFormOpen] = useState(false);
   const [editingInstance, setEditingInstance] = useState<WaInstance | null>(null);
 
@@ -571,6 +573,18 @@ export default function WhatsAppPage() {
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
             <ArrowLeft className="h-3 w-3" /> Voltar
+          </Button>
+          <Button
+            size="sm"
+            className="text-xs gap-1 bg-success hover:bg-success/90 text-white"
+            onClick={async () => {
+              const result = await embeddedSignup.startSignup();
+              if (result) refresh();
+            }}
+            disabled={embeddedSignup.loading}
+          >
+            {embeddedSignup.loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            Conectar em 1 clique
           </Button>
           <Button
             size="sm"
