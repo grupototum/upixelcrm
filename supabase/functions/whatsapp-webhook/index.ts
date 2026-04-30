@@ -230,94 +230,52 @@ async function downloadOfficialMedia(
   } catch (err) { console.error("Error downloading official media:", err); return null; }
 }
 
-// ─── Find or create lead ───
+// ─── Find or create lead via RPC unificada ───
+// Delega toda a logica de matching/merge para a funcao SQL match_or_create_lead.
+// Dispara automacao + push notification SO quando o lead foi recem-criado.
 async function findOrCreateLead(
-  adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>
+  adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>,
+  origin: string = "whatsapp"
 ): Promise<string | null> {
-  const cleanPhone = phone.replace(/\D/g, '');
-  const phoneSuffix8 = cleanPhone.length >= 8 ? cleanPhone.slice(-8) : cleanPhone;
-  const phoneSuffix9 = cleanPhone.length >= 9 ? cleanPhone.slice(-9) : cleanPhone;
-  
-  // Try matching by suffix first (more precise)
-  const { data: existingLeads } = await adminClient
-    .from("leads").select("id, created_at, tags, notes, phone")
-    .eq("client_id", clientId)
-    .or(`phone.ilike.%${phoneSuffix8},phone.ilike.%${phoneSuffix9}`)
-    .order("created_at", { ascending: true });
-
-  if (existingLeads && existingLeads.length > 0) {
-    const primaryLead = existingLeads[0];
-    if (existingLeads.length > 1) {
-      const duplicates = existingLeads.slice(1);
-      const duplicateIds = duplicates.map((d: any) => d.id);
-      await Promise.all([
-        adminClient.from("conversations").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
-        adminClient.from("tasks").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
-        adminClient.from("timeline_events").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
-      ]);
-      let mergedTags = [...(primaryLead.tags || [])];
-      let mergedNotes = primaryLead.notes || "";
-      duplicates.forEach((d: any) => {
-        (d.tags || []).forEach((t: string) => { if (!mergedTags.includes(t)) mergedTags.push(t); });
-        if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
-      });
-      await adminClient.from("leads").update({ tags: mergedTags, notes: mergedNotes }).eq("id", primaryLead.id);
-      await adminClient.from("leads").delete().in("id", duplicateIds);
-    }
-    return primaryLead.id;
-  }
-
-  let targetColId = config?.target_column_id;
-  if (!targetColId) {
-    const { data: firstCol } = await adminClient.from("pipeline_columns").select("id")
-      .eq("client_id", clientId).order("order", { ascending: true }).limit(1).maybeSingle();
-    targetColId = firstCol?.id;
-  }
-  if (!targetColId) {
-    // Cria pipeline padrão automaticamente para clients que ainda não configuraram
-    console.log("No pipeline columns — creating default for client:", clientId);
-    const defaultCols = [
-      { client_id: clientId, name: "Novo", order: 0, color: "#3b82f6" },
-      { client_id: clientId, name: "Em Atendimento", order: 1, color: "#f59e0b" },
-      { client_id: clientId, name: "Negociação", order: 2, color: "#8b5cf6" },
-      { client_id: clientId, name: "Ganho", order: 3, color: "#10b981" },
-      { client_id: clientId, name: "Perdido", order: 4, color: "#ef4444" },
-    ];
-    const { data: created, error: colErr } = await adminClient.from("pipeline_columns")
-      .insert(defaultCols).select("id").order("order", { ascending: true });
-    if (colErr || !created?.length) {
-      console.error("Failed to create default pipeline columns:", colErr);
-      return null;
-    }
-    targetColId = created[0].id;
-  }
-
-  const { data: newLead, error: leadError } = await adminClient.from("leads").insert({
-    client_id: clientId, name: senderName, phone, column_id: targetColId,
-    tags: ["whatsapp-auto"], origin: "whatsapp",
-  }).select("id").single();
-  if (leadError) { console.error("Error creating lead:", leadError); return null; }
-
-  await adminClient.from("timeline_events").insert({
-    client_id: clientId, lead_id: newLead.id, type: "stage_change",
-    content: `Lead "${senderName}" criado automaticamente via WhatsApp`, user_name: "Sistema",
-  });
-  console.log("Created lead:", newLead.id);
-
-  // Trigger automation for new lead
-  triggerAutomations(adminClient, clientId, "new_lead", newLead.id, { origin: "whatsapp" });
-
-  // Push notification for new lead (broadcast to all users of this client)
-  sendPushNotification(adminClient, {
-    title: "🆕 Novo Lead",
-    body: `${senderName} entrou via WhatsApp`,
-    tag: `lead-${newLead.id}`,
-    type: "new_lead",
-    target_client_id: clientId,
-    lead_id: newLead.id,
+  const { data, error } = await adminClient.rpc("match_or_create_lead", {
+    p_client_id: clientId,
+    p_phone: phone,
+    p_email: null,
+    p_instagram_id: null,
+    p_facebook_id: null,
+    p_name: senderName,
+    p_origin: origin,
+    p_target_column_id: config?.target_column_id ?? null,
   });
 
-  return newLead.id;
+  if (error || !data) {
+    console.error("match_or_create_lead failed:", error);
+    return null;
+  }
+
+  const leadId = (data as any).lead_id as string;
+  const created = (data as any).created as boolean;
+  const mergedCount = (data as any).merged_count as number;
+
+  if (mergedCount > 0) {
+    console.log(`Lead ${leadId}: mesclados ${mergedCount} duplicados ao receber mensagem`);
+  }
+
+  // So dispara automacao + push para leads NOVOS (recem-criados)
+  if (created) {
+    console.log("Created lead via RPC:", leadId);
+    triggerAutomations(adminClient, clientId, "new_lead", leadId, { origin });
+    sendPushNotification(adminClient, {
+      title: "🆕 Novo Lead",
+      body: `${senderName} entrou via ${origin === "whatsapp_official" ? "WhatsApp Oficial" : "WhatsApp"}`,
+      tag: `lead-${leadId}`,
+      type: "new_lead",
+      target_client_id: clientId,
+      lead_id: leadId,
+    });
+  }
+
+  return leadId;
 }
 
 // ─── Check message deduplication ───
@@ -583,7 +541,8 @@ async function upsertConversationAndMessage(
       }
     }
   } else {
-    const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config);
+    const origin = channel === "whatsapp_official" ? "whatsapp_official" : "whatsapp";
+    const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config, origin);
     const insertPayload = {
       client_id: clientId, lead_id: leadId, channel, status: "open",
       last_message: displayText, last_message_at: new Date().toISOString(), unread_count: 1,

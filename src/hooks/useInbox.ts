@@ -593,51 +593,31 @@ export function useInbox(onLeadCreated?: () => void) {
     toast.success("Etiquetas atualizadas");
   }, [conversations, loadConversations]);
 
-  // Find or create lead
+  // Find or create lead via RPC unificada
   const findOrCreateLead = useCallback(async (
     phone?: string, email?: string, name?: string
   ): Promise<string | null> => {
-    if (phone) {
-      const normalized = phone.replace(/\D/g, "");
-      const phoneSuffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
-      const { data: duplicates } = await supabase
-        .from("leads").select("id")
-        .eq("client_id", clientId)
-        .or(`phone.ilike.%${phoneSuffix}%`)
-        .order("created_at", { ascending: true });
-      if (duplicates && duplicates.length > 0) return duplicates[0].id;
-    }
-
-    if (email) {
-      const { data: byEmail } = await supabase
-        .from("leads").select("id")
-        .eq("client_id", clientId)
-        .ilike("email", email).limit(1);
-      if (byEmail && byEmail.length > 0) return byEmail[0].id;
-    }
-
-    const { data: firstCol } = await supabase
-      .from("pipeline_columns").select("id")
-      .eq("client_id", clientId)
-      .order("order", { ascending: true }).limit(1).maybeSingle();
-
-    if (!firstCol) return null;
-
     const leadName = name || phone || email || "Lead Automático";
-    const { data: newLead, error } = await supabase
-      .from("leads").insert({
-        client_id: clientId,
-        name: leadName,
-        phone: phone || null,
-        email: email || null,
-        column_id: firstCol.id,
-        tags: ["auto-criado"],
-        origin: "inbox",
-      }).select("id").single();
 
-    if (error) return null;
-    if (onLeadCreated) onLeadCreated();
-    return newLead?.id ?? null;
+    const { data, error } = await (supabase.rpc as any)("match_or_create_lead", {
+      p_client_id: clientId,
+      p_phone: phone || null,
+      p_email: email || null,
+      p_instagram_id: null,
+      p_facebook_id: null,
+      p_name: leadName,
+      p_origin: "inbox",
+      p_target_column_id: null,
+    });
+
+    if (error || !data) {
+      console.error("match_or_create_lead failed:", error);
+      return null;
+    }
+
+    const result = data as { lead_id: string; created: boolean };
+    if (result.created && onLeadCreated) onLeadCreated();
+    return result.lead_id;
   }, [clientId, onLeadCreated]);
 
   // Create new conversation
