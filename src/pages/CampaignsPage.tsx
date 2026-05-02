@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { downloadCSV } from "@/lib/export";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ComingSoonBadge, ComingSoonOverlay } from "@/components/ui/coming-soon";
@@ -387,7 +388,27 @@ export default function CampaignsPage() {
               Sincronizar
             </Button>
           )}
-          <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5 h-8"
+            onClick={() =>
+              downloadCSV(
+                filtered.map((c) => ({
+                  "Nome": c.name,
+                  "Plataforma": c.platform,
+                  "Status": c.status,
+                  "Investido (R$)": c.spend.toFixed(2),
+                  "Leads": c.leads,
+                  "CPL (R$)": c.cpl.toFixed(2),
+                  "Conversões": c.conversions,
+                  "Receita (R$)": c.revenue.toFixed(2),
+                  "ROI (%)": c.roi,
+                })),
+                `campanhas-${new Date().toISOString().slice(0, 10)}.csv`
+              )
+            }
+          >
             <Download className="h-3 w-3" /> Exportar
           </Button>
         </div>

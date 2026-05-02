@@ -69,6 +69,19 @@ export function useAutomationRuns(automationId: string | null) {
     fetchRuns();
   }, [fetchRuns]);
 
+  useEffect(() => {
+    if (!automationId) return;
+    const channel = supabase
+      .channel(`automation_runs:${automationId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "automation_runs", filter: `automation_id=eq.${automationId}` },
+        () => { fetchRuns(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [automationId, fetchRuns]);
+
   const cancelRun = useCallback(async (runId: string) => {
     const { error } = await supabase
       .from("automation_runs")

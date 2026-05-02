@@ -48,8 +48,8 @@ export function useMetaAds() {
     queryKey: ["meta-ads-status", clientId],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("meta-ads?action=status");
-      if (error) return { status: "disconnected", accessToken: null, adAccountId: null };
-      return data as { status: string; accessToken: string | null; adAccountId: string | null };
+      if (error) return { status: "disconnected", accessToken: null, adAccountId: null, tokenExpiresAt: null };
+      return data as { status: string; accessToken: string | null; adAccountId: string | null; tokenExpiresAt: string | null };
     },
     enabled: !!clientId,
     staleTime: 60_000,
@@ -106,6 +106,10 @@ export function useMetaAds() {
       if (until) body.until = until;
 
       const { data, error } = await supabase.functions.invoke("meta-ads?action=sync", { body });
+      if (data?.token_expired) {
+        toast.error("Token Meta Ads expirado — reconecte em Integrações → Meta Ads", { duration: 8000 });
+        return 0;
+      }
       if (error || data?.error) throw new Error(data?.error ?? error?.message);
       toast.success(`${data.synced} campanhas sincronizadas`);
       await refetchCampaigns();
@@ -120,6 +124,12 @@ export function useMetaAds() {
 
   const isConnected = status?.status === "connected";
 
+  const tokenExpiresAt = status?.tokenExpiresAt ?? null;
+  const tokenDaysLeft = tokenExpiresAt
+    ? Math.ceil((new Date(tokenExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+  const tokenExpiringSoon = tokenDaysLeft !== null && tokenDaysLeft <= 10;
+
   return {
     isConnected,
     status,
@@ -127,6 +137,9 @@ export function useMetaAds() {
     loadingCampaigns,
     connecting,
     syncing,
+    tokenExpiresAt,
+    tokenDaysLeft,
+    tokenExpiringSoon,
     connect,
     disconnect,
     sync,
