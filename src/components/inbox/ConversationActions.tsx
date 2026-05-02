@@ -1,4 +1,5 @@
 import { CheckCircle2, Clock, AlertCircle, UserPlus, MoreHorizontal } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,7 +13,7 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { LabelSelector } from "./LabelSelector";
-import { useTenantUsers } from "@/hooks/useTenantUsers";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ConversationActionsProps {
@@ -31,7 +32,24 @@ export function ConversationActions({
   onAssignToAgent, onUpdateLabels, onDeleteLead, onMergeLeads
 }: ConversationActionsProps) {
   const { user } = useAuth();
-  const { users } = useTenantUsers(user?.organization_id);
+  const clientId = user?.client_id ?? "";
+
+  const { data: agents = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["inbox-agents", clientId],
+    queryFn: async () => {
+      if (!clientId) return [];
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .eq("client_id", clientId)
+        .in("role", ["supervisor", "atendente", "vendedor", "master"])
+        .eq("is_blocked", false)
+        .order("name");
+      return data ?? [];
+    },
+    enabled: !!clientId,
+    staleTime: 60_000,
+  });
 
   return (
     <div className="flex items-center gap-2">
@@ -96,16 +114,13 @@ export function ConversationActions({
             <DropdownMenuPortal>
               <DropdownMenuSubContent className="p-1">
                 <DropdownMenuItem onClick={() => onAssignToAgent(conversation.lead_id, null)} className="py-2 text-xs font-medium cursor-pointer">Nenhum</DropdownMenuItem>
-                {users.map((u) => (
+                {agents.map((agent) => (
                   <DropdownMenuItem
-                    key={u.id}
-                    onClick={() => onAssignToAgent(conversation.lead_id, u.id)}
+                    key={agent.id}
+                    onClick={() => onAssignToAgent(conversation.lead_id, agent.id)}
                     className="py-2 text-xs font-medium cursor-pointer"
                   >
-                    <div className="flex flex-col">
-                      <span>{u.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{u.role}</span>
-                    </div>
+                    {agent.name}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuSubContent>

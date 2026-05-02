@@ -1,15 +1,6 @@
-import { useNavigate } from "react-router-dom";
-import {
-  Bell,
-  Check,
-  Clock,
-  UserPlus,
-  AlertTriangle,
-  Zap,
-  ArrowRightCircle,
-  MessageCircle,
-  CheckCheck,
-} from "lucide-react";
+import { useEffect } from "react";
+import { Bell, Check, Clock, UserPlus, AlertTriangle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -18,39 +9,91 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  useNotifications,
-  formatRelative,
-  type AppNotification,
-} from "@/hooks/useNotifications";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-function getIcon(type: AppNotification["type"]) {
+type NotificationRow = {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  read: boolean;
+  created_at: string;
+};
+
+function getIcon(type: string) {
   switch (type) {
     case "new_lead":
       return <UserPlus className="h-4 w-4 text-primary" />;
     case "task_warning":
-      return <Clock className="h-4 w-4 text-warning" />;
-    case "task_overdue":
-      return <AlertTriangle className="h-4 w-4 text-destructive" />;
+      return <AlertTriangle className="h-4 w-4 text-warning" />;
     case "unread_message":
-      return <MessageCircle className="h-4 w-4 text-accent" />;
-    case "automation":
-      return <Zap className="h-4 w-4 text-warning" />;
-    case "stage_change":
-      return <ArrowRightCircle className="h-4 w-4 text-success" />;
+      return <Clock className="h-4 w-4 text-accent" />;
     default:
       return <Check className="h-4 w-4 text-success" />;
   }
 }
 
 export function NotificationPopover() {
-  const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const handleClick = (n: AppNotification) => {
-    markAsRead(n.id);
-    if (n.href) navigate(n.href);
-  };
+  const { data: notifications = [] } = useQuery<NotificationRow[]>({
+    queryKey: ["notifications", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data } = await (supabase.from as any)("notifications")
+        .select("id, title, body, type, read, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      return (data ?? []) as NotificationRow[];
+    },
+    enabled: !!user?.id,
+    staleTime: 30_000,
+  });
+
+  // Realtime: invalida cache quando chega nova notificação
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, queryClient]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  async function markAllRead() {
+    if (!user?.id || unreadCount === 0) return;
+    await (supabase.from as any)("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false);
+    queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+  }
+
+  async function markRead(id: string) {
+    queryClient.setQueryData<NotificationRow[]>(["notifications", user?.id], (prev) =>
+      prev?.map((n) => (n.id === id ? { ...n, read: true } : n)) ?? []
+    );
+    await (supabase.from as any)("notifications").update({ read: true }).eq("id", id);
+  }
 
   return (
     <Popover>
@@ -69,58 +112,47 @@ export function NotificationPopover() {
       <PopoverContent className="w-80 p-0 shadow-2xl border-none" align="end">
         <div className="flex items-center justify-between p-4 ghost-border border-b bg-card/50 backdrop-blur-md">
           <h4 className="text-sm font-bold tracking-tight">Notificações</h4>
-          <div className="flex items-center gap-2">
-            {unreadCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] h-5">
-                {unreadCount} novas
-              </Badge>
-            )}
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              >
-                <CheckCheck className="h-3 w-3" /> Marcar todas
-              </button>
-            )}
-          </div>
+          {unreadCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] h-5">
+              {unreadCount} novas
+            </Badge>
+          )}
         </div>
         <ScrollArea className="h-[350px]">
           <div className="flex flex-col">
-            {notifications.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 px-6 text-center gap-2">
-                <Bell className="h-8 w-8 text-muted-foreground/30" />
-                <p className="text-xs text-muted-foreground">
-                  Nenhuma notificação no momento.
-                </p>
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                <Bell className="h-6 w-6 mb-2 opacity-30" />
+                <p className="text-xs">Nenhuma notificação</p>
               </div>
-            )}
-            {notifications.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => handleClick(n)}
-                className={`flex items-start gap-3 p-4 text-left transition-colors hover:bg-secondary/50 ghost-border border-b last:border-b-0 ${
-                  n.unread ? "bg-primary/5" : ""
-                }`}
-              >
-                <div className="mt-0.5 h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0 shadow-sm">
-                  {getIcon(n.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start mb-1">
-                    <p className={`text-xs font-semibold ${n.unread ? "text-foreground" : "text-muted-foreground"}`}>
-                      {n.title}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {formatRelative(n.createdAt)}
-                    </span>
+            ) : (
+              notifications.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => markRead(n.id)}
+                  className={`flex items-start gap-3 p-4 text-left transition-colors hover:bg-secondary/50 ghost-border border-b last:border-b-0 ${
+                    !n.read ? "bg-primary/5" : ""
+                  }`}
+                >
+                  <div className="mt-0.5 h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0 shadow-sm">
+                    {getIcon(n.type)}
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
-                    {n.description}
-                  </p>
-                </div>
-              </button>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <p className={`text-xs font-semibold ${!n.read ? "text-foreground" : "text-muted-foreground"}`}>
+                        {n.title}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(n.created_at), { locale: ptBR, addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {n.body}
+                    </p>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </ScrollArea>
         <div className="p-2 ghost-border border-t bg-card/30">
@@ -128,9 +160,10 @@ export function NotificationPopover() {
             variant="ghost"
             size="sm"
             className="w-full text-[10px] font-medium h-8"
-            onClick={() => navigate("/")}
+            onClick={markAllRead}
+            disabled={unreadCount === 0}
           >
-            Ir para o painel
+            Marcar todas como lidas
           </Button>
         </div>
       </PopoverContent>

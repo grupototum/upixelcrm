@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types";
 import { useAppState } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type DuplicateReason = "phone" | "email" | "name_company";
 export type DuplicateConfidence = "alta" | "media";
@@ -43,7 +45,26 @@ function groupByKey<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]>
 }
 
 export function useDuplicateDetection() {
-  const { leads } = useAppState();
+  const { leads: stateLeads } = useAppState();
+  const { user } = useAuth();
+  const clientId = user?.client_id ?? "";
+
+  const { data: dbLeads = [] } = useQuery<Lead[]>({
+    queryKey: ["all-leads-dedup", clientId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("client_id", clientId)
+        .limit(5000);
+      return (data ?? []) as Lead[];
+    },
+    enabled: !!clientId && stateLeads.length === 0,
+    staleTime: 60_000,
+  });
+
+  const leads = stateLeads.length > 0 ? stateLeads : dbLeads;
+
   const [groups, setGroups] = useState<DuplicateGroup[]>([]);
   const [scanning, setScanning] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());

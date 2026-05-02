@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { downloadCSV } from "@/lib/export";
 import { DateRange } from "react-day-picker";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
@@ -189,7 +190,25 @@ export default function ReportsPage() {
               className="animate-in fade-in slide-in-from-right-2 duration-300"
             />
           )}
-          <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5 h-8"
+            onClick={() =>
+              downloadCSV(
+                filteredLeads.map((l) => ({
+                  "Nome": l.name,
+                  "Telefone": l.phone ?? "",
+                  "Email": l.email ?? "",
+                  "Empresa": l.company ?? "",
+                  "Origem": l.origin ?? "",
+                  "Etapa": pipelineColumns.find((c) => c.id === l.column_id)?.name ?? "",
+                  "Criado em": new Date(l.created_at).toLocaleDateString("pt-BR"),
+                })),
+                `relatorio-leads-${new Date().toISOString().slice(0, 10)}.csv`
+              )
+            }
+          >
             <Download className="h-3 w-3" /> Exportar
           </Button>
         </div>

@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     // ── Helper: load stored Meta Ads credentials ──────────────────
     const getCreds = async () => {
       const { data } = await admin.from("integrations")
-        .select("config, status, access_token")
+        .select("config, status, access_token, token_expires_at")
         .eq("client_id", clientId)
         .eq("provider", "meta_ads")
         .maybeSingle();
@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
         accessToken: data?.access_token ?? null,
         adAccountId: cfg?.ad_account_id ?? null,
         status: data?.status ?? "disconnected",
+        tokenExpiresAt: data?.token_expires_at ?? null,
       };
     };
 
@@ -64,12 +65,14 @@ Deno.serve(async (req) => {
       const testData = await testRes.json();
       if (testData.error) return json({ error: `Meta API: ${testData.error.message}` }, 400);
 
+      const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
       await admin.from("integrations").upsert(
         {
           client_id: clientId,
           provider: "meta_ads",
           status: "connected",
           access_token,
+          token_expires_at: tokenExpiresAt,
           config: {
             ad_account_id: normalId,
             account_name: testData.name,
@@ -147,7 +150,10 @@ Deno.serve(async (req) => {
         `${META_API}/${adAccountId}/campaigns?fields=id,name,status,objective,effective_status,daily_budget,lifetime_budget,start_time,stop_time&limit=200&access_token=${accessToken}`
       );
       const campData = await campRes.json();
-      if (campData.error) return json({ error: campData.error.message }, 400);
+      if (campData.error) {
+        const isOAuth = campData.error.type === "OAuthException" || campData.error.code === 190;
+        return json({ error: campData.error.message, token_expired: isOAuth }, 400);
+      }
       const campaigns: any[] = campData.data ?? [];
 
       // Fetch insights
