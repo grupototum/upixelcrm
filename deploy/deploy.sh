@@ -61,6 +61,11 @@ echo ""
 echo "[3/5] Atualizando dist fallback ($DIST_FALLBACK)..."
 mkdir -p "$DIST_FALLBACK"
 rsync -a --delete "$EXTRACT_DIR/dist/" "$DIST_FALLBACK/"
+# Instala maintenance.html fora do dist (persiste entre deploys, não é sobrescrita)
+if [ -f "$EXTRACT_DIR/deploy/maintenance.html" ]; then
+  cp "$EXTRACT_DIR/deploy/maintenance.html" "/var/www/upixelcrm/maintenance.html"
+  chmod 644 "/var/www/upixelcrm/maintenance.html"
+fi
 find "$DIST_FALLBACK" -type d -exec chmod 755 {} + 2>/dev/null
 find "$DIST_FALLBACK" -type f -exec chmod 644 {} + 2>/dev/null
 echo "      OK ($(du -sh "$DIST_FALLBACK" | cut -f1))"
@@ -70,14 +75,28 @@ echo ""
 echo "[4/5] Atualizando nginx config..."
 if [ -f "$NGINX_CONF_SRC" ] && [ -d "$(dirname "$NGINX_CONF_DST")" ]; then
   cp "$NGINX_CONF_SRC" "$NGINX_CONF_DST"
-  if docker exec nginx-totum nginx -t 2>&1 | grep -q "test is successful"; then
-    docker exec nginx-totum nginx -s reload
-    echo "      nginx recarregado com nova config"
-  else
-    NGINX_ERR=$(docker exec nginx-totum nginx -t 2>&1 | tail -3)
-    echo "      ⚠ nginx -t falhou, mantendo config anterior:"
-    echo "        $NGINX_ERR"
+  # Tenta recarregar nginx container (nginx-totum) se existir
+  if docker ps --format '{{.Names}}' | grep -q "^nginx-totum$"; then
+    if docker exec nginx-totum nginx -t 2>&1 | grep -q "test is successful"; then
+      docker exec nginx-totum nginx -s reload
+      echo "      nginx-totum recarregado"
+    else
+      NGINX_ERR=$(docker exec nginx-totum nginx -t 2>&1 | tail -3)
+      echo "      ⚠ nginx -t falhou no container: $NGINX_ERR"
+    fi
   fi
+  # Tenta recarregar nginx do host se estiver ativo
+  if systemctl is-active --quiet nginx 2>/dev/null; then
+    if nginx -t -c "$NGINX_CONF_SRC" 2>&1 | grep -q "test is successful"; then
+      cp "$NGINX_CONF_SRC" /etc/nginx/nginx.conf
+      systemctl reload nginx
+      echo "      nginx host recarregado"
+    else
+      echo "      ⚠ nginx -t falhou no host — mantendo config anterior"
+    fi
+  fi
+  # Garante nginx habilitado no boot
+  systemctl is-enabled --quiet nginx 2>/dev/null || systemctl enable nginx 2>/dev/null || true
 else
   echo "      Destino $NGINX_CONF_DST não encontrado — pulando"
 fi
