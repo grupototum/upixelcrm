@@ -71,7 +71,7 @@ jobs:
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
           source: "upixel-deploy.tar.gz"
           target: "/tmp/"
-          timeout: 120s
+          timeout: 30s
           command_timeout: 10m
 
       - name: Swap dist + reload nginx
