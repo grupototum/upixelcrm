@@ -62,7 +62,7 @@ jobs:
           name: upixel-deploy
           path: ./
 
-      - name: Copy bundle to VPS
+      - name: Copy bundle to VPS via SSH pipe
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -71,16 +71,18 @@ jobs:
         run: |
           echo "$VPS_SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          SSH_OPTS="-i /tmp/deploy_key \
+          SSH="ssh -i /tmp/deploy_key \
             -p ${VPS_SSH_PORT:-2222} \
             -o StrictHostKeyChecking=no \
             -o ConnectTimeout=90 \
             -o ServerAliveInterval=15 \
             -o ServerAliveCountMax=10 \
-            -o TCPKeepAlive=yes"
-          rsync -avz --progress -e "ssh $SSH_OPTS" \
-            upixel-deploy.tar.gz \
-            "$VPS_USERNAME@$VPS_HOST:/tmp/"
+            -o BatchMode=yes"
+          # Pipe file directly through SSH stdin — sem SCP, sem rsync
+          $SSH "$VPS_USERNAME@$VPS_HOST" "cat > /tmp/upixel-deploy.tar.gz" \
+            < upixel-deploy.tar.gz
+          echo "Bundle size on VPS:"
+          $SSH "$VPS_USERNAME@$VPS_HOST" "du -sh /tmp/upixel-deploy.tar.gz"
           rm -f /tmp/deploy_key
 
       - name: Swap dist + reload nginx
