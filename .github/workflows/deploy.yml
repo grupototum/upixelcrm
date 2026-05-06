@@ -63,16 +63,25 @@ jobs:
           path: ./
 
       - name: Copy bundle to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_SSH_PORT || 22 }}
-          source: "upixel-deploy.tar.gz"
-          target: "/tmp/"
-          timeout: 120s
-          command_timeout: 10m
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          echo "$VPS_SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          SSH_OPTS="-i /tmp/deploy_key \
+            -p ${VPS_SSH_PORT:-2222} \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=90 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes"
+          rsync -avz --progress -e "ssh $SSH_OPTS" \
+            upixel-deploy.tar.gz \
+            "$VPS_USERNAME@$VPS_HOST:/tmp/"
+          rm -f /tmp/deploy_key
 
       - name: Swap dist + reload nginx
         uses: appleboy/ssh-action@v1.0.3
