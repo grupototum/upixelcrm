@@ -13,7 +13,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Amazon Ember"', "Arial", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["'Inter'", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
       },
       colors: {
@@ -87,7 +87,7 @@ export default {
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
-        sm: "2px",
+        sm: "4px",
         card: "var(--radius-card)",
         input: "var(--radius-input)",
         button: "var(--radius-button)",
