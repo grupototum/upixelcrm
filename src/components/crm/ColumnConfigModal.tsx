@@ -150,7 +150,7 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
 
           {/* ─── Cadence ─── */}
           <TabsContent value="cadence" className="mt-4">
-            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-border/50">
+            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-[hsl(var(--border-strong))]">
               <ListChecks className="h-8 w-8 text-muted-foreground mb-3 opacity-20" />
               <p className="text-sm text-muted-foreground mb-4">A cadência permite automatizar o <br/> fluxo de mensagens e sequências.</p>
               <Button 
@@ -169,7 +169,7 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
 
           {/* ─── Integrations ─── */}
           <TabsContent value="integrations" className="mt-4">
-            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-border/50">
+            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-[hsl(var(--border-strong))]">
               <Plug className="h-8 w-8 text-muted-foreground mb-3 opacity-20" />
               <p className="text-sm text-muted-foreground mb-4">Conecte o seu funil com outras <br/> ferramentas e APIs.</p>
               <Button 
@@ -188,7 +188,7 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
 
           <TabsContent value="automations" className="mt-4 space-y-4">
             {columnRules.length === 0 && (
-              <div className="text-center py-8 border-2 border-dashed rounded-xl border-border/50">
+              <div className="text-center py-8 border-2 border-dashed rounded-xl border-[hsl(var(--border-strong))]">
                 <Zap className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-20" />
                 <p className="text-sm text-muted-foreground mb-3 font-medium">Nenhuma automação nesta coluna</p>
                 <Button variant="outline" size="sm" onClick={handleAddRule} className="text-[10px] h-7">
@@ -214,7 +214,7 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full text-xs gap-1 border-primary/20 text-primary hover:bg-primary/5"
+                  className="w-full text-xs gap-1 border-[hsl(var(--border-strong))] text-primary hover:bg-primary/5"
                   onClick={handleAddRule}
                 >
                   <Plus className="h-3 w-3" /> Nova automação
@@ -236,7 +236,7 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
 
           {/* ─── Manual Tasks ─── */}
           <TabsContent value="tasks" className="mt-4">
-            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-border/50">
+            <div className="flex flex-col items-center justify-center py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-[hsl(var(--border-strong))]">
               <ClipboardList className="h-8 w-8 text-muted-foreground mb-3 opacity-20" />
               <p className="text-sm text-muted-foreground mb-4">Gerencie as tarefas pendentes <br/> deste funil de vendas.</p>
               <Button 
@@ -334,7 +334,7 @@ function AutomationRuleCard({
           </p>
           <div className="space-y-2">
             {rule.actions.map((action, aIdx) => (
-              <div key={action.id} className="border border-primary/30 bg-primary/5 rounded-xl p-3 flex items-start gap-2">
+              <div key={action.id} className="border border-[hsl(var(--border-strong))] bg-primary/5 rounded-xl p-3 flex items-start gap-2">
                 <div className="flex-1 space-y-2">
                   <Select
                     value={action.type}

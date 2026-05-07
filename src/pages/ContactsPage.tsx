@@ -80,12 +80,12 @@ export default function ContactsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar contatos..."
-              className="h-9 w-64 pl-9 text-xs rounded-xl bg-card/30 border-border/40 focus:ring-primary"
+              className="h-9 w-64 pl-9 text-xs rounded-xl bg-card border-[hsl(var(--border-strong))] focus:ring-primary"
             />
           </div>
           <Button 
             size="sm" 
-            className="h-9 px-4 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20"
+            className="h-9 px-4 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20"
             onClick={() => { setEditingLead(null); setShowForm(true); }}
           >
             <Plus className="h-4 w-4" /> Novo {activeCategory === "partner" ? "Parceiro" : "Colaborador"}
@@ -95,7 +95,7 @@ export default function ContactsPage() {
     >
       <div className="p-6 space-y-6 animate-fade-in">
         <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as any)} className="w-full">
-          <TabsList className="bg-card/30 border border-border/40 p-1 rounded-xl h-11 border-b-0">
+          <TabsList className="bg-card border border-[hsl(var(--border-strong))] p-1 rounded-xl h-11 border-b-0">
             <TabsTrigger value="partner" className="text-xs font-bold uppercase rounded-lg px-8 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all gap-2">
               <Handshake className="h-4 w-4" /> Parceiros
             </TabsTrigger>
@@ -108,11 +108,11 @@ export default function ContactsPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-48 rounded-3xl bg-card/20 animate-pulse border border-border/20" />
+              <div key={i} className="h-48 rounded-card bg-card animate-pulse border border-[hsl(var(--border-strong))]" />
             ))}
           </div>
         ) : filteredContacts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 text-center bg-card/10 rounded-3xl border-2 border-dashed border-border/20">
+          <div className="flex flex-col items-center justify-center py-32 text-center bg-card rounded-card border-2 border-dashed border-[hsl(var(--border-strong))]">
             <div className="h-20 w-20 rounded-full bg-secondary/10 flex items-center justify-center mb-6">
               {activeCategory === "partner" ? <Handshake className="h-10 w-10 text-muted-foreground/40" /> : <Users className="h-10 w-10 text-muted-foreground/40" />}
             </div>
@@ -129,10 +129,10 @@ export default function ContactsPage() {
             {filteredContacts.map((contact) => (
               <div 
                 key={contact.id}
-                className="group relative bg-card/40 hover:bg-card/60 border border-border/40 hover:border-primary/30 rounded-3xl p-6 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-primary/5"
+                className="group relative bg-card hover:bg-card border border-[hsl(var(--border-strong))] hover:border-[hsl(var(--border-strong))] rounded-card p-6 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-primary/5"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-xl border border-primary/10">
+                  <div className="h-12 w-12 rounded-card bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-xl border border-[hsl(var(--border-strong))]">
                     {contact.name.charAt(0)}
                   </div>
                   <DropdownMenu>
@@ -141,7 +141,7 @@ export default function ContactsPage() {
                         <MoreVertical className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl border-border/40 bg-card/95 backdrop-blur-md">
+                    <DropdownMenuContent align="end" className="rounded-xl border-[hsl(var(--border-strong))] bg-card">
                       <DropdownMenuItem onClick={() => handleEdit(contact)} className="text-xs gap-2 cursor-pointer rounded-lg">
                         <Edit2 className="h-3.5 w-3.5" /> Editar
                       </DropdownMenuItem>
@@ -176,7 +176,7 @@ export default function ContactsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-border/20 flex items-center justify-between">
+                <div className="mt-6 pt-4 border-t border-[hsl(var(--border-strong))] flex items-center justify-between">
                   <Badge className="text-[9px] font-bold uppercase tracking-wider bg-secondary/20 text-muted-foreground border-none px-2 py-0.5">
                     {activeCategory === "partner" ? "Parceiro" : "Colaborador"}
                   </Badge>

@@ -50,37 +50,43 @@ async function downloadMetaMedia(adminClient: any, downloadUrl: string, mimetype
 async function findOrCreateLead(
   adminClient: any, clientId: string, senderId: string, senderName: string, config: Record<string, any>
 ): Promise<string | null> {
-  // Delega para a RPC unificada. IGSID vai como instagram_id (nao mais como phone).
-  // Se o lead ja existir por outro canal (ex: WhatsApp com mesmo nome+numero parcial),
-  // a RPC vai mesclar e enriquecer com o instagram_id.
-  const { data, error } = await adminClient.rpc("match_or_create_lead", {
-    p_client_id: clientId,
-    p_phone: null,
-    p_email: null,
-    p_instagram_id: senderId,
-    p_facebook_id: null,
-    p_name: senderName,
-    p_origin: "instagram",
-    p_target_column_id: config?.target_column_id ?? null,
+  // Use metadata->>phone as the IGSID
+  const { data: existingLeads } = await adminClient
+    .from("leads").select("id, created_at")
+    .eq("client_id", clientId).eq("phone", senderId)
+    .order("created_at", { ascending: true });
+
+  if (existingLeads && existingLeads.length > 0) {
+    return existingLeads[0].id;
+  }
+
+  let targetColId = config?.target_column_id;
+  if (!targetColId) {
+    const { data: firstCol } = await adminClient.from("pipeline_columns").select("id")
+      .eq("client_id", clientId).order("order", { ascending: true }).limit(1).maybeSingle();
+    targetColId = firstCol?.id;
+  }
+  if (!targetColId) return null;
+
+  const { data: newLead } = await adminClient.from("leads").insert({
+    client_id: clientId, name: senderName, phone: senderId, column_id: targetColId,
+    tags: ["instagram-auto"], origin: "instagram",
+  }).select("id").single();
+  
+  if (!newLead) return null;
+
+  await adminClient.from("timeline_events").insert({
+    client_id: clientId, lead_id: newLead.id, type: "stage_change",
+    content: `Lead "${senderName}" criado automaticamente via Instagram Direct`, user_name: "Sistema",
   });
 
-  if (error || !data) {
-    console.error("match_or_create_lead failed:", error);
-    return null;
-  }
+  sendPushNotification(adminClient, {
+    title: "🆕 Novo Lead do Instagram",
+    body: `${senderName} mandou DM`,
+    tag: `lead-${newLead.id}`, type: "new_lead", target_client_id: clientId, lead_id: newLead.id,
+  });
 
-  const leadId = (data as any).lead_id as string;
-  const created = (data as any).created as boolean;
-
-  if (created) {
-    sendPushNotification(adminClient, {
-      title: "🆕 Novo Lead do Instagram",
-      body: `${senderName} mandou DM`,
-      tag: `lead-${leadId}`, type: "new_lead", target_client_id: clientId, lead_id: leadId,
-    });
-  }
-
-  return leadId;
+  return newLead.id;
 }
 
 async function upsertConversationAndMessage(

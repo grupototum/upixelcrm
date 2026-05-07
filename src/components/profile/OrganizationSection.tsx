@@ -198,7 +198,7 @@ export function OrganizationSection() {
 
   if (loading) {
     return (
-      <Card className="rounded-2xl ghost-border bg-card/50 backdrop-blur-xl shadow-card">
+      <Card className="rounded-card ghost-border bg-card shadow-card">
         <CardContent className="py-8 flex items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent>
@@ -208,7 +208,7 @@ export function OrganizationSection() {
 
   if (!org) {
     return (
-      <Card className="rounded-2xl ghost-border bg-card/50 backdrop-blur-xl shadow-card">
+      <Card className="rounded-card ghost-border bg-card shadow-card">
         <CardHeader>
           <CardTitle className="text-lg font-bold flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" /> Empresa
@@ -219,7 +219,7 @@ export function OrganizationSection() {
         </CardHeader>
         <CardContent>
           <div className="text-center py-6 space-y-4">
-            <div className="h-16 w-16 mx-auto rounded-2xl bg-muted flex items-center justify-center">
+            <div className="h-16 w-16 mx-auto rounded-card bg-muted flex items-center justify-center">
               <Building2 className="h-8 w-8 text-muted-foreground" />
             </div>
             <div>
@@ -232,7 +232,7 @@ export function OrganizationSection() {
                   <Plus className="h-4 w-4" /> Criar Empresa
                 </Button>
               </DialogTrigger>
-              <DialogContent className="rounded-2xl">
+              <DialogContent className="rounded-card">
                 <DialogHeader>
                   <DialogTitle>Criar Empresa</DialogTitle>
                   <DialogDescription>Todos os membros da empresa compartilharão leads, contatos e demais dados.</DialogDescription>
@@ -274,7 +274,7 @@ export function OrganizationSection() {
   const isOwner = org.owner_id === user?.id;
 
   return (
-    <Card className="rounded-2xl ghost-border bg-card/50 backdrop-blur-xl shadow-card">
+    <Card className="rounded-card ghost-border bg-card shadow-card">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -289,7 +289,7 @@ export function OrganizationSection() {
             </CardDescription>
           </div>
           {isOwner && (
-            <B className="bg-primary/10 text-primary border-primary/20 text-[10px] gap-1">
+            <B className="bg-primary/10 text-primary border-[hsl(var(--border-strong))] text-[10px] gap-1">
               <Crown className="h-3 w-3" /> Proprietário
             </B>
           )}
@@ -308,7 +308,7 @@ export function OrganizationSection() {
                     <UserPlus className="h-3.5 w-3.5" /> Adicionar
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="rounded-2xl">
+                <DialogContent className="rounded-card">
                   <DialogHeader>
                     <DialogTitle>Adicionar Membro</DialogTitle>
                     <DialogDescription>O usuário precisa já ter uma conta cadastrada no sistema.</DialogDescription>

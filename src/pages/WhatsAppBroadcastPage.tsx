@@ -20,7 +20,7 @@ export default function WhatsAppBroadcastPage() {
       <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         {/* Ad-hoc Header for Visual Punch */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 rounded-3xl border border-primary/10 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 rounded-card border border-[hsl(var(--border-strong))] relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Sparkles className="h-24 w-24 text-primary animate-pulse" />
           </div>
@@ -44,7 +44,7 @@ export default function WhatsAppBroadcastPage() {
         </div>
 
         <Tabs defaultValue="overview" className="w-full space-y-6">
-          <div className="flex items-center justify-between border-b border-border/40 pb-2">
+          <div className="flex items-center justify-between border-b border-[hsl(var(--border-strong))] pb-2">
             <TabsList className="bg-transparent h-auto p-0 gap-8">
               <TabsTrigger 
                 value="overview" 
@@ -65,7 +65,7 @@ export default function WhatsAppBroadcastPage() {
                 <History className="h-3.5 w-3.5" /> Histórico
               </TabsTrigger>
             </TabsList>
-            <div className="hidden sm:flex items-center gap-2 bg-muted/30 px-3 py-1 rounded-full border border-border/20">
+            <div className="hidden sm:flex items-center gap-2 bg-muted/30 px-3 py-1 rounded-full border border-[hsl(var(--border-strong))]">
               <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Rate Card: Brasil</span>
             </div>
@@ -75,8 +75,8 @@ export default function WhatsAppBroadcastPage() {
             <BroadcastDashboard credits={credits} loadingCredits={loadingCredits} />
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-               <div className="bg-card ghost-border rounded-2xl p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group">
-                  <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+               <div className="bg-card ghost-border rounded-card p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group">
+                  <div className="h-12 w-12 rounded-card bg-accent/10 flex items-center justify-center">
                     <MessageSquare className="h-6 w-6 text-accent" />
                   </div>
                   <h3 className="text-sm font-black font-heading">Dicas e Melhores Práticas</h3>
@@ -89,12 +89,12 @@ export default function WhatsAppBroadcastPage() {
                </div>
 
                {/* Typebot Integration Foundation Card */}
-               <div className="bg-card ghost-border rounded-2xl p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group border-primary/20 bg-gradient-to-br from-card to-primary/5">
+               <div className="bg-card ghost-border rounded-card p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group border-[hsl(var(--border-strong))] bg-gradient-to-br from-card to-primary/5">
                   <div className="flex justify-between items-start">
-                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-card bg-primary/10 flex items-center justify-center">
                       <Bot className="h-6 w-6 text-primary" />
                     </div>
-                    <Badge variant="outline" className="text-[8px] font-black uppercase tracking-tighter bg-primary/5 border-primary/20 text-primary">Soon</Badge>
+                    <Badge variant="outline" className="text-[8px] font-black uppercase tracking-tighter bg-primary/5 border-[hsl(var(--border-strong))] text-primary">Soon</Badge>
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-sm font-black font-heading">Integração Typebot</h3>
@@ -116,7 +116,7 @@ export default function WhatsAppBroadcastPage() {
           </TabsContent>
 
           <TabsContent value="reports" className="mt-0 focus-visible:outline-none">
-            <div className="bg-card ghost-border rounded-2xl p-16 flex flex-col items-center justify-center text-center space-y-4 shadow-card">
+            <div className="bg-card ghost-border rounded-card p-16 flex flex-col items-center justify-center text-center space-y-4 shadow-card">
               <div className="h-20 w-20 rounded-full bg-primary/5 flex items-center justify-center">
                 <History className="h-10 w-10 text-primary/20" />
               </div>

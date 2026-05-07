@@ -242,9 +242,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
     if (data.notes_local !== undefined) updateData.notes_local = data.notes_local || null;
     if (data.custom_fields !== undefined) updateData.custom_fields = data.custom_fields || {};
-    if (data.responsible_id !== undefined) updateData.responsible_id = data.responsible_id || null;
-    if (data.city !== undefined) updateData.city = data.city || null;
-    if (data.notes !== undefined) updateData.notes = data.notes || null;
 
     const { error } = await supabase.from("leads").update(updateData).eq("id", id);
     if (error) { logger.error(error); toast.error("Erro ao atualizar lead"); return; }
@@ -365,7 +362,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       column_id: columnId,
       value: data.value ?? null,
       client_id: clientId,
-      responsible_id: data.responsible_id || null,
       utm_source: data.utm_source || null,
       utm_medium: data.utm_medium || null,
       utm_campaign: data.utm_campaign || null,

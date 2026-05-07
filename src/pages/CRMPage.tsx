@@ -2,8 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Search, X, ChevronDown, LayoutGrid, UserCheck } from "lucide-react";
+import { Plus, Search, X, ChevronDown, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,14 +49,13 @@ import { DragOverlayCard } from "@/components/crm/SortableLeadCard";
 import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
-import { FilterPopover, EMPTY_FILTERS, UNASSIGNED_FILTER_VALUE, type CRMFilters } from "@/components/crm/FilterPopover";
+import { FilterPopover, EMPTY_FILTERS, type CRMFilters } from "@/components/crm/FilterPopover";
 import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopover";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function CRMPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const {
     leads, pipelines, columns, currentPipelineId, leadCountByPipeline,
     setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn,
@@ -79,19 +77,6 @@ export default function CRMPage() {
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
   const [configColumnTab, setConfigColumnTab] = useState<string>("general");
   const [crmFilters, setCrmFilters] = useState<CRMFilters>(EMPTY_FILTERS);
-
-  const myLeadsActive = useMemo(() => {
-    const ids = crmFilters.assignedTo ?? [];
-    return !!user?.id && ids.length === 1 && ids[0] === user.id;
-  }, [crmFilters.assignedTo, user?.id]);
-
-  const toggleMyLeads = () => {
-    if (!user?.id) return;
-    setCrmFilters((prev) => ({
-      ...prev,
-      assignedTo: myLeadsActive ? [] : [user.id],
-    }));
-  };
   const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
   const [editingPipelineId, setEditingPipelineId] = useState<string | null>(null);
   const [editingPipelineName, setEditingPipelineName] = useState("");
@@ -175,17 +160,6 @@ export default function CRMPage() {
       result = result.filter((l) => {
         const leadDate = new Date(l.created_at || 0);
         return leadDate >= cutoffDate;
-      });
-    }
-
-    // Assigned-to filter
-    const assignedTo = crmFilters.assignedTo ?? [];
-    if (assignedTo.length > 0) {
-      const wantsUnassigned = assignedTo.includes(UNASSIGNED_FILTER_VALUE);
-      const userIds = assignedTo.filter((x) => x !== UNASSIGNED_FILTER_VALUE);
-      result = result.filter((l) => {
-        if (!l.responsible_id) return wantsUnassigned;
-        return userIds.includes(l.responsible_id);
       });
     }
 
@@ -298,7 +272,7 @@ export default function CRMPage() {
           <div className="flex items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/30 hover:bg-card/50 transition-all border border-border/40 group">
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card hover:bg-card transition-all border border-[hsl(var(--border-strong))] group">
                   <LayoutGrid className="h-3.5 w-3.5 text-primary" />
                   <span className="text-xs font-bold text-foreground">
                     {currentPipeline?.name || "Selecionar Funil"}
@@ -309,7 +283,7 @@ export default function CRMPage() {
                   <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform duration-200" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-72 rounded-2xl shadow-2xl border-none p-1.5 backdrop-blur-xl bg-card/80">
+              <DropdownMenuContent align="start" className="w-72 rounded-card shadow-2xl border-none p-1.5 bg-card">
                 <div className="px-2 py-1.5 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                     Seus Funis
@@ -384,18 +358,6 @@ export default function CRMPage() {
               <Search className="h-4 w-4" />
             </Button>
           )}
-          {user?.id && (
-            <Button
-              variant={myLeadsActive ? "default" : "outline"}
-              size="sm"
-              className="text-xs gap-1.5 h-8"
-              onClick={toggleMyLeads}
-              title="Filtrar apenas leads atribuídos a você"
-            >
-              <UserCheck className="h-3.5 w-3.5" />
-              Meus leads
-            </Button>
-          )}
           <FilterPopover
             filters={crmFilters}
             onFiltersChange={setCrmFilters}
@@ -406,7 +368,7 @@ export default function CRMPage() {
             hiddenColumnIds={hiddenColumnIds}
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
-          <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground neon-glow" onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}>
+          <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-[#e04400] text-primary-foreground" onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}>
             <Plus className="h-3.5 w-3.5" /> Novo Lead
           </Button>
         </div>
@@ -467,10 +429,10 @@ export default function CRMPage() {
       />
 
       <Dialog open={showNewPipeline} onOpenChange={setShowNewPipeline}>
-        <DialogContent className="max-w-sm rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+        <DialogContent className="max-w-sm rounded-card border border-[hsl(var(--border-strong))] bg-card">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-primary/20 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-card bg-primary/20 flex items-center justify-center">
                 <Plus className="h-5 w-5 text-primary" />
               </div>
               Novo Funil de Vendas
@@ -491,16 +453,16 @@ export default function CRMPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowNewPipeline(false)} className="rounded-xl">Cancelar</Button>
-            <Button onClick={handleCreatePipeline} disabled={!newPipelineName.trim()} className="rounded-xl bg-primary hover:bg-primary-hover px-8">Criar Funil</Button>
+            <Button onClick={handleCreatePipeline} disabled={!newPipelineName.trim()} className="rounded-xl bg-primary hover:bg-[#e04400] px-8">Criar Funil</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showNewColumn} onOpenChange={setShowNewColumn}>
-        <DialogContent className="max-w-sm rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+        <DialogContent className="max-w-sm rounded-card border border-[hsl(var(--border-strong))] bg-card">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-accent/20 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-card bg-accent/20 flex items-center justify-center">
                 <Plus className="h-5 w-5 text-accent" />
               </div>
               Nova Etapa do Funil
@@ -534,7 +496,7 @@ export default function CRMPage() {
       />
 
       <Dialog open={!!editingPipelineId} onOpenChange={(open) => !open && setEditingPipelineId(null)}>
-        <DialogContent className="max-w-sm rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+        <DialogContent className="max-w-sm rounded-card border border-[hsl(var(--border-strong))] bg-card">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-3">
               <span className="text-2xl">✏️</span>
@@ -556,16 +518,16 @@ export default function CRMPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditingPipelineId(null)} className="rounded-xl">Cancelar</Button>
-            <Button onClick={handleSavePipelineName} disabled={!editingPipelineName.trim()} className="rounded-xl bg-primary hover:bg-primary-hover px-8">Salvar</Button>
+            <Button onClick={handleSavePipelineName} disabled={!editingPipelineName.trim()} className="rounded-xl bg-primary hover:bg-[#e04400] px-8">Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!pipelineToDelete} onOpenChange={(open) => !open && setPipelineToDelete(null)}>
-        <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+        <AlertDialogContent className="rounded-card border border-[hsl(var(--border-strong))] bg-card">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold flex items-center gap-3 text-destructive">
-              <div className="h-10 w-10 rounded-2xl bg-destructive/20 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-card bg-destructive/20 flex items-center justify-center">
                 <AlertCircle className="h-5 w-5 text-destructive" />
               </div>
               Confirmar Exclusão

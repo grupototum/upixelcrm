@@ -130,7 +130,7 @@ export function BotImportExportModal({ open, onOpenChange, preselectAutomationId
             {!importedBot ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                className="border-2 border-dashed border-border rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer hover:border-[hsl(var(--border-strong))] hover:bg-primary/5 transition-colors"
               >
                 <Upload className="h-8 w-8 text-muted-foreground mb-3" />
                 <p className="text-sm font-semibold text-foreground mb-1">

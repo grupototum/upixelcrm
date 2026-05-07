@@ -140,7 +140,7 @@ function GroupEditor({
   const removeRule = (i: number) => onUpdate({ ...group, rules: group.rules.filter((_, idx) => idx !== i) });
 
   return (
-    <div className="border border-primary/30 rounded-lg p-3 bg-primary/5 space-y-2">
+    <div className="border border-[hsl(var(--border-strong))] rounded-lg p-3 bg-primary/5 space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GitMerge className="w-3.5 h-3.5 text-primary/60" />
@@ -179,7 +179,7 @@ function GroupEditor({
         ))}
       </div>
 
-      <Button variant="ghost" size="sm" onClick={addRule} className="w-full h-7 text-[10px] gap-1 border border-dashed border-border/60">
+      <Button variant="ghost" size="sm" onClick={addRule} className="w-full h-7 text-[10px] gap-1 border border-dashed border-[hsl(var(--border-strong))]">
         <Plus className="w-3 h-3" /> Adicionar Condição
       </Button>
     </div>

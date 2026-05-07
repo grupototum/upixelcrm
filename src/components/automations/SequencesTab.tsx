@@ -157,7 +157,7 @@ export function SequencesTab() {
         sequences.map((seq) => {
           const isExpanded = expandedId === seq.id;
           return (
-            <div key={seq.id} className="bg-card ghost-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200">
+            <div key={seq.id} className="bg-card ghost-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover hover:border-[#ff4f00]/30 transition-all duration-200">
               <button
                 onClick={() => setExpandedId(isExpanded ? null : seq.id)}
                 className="w-full flex items-center gap-3 px-4 py-3.5 text-left"

@@ -36,11 +36,11 @@ export function BroadcastModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
+        <Button size="sm" className="bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
           <Send className="h-3.5 w-3.5" /> NOVO DISPARO
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl animate-in zoom-in-95 duration-200">
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border border-[hsl(var(--border-strong))] animate-in zoom-in-95 duration-200">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-lg font-heading font-black flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -55,7 +55,7 @@ export function BroadcastModal() {
           <div className="space-y-3">
             <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Escolha sua Rota</Label>
             <Tabs value={route} onValueChange={(v) => setRoute(v as BroadcastRoute)} className="w-full">
-              <TabsList className="grid grid-cols-2 p-1 bg-muted/40 h-14 rounded-xl border border-border/20">
+              <TabsList className="grid grid-cols-2 p-1 bg-muted/40 h-14 rounded-xl border border-[hsl(var(--border-strong))]">
                 <TabsTrigger value="free" className="rounded-lg gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                   <div className={`p-1.5 rounded-md ${route === "free" ? "bg-accent/10" : ""}`}>
                     <Smartphone className={`h-4 w-4 ${route === "free" ? "text-accent" : "text-muted-foreground"}`} />
@@ -79,7 +79,7 @@ export function BroadcastModal() {
           </div>
 
           {/* 24h Window Alert */}
-          <div className="bg-muted/30 rounded-2xl p-4 flex items-center justify-between border border-border/20 group">
+          <div className="bg-muted/30 rounded-card p-4 flex items-center justify-between border border-[hsl(var(--border-strong))] group">
             <div className="flex items-center gap-3">
               <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${isInside24h ? "bg-success/15" : "bg-warning/15"}`}>
                 <Clock className={`h-5 w-5 ${isInside24h ? "text-success" : "text-warning"} group-hover:scale-110 transition-transform`} />
@@ -107,17 +107,17 @@ export function BroadcastModal() {
               <div className="space-y-3">
                 <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Selecionar Template</Label>
                 <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                  <SelectTrigger className="h-12 rounded-xl bg-muted/20 border-border/40 focus:ring-primary/20">
+                  <SelectTrigger className="h-12 rounded-xl bg-muted/20 border-[hsl(var(--border-strong))] focus:ring-primary/20">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary/60" />
                       <SelectValue placeholder="Escolha um template aprovado" />
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-border/40">
+                  <SelectContent className="rounded-xl border-[hsl(var(--border-strong))]">
                     {templates.map(t => (
                       <SelectItem key={t.id} value={t.id} className="text-xs focus:bg-primary/5 focus:text-primary">
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={`text-[9px] ${t.category === 'UTILITY' ? 'text-success border-success/30' : 'text-primary border-primary/30'}`}>
+                          <Badge variant="outline" className={`text-[9px] ${t.category === 'UTILITY' ? 'text-success border-success/30' : 'text-primary border-[hsl(var(--border-strong))]'}`}>
                             {t.category}
                           </Badge>
                           <span className="font-bold">{t.name}</span>
@@ -127,7 +127,7 @@ export function BroadcastModal() {
                   </SelectContent>
                 </Select>
                 {selectedTemplate && (
-                  <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 animate-in slide-in-from-top-2 duration-300">
+                  <div className="bg-primary/5 p-4 rounded-xl border border-[hsl(var(--border-strong))] animate-in slide-in-from-top-2 duration-300">
                     <p className="text-[10px] uppercase font-black text-primary/40 tracking-widest mb-2 flex items-center gap-1.5">
                       <Sparkles className="h-3 w-3" /> Preview do Conteúdo
                     </p>
@@ -142,7 +142,7 @@ export function BroadcastModal() {
                 <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Sua Mensagem (Formato Livre)</Label>
                 <Textarea 
                   placeholder="Olá, como posso ajudar?" 
-                  className="min-h-[100px] rounded-xl bg-muted/20 border-border/40 focus:ring-primary/20 text-xs"
+                  className="min-h-[100px] rounded-xl bg-muted/20 border-[hsl(var(--border-strong))] focus:ring-primary/20 text-xs"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                 />
@@ -154,7 +154,7 @@ export function BroadcastModal() {
           {!hasCredits && route === "official" && !isInside24h ? (
             <CreditAlert />
           ) : (
-            <div className={`p-4 rounded-2xl border transition-all duration-300 ${cost > 0 ? "bg-primary/5 border-primary/10" : "bg-success/5 border-success/10"}`}>
+            <div className={`p-4 rounded-card border transition-all duration-300 ${cost > 0 ? "bg-primary/5 border-[hsl(var(--border-strong))]" : "bg-success/5 border-success/10"}`}>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Custo deste disparo</p>
@@ -172,7 +172,7 @@ export function BroadcastModal() {
 
           <div className="pt-2">
             <Button 
-              className="w-full h-14 rounded-2xl bg-primary hover:bg-primary-hover text-white font-heading font-black text-base shadow-xl shadow-primary/20 group transition-all"
+              className="w-full h-14 rounded-card bg-primary hover:bg-[#e04400] text-white font-heading font-black text-base shadow-xl shadow-primary/20 group transition-all"
               onClick={handleSend}
               disabled={loading || (!hasCredits && route === "official" && !isInside24h) || (route === "official" && !selectedTemplate) || (route === "free" && !message)}
             >

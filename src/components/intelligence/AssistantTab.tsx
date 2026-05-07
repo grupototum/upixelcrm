@@ -97,7 +97,7 @@ export function AssistantTab() {
                   </div>
                 )}
                 <div
-                  className={`rounded-2xl px-4 py-3 max-w-[80%] ${
+                  className={`rounded-card px-4 py-3 max-w-[80%] ${
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground rounded-br-md"
                       : "bg-secondary rounded-bl-md"
@@ -105,7 +105,7 @@ export function AssistantTab() {
                 >
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   {msg.ragDocs && msg.ragDocs.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50 text-xs text-accent">
+                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-[hsl(var(--border-strong))] text-xs text-accent">
                       <BookOpen className="h-3 w-3" />
                       <span>{msg.ragDocs.length} doc(s) RAG: {msg.ragDocs.map(d => d.title).join(", ")}</span>
                     </div>
@@ -118,7 +118,7 @@ export function AssistantTab() {
                 <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
                   <Brain className="h-4 w-4 text-accent" />
                 </div>
-                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-2">
+                <div className="bg-secondary rounded-card rounded-bl-md px-4 py-3 flex items-center gap-2">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">Buscando contexto RAG e gerando resposta...</p>
                 </div>

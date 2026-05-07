@@ -17,7 +17,7 @@ export function BroadcastDashboard({ credits, loadingCredits }: { credits: numbe
     <div className="space-y-6">
       {/* Top Banner / Credits */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-1 bg-primary text-primary-foreground rounded-2xl p-6 shadow-lg shadow-primary/20 flex flex-col justify-between relative overflow-hidden group">
+        <div className="md:col-span-1 bg-primary text-primary-foreground rounded-card p-6 shadow-lg shadow-primary/20 flex flex-col justify-between relative overflow-hidden group">
           <CreditCard className="h-24 w-24 absolute -bottom-4 -right-4 text-white opacity-10 group-hover:rotate-12 transition-transform duration-500" />
           <div className="space-y-1">
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Saldo Atual</p>
@@ -33,7 +33,7 @@ export function BroadcastDashboard({ credits, loadingCredits }: { credits: numbe
             </p>
             <button 
               onClick={() => setRechargeOpen(true)}
-              className="w-full h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl text-xs font-bold transition-all border border-white/20 active:scale-95"
+              className="w-full h-10 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-all border border-white/20 active:scale-95"
             >
               Recarregar Créditos
             </button>
@@ -68,7 +68,7 @@ export function BroadcastDashboard({ credits, loadingCredits }: { credits: numbe
         <div className="lg:col-span-2 space-y-6">
           {/* Recent Campaigns (Mini Table Mock) */}
           <div className="bg-card ghost-border rounded-xl overflow-hidden shadow-card">
-            <div className="p-4 border-b border-border/40 flex items-center justify-between">
+            <div className="p-4 border-b border-[hsl(var(--border-strong))] flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-tight text-foreground flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5 text-primary" /> Histórico de Disparos
               </h3>

@@ -5,11 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useMetaAds } from "@/hooks/useMetaAds";
-import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import {
   ArrowLeft, CheckCircle2, XCircle, RefreshCw, Unplug,
   TrendingUp, MousePointerClick, DollarSign, Users, Eye,
-  ExternalLink, Copy, Info, Loader2, Facebook,
+  ExternalLink, Copy, Info,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -19,7 +18,6 @@ import { ptBR } from "date-fns/locale";
 export default function MetaAdsPage() {
   const navigate = useNavigate();
   const { isConnected, status, campaigns, loadingCampaigns, connecting, syncing, connect, disconnect, sync } = useMetaAds();
-  const metaOAuth = useMetaOAuth();
 
   const [accessToken, setAccessToken] = useState("");
   const [adAccountId, setAdAccountId] = useState("");
@@ -96,7 +94,7 @@ export default function MetaAdsPage() {
               { label: "Cliques", value: totalClicks.toLocaleString("pt-BR"), icon: MousePointerClick, color: "text-accent" },
               { label: "CPL Médio", value: avgCPL > 0 ? `R$ ${avgCPL.toFixed(2)}` : "—", icon: Users, color: "text-success" },
             ].map((kpi) => (
-              <div key={kpi.label} className="bg-card border border-border/50 rounded-xl p-4">
+              <div key={kpi.label} className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-4">
                 <kpi.icon className={`h-4 w-4 ${kpi.color} mb-2`} />
                 <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">{kpi.label}</p>
                 <p className="text-xl font-heading font-black text-foreground mt-0.5">{kpi.value}</p>
@@ -105,38 +103,9 @@ export default function MetaAdsPage() {
           </div>
         )}
 
-        {/* Quick connect with Meta OAuth */}
+        {/* Connection form */}
         {!isConnected && (
-          <div className="bg-gradient-to-br from-blue-500/5 to-blue-600/5 border border-blue-500/30 rounded-xl p-5 space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
-                <Facebook className="h-5 w-5 text-blue-500" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-bold">Conectar com Meta (recomendado)</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Autorize uma vez e o sistema descobre suas contas de anúncios automaticamente.
-                </p>
-              </div>
-            </div>
-            <Button
-              className="w-full text-xs font-bold gap-2 bg-blue-500 hover:bg-blue-600 text-white"
-              onClick={() => metaOAuth.startOAuth("ads", "/meta-ads")}
-              disabled={metaOAuth.loading}
-            >
-              {metaOAuth.loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Facebook className="h-3.5 w-3.5" />}
-              Conectar com Meta
-            </Button>
-          </div>
-        )}
-
-        {/* Connection form (manual fallback) */}
-        {!isConnected && (
-          <details className="bg-card border border-border/50 rounded-xl p-5 space-y-5">
-            <summary className="text-xs font-semibold cursor-pointer text-muted-foreground hover:text-foreground">
-              Ou configure manualmente com um System User Token
-            </summary>
-            <div className="pt-4 space-y-5">
+          <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5 space-y-5">
             <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
               <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
               <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
@@ -173,13 +142,12 @@ export default function MetaAdsPage() {
               {connecting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               {connecting ? "Conectando..." : "Conectar ao Meta Ads"}
             </Button>
-            </div>
-          </details>
+          </div>
         )}
 
         {/* Webhook setup for Meta Lead Ads */}
         {isConnected && (
-          <div className="bg-card border border-border/50 rounded-xl p-5 space-y-3">
+          <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5 space-y-3">
             <h3 className="text-sm font-bold flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" /> Meta Lead Ads (Captura Automática)
             </h3>
@@ -213,7 +181,7 @@ export default function MetaAdsPage() {
             </div>
 
             {loadingCampaigns ? (
-              <div className="h-32 bg-card rounded-xl border border-border/50 animate-pulse" />
+              <div className="h-32 bg-card rounded-xl border border-[hsl(var(--border-strong))] animate-pulse" />
             ) : campaigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 border border-dashed border-border rounded-xl text-muted-foreground text-sm gap-2">
                 <TrendingUp className="h-6 w-6 opacity-30" />
@@ -236,7 +204,7 @@ export default function MetaAdsPage() {
                   </thead>
                   <tbody>
                     {campaigns.map((c) => (
-                      <tr key={c.id} className="border-t border-border/50 hover:bg-secondary/20 transition-colors">
+                      <tr key={c.id} className="border-t border-[hsl(var(--border-strong))] hover:bg-secondary/20 transition-colors">
                         <td className="p-2.5 font-medium max-w-[200px] truncate">{c.name}</td>
                         <td className="p-2.5">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${c.status === "active" ? "bg-success/15 text-success" : c.status === "paused" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>

@@ -265,11 +265,11 @@ export function BroadcastConfigModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
+        <Button size="sm" className="bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
           <Send className="h-3.5 w-3.5" /> NOVO DISPARO
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border-none shadow-2xl">
+      <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden border border-[hsl(var(--border-strong))]">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-lg font-heading font-black flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -461,7 +461,7 @@ export function BroadcastConfigModal() {
                     </SelectContent>
                   </Select>
                   {selectedTemplate && (
-                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                    <div className="bg-primary/5 p-4 rounded-xl border border-[hsl(var(--border-strong))]">
                       <p className="text-[10px] uppercase font-black text-primary/40 tracking-widest mb-2">
                         <Sparkles className="h-3 w-3 inline mr-1" /> Preview
                       </p>
@@ -613,7 +613,7 @@ export function BroadcastConfigModal() {
                   <span className="text-muted-foreground">Intervalo</span>
                   <span className="font-bold">{delayMin}-{delayMax}s</span>
                 </div>
-                <div className="flex justify-between text-xs pt-3 border-t border-primary/10">
+                <div className="flex justify-between text-xs pt-3 border-t border-[hsl(var(--border-strong))]">
                   <span className="text-muted-foreground">Custo Total</span>
                   <span className={`font-black ${cost > 0 ? "text-primary" : "text-success"}`}>
                     {cost === 0 ? "GRÁTIS" : `${cost.toFixed(2)} créditos`}
@@ -648,14 +648,14 @@ export function BroadcastConfigModal() {
             ← Voltar
           </Button>
           {step !== "review" ? (
-            <Button onClick={goNext} disabled={!canGoNext()} className="bg-primary hover:bg-primary-hover text-xs gap-1">
+            <Button onClick={goNext} disabled={!canGoNext()} className="bg-primary hover:bg-[#e04400] text-xs gap-1">
               Próximo <ArrowRight className="h-3 w-3" />
             </Button>
           ) : (
             <Button
               onClick={handleSubmit}
               disabled={submitting || (cost > credits && route === "official")}
-              className="bg-primary hover:bg-primary-hover text-xs gap-1"
+              className="bg-primary hover:bg-[#e04400] text-xs gap-1"
             >
               {submitting ? (
                 <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />

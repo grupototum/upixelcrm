@@ -37,7 +37,7 @@ export function CostSimulator() {
             <p className="text-[11px] text-muted-foreground">Projete seus envios e créditos</p>
           </div>
         </div>
-        <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary px-3 uppercase tracking-tighter">
+        <Badge variant="outline" className="text-[10px] font-bold border-[hsl(var(--border-strong))] text-primary px-3 uppercase tracking-tighter">
           Oficial API
         </Badge>
       </div>
@@ -94,8 +94,8 @@ export function CostSimulator() {
         </div>
       </div>
 
-      <div className="border-t border-border/40 pt-4">
-        <div className="flex items-start gap-2 text-[10px] text-muted-foreground italic bg-muted/30 p-3 rounded-lg border border-border/20">
+      <div className="border-t border-[hsl(var(--border-strong))] pt-4">
+        <div className="flex items-start gap-2 text-[10px] text-muted-foreground italic bg-muted/30 p-3 rounded-lg border border-[hsl(var(--border-strong))]">
           <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
           <p>
             Valores baseados na rate card da Meta para o Brasil. 

@@ -2,10 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
-  Settings, Phone, Wifi, WifiOff, ArrowLeft, Plus, Trash2, Facebook, Copy, ExternalLink, Zap,
+  Settings, RefreshCw, Phone, Wifi, WifiOff, Zap, ArrowLeft,
+  Plus, Trash2, ChevronDown, ChevronUp,
 } from "lucide-react";
-import { useMetaOAuth } from "@/hooks/useMetaOAuth";
-import { useWhatsAppEmbeddedSignup } from "@/hooks/useWhatsAppEmbeddedSignup";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,31 +22,11 @@ function StatusBadge({ status }: { status: string }) {
     disconnected: { label: "Desconectado", cls: "border-muted-foreground/40 text-muted-foreground" },
     connecting: { label: "Conectando...", cls: "border-accent/40 text-accent" },
     connected: { label: "Conectado", cls: "border-success/40 text-success" },
-    configured: { label: "Configurado", cls: "border-primary/40 text-primary" },
+    configured: { label: "Configurado", cls: "border-[hsl(var(--border-strong))] text-primary" },
     error: { label: "Erro", cls: "border-destructive/40 text-destructive" },
   };
   const { label, cls } = map[status] || map.disconnected;
   return <Badge variant="outline" className={`text-[9px] ${cls}`}>{label}</Badge>;
-}
-
-function WebhookField({ label, value }: { label: string; value: string }) {
-  const copy = () => {
-    navigator.clipboard.writeText(value);
-    toast.success(`${label} copiado!`);
-  };
-  return (
-    <div className="space-y-0.5">
-      <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
-      <div className="flex items-center gap-1.5">
-        <code className="text-[10px] bg-background border border-border/40 rounded px-1.5 py-0.5 flex-1 truncate">
-          {value}
-        </code>
-        <button type="button" onClick={copy} className="text-muted-foreground hover:text-foreground">
-          <Copy className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // Per-instance card that manages its own connect/disconnect/qr state
@@ -67,7 +46,6 @@ function InstanceCard({
   const [qrStep, setQrStep] = useState<"scan" | "success">("scan");
   const [working, setWorking] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [webhookOpen, setWebhookOpen] = useState(false);
 
   const type = instance.provider === "whatsapp_official" ? "official" : "normal";
   const isOfficial = type === "official";
@@ -225,55 +203,16 @@ function InstanceCard({
             </div>
           )}
 
-          {/* Webhook setup panel for official instances */}
-          {isOfficial && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setWebhookOpen((v) => !v)}
-                className="text-[11px] text-primary hover:underline flex items-center gap-1"
-              >
-                <Settings className="h-3 w-3" />
-                {webhookOpen ? "Ocultar" : "Ver"} configuração do Webhook
-              </button>
-              {webhookOpen && (
-                <div className="mt-2 space-y-2 bg-secondary/60 rounded-lg p-3">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Configure no Meta Developer Console → WhatsApp → Configuration → Webhook
-                  </p>
-                  <WebhookField
-                    label="Callback URL"
-                    value={`${supabase.supabaseUrl}/functions/v1/whatsapp-webhook`}
-                  />
-                  <WebhookField
-                    label="Verify Token"
-                    value={instance.webhook_verify_token || "—"}
-                  />
-                  <a
-                    href="https://developers.facebook.com/apps"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
-                  >
-                    <ExternalLink className="h-3 w-3" /> Abrir Meta Developer Console
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Actions */}
-          <div className="border-t border-border/40 pt-4 flex items-center gap-2">
+          <div className="border-t border-[hsl(var(--border-strong))] pt-4 flex items-center gap-2">
             {status === "connected" ? (
               <>
-                {!isOfficial && (
-                  <Button size="sm" variant="outline" className="text-xs gap-1 flex-1" onClick={onEdit}>
-                    <Settings className="h-3 w-3" /> Config
-                  </Button>
-                )}
+                <Button size="sm" variant="outline" className="text-xs gap-1 flex-1" onClick={onEdit}>
+                  <Settings className="h-3 w-3" /> Config
+                </Button>
                 <Button
                   size="sm" variant="outline"
-                  className="text-xs gap-1 text-destructive flex-1"
+                  className="text-xs gap-1 text-destructive"
                   onClick={handleDisconnect}
                   disabled={working}
                 >
@@ -293,20 +232,19 @@ function InstanceCard({
                   </Button>
                 )}
               </>
-            ) : isOfficial ? (
-              <p className="text-[11px] text-muted-foreground flex-1">
-                Use <strong>Conectar com Meta</strong> no topo da página para reconectar.
-              </p>
             ) : (
               <>
                 <Button
                   size="sm"
-                  className="text-xs gap-1 flex-1 bg-accent hover:bg-accent/90 text-white"
+                  className={`text-xs gap-1 flex-1 bg-${accentColor} hover:bg-${accentColor}/90 text-white`}
                   onClick={handleConnect}
                   disabled={working}
                 >
-                  {working ? <Loader2 className="h-3 w-3 animate-spin" /> : <QrCode className="h-3 w-3" />}
-                  Conectar via QR
+                  {working
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : isOfficial ? <Zap className="h-3 w-3" /> : <QrCode className="h-3 w-3" />
+                  }
+                  {isOfficial ? "Conectar" : "Conectar via QR"}
                 </Button>
                 <Button size="sm" variant="outline" className="text-xs gap-1" onClick={onEdit}>
                   <Settings className="h-3 w-3" />
@@ -385,52 +323,66 @@ function InstanceCard({
   );
 }
 
+// Modal to add or edit an instance
 function InstanceFormModal({
   open,
   onClose,
   onSaved,
   editing,
-  onConnectMeta,
-  onEmbeddedSignup,
-  embeddedSignupLoading,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   editing?: WaInstance | null;
-  onConnectMeta: () => void;
-  onEmbeddedSignup: () => void;
-  embeddedSignupLoading: boolean;
 }) {
   const [instanceType, setInstanceType] = useState<"normal" | "official">("normal");
   const [apiUrl, setApiUrl] = useState("");
   const [instanceName, setInstanceName] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [phoneId, setPhoneId] = useState("");
+  const [businessId, setBusinessId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
   const [saving, setSaving] = useState(false);
-
-  const isEditingOfficial = editing?.provider === "whatsapp_official";
 
   useEffect(() => {
     if (editing) {
-      setInstanceType(isEditingOfficial ? "official" : "normal");
-      setApiUrl(isEditingOfficial ? "" : editing.api_url);
+      setInstanceType(editing.provider === "whatsapp_official" ? "official" : "normal");
+      setApiUrl(editing.api_url);
       setInstanceName(editing.instance_name);
       setApiKey("");
+      setPhoneId(editing.phone_number_id);
+      setBusinessId(editing.business_id);
+      setAccessToken("");
     } else {
       setInstanceType("normal");
       setApiUrl("");
       setInstanceName("");
       setApiKey("");
+      setPhoneId("");
+      setBusinessId("");
+      setAccessToken("");
     }
-  }, [editing, open, isEditingOfficial]);
+  }, [editing, open]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const params = new URLSearchParams({ action: "save-config", type: "normal" });
+      const params = new URLSearchParams({
+        action: "save-config",
+        type: instanceType,
+      });
       const { error } = await supabase.functions.invoke(
         `whatsapp-proxy?${params.toString()}`,
-        { body: { api_url: apiUrl, instance_name: instanceName, api_key: apiKey || undefined } }
+        {
+          body: {
+            api_url: apiUrl,
+            instance_name: instanceName,
+            api_key: apiKey,
+            phone_number_id: phoneId || undefined,
+            business_id: businessId || undefined,
+            access_token: accessToken || undefined,
+          },
+        }
       );
       if (error) throw new Error(error.message);
       toast.success(editing ? "Instância atualizada!" : "Instância adicionada!");
@@ -443,8 +395,15 @@ function InstanceFormModal({
     }
   };
 
+  const isOfficial = instanceType === "official";
   const hasExistingApiKey = !!(editing?.has_api_key);
-  const canSave = apiUrl && instanceName && (apiKey || hasExistingApiKey);
+  const hasExistingToken = !!(editing?.has_access_token);
+
+  const canSave =
+    apiUrl &&
+    instanceName &&
+    (apiKey || hasExistingApiKey) &&
+    (!isOfficial || phoneId);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -457,8 +416,8 @@ function InstanceFormModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Type selector — hidden when editing an official instance */}
-          {!isEditingOfficial && (
+          {/* Type selector */}
+          {!editing && (
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -489,103 +448,95 @@ function InstanceFormModal({
             </div>
           )}
 
-          {/* Official: info + OAuth button */}
-          {(instanceType === "official" || isEditingOfficial) && (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 bg-success/5 border border-success/20 rounded-lg p-4">
-                <Shield className="h-5 w-5 text-success shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-semibold text-foreground">API Oficial da Meta</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {isEditingOfficial
-                      ? "Este número é gerenciado via Meta OAuth. Para adicionar outro número clique em Conectar com Meta."
-                      : "Conecte via Meta OAuth. Você poderá escolher qual WABA e número vincular — múltiplas conexões são suportadas."}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2 pt-1 border-t border-border">
-                <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-                  Cancelar
-                </Button>
-                {!isEditingOfficial && (
-                  <Button
-                    size="sm"
-                    className="text-xs gap-1.5 bg-success hover:bg-success/90 text-white"
-                    onClick={() => { onClose(); onEmbeddedSignup(); }}
-                    disabled={embeddedSignupLoading}
-                  >
-                    {embeddedSignupLoading
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <Zap className="h-3.5 w-3.5" />}
-                    Conectar em 1 clique
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant={isEditingOfficial ? "default" : "outline"}
-                  className={`text-xs gap-1.5 ${isEditingOfficial ? "bg-blue-500 hover:bg-blue-600 text-white" : "border-blue-500/40 text-blue-500 hover:bg-blue-500/10"}`}
-                  onClick={() => { onClose(); onConnectMeta(); }}
-                >
-                  <Facebook className="h-3.5 w-3.5" /> Conectar com Meta
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">URL do Servidor Evolution API</Label>
+            <Input
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="https://api.evolution.com.br"
+              className="text-xs h-9 bg-secondary"
+            />
+          </div>
 
-          {/* Evolution: form fields */}
-          {instanceType === "normal" && !isEditingOfficial && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Nome da Instância</Label>
+            <Input
+              value={instanceName}
+              onChange={(e) => setInstanceName(e.target.value)}
+              placeholder="meu-numero-1"
+              className="text-xs h-9 bg-secondary"
+              disabled={!!editing}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Identificador único — use letras, números e hífens.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Evolution API Key</Label>
+            <Input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={hasExistingApiKey ? "••••••• (já configurada)" : "Sua API Key"}
+              className="text-xs h-9 bg-secondary"
+            />
+          </div>
+
+          {isOfficial && (
             <>
+              <div className="h-px bg-border" />
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Meta Business Platform
+              </p>
+
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">URL do Servidor Evolution API</Label>
+                <Label className="text-xs font-semibold">Phone Number ID</Label>
                 <Input
-                  value={apiUrl}
-                  onChange={(e) => setApiUrl(e.target.value)}
-                  placeholder="https://api.evolution.com.br"
+                  value={phoneId}
+                  onChange={(e) => setPhoneId(e.target.value)}
+                  placeholder="ID do número de telefone"
                   className="text-xs h-9 bg-secondary"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Nome da Instância</Label>
+                <Label className="text-xs font-semibold">Business ID</Label>
                 <Input
-                  value={instanceName}
-                  onChange={(e) => setInstanceName(e.target.value)}
-                  placeholder="meu-numero-1"
+                  value={businessId}
+                  onChange={(e) => setBusinessId(e.target.value)}
+                  placeholder="ID da conta Business"
                   className="text-xs h-9 bg-secondary"
-                  disabled={!!editing}
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  Identificador único — use letras, números e hífens.
-                </p>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Evolution API Key</Label>
+                <Label className="text-xs font-semibold">Meta Access Token</Label>
                 <Input
                   type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={hasExistingApiKey ? "••••••• (já configurada)" : "Sua API Key"}
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  placeholder={hasExistingToken ? "••••••• (já configurado)" : "Token de acesso permanente"}
                   className="text-xs h-9 bg-secondary"
                 />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-                  Cancelar
-                </Button>
-                <Button
-                  size="sm"
-                  className="text-xs"
-                  onClick={handleSave}
-                  disabled={!canSave || saving}
-                >
-                  {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                  {editing ? "Salvar" : "Adicionar"}
-                </Button>
               </div>
             </>
           )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-border">
+          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            className="text-xs"
+            onClick={handleSave}
+            disabled={!canSave || saving}
+          >
+            {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+            {editing ? "Salvar" : "Adicionar"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -595,8 +546,6 @@ function InstanceFormModal({
 export default function WhatsAppPage() {
   const navigate = useNavigate();
   const { instances, loading, refresh } = useWhatsAppInstances();
-  const metaOAuth = useMetaOAuth();
-  const embeddedSignup = useWhatsAppEmbeddedSignup();
   const [formOpen, setFormOpen] = useState(false);
   const [editingInstance, setEditingInstance] = useState<WaInstance | null>(null);
 
@@ -696,7 +645,7 @@ export default function WhatsAppPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-border/40">
+                  <tr className="border-b border-[hsl(var(--border-strong))]">
                     <th className="text-left py-2 text-muted-foreground font-medium">Recurso</th>
                     <th className="text-center py-2 text-success font-medium">API Oficial</th>
                     <th className="text-center py-2 text-accent font-medium">QR Code</th>
@@ -712,7 +661,7 @@ export default function WhatsAppPage() {
                     ["Automações", "✅ Completas", "⚠️ Limitadas"],
                     ["Multi-instância", "✅ Sim", "✅ Sim"],
                   ].map(([feature, api, lite]) => (
-                    <tr key={feature} className="border-b border-border/20">
+                    <tr key={feature} className="border-b border-[hsl(var(--border-strong))]">
                       <td className="py-2 font-medium text-foreground/80">{feature}</td>
                       <td className="py-2 text-center">{api}</td>
                       <td className="py-2 text-center">{lite}</td>
@@ -730,12 +679,6 @@ export default function WhatsAppPage() {
         onClose={() => setFormOpen(false)}
         onSaved={refresh}
         editing={editingInstance}
-        onConnectMeta={() => metaOAuth.startOAuth("whatsapp", "/whatsapp")}
-        onEmbeddedSignup={async () => {
-          const result = await embeddedSignup.startSignup();
-          if (result) refresh();
-        }}
-        embeddedSignupLoading={embeddedSignup.loading}
       />
     </AppLayout>
   );

@@ -16,7 +16,7 @@ import {
   Users, Building2, Shield, Mail, Search, Ban, CheckCircle2,
   PencilLine, Trash2, UserPlus, UserMinus, ChevronDown, ChevronUp, Loader2, Clock, FileText, Plus, RefreshCw
 } from "lucide-react";
-import { PERMISSION_MATRIX, refreshPermissionMatrix, usePermissions } from "@/hooks/usePermissions";
+import { PERMISSION_MATRIX } from "@/hooks/usePermissions";
 
 interface ProfileRow {
   id: string;
@@ -82,15 +82,13 @@ const ROLES_DISPLAY = [
 export default function UsersPage() {
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const { matrix: permissionMatrix } = usePermissions();
-
+  
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
-  const [permTogglingKey, setPermTogglingKey] = useState<string | null>(null);
   
   // Edit Role Modal
   const [editModal, setEditModal] = useState<ProfileRow | null>(null);
@@ -323,39 +321,6 @@ export default function UsersPage() {
     }
   };
 
-  const togglePermission = async (permissionKey: string, role: string, currentlyHas: boolean) => {
-    if (!isMaster) {
-      toast.error("Apenas masters podem editar a matriz de permissões.");
-      return;
-    }
-    const togKey = `${permissionKey}:${role}`;
-    setPermTogglingKey(togKey);
-    try {
-      if (currentlyHas) {
-        const { error } = await supabase
-          .from("role_permissions")
-          .delete()
-          .eq("role", role as any)
-          .eq("permission", permissionKey);
-        if (error) throw error;
-        await logAudit("Permissão removida da matriz", { role, permission: permissionKey });
-      } else {
-        const { error } = await supabase
-          .from("role_permissions")
-          .insert({ role: role as any, permission: permissionKey });
-        if (error) throw error;
-        await logAudit("Permissão adicionada à matriz", { role, permission: permissionKey });
-      }
-      await refreshPermissionMatrix();
-      fetchAuditLogs();
-      toast.success("Matriz de permissões atualizada");
-    } catch (e: any) {
-      toast.error("Erro ao atualizar permissão: " + (e.message || ""));
-    } finally {
-      setPermTogglingKey(null);
-    }
-  };
-
   const saveRole = async () => {
     if (!editModal) return;
 
@@ -437,7 +402,7 @@ export default function UsersPage() {
   const roleBadge = (role: string) => {
     const map: Record<string, string> = {
       master: "border-red-500/30 bg-red-500/10 text-red-500",
-      supervisor: "border-primary/30 bg-primary/10 text-primary",
+      supervisor: "border-[hsl(var(--border-strong))] bg-primary/10 text-primary",
       atendente: "border-blue-500/30 bg-blue-500/10 text-blue-500",
       vendedor: "border-muted-foreground/30 bg-muted text-muted-foreground",
     };
@@ -618,7 +583,7 @@ export default function UsersPage() {
                                     <div>
                                       <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
                                         {m.name}
-                                        {m.id === o.owner_id && <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">Dono</Badge>}
+                                        {m.id === o.owner_id && <Badge variant="outline" className="text-[9px] px-1 py-0 border-[hsl(var(--border-strong))] text-primary">Dono</Badge>}
                                       </p>
                                       <p className="text-[10px] text-muted-foreground">{m.email}</p>
                                     </div>
@@ -650,17 +615,8 @@ export default function UsersPage() {
               <div className="px-4 py-3 ghost-border border-b flex justify-between items-center">
                 <div>
                   <h2 className="text-sm font-semibold text-foreground">Matriz de Permissões — RBAC</h2>
-                  <p className="text-xs text-muted-foreground">
-                    {isMaster
-                      ? "Clique nas células para alternar permissões. Alterações são aplicadas imediatamente."
-                      : "O que cada função pode acessar no sistema"}
-                  </p>
+                  <p className="text-xs text-muted-foreground">O que cada função pode acessar no sistema</p>
                 </div>
-                {isMaster && (
-                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-[10px]">
-                    Edição habilitada
-                  </Badge>
-                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -680,26 +636,17 @@ export default function UsersPage() {
                           <span className="ml-2 text-[10px] text-muted-foreground/60 font-mono">{perm.key}</span>
                         </td>
                         {ROLES_DISPLAY.map(r => {
-                          const allowed = permissionMatrix[perm.key];
+                          const allowed = PERMISSION_MATRIX[perm.key];
                           const hasIt = allowed ? allowed.includes(r.key as any) : false;
-                          const togKey = `${perm.key}:${r.key}`;
-                          const isToggling = permTogglingKey === togKey;
-                          const cellClasses = `inline-flex items-center justify-center h-6 w-6 rounded-md text-xs font-bold transition-colors ${
-                            hasIt
-                              ? "bg-emerald-500/15 text-emerald-500"
-                              : "bg-destructive/10 text-destructive/50"
-                          } ${isMaster ? "cursor-pointer hover:ring-2 hover:ring-primary/40" : "cursor-default"} ${isToggling ? "opacity-50" : ""}`;
                           return (
                             <td key={r.key} className="text-center px-3 py-2.5">
-                              <button
-                                type="button"
-                                disabled={!isMaster || isToggling}
-                                onClick={() => togglePermission(perm.key, r.key, hasIt)}
-                                className={cellClasses}
-                                title={isMaster ? (hasIt ? "Clique para remover" : "Clique para conceder") : undefined}
-                              >
-                                {isToggling ? <Loader2 className="h-3 w-3 animate-spin" /> : (hasIt ? "✓" : "✕")}
-                              </button>
+                              <span className={`inline-flex items-center justify-center h-6 w-6 rounded-md text-xs font-bold transition-colors ${
+                                hasIt
+                                  ? "bg-emerald-500/15 text-emerald-500"
+                                  : "bg-destructive/10 text-destructive/50"
+                              }`}>
+                                {hasIt ? "✓" : "✕"}
+                              </span>
                             </td>
                           );
                         })}
@@ -709,10 +656,7 @@ export default function UsersPage() {
                 </table>
               </div>
               <div className="px-4 py-3 border-t ghost-border">
-                <p className="text-[10px] text-muted-foreground">
-                  ⚡ Usuários com role <strong>Master</strong> possuem acesso irrestrito a todas as permissões acima.
-                  {!isMaster && " Apenas usuários Master podem editar esta matriz."}
-                </p>
+                <p className="text-[10px] text-muted-foreground">⚡ Usuários com role <strong>Master</strong> possuem acesso irrestrito a todas as permissões acima.</p>
               </div>
             </div>
           </TabsContent>

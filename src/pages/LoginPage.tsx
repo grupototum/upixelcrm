@@ -39,7 +39,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img
@@ -53,7 +53,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-6 shadow-xl space-y-4">
+        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-card p-6 shadow-xl space-y-4">
           {error && (
             <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               <AlertCircle className="h-4 w-4 text-destructive shrink-0" />

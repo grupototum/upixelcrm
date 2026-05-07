@@ -69,7 +69,7 @@ export function AddTagModal({ open, onOpenChange, leadId }: AddTagModalProps) {
                 size="icon"
                 onClick={() => handleAddTag(newTag)}
                 disabled={!newTag.trim() || currentTags.includes(newTag) || loading}
-                className="rounded-xl h-11 w-11 shrink-0 bg-primary hover:bg-primary-hover shadow-lg neon-glow"
+                className="rounded-xl h-11 w-11 shrink-0 bg-primary hover:bg-[#e04400] shadow-lg"
               >
                 <Plus className="h-5 w-5" />
               </Button>
@@ -80,12 +80,12 @@ export function AddTagModal({ open, onOpenChange, leadId }: AddTagModalProps) {
             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground pl-1">
               Tags Atuais ({currentTags.length})
             </Label>
-            <div className="flex flex-wrap gap-2 min-h-[60px] p-4 rounded-xl border border-dashed border-border/40 bg-card/30">
+            <div className="flex flex-wrap gap-2 min-h-[60px] p-4 rounded-xl border border-dashed border-[hsl(var(--border-strong))] bg-card">
               {currentTags.map((tag) => (
                 <Badge
                   key={tag}
                   variant="secondary"
-                  className="px-3 py-1.5 rounded-lg text-xs gap-2 bg-primary/10 border-primary/20 text-primary-foreground group"
+                  className="px-3 py-1.5 rounded-lg text-xs gap-2 bg-primary/10 border-[hsl(var(--border-strong))] text-primary-foreground group"
                 >
                   {tag}
                   <button
@@ -112,7 +112,7 @@ export function AddTagModal({ open, onOpenChange, leadId }: AddTagModalProps) {
                 <button
                   key={tag}
                   onClick={() => handleAddTag(tag)}
-                  className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-card border border-border/40 hover:bg-primary/10 hover:border-primary/30 transition-all text-muted-foreground hover:text-primary"
+                  className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-card border border-[hsl(var(--border-strong))] hover:bg-primary/10 hover:border-[hsl(var(--border-strong))] transition-all text-muted-foreground hover:text-primary"
                 >
                   + {tag}
                 </button>

@@ -44,7 +44,7 @@ export function MergeLeadsModal({ open, onOpenChange, sourceLead, onMerge }: Mer
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-xl">
+      <DialogContent className="sm:max-w-md rounded-card border border-[hsl(var(--border-strong))] bg-card">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold">
             <Merge className="h-5 w-5 text-primary" /> Mesclar Perfis
@@ -52,7 +52,7 @@ export function MergeLeadsModal({ open, onOpenChange, sourceLead, onMerge }: Mer
         </DialogHeader>
         
         <div className="space-y-4 py-4">
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex gap-3">
+          <div className="p-4 rounded-card bg-amber-500/10 border border-amber-500/20 flex gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-900 leading-relaxed">
               Esta ação moverá todas as conversas, tarefas e notas de <strong>{sourceLead?.name}</strong> para o perfil de destino selecionado e excluirá o perfil original. Esta ação não pode ser desfeita.
@@ -79,7 +79,7 @@ export function MergeLeadsModal({ open, onOpenChange, sourceLead, onMerge }: Mer
                   className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
                     targetId === lead.id 
                       ? "bg-primary/10 border-primary text-primary shadow-sm" 
-                      : "bg-background border-border/50 hover:border-primary/30"
+                      : "bg-background border-[hsl(var(--border-strong))] hover:border-[hsl(var(--border-strong))]"
                   }`}
                 >
                   <div className="text-left">
@@ -101,7 +101,7 @@ export function MergeLeadsModal({ open, onOpenChange, sourceLead, onMerge }: Mer
           <Button 
             onClick={handleMerge} 
             disabled={!targetId || loading} 
-            className="rounded-xl bg-primary hover:bg-primary-hover px-8 gap-2 shadow-lg shadow-primary/20"
+            className="rounded-xl bg-primary hover:bg-[#e04400] px-8 gap-2 shadow-lg shadow-primary/20"
           >
             {loading ? "Mesclando..." : "Mesclar Agora"}
           </Button>

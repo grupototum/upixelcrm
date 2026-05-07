@@ -94,7 +94,7 @@ export function MoveLeadModal({ open, onOpenChange, leadId, currentColumnId }: M
           <Button
             onClick={handleMove}
             disabled={!targetColumnId || targetColumnId === currentColumnId || loading}
-            className="rounded-xl text-xs h-11 bg-primary hover:bg-primary-hover px-10 shadow-lg neon-glow"
+            className="rounded-xl text-xs h-11 bg-primary hover:bg-[#e04400] px-10 shadow-lg"
           >
             {loading ? "Movendo..." : "Confirmar Mudança"}
           </Button>

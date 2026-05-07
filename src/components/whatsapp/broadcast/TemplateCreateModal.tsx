@@ -52,7 +52,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl">
+      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border border-[hsl(var(--border-strong))]">
         <form onSubmit={handleSubmit}>
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-xl font-heading font-black flex items-center gap-2">
@@ -74,7 +74,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                   placeholder="ex: confirmacao_pedido" 
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="rounded-xl bg-muted/30 border-border/40 focus:bg-white transition-all text-xs"
+                  className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white transition-all text-xs"
                 />
               </div>
               <div className="space-y-2">
@@ -83,7 +83,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                   value={formData.category} 
                   onValueChange={(v) => setFormData({...formData, category: v as Template["category"]})}
                 >
-                  <SelectTrigger className="rounded-xl bg-muted/30 border-border/40 text-xs">
+                  <SelectTrigger className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] text-xs">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
@@ -104,7 +104,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                 placeholder="Olá {{1}}, seu pedido {{2}} foi recebido!"
                 value={formData.content}
                 onChange={(e) => setFormData({...formData, content: e.target.value})}
-                className="min-h-[120px] rounded-2xl bg-muted/30 border-border/40 focus:bg-white dark:focus:bg-zinc-900 transition-all text-sm resize-none"
+                className="min-h-[120px] rounded-card bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white dark:focus:bg-zinc-900 transition-all text-sm resize-none"
               />
             </div>
 
@@ -116,7 +116,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                 placeholder="Digite o ID do fluxo no Typebot..."
                 value={formData.typebotFlowId}
                 onChange={(e) => setFormData({...formData, typebotFlowId: e.target.value})}
-                className="rounded-xl bg-muted/30 border-border/40 focus:bg-white dark:focus:bg-zinc-900 transition-all text-xs"
+                className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white dark:focus:bg-zinc-900 transition-all text-xs"
               />
               <p className="text-[9px] text-muted-foreground">Este fluxo será acionado automaticamente quando o cliente responder a esta mensagem.</p>
             </div>
@@ -126,7 +126,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
               <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                 <MessageSquare className="h-3 w-3" /> Preview no WhatsApp
               </Label>
-              <div className="bg-[#E5DDD5] dark:bg-[#0b141a] p-4 rounded-2xl relative overflow-hidden flex justify-start">
+              <div className="bg-[#E5DDD5] dark:bg-[#0b141a] p-4 rounded-card relative overflow-hidden flex justify-start">
                 <div className="bg-white dark:bg-[#1f2c33] p-3 rounded-xl rounded-tl-none shadow-sm max-w-[85%] relative z-10 border border-transparent dark:border-[#ffffff10]">
                   <p className="text-[13px] text-foreground dark:text-[#e9edef] leading-relaxed whitespace-pre-wrap">
                     {formData.content || <span className="opacity-30 italic">Seu conteúdo aparecerá aqui...</span>}
@@ -136,7 +136,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
               </div>
             </div>
 
-            <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex gap-3 items-start">
+            <div className="bg-primary/5 p-4 rounded-xl border border-[hsl(var(--border-strong))] flex gap-3 items-start">
               <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <p className="text-[10px] text-muted-foreground leading-tight">
                 Modelos de <strong>Marketing</strong> são ideais para ofertas, enquanto <strong>Utilidade</strong> serve para notificações de transações. A Meta leva em média 24h para aprovar.
@@ -144,7 +144,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
             </div>
           </div>
 
-          <DialogFooter className="p-6 bg-muted/20 border-t border-border/40">
+          <DialogFooter className="p-6 bg-muted/20 border-t border-[hsl(var(--border-strong))]">
             <Button 
               type="button" 
               variant="ghost" 
@@ -156,7 +156,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
             <Button 
               type="submit" 
               disabled={loading}
-              className="rounded-xl px-8 h-10 bg-primary hover:bg-primary-hover font-bold text-xs"
+              className="rounded-xl px-8 h-10 bg-primary hover:bg-[#e04400] font-bold text-xs"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar para Aprovação"}
             </Button>

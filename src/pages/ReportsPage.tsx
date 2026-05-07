@@ -475,7 +475,7 @@ function KPICard({
   };
 
   return (
-    <div className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 hover:border-border-hover">
+    <div className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 hover:border-[#ff4f00]/30">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
         <div className={`h-8 w-8 rounded-lg ${bgMap[accent] ?? "bg-secondary"} flex items-center justify-center`}>

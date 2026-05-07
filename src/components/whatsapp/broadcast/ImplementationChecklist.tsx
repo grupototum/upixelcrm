@@ -15,7 +15,7 @@ export function ImplementationChecklist() {
   ];
 
   return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border/40 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl overflow-hidden shadow-sm">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button variant="ghost" className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30">
@@ -28,7 +28,7 @@ export function ImplementationChecklist() {
         </CollapsibleTrigger>
         <CollapsibleContent className="px-4 pb-4 space-y-2 animate-accordion-down">
           {items.map((item, idx) => (
-            <div key={idx} className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
+            <div key={idx} className="flex items-center justify-between py-1.5 border-b border-[hsl(var(--border-strong))] last:border-0">
               <div className="flex items-center gap-2">
                 {item.completed ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />

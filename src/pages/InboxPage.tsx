@@ -288,7 +288,7 @@ export default function InboxPage() { // force HMR reset
                     inbox.selectLead(c.lead_id);
                     setActiveConversationId(c.source_conversations[0]?.id || null);
                   }}
-                  className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-all duration-200 border-b border-border/50 relative ${
+                  className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-all duration-200 border-b border-[hsl(var(--border-strong))] relative ${
                     inbox.selectedLeadId === c.lead_id ? "bg-primary/5 shadow-[inset_3px_0_0_0_#9b87f5]" : ""
                   }`}
                 >
@@ -357,7 +357,7 @@ export default function InboxPage() { // force HMR reset
           {selectedLeadGroup ? (
             <>
               {/* Chat header */}
-              <div className="px-4 py-2.5 ghost-border border-b flex items-center justify-between shrink-0 bg-card/50 backdrop-blur-sm z-10">
+              <div className="px-4 py-2.5 ghost-border border-b flex items-center justify-between shrink-0 bg-card z-10">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="relative group cursor-pointer shrink-0" onClick={() => setShowSidebar(!showSidebar)}>
                     <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm group-hover:shadow-md transition-all">
@@ -399,7 +399,7 @@ export default function InboxPage() { // force HMR reset
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-border/20">
+                  <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))]">
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -472,17 +472,17 @@ export default function InboxPage() { // force HMR reset
                       const ChannelIcon = channelIcons[msg.channel || ""] || MessageCircle;
                       
                       // Chat scope bubble styling
-                      let borderRadius = "rounded-2xl";
+                      let borderRadius = "rounded-card";
                       if (isOutbound) {
-                        if (!isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-br-none";
-                        else if (!isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-br-none";
-                        else if (isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-tr-sm rounded-br-sm";
-                        else if (isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-tr-sm";
+                        if (!isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-card rounded-br-none";
+                        else if (!isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-card rounded-br-none";
+                        else if (isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-card rounded-tr-sm rounded-br-sm";
+                        else if (isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-card rounded-tr-sm";
                       } else {
-                        if (!isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-bl-none";
-                        else if (!isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-bl-none";
-                        else if (isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-2xl rounded-tl-sm rounded-bl-sm";
-                        else if (isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-2xl rounded-tl-sm";
+                        if (!isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-card rounded-bl-none";
+                        else if (!isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-card rounded-bl-none";
+                        else if (isConsecutivePrev && isConsecutiveNext) borderRadius = "rounded-card rounded-tl-sm rounded-bl-sm";
+                        else if (isConsecutivePrev && !isConsecutiveNext) borderRadius = "rounded-card rounded-tl-sm";
                       }
 
                       return (
@@ -500,7 +500,7 @@ export default function InboxPage() { // force HMR reset
                             return (
                               <div className="flex items-center gap-3 my-4">
                                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/5 border border-primary/10">
+                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/5 border border-[hsl(var(--border-strong))]">
                                   <ChIcon className={`h-3 w-3 ${channelColors[currentChannel || ""] ? "text-primary" : "text-muted-foreground"}`} />
                                   <span className="text-[9px] font-bold uppercase tracking-widest text-primary/70">
                                     Canal alterado para {label}
@@ -563,7 +563,7 @@ export default function InboxPage() { // force HMR reset
                                         </div>
                                       )}
                                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                        <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                                        <div className="h-14 w-14 rounded-full bg-white/20 border border-white/30 flex items-center justify-center">
                                           <PlayCircle className="h-8 w-8 text-white drop-shadow-lg" />
                                         </div>
                                       </div>
@@ -581,7 +581,7 @@ export default function InboxPage() { // force HMR reset
                                     href={`https://www.google.com/maps/search/?api=1&query=${msg.metadata?.latitude || ''},${msg.metadata?.longitude || ''}`}
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-border/50 hover:bg-secondary/50 transition-all group"
+                                    className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))] hover:bg-secondary/50 transition-all group"
                                   >
                                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                                       <MapPin className="h-5 w-5" />
@@ -595,7 +595,7 @@ export default function InboxPage() { // force HMR reset
                                 )}
 
                                 {msg.type === "contact" && (
-                                  <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-border/50 group/contact">
+                                  <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))] group/contact">
                                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover/contact:bg-primary group-hover/contact:text-white transition-colors">
                                       <UserSquare2 className="h-5 w-5" />
                                     </div>
@@ -615,7 +615,7 @@ export default function InboxPage() { // force HMR reset
                                   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                                   return (
                                     <div className="space-y-2 py-1">
-                                      <div className={`flex items-center gap-3 p-2.5 rounded-2xl min-w-[220px] ${!isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-border/50'}`}>
+                                      <div className={`flex items-center gap-3 p-2.5 rounded-card min-w-[220px] ${!isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-[hsl(var(--border-strong))]'}`}>
                                         <button
                                           className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all shadow-md ${!isOutbound ? 'bg-white/25 hover:bg-white/35 text-white' : 'bg-primary/15 hover:bg-primary/25 text-primary'}`}
                                           onClick={(e) => {
@@ -671,7 +671,7 @@ export default function InboxPage() { // force HMR reset
                                         </Button>
                                       )}
                                       {msg.metadata?.transcript && (
-                                        <div className={`mt-1 p-2.5 rounded-xl italic text-[11px] leading-snug ${!isOutbound ? 'bg-white/10 text-white/80' : 'bg-primary/5 border border-primary/10 text-foreground/80'}`}>
+                                        <div className={`mt-1 p-2.5 rounded-xl italic text-[11px] leading-snug ${!isOutbound ? 'bg-white/10 text-white/80' : 'bg-primary/5 border border-[hsl(var(--border-strong))] text-foreground/80'}`}>
                                           "{msg.metadata.transcript}"
                                         </div>
                                       )}
@@ -680,7 +680,7 @@ export default function InboxPage() { // force HMR reset
                                 })()}
 
                                 {(msg.type === "file" || msg.type === "document") && (
-                                  <div className="flex items-center gap-3 p-2 bg-secondary/30 rounded-xl border border-border/50 group/file">
+                                  <div className="flex items-center gap-3 p-2 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))] group/file">
                                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover/file:bg-primary group-hover/file:text-white transition-colors">
                                       <File className="h-5 w-5" />
                                     </div>
@@ -763,7 +763,6 @@ export default function InboxPage() { // force HMR reset
                   leadName={selectedLeadGroup.lead_name}
                   leadPhone={selectedLeadGroup.lead_phone}
                   leadEmail={selectedLeadGroup.lead_email}
-                  channel={selectedLeadGroup.channels?.[0] || "whatsapp"}
                   onAddChannel={async (channel) => {
                     const phone = selectedLeadGroup.lead_phone || "";
                     const email = selectedLeadGroup.lead_email || "";
@@ -785,7 +784,7 @@ export default function InboxPage() { // force HMR reset
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
-              <div className="h-20 w-20 rounded-3xl bg-secondary flex items-center justify-center mb-6 animate-pulse">
+              <div className="h-20 w-20 rounded-card bg-secondary flex items-center justify-center mb-6 animate-pulse">
                 <MessageSquare className="h-10 w-10 text-muted-foreground/30" />
               </div>
               <h3 className="text-lg font-bold text-foreground">Sua Inbox</h3>
@@ -807,7 +806,7 @@ export default function InboxPage() { // force HMR reset
             <div className="w-80 flex flex-col h-full">
               <div className="p-5 ghost-border border-b bg-gradient-to-b from-primary/5 to-transparent">
                 <div className="flex flex-col items-center text-center mb-4">
-                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-primary-hover flex items-center justify-center text-xl font-bold text-primary-foreground shadow-lg mb-3 transform rotate-3 hover:rotate-0 transition-transform">
+                  <div className="h-16 w-16 rounded-card bg-gradient-to-br from-primary to-[#e04400] flex items-center justify-center text-xl font-bold text-primary-foreground shadow-lg mb-3 transform rotate-3 hover:rotate-0 transition-transform">
                     {initials(selectedLead?.name || selectedLeadGroup.lead_name)}
                   </div>
                   <h3 className="text-sm font-bold text-foreground line-clamp-1">{selectedLead?.name || selectedLeadGroup.lead_name}</h3>
@@ -830,7 +829,7 @@ export default function InboxPage() { // force HMR reset
                       }`}>
                       <SelectValue placeholder="LEAD" />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-none shadow-2xl bg-card">
+                    <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
                       <SelectItem value="lead" className="text-[10px] font-bold">LEAD</SelectItem>
                       <SelectItem value="partner" className="text-[10px] font-bold">PARCEIRO</SelectItem>
                       <SelectItem value="collaborator" className="text-[10px] font-bold">COLABORADOR</SelectItem>
@@ -852,7 +851,7 @@ export default function InboxPage() { // force HMR reset
                   </div>
                 </div>
                 {selectedLead ? (
-                  <Button variant="outline" size="sm" className="w-full text-[11px] gap-2 h-8 rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary transition-all" onClick={() => navigate(`/leads/${selectedLead.id}`)}>
+                  <Button variant="outline" size="sm" className="w-full text-[11px] gap-2 h-8 rounded-xl border-[hsl(var(--border-strong))] hover:bg-primary/5 hover:text-primary transition-all" onClick={() => navigate(`/leads/${selectedLead.id}`)}>
                     <User className="h-3.5 w-3.5" /> Ver perfil completo
                   </Button>
                 ) : (
@@ -872,7 +871,7 @@ export default function InboxPage() { // force HMR reset
                       </p>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="w-full flex items-center justify-between p-2.5 rounded-xl border border-border/50 bg-background hover:border-primary/30 transition-all group">
+                          <button className="w-full flex items-center justify-between p-2.5 rounded-xl border border-[hsl(var(--border-strong))] bg-background hover:border-[hsl(var(--border-strong))] transition-all group">
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="h-2 w-2 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: leadColumn?.color || "#9b87f5" }} />
                               <span className="text-xs font-semibold text-foreground truncate">{leadColumn?.name || "Sem estágio"}</span>
@@ -880,7 +879,7 @@ export default function InboxPage() { // force HMR reset
                             <MoreVertical className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-64 p-1.5 rounded-xl border-border/50 shadow-xl">
+                        <DropdownMenuContent align="start" className="w-64 p-1.5 rounded-xl border-[hsl(var(--border-strong))] shadow-xl">
                           {columns.map(col => (
                             <DropdownMenuItem
                               key={col.id}
@@ -902,7 +901,7 @@ export default function InboxPage() { // force HMR reset
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Contato</p>
                     <div className="space-y-2">
                       {selectedLeadGroup.lead_phone && (
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-transparent hover:border-border/50 transition-all group">
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-transparent hover:border-[hsl(var(--border-strong))] transition-all group">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <Phone className="h-3 w-3 text-muted-foreground" />
                             <span className="text-[11px] text-foreground font-medium truncate">{selectedLeadGroup.lead_phone}</span>
@@ -911,7 +910,7 @@ export default function InboxPage() { // force HMR reset
                         </div>
                       )}
                       {selectedLeadGroup.lead_email && (
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-transparent hover:border-border/50 transition-all group">
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-transparent hover:border-[hsl(var(--border-strong))] transition-all group">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <Mail className="h-3 w-3 text-muted-foreground" />
                             <span className="text-[11px] text-foreground font-medium truncate">{selectedLeadGroup.lead_email}</span>
@@ -928,11 +927,11 @@ export default function InboxPage() { // force HMR reset
                        <Activity className="h-3.5 w-3.5" /> Estatísticas do Lead
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="p-3 bg-secondary/20 rounded-xl border border-border/50">
+                      <div className="p-3 bg-secondary/20 rounded-xl border border-[hsl(var(--border-strong))]">
                         <p className="text-[9px] text-muted-foreground uppercase font-bold">Mensagens</p>
                         <p className="text-lg font-heading font-bold text-primary">{inbox.messages.length}</p>
                       </div>
-                      <div className="p-3 bg-secondary/20 rounded-xl border border-border/50">
+                      <div className="p-3 bg-secondary/20 rounded-xl border border-[hsl(var(--border-strong))]">
                         <p className="text-[9px] text-muted-foreground uppercase font-bold">Canais</p>
                         <p className="text-lg font-heading font-bold text-primary">{selectedLeadGroup.channels.length}</p>
                       </div>
@@ -962,13 +961,13 @@ export default function InboxPage() { // force HMR reset
                     <div className="space-y-2">
                       {leadTasks.length > 0 ? (
                         leadTasks.slice(0, 3).map(task => (
-                          <div key={task.id} className="group flex items-start gap-3 p-2.5 rounded-xl border border-border/30 bg-background hover:bg-secondary/20 transition-all">
+                          <div key={task.id} className="group flex items-start gap-3 p-2.5 rounded-xl border border-[hsl(var(--border-strong))] bg-background hover:bg-secondary/20 transition-all">
                             <button
                               onClick={() => toggleTaskStatus(task.id)}
                               className={`mt-0.5 h-4 w-4 rounded-lg border-2 flex items-center justify-center transition-all ${
                                 task.status === "completed" 
                                   ? "bg-success border-success text-white shadow-sm" 
-                                  : "border-border group-hover:border-primary/50"
+                                  : "border-border group-hover:border-[hsl(var(--border-strong))]"
                               }`}
                             >
                               {task.status === "completed" && <Plus className="h-3 w-3 rotate-45" />}
@@ -984,7 +983,7 @@ export default function InboxPage() { // force HMR reset
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-4 rounded-xl border border-dashed border-border/50">
+                        <div className="text-center py-4 rounded-xl border border-dashed border-[hsl(var(--border-strong))]">
                           <CheckSquare className="h-5 w-5 text-muted-foreground/20 mx-auto mb-1" />
                           <p className="text-[10px] text-muted-foreground italic">Foco total! Nenhuma tarefa pendente.</p>
                         </div>
@@ -1036,7 +1035,7 @@ export default function InboxPage() { // force HMR reset
                       <div className="flex flex-wrap gap-1.5">
                         {selectedLead.tags.length > 0 ? (
                           selectedLead.tags.map(tag => (
-                            <span key={tag} className="text-[9px] font-bold bg-primary/5 text-primary border border-primary/20 rounded-lg px-2 py-0.5 shadow-sm">{tag}</span>
+                            <span key={tag} className="text-[9px] font-bold bg-primary/5 text-primary border border-[hsl(var(--border-strong))] rounded-lg px-2 py-0.5 shadow-sm">{tag}</span>
                           ))
                         ) : (
                           <p className="text-[10px] text-muted-foreground italic pl-1">Organize seu lead com tags...</p>
@@ -1052,7 +1051,7 @@ export default function InboxPage() { // force HMR reset
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full text-xs font-bold gap-2 h-10 rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all shadow-sm"
+                  className="w-full text-xs font-bold gap-2 h-10 rounded-xl border-[hsl(var(--border-strong))] hover:bg-primary/5 hover:text-primary hover:border-[hsl(var(--border-strong))] transition-all shadow-sm"
                   onClick={() => {
                     if (selectedLead) {
                       navigate(`/leads/${selectedLead.id}`);
@@ -1177,10 +1176,10 @@ export default function InboxPage() { // force HMR reset
           />
 
           <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-            <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-2xl">
+            <AlertDialogContent className="rounded-card border border-[hsl(var(--border-strong))] bg-card">
               <AlertDialogHeader>
                 <AlertDialogTitle className="text-xl font-bold flex items-center gap-3 text-destructive">
-                  <div className="h-10 w-10 rounded-2xl bg-destructive/20 flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-card bg-destructive/20 flex items-center justify-center">
                     <AlertCircle className="h-5 w-5 text-destructive" />
                   </div>
                   Confirmar Exclusão
@@ -1206,7 +1205,7 @@ export default function InboxPage() { // force HMR reset
       )}
       {/* Media Viewer Lightbox */}
       {mediaViewer && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-[101]">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
@@ -1234,13 +1233,13 @@ export default function InboxPage() { // force HMR reset
               <a 
                 href={mediaViewer.url} 
                 download 
-                className="h-12 px-6 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 text-white text-sm font-bold shadow-xl backdrop-blur-sm border border-white/5"
+                className="h-12 px-6 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 text-white text-sm font-bold shadow-xl border border-white/5"
               >
                 <Download className="h-5 w-5" /> BAIXAR
               </a>
               <button 
                 onClick={() => setMediaViewer(null)}
-                className="h-12 w-12 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white shadow-xl backdrop-blur-sm border border-white/5"
+                className="h-12 w-12 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white shadow-xl border border-white/5"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -1252,7 +1251,7 @@ export default function InboxPage() { // force HMR reset
             {currentMediaIndex > 0 && (
               <button 
                 onClick={() => navigateMedia("prev")}
-                className="absolute left-6 h-14 w-14 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all border border-white/10 backdrop-blur-sm group-hover/gallery:translate-x-0 -translate-x-4 opacity-0 group-hover/gallery:opacity-100"
+                className="absolute left-6 h-14 w-14 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all border border-white/10 group-hover/gallery:translate-x-0 -translate-x-4 opacity-0 group-hover/gallery:opacity-100"
               >
                 <ChevronLeft className="h-8 w-8" />
               </button>
@@ -1261,7 +1260,7 @@ export default function InboxPage() { // force HMR reset
             {currentMediaIndex < allMedia.length - 1 && (
               <button 
                 onClick={() => navigateMedia("next")}
-                className="absolute right-6 h-14 w-14 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all border border-white/10 backdrop-blur-sm group-hover/gallery:translate-x-0 translate-x-4 opacity-0 group-hover/gallery:opacity-100"
+                className="absolute right-6 h-14 w-14 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all border border-white/10 group-hover/gallery:translate-x-0 translate-x-4 opacity-0 group-hover/gallery:opacity-100"
               >
                 <ChevronRight className="h-8 w-8" />
               </button>
@@ -1281,7 +1280,7 @@ export default function InboxPage() { // force HMR reset
                   )}
                 </div>
               ) : mediaViewer.type === "video" ? (
-                <div className="relative bg-black/40 flex items-center justify-center min-h-[450px] w-full rounded-2xl border border-white/5 overflow-hidden shadow-2xl group">
+                <div className="relative bg-black/40 flex items-center justify-center min-h-[450px] w-full rounded-card border border-white/5 overflow-hidden shadow-2xl group">
                   {(() => {
                     const videoUrl = mediaViewer.url;
                     const isWhatsAppDomain = videoUrl?.includes("mmg.whatsapp.net") || videoUrl?.includes("media.whatsapp.net");
@@ -1336,7 +1335,7 @@ export default function InboxPage() { // force HMR reset
                   })()}
 
                   {mediaViewer.metadata?.caption && (
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl max-w-[85%] animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 bg-black/80 border border-white/10 rounded-card shadow-2xl max-w-[85%] animate-in slide-in-from-bottom-4 duration-500">
                       <p className="text-white text-sm font-medium leading-relaxed italic text-center">
                         "{mediaViewer.metadata.caption}"
                       </p>

@@ -178,7 +178,7 @@ export default function BibliotecaPage() {
           <div
             key={doc.id}
             className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
-              doc.is_global ? "border-primary/20 bg-primary/5" : "border-border/50"
+              doc.is_global ? "border-[hsl(var(--border-strong))] bg-primary/5" : "border-[hsl(var(--border-strong))]"
             }`}
           >
             <div className="min-w-0 flex-1">
@@ -340,7 +340,7 @@ export default function BibliotecaPage() {
                 {searchResults && searchResults.length > 0 && (
                   <div className="space-y-2">
                     {searchResults.map((r, i) => (
-                      <div key={i} className="rounded-lg border border-border/50 p-3 space-y-1">
+                      <div key={i} className="rounded-lg border border-[hsl(var(--border-strong))] p-3 space-y-1">
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-sm">{r.title}</p>
                           <span className="text-xs text-primary font-mono">

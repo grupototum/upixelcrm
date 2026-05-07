@@ -216,7 +216,7 @@ export function BotsTab() {
     <div className="flex gap-4 h-[calc(100vh-220px)] min-h-[500px]">
       {/* Sidebar */}
       <div className="w-64 shrink-0 flex flex-col bg-card ghost-border rounded-xl shadow-card overflow-hidden">
-        <div className="p-3 border-b border-border/40 flex items-center justify-between">
+        <div className="p-3 border-b border-[hsl(var(--border-strong))] flex items-center justify-between">
           <h3 className="text-xs font-semibold text-foreground">Bots</h3>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={openCreate}>
             <Plus className="h-3.5 w-3.5" />
@@ -277,7 +277,7 @@ export function BotsTab() {
                     }
                   }}
                   className={`w-full text-left rounded-lg p-3 transition-all duration-200 ${
-                    isActive ? "bg-primary/10 border border-primary/30" : "hover:bg-secondary ghost-border"
+                    isActive ? "bg-primary/10 border border-[hsl(var(--border-strong))]" : "hover:bg-secondary ghost-border"
                   }`}
                 >
                   <div className="flex items-start gap-2">
@@ -310,7 +310,7 @@ export function BotsTab() {
       <div className="flex-1 flex flex-col bg-card ghost-border rounded-xl shadow-card overflow-hidden">
         {selectedBot ? (
           <>
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[hsl(var(--border-strong))]">
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold text-foreground">{selectedBot.name}</h3>
@@ -345,7 +345,7 @@ export function BotsTab() {
 
             <div className="flex-1 relative">
               {iframeLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
               )}
@@ -361,7 +361,7 @@ export function BotsTab() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-            <div className="h-16 w-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
+            <div className="h-16 w-16 rounded-card bg-accent/10 flex items-center justify-center mb-4">
               <Bot className="h-8 w-8 text-accent" />
             </div>
             <h3 className="text-sm font-semibold text-foreground mb-1">Selecione um bot</h3>
