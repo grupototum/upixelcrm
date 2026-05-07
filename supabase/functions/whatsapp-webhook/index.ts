@@ -382,6 +382,166 @@ async function triggerAutomations(adminClient: any, clientId: string, eventType:
   }
 }
 
+// ─── Bot Engine ──────────────────────────────────────────────────────────────
+
+function interpolateVars(text: string, vars: Record<string, string>, phone: string): string {
+  return text
+    .replace(/\{\{lead\.name\}\}/g, "")
+    .replace(/\{\{lead\.phone\}\}/g, phone)
+    .replace(/\{\{([^}]+)\}\}/g, (_: string, k: string) => vars[k] ?? "");
+}
+
+async function sendBotMessage(config: Record<string, any>, phone: string, text: string): Promise<void> {
+  try {
+    const clean = phone.replace(/\D/g, "");
+    const formatted = clean.startsWith("55") ? clean : `55${clean}`;
+    await fetch(`${config.api_url}/message/sendText/${config.instance_name}`, {
+      method: "POST",
+      headers: { apikey: config.api_key, "Content-Type": "application/json" },
+      body: JSON.stringify({ number: formatted, text }),
+    });
+  } catch (err) {
+    console.error("sendBotMessage error:", err);
+  }
+}
+
+async function executeBotNodes(
+  adminClient: any, sessionId: string,
+  nodes: any[], edges: any[], startNodeId: string,
+  variables: Record<string, string>, phone: string,
+  config: Record<string, any>, leadId: string
+): Promise<void> {
+  let currentId = startNodeId;
+  let vars = { ...variables };
+  const MAX_STEPS = 25;
+
+  for (let step = 0; step < MAX_STEPS; step++) {
+    const node = nodes.find((n: any) => n.id === currentId);
+    if (!node) break;
+    const d = node.data ?? {};
+
+    if (node.type === "bot_message") {
+      await sendBotMessage(config, phone, interpolateVars(d.text ?? "", vars, phone));
+      const next = edges.find((e: any) => e.source === currentId);
+      if (!next) break;
+      currentId = next.target;
+
+    } else if (node.type === "bot_question") {
+      await sendBotMessage(config, phone, interpolateVars(d.text ?? "", vars, phone));
+      await adminClient.from("bot_sessions").update({
+        current_node_id: currentId, variables: vars, updated_at: new Date().toISOString(),
+      }).eq("id", sessionId);
+      return; // pause — wait for reply
+
+    } else if (node.type === "bot_condition") {
+      const varVal = (vars[d.variable ?? ""] ?? "").toLowerCase();
+      const condVal = (d.value ?? "").toLowerCase();
+      let result = false;
+      if (d.operator === "equals")      result = varVal === condVal;
+      else if (d.operator === "contains")    result = varVal.includes(condVal);
+      else if (d.operator === "starts_with") result = varVal.startsWith(condVal);
+      else if (d.operator === "not_equals")  result = varVal !== condVal;
+      const handle = result ? "true" : "false";
+      const next = edges.find((e: any) => e.source === currentId && e.sourceHandle === handle)
+        ?? edges.find((e: any) => e.source === currentId);
+      if (!next) break;
+      currentId = next.target;
+
+    } else if (node.type === "bot_action") {
+      if (d.action === "end") {
+        await adminClient.from("bot_sessions").update({ status: "completed" }).eq("id", sessionId);
+        return;
+      }
+      if (d.action === "tag" && d.value) {
+        const { data: lead } = await adminClient.from("leads").select("tags").eq("id", leadId).maybeSingle();
+        const tags: string[] = lead?.tags ?? [];
+        if (!tags.includes(d.value)) {
+          await adminClient.from("leads").update({ tags: [...tags, d.value] }).eq("id", leadId);
+        }
+      }
+      if (d.action === "move_stage" && d.value) {
+        await adminClient.from("leads").update({ column_id: d.value }).eq("id", leadId);
+      }
+      if (d.action === "assign_agent" && d.value) {
+        await adminClient.from("leads").update({ responsible_id: d.value }).eq("id", leadId);
+      }
+      const next = edges.find((e: any) => e.source === currentId);
+      if (!next) break;
+      currentId = next.target;
+
+    } else {
+      break;
+    }
+  }
+
+  await adminClient.from("bot_sessions").update({ status: "completed" }).eq("id", sessionId);
+}
+
+async function runBotEngine(
+  adminClient: any, clientId: string, leadId: string,
+  phone: string, config: Record<string, any>, incomingMessage: string
+): Promise<void> {
+  try {
+    // 1. Resume active session (lead just replied to a question)
+    const { data: session } = await adminClient.from("bot_sessions")
+      .select("id, bot_id, current_node_id, variables")
+      .eq("lead_id", leadId).eq("status", "active").maybeSingle();
+
+    if (session) {
+      const { data: bot } = await adminClient.from("bots")
+        .select("nodes, edges").eq("id", session.bot_id).single();
+      if (!bot) return;
+
+      const currentNode = (bot.nodes as any[]).find((n: any) => n.id === session.current_node_id);
+      const vars: Record<string, string> = { ...(session.variables ?? {}) };
+
+      // Save reply into the variable defined by the question node
+      if (currentNode?.type === "bot_question" && currentNode.data?.variable) {
+        vars[currentNode.data.variable] = incomingMessage;
+      }
+
+      const replyEdge = (bot.edges as any[]).find((e: any) =>
+        e.source === session.current_node_id && e.sourceHandle === "reply"
+      ) ?? (bot.edges as any[]).find((e: any) => e.source === session.current_node_id);
+
+      if (!replyEdge) {
+        await adminClient.from("bot_sessions").update({ status: "completed" }).eq("id", session.id);
+        return;
+      }
+
+      await executeBotNodes(adminClient, session.id, bot.nodes, bot.edges, replyEdge.target, vars, phone, config, leadId);
+      return;
+    }
+
+    // 2. Check keyword triggers
+    const { data: bots } = await adminClient.from("bots")
+      .select("id, nodes, edges, trigger_type, trigger_value")
+      .eq("client_id", clientId).eq("status", "published").eq("trigger_type", "keyword");
+
+    for (const bot of bots ?? []) {
+      const keyword = (bot.trigger_value ?? "").toLowerCase();
+      if (!keyword || !incomingMessage.toLowerCase().includes(keyword)) continue;
+
+      const { data: newSession } = await adminClient.from("bot_sessions").insert({
+        bot_id: bot.id, lead_id: leadId, client_id: clientId, status: "active", variables: {},
+      }).select("id").single();
+      if (!newSession) continue;
+
+      const startNode = (bot.nodes as any[]).find((n: any) => n.type === "bot_start");
+      if (!startNode) continue;
+      const firstEdge = (bot.edges as any[]).find((e: any) => e.source === startNode.id);
+      if (!firstEdge) continue;
+
+      await executeBotNodes(adminClient, newSession.id, bot.nodes, bot.edges, firstEdge.target, {}, phone, config, leadId);
+      break;
+    }
+
+    // 3. Check new_lead triggers (already handled in findOrCreateLead via a separate call if needed)
+  } catch (err) {
+    console.error("Bot engine error:", err);
+  }
+}
+
 // Build display text from message type
 function buildDisplayText(msgType: string, content: string, meta: Record<string, unknown>): string {
   if (msgType === "text") return content;
@@ -544,6 +704,12 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
         message_type: msgType,
         channel: "whatsapp",
       });
+
+      // Bot engine — only for text messages
+      if (msgType === "text") {
+        runBotEngine(adminClient, clientId, conv.lead_id, phone, matchConfig, finalContent)
+          .catch((err: any) => console.error("Bot engine error (non-blocking):", err));
+      }
 
       const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
       const targetUserId = lead?.responsible_id;
