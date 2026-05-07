@@ -13,7 +13,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["geomanist", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["'Inter'", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
       },
       colors: {
@@ -90,7 +90,8 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         card: "var(--radius-card)",
         input: "var(--radius-input)",
-        pill: "9999px",
+        button: "var(--radius-button)",
+        pill: "var(--radius-pill)",
       },
       keyframes: {
         "accordion-down": {
