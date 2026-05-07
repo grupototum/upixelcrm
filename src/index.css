@@ -1,54 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --font-sans: 'Inter', system-ui, sans-serif;
-
     /* ═══════════════════════════════════════════
-       LIGHT MODE — Zapier Design System
-       Cream canvas #fffefb · Zapier Black #201515
-       Zapier Orange #ff4f00 · Sand border #c5c0b1
+       LIGHT MODE — n8n Design System
+       Canvas #fafafa · Primary #ee4f27
     ═══════════════════════════════════════════ */
 
-    /* Page background — cream white #fffefb */
-    --background: 45 100% 99%;
-    /* Primary text — Zapier Black #201515 */
-    --foreground: 0 21% 10%;
+    --background: 0 0% 98%;
+    --foreground: 0 0% 7%;
 
-    /* Surface tiers */
-    --bg-primary: 45 100% 99%;
-    --bg-secondary: 40 100% 99%;
-    --bg-tertiary: 48 19% 91%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 7%;
+    --card-hover: 240 5% 96%;
 
-    /* Cards — cream white, same as page */
-    --card: 45 100% 99%;
-    --card-foreground: 0 21% 10%;
-    --card-hover: 48 19% 91%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 7%;
 
-    --popover: 45 100% 99%;
-    --popover-foreground: 0 21% 10%;
+    --primary: 14 84% 54%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 14 84% 46%;
 
-    /* Primary — Zapier Orange #ff4f00 */
-    --primary: 19 100% 50%;
-    --primary-foreground: 45 100% 99%;
-    --primary-hover: 19 100% 44%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 0 0% 7%;
 
-    /* Secondary — light sand #eceae3 */
-    --secondary: 48 19% 91%;
-    --secondary-foreground: 47 8% 20%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 34%;
 
-    /* Muted — light sand surface, warm gray text */
-    --muted: 48 19% 91%;
-    --muted-foreground: 48 7% 55%;
-
-    /* Accent — same orange (used sparingly) */
-    --accent: 48 19% 91%;
-    --accent-foreground: 0 21% 10%;
-    --accent-hover: 45 15% 83%;
+    --accent: 14 84% 54%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 14 84% 48%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -56,81 +39,79 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 21% 10%;
+    --warning-foreground: 0 0% 7%;
 
-    /* Borders — warm sand #c5c0b1, border-forward design */
-    --border: 45 15% 73%;
-    --border-hover: 45 12% 60%;
-    --input: 48 19% 91%;
-    --ring: 19 100% 50%;
+    --border: 240 6% 90%;
+    --border-hover: 240 6% 80%;
+    --input: 240 6% 90%;
+    --ring: 14 84% 54%;
 
-    /* Ghost border token */
-    --ghost-border: 45 15% 73%;
+    --radius: 0.375rem;
+    --radius-card: 1.5rem;
+    --radius-input: 0.375rem;
+    --radius-button: 9999px;
 
-    /* Radius — Zapier uses 4-8px; 0.375rem ≈ 6px default */
-    --radius: 0.5rem;
+    --sidebar-background: 240 5% 96%;
+    --sidebar-foreground: 0 0% 7%;
+    --sidebar-primary: 14 84% 54%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 6% 90%;
+    --sidebar-accent-foreground: 0 0% 7%;
+    --sidebar-border: 240 6% 90%;
+    --sidebar-ring: 14 84% 54%;
 
-    /* Sidebar — light sand bg, dark charcoal text */
-    --sidebar-background: 48 19% 91%;
-    --sidebar-foreground: 47 8% 20%;
-    --sidebar-primary: 19 100% 50%;
-    --sidebar-primary-foreground: 45 100% 99%;
-    --sidebar-accent: 45 15% 83%;
-    --sidebar-accent-foreground: 0 21% 10%;
-    --sidebar-border: 45 15% 73%;
-    --sidebar-ring: 19 100% 50%;
+    --bg-primary: 0 0% 98%;
+    --bg-secondary: 240 5% 96%;
+    --bg-tertiary: 240 6% 90%;
+    --text-secondary: 240 4% 34%;
+    --ghost-border: 240 6% 90%;
 
-    --text-secondary: 47 8% 20%;
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.07), 0 4px 6px -2px rgba(0,0,0,.05);
+    --shadow-card: 0 1px 3px 0 rgba(0,0,0,.06);
+    --shadow-card-hover: 0 4px 12px 0 rgba(0,0,0,.1);
 
-    /* Shadows — Zapier is border-forward, no elevation shadows */
-    --shadow-sm: none;
-    --shadow-md: none;
-    --shadow-lg: none;
-    --shadow-card: none;
-    --shadow-card-hover: none;
+    --glass-bg: rgba(250,250,250,.85);
+    --glass-border: rgba(228,228,231,.6);
+    --glass-hover: rgba(0,0,0,.03);
 
-    /* Glass */
-    --glass-bg: rgba(255, 254, 251, 0.85);
-    --glass-border: rgba(197, 192, 177, 0.3);
-    --glass-hover: rgba(197, 192, 177, 0.08);
+    --surface-container: #f8fafc;
+    --surface-container-high: #ffffff;
+    --surface-inverse: #0e0918;
+    --surface-inverse-foreground: #d1cece;
+    --badge-bg: #fef3ee;
   }
 
   .dark {
     /* ═══════════════════════════════════════════
-       DARK MODE — Zapier-spirit dark
-       Deep warm near-black · Zapier Orange #ff4f00
-       Warm dark borders
+       DARK MODE — n8n brand dark
+       Canvas #0e0918 · Card #1b1728
     ═══════════════════════════════════════════ */
 
-    --background: 47 5% 7%;
-    --foreground: 45 100% 99%;
+    --background: 256 32% 6%;
+    --foreground: 0 5% 82%;
 
-    --bg-primary: 47 5% 7%;
-    --bg-secondary: 47 4% 10%;
-    --bg-tertiary: 47 4% 13%;
+    --card: 256 23% 12%;
+    --card-foreground: 0 5% 82%;
+    --card-hover: 256 20% 16%;
 
-    /* Cards — warm dark surface */
-    --card: 47 4% 11%;
-    --card-foreground: 45 100% 99%;
-    --card-hover: 47 4% 15%;
+    --popover: 256 23% 14%;
+    --popover-foreground: 0 5% 82%;
 
-    --popover: 47 4% 14%;
-    --popover-foreground: 45 100% 99%;
+    --primary: 14 84% 54%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 14 84% 46%;
 
-    /* Primary — Zapier Orange stays vivid on dark */
-    --primary: 19 100% 50%;
-    --primary-foreground: 45 100% 99%;
-    --primary-hover: 19 100% 44%;
+    --secondary: 267 22% 13%;
+    --secondary-foreground: 0 5% 82%;
 
-    --secondary: 47 4% 14%;
-    --secondary-foreground: 45 100% 99%;
+    --muted: 267 22% 15%;
+    --muted-foreground: 220 9% 65%;
 
-    --muted: 47 4% 16%;
-    --muted-foreground: 48 7% 55%;
-
-    --accent: 47 4% 16%;
-    --accent-foreground: 45 100% 99%;
-    --accent-hover: 47 4% 20%;
+    --accent: 14 84% 54%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 14 84% 48%;
 
     --destructive: 2 100% 72%;
     --destructive-foreground: 0 0% 100%;
@@ -138,39 +119,39 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 21% 10%;
+    --warning-foreground: 0 0% 7%;
 
-    /* Borders — dark warm sand */
-    --border: 47 5% 22%;
-    --border-hover: 47 5% 30%;
-    --input: 47 5% 22%;
-    --ring: 19 100% 50%;
+    --border: 267 22% 13%;
+    --border-hover: 267 18% 20%;
+    --input: 267 22% 13%;
+    --ring: 14 84% 54%;
 
-    --ghost-border: 47 5% 22%;
+    --sidebar-background: 256 23% 10%;
+    --sidebar-foreground: 220 9% 65%;
+    --sidebar-primary: 14 84% 54%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 256 23% 14%;
+    --sidebar-accent-foreground: 0 5% 82%;
+    --sidebar-border: 267 22% 13%;
+    --sidebar-ring: 14 84% 54%;
 
-    /* Sidebar — slightly lighter warm dark */
-    --sidebar-background: 47 4% 10%;
-    --sidebar-foreground: 48 7% 55%;
-    --sidebar-primary: 19 100% 50%;
-    --sidebar-primary-foreground: 45 100% 99%;
-    --sidebar-accent: 47 4% 14%;
-    --sidebar-accent-foreground: 45 100% 99%;
-    --sidebar-border: 47 5% 22%;
-    --sidebar-ring: 19 100% 50%;
+    --bg-primary: 256 32% 6%;
+    --bg-secondary: 256 23% 10%;
+    --bg-tertiary: 256 23% 14%;
+    --text-secondary: 220 9% 65%;
+    --ghost-border: 267 22% 13%;
 
-    --text-secondary: 48 7% 55%;
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,.3);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.5);
+    --shadow-card: 0 1px 3px 0 rgba(0,0,0,.3);
+    --shadow-card-hover: 0 4px 12px 0 rgba(0,0,0,.5);
 
-    /* Shadows — border-forward in dark too */
-    --shadow-sm: none;
-    --shadow-md: none;
-    --shadow-lg: none;
-    --shadow-card: none;
-    --shadow-card-hover: none;
+    --glass-bg: rgba(14,9,24,.85);
+    --glass-border: rgba(31,25,42,.6);
+    --glass-hover: rgba(255,255,255,.03);
 
-    /* Glass */
-    --glass-bg: rgba(25, 24, 22, 0.85);
-    --glass-border: rgba(71, 68, 58, 0.3);
-    --glass-hover: rgba(255, 255, 255, 0.03);
+    --badge-bg: rgba(238,79,39,.15);
   }
 }
 
@@ -180,12 +161,13 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: geomanist, ui-sans-serif, system-ui, sans-serif;
   }
 }
 
 /* ═══════════════════════════════════════════
-   Zapier DS utilities
+   n8n DS utilities
 ═══════════════════════════════════════════ */
 
 @layer utilities {
@@ -200,28 +182,24 @@
     background: var(--glass-hover);
   }
 
-  /* Sand border — Zapier structural element */
   .ghost-border {
     border: 1px solid hsl(var(--ghost-border));
   }
 
-  /* Active tab underline — Zapier inset shadow technique */
   .tab-active {
-    box-shadow: rgb(255, 79, 0) 0px -4px 0px 0px inset;
+    box-shadow: rgb(238, 79, 39) 0px -2px 0px 0px inset;
   }
 
   .tab-hover:hover {
-    box-shadow: hsl(45 15% 73%) 0px -4px 0px 0px inset;
+    box-shadow: hsl(240 6% 80%) 0px -2px 0px 0px inset;
   }
 
-  /* Keep utility names for compat — now renders flat (border-forward) */
   .editorial-shadow {
-    box-shadow: none;
-    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
   }
 
   .neon-glow {
-    box-shadow: none;
+    box-shadow: 0 0 20px rgba(238, 79, 39, 0.3);
   }
 
   .kinetic-pulse {
@@ -257,10 +235,8 @@
 /* Confetti canvas */
 .confetti-canvas {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   pointer-events: none;
   z-index: 9999;
 }
@@ -271,10 +247,19 @@
 }
 
 /* Hide scrollbar */
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+.hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* n8n page background gradient */
+.n8n-bg::before {
+  content: '';
+  position: fixed;
+  bottom: 0; left: 0;
+  width: 100%; height: 40%;
+  background: radial-gradient(ellipse at bottom left, rgba(166,55,85,.6) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
 }
