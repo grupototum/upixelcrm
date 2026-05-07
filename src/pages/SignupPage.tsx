@@ -178,7 +178,7 @@ export default function SignupPage() {
 
   if (!gateUnlocked) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
             <div className="flex justify-center mb-4">
@@ -194,7 +194,7 @@ export default function SignupPage() {
 
           <form
             onSubmit={handleGateSubmit}
-            className="bg-card border border-border rounded-2xl p-6 shadow-xl space-y-4"
+            className="bg-card border border-border rounded-card p-6 shadow-xl space-y-4"
           >
             {gateError && (
               <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -231,7 +231,7 @@ export default function SignupPage() {
 
   if (step === "success") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-sm text-center space-y-6">
           <div className="flex justify-center">
             <div className="h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center">
@@ -257,7 +257,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground">Cadastrar novo cliente</h1>
@@ -268,7 +268,7 @@ export default function SignupPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-card border border-border rounded-2xl p-6 shadow-xl space-y-4"
+          className="bg-card border border-border rounded-card p-6 shadow-xl space-y-4"
         >
           {error && (
             <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">

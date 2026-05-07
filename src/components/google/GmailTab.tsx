@@ -173,13 +173,13 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
             placeholder="Buscar no e-mail..." 
             value={search} 
             onChange={(e) => setSearch(e.target.value)} 
-            className="pl-9 h-10 shadow-sm border-border/40 bg-card rounded-xl text-xs" 
+            className="pl-9 h-10 shadow-sm border-[hsl(var(--border-strong))] bg-card rounded-xl text-xs" 
           />
         </div>
         
         <div className="flex items-center gap-2 w-full md:w-auto">
           <Tabs value={filterType} onValueChange={(v) => setFilterType(v as any)} className="w-auto">
-            <TabsList className="bg-card/30 border border-border/40 p-1 rounded-xl h-10">
+            <TabsList className="bg-card border border-[hsl(var(--border-strong))] p-1 rounded-xl h-10">
               <TabsTrigger value="all" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Todos</TabsTrigger>
               <TabsTrigger value="unread" className="text-[10px] font-bold uppercase rounded-lg px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all relative">
                 Não Lidos
@@ -193,18 +193,18 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
             </TabsList>
           </Tabs>
 
-          <Button size="icon" variant="outline" className="h-10 w-10 shrink-0 rounded-xl border-border/40 bg-card shadow-sm hover:text-primary transition-colors" onClick={load} title="Sincronizar">
+          <Button size="icon" variant="outline" className="h-10 w-10 shrink-0 rounded-xl border-[hsl(var(--border-strong))] bg-card shadow-sm hover:text-primary transition-colors" onClick={load} title="Sincronizar">
             <RefreshCw className="h-4 w-4" />
           </Button>
 
-          <Button size="sm" className="h-10 px-4 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold gap-2 shadow-lg shadow-primary/20" onClick={() => setComposeOpen(true)}>
+          <Button size="sm" className="h-10 px-4 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground text-xs font-bold gap-2 shadow-lg shadow-primary/20" onClick={() => setComposeOpen(true)}>
             <Send className="h-3.5 w-3.5" /> Escrever
           </Button>
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center rounded-2xl border-2 border-dashed border-border/30 bg-secondary/5">
+        <div className="flex flex-col items-center justify-center py-24 text-center rounded-card border-2 border-dashed border-[hsl(var(--border-strong))] bg-secondary/5">
           <div className="h-16 w-16 rounded-full bg-secondary/10 flex items-center justify-center mb-4">
             <Inbox className="h-8 w-8 text-muted-foreground/40" />
           </div>
@@ -214,7 +214,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
           </p>
         </div>
       ) : (
-        <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden animate-in fade-in duration-500">
+        <div className="bg-card border border-[hsl(var(--border-strong))] rounded-card shadow-sm overflow-hidden animate-in fade-in duration-500">
           <div className="divide-y divide-border/30">
             {filtered.map((email) => (
               <div
@@ -280,10 +280,10 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
 
       {/* View Email Dialog */}
       <Dialog open={!!viewEmail} onOpenChange={(open) => !open && setViewEmail(null)}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-3xl border-none shadow-2xl bg-card p-0">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-card border border-[hsl(var(--border-strong))] bg-card p-0">
           {viewEmail && (
             <>
-              <DialogHeader className="p-6 border-b border-border/20">
+              <DialogHeader className="p-6 border-b border-[hsl(var(--border-strong))]">
                 <DialogTitle className="text-sm font-bold leading-tight mb-2">
                   {viewEmail.subject}
                 </DialogTitle>
@@ -317,9 +317,9 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
                 )}
               </div>
               
-              <DialogFooter className="p-4 border-t border-border/20 bg-secondary/10 gap-2">
+              <DialogFooter className="p-4 border-t border-[hsl(var(--border-strong))] bg-secondary/10 gap-2">
                 <Button variant="ghost" size="sm" className="text-xs rounded-xl h-9" onClick={() => setViewEmail(null)}>Fechar</Button>
-                <Button size="sm" className="text-xs h-9 px-4 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-bold gap-2" onClick={() => { 
+                <Button size="sm" className="text-xs h-9 px-4 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2" onClick={() => { 
                   setTo(viewEmail.from.match(/<(.+?)>/)?.[1] || viewEmail.from);
                   setSubject(`Re: ${viewEmail.subject}`);
                   setViewEmail(null);
@@ -334,7 +334,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
       </Dialog>
 
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-        <DialogContent className="sm:max-w-lg rounded-3xl border-none shadow-2xl bg-card">
+        <DialogContent className="sm:max-w-lg rounded-card border border-[hsl(var(--border-strong))] bg-card">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold flex items-center gap-2">
               <Send className="h-4 w-4 text-primary" /> Nova Mensagem
@@ -360,7 +360,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
             <div className="space-y-1.5">
               <Textarea 
                 placeholder="Escreva sua mensagem..." 
-                className="text-xs min-h-[180px] rounded-2xl bg-secondary/20 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary resize-none" 
+                className="text-xs min-h-[180px] rounded-card bg-secondary/20 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary resize-none" 
                 value={body} 
                 onChange={(e) => setBody(e.target.value)} 
               />
@@ -368,7 +368,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
           </div>
           <DialogFooter className="gap-2">
             <Button variant="ghost" size="sm" className="text-xs rounded-xl h-10" onClick={() => setComposeOpen(false)}>Cancelar</Button>
-            <Button size="sm" className="text-xs h-10 px-6 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-bold gap-2" onClick={handleSend} disabled={sending}>
+            <Button size="sm" className="text-xs h-10 px-6 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2" onClick={handleSend} disabled={sending}>
               {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Enviar agora
             </Button>
           </DialogFooter>

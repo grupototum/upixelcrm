@@ -76,7 +76,7 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if(!o) setStep("select"); }}>
-      <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
+      <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border border-[hsl(var(--border-strong))]">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-xl font-heading font-black flex items-center gap-2">
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -89,7 +89,7 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
         <div className="px-6 pb-8">
           {step === "select" && (
             <div className="space-y-6">
-              <div className="bg-muted/30 p-4 rounded-xl border border-border/20 flex gap-3">
+              <div className="bg-muted/30 p-4 rounded-xl border border-[hsl(var(--border-strong))] flex gap-3">
                 <Info className="h-5 w-5 text-primary shrink-0" />
                 <p className="text-[11px] text-muted-foreground leading-tight">
                   Os créditos são utilizados para disparos fora da janela de 24h na rota Oficial. 
@@ -102,10 +102,10 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
                   <button
                     key={pack.amount}
                     onClick={() => setSelectedPack(pack)}
-                    className={`relative p-4 rounded-2xl border-2 transition-all text-left space-y-1 ${
+                    className={`relative p-4 rounded-card border-2 transition-all text-left space-y-1 ${
                       selectedPack.amount === pack.amount 
                       ? "border-primary bg-primary/5 shadow-md" 
-                      : "border-border/40 hover:border-border shadow-sm"
+                      : "border-[hsl(var(--border-strong))] hover:border-border shadow-sm"
                     }`}
                   >
                     {pack.popular && (
@@ -131,7 +131,7 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
 
               <Button 
                 onClick={handleGeneratePayment}
-                className="w-full h-14 rounded-2xl bg-primary hover:bg-primary-hover text-white font-heading font-black text-base shadow-xl shadow-primary/20 group"
+                className="w-full h-14 rounded-card bg-primary hover:bg-[#e04400] text-white font-heading font-black text-base shadow-xl shadow-primary/20 group"
                 disabled={loading || !cpfCnpj}
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
@@ -151,7 +151,7 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
                 <p className="text-xs text-muted-foreground">Valor: R$ {selectedPack.amount},00</p>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border-2 border-primary/20 shadow-inner group relative">
+              <div className="bg-white p-4 rounded-card border-2 border-[hsl(var(--border-strong))] shadow-inner group relative">
                 {paymentData?.pix?.encodedImage ? (
                   <img src={`data:image/png;base64,${paymentData.pix.encodedImage}`} alt="QR Code Pix" className="h-48 w-48" />
                 ) : (
@@ -181,7 +181,7 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
                 </a>
               </div>
 
-              <div className="w-full bg-primary/5 p-4 rounded-2xl border border-primary/10 flex items-start gap-3">
+              <div className="w-full bg-primary/5 p-4 rounded-card border border-[hsl(var(--border-strong))] flex items-start gap-3">
                 <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                   <Loader2 className="h-4 w-4 text-primary animate-spin" />
                 </div>

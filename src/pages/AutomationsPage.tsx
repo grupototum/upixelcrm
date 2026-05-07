@@ -61,7 +61,7 @@ export default function AutomationsPage() {
         <Button 
           size="sm" 
           onClick={handleCreate}
-          className="text-xs gap-1 bg-primary hover:bg-primary-hover text-primary-foreground"
+          className="text-xs gap-1 bg-primary hover:bg-[#e04400] text-primary-foreground"
         >
           <Plus className="h-3 w-3" /> {tabLabels[activeTab]}
         </Button>

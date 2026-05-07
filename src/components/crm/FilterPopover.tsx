@@ -11,7 +11,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import { useTenantUsers } from "@/hooks/useTenantUsers";
 
 export interface CRMFilters {
   origins: string[];
@@ -22,7 +21,6 @@ export interface CRMFilters {
   status: string[];
   priority: string[];
   dateRange: string;
-  assignedTo: string[]; // user ids; "__unassigned__" for leads without responsible
 }
 
 const EMPTY_FILTERS: CRMFilters = {
@@ -34,10 +32,7 @@ const EMPTY_FILTERS: CRMFilters = {
   status: [],
   priority: [],
   dateRange: "",
-  assignedTo: [],
 };
-
-export const UNASSIGNED_FILTER_VALUE = "__unassigned__";
 
 const ORIGIN_OPTIONS = ["Meta Ads", "Google Ads", "Website", "Indicação", "Evento", "Outbound", "Manual"];
 const STATUS_OPTIONS = ["Novo", "Em andamento", "Qualificado", "Proposta", "Negociação", "Ganho", "Perdido"];
@@ -58,11 +53,9 @@ interface FilterPopoverProps {
 export function FilterPopover({ filters, onFiltersChange, availableTags }: FilterPopoverProps) {
   const [open, setOpen] = useState(false);
   const { definitions } = useCustomFields();
-  const { users } = useTenantUsers();
 
   const cfFilters = filters.customFields ?? {};
   const cfActiveCount = Object.values(cfFilters).filter(Boolean).length;
-  const assignedTo = filters.assignedTo ?? [];
 
   const activeCount =
     filters.origins.length +
@@ -72,15 +65,7 @@ export function FilterPopover({ filters, onFiltersChange, availableTags }: Filte
     cfActiveCount +
     filters.status.length +
     filters.priority.length +
-    (filters.dateRange ? 1 : 0) +
-    assignedTo.length;
-
-  const toggleAssigned = (id: string) => {
-    const next = assignedTo.includes(id)
-      ? assignedTo.filter((x) => x !== id)
-      : [...assignedTo, id];
-    onFiltersChange({ ...filters, assignedTo: next });
-  };
+    (filters.dateRange ? 1 : 0);
 
   const toggleOrigin = (o: string) => {
     const next = filters.origins.includes(o)
@@ -259,39 +244,6 @@ export function FilterPopover({ filters, onFiltersChange, availableTags }: Filte
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Responsável */}
-        <div className="space-y-1.5">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Responsável</Label>
-          <div className="flex flex-wrap gap-1">
-            <button
-              onClick={() => toggleAssigned(UNASSIGNED_FILTER_VALUE)}
-              className={`px-2 py-1 rounded-full text-[10px] font-medium transition-colors ${
-                assignedTo.includes(UNASSIGNED_FILTER_VALUE)
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Sem responsável
-            </button>
-            {users.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => toggleAssigned(u.id)}
-                className={`px-2 py-1 rounded-full text-[10px] font-medium transition-colors ${
-                  assignedTo.includes(u.id)
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {u.name}
-              </button>
-            ))}
-            {users.length === 0 && (
-              <span className="text-[10px] text-muted-foreground italic">Nenhum usuário disponível</span>
-            )}
-          </div>
         </div>
 
         {/* Custom Fields */}

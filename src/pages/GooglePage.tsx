@@ -80,7 +80,7 @@ export default function GooglePage() {
           ) : (
             <Button
               size="sm"
-              className="text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground ml-2"
+              className="text-xs gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground ml-2"
               onClick={handleConnect}
             >
               <LogIn className="h-3.5 w-3.5" /> Conectar com Google
@@ -96,7 +96,7 @@ export default function GooglePage() {
           </div>
         ) : !google.connected ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+            <div className="h-20 w-20 rounded-card bg-primary/10 flex items-center justify-center mb-6">
               <svg className="h-10 w-10" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -110,7 +110,7 @@ export default function GooglePage() {
               Seus dados ficam sincronizados em tempo real.
             </p>
             <Button
-              className="gap-2 bg-primary hover:bg-primary-hover text-primary-foreground"
+              className="gap-2 bg-primary hover:bg-[#e04400] text-primary-foreground"
               onClick={handleConnect}
             >
               <LogIn className="h-4 w-4" /> Conectar com Google
@@ -200,7 +200,7 @@ export default function GooglePage() {
             </Button>
             <Button
               size="sm"
-              className="text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+              className="text-xs gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground"
               onClick={handleSaveAndConnect}
               disabled={saving || !formClientId.trim() || !formClientSecret.trim()}
             >

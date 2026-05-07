@@ -14,7 +14,7 @@ export function ComingSoonOverlay({ children, label }: { children: ReactNode; la
   return (
     <div className="relative">
       <div className="opacity-50 pointer-events-none select-none">{children}</div>
-      <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-[1px] rounded-lg">
+      <div className="absolute inset-0 flex items-center justify-center bg-background rounded-lg">
         <div className="flex flex-col items-center gap-2">
           <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
             <Lock className="h-5 w-5 text-accent" />

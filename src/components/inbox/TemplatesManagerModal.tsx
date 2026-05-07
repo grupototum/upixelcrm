@@ -266,7 +266,7 @@ export function TemplatesManagerModal({ open, onOpenChange }: TemplatesManagerMo
                   {filteredItems.map((item) => (
                     <div
                       key={item.id}
-                      className="bg-card ghost-border rounded-lg p-3 hover:border-primary/40 transition-colors group"
+                      className="bg-card ghost-border rounded-lg p-3 hover:border-[hsl(var(--border-strong))] transition-colors group"
                     >
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">

@@ -110,7 +110,7 @@ export function NotificationPopover() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0 shadow-2xl border-none" align="end">
-        <div className="flex items-center justify-between p-4 ghost-border border-b bg-card/50 backdrop-blur-md">
+        <div className="flex items-center justify-between p-4 ghost-border border-b bg-card">
           <h4 className="text-sm font-bold tracking-tight">Notificações</h4>
           {unreadCount > 0 && (
             <Badge variant="secondary" className="text-[10px] h-5">
@@ -155,7 +155,7 @@ export function NotificationPopover() {
             )}
           </div>
         </ScrollArea>
-        <div className="p-2 ghost-border border-t bg-card/30">
+        <div className="p-2 ghost-border border-t bg-card">
           <Button
             variant="ghost"
             size="sm"

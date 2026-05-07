@@ -57,22 +57,22 @@ export function TemplateManager() {
               placeholder="Pesquisar modelos..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-64 rounded-xl bg-muted/30 border-border/40 focus:bg-white transition-all text-xs"
+              className="pl-9 w-64 rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white transition-all text-xs"
             />
           </div>
           <Button 
             onClick={() => setCreateOpen(true)}
-            className="rounded-xl h-10 bg-primary hover:bg-primary-hover font-bold text-xs gap-2 shadow-lg shadow-primary/20"
+            className="rounded-xl h-10 bg-primary hover:bg-[#e04400] font-bold text-xs gap-2 shadow-lg shadow-primary/20"
           >
             <Plus className="h-4 w-4" /> Novo Modelo
           </Button>
         </div>
       </div>
 
-      <div className="bg-card ghost-border rounded-2xl overflow-hidden shadow-card">
+      <div className="bg-card ghost-border rounded-card overflow-hidden shadow-card">
         <Table>
           <TableHeader className="bg-muted/10">
-            <TableRow className="hover:bg-transparent border-border/40">
+            <TableRow className="hover:bg-transparent border-[hsl(var(--border-strong))]">
               <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground py-4">Nome</TableHead>
               <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Categoria</TableHead>
               <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Status</TableHead>
@@ -93,13 +93,13 @@ export function TemplateManager() {
             ) : filteredTemplates.map((template) => {
               const Icon = statusIcons[template.status] || Clock;
               return (
-                <TableRow key={template.id} className="hover:bg-muted/5 transition-colors border-border/40">
+                <TableRow key={template.id} className="hover:bg-muted/5 transition-colors border-[hsl(var(--border-strong))]">
                   <TableCell className="font-bold text-xs py-5">
                     <p className="text-foreground">{template.name}</p>
                     <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">ID: {template.id.slice(0, 8)}</p>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-[9px] font-bold border-border/40 px-2 py-0">
+                    <Badge variant="outline" className="text-[9px] font-bold border-[hsl(var(--border-strong))] px-2 py-0">
                       {template.category}
                     </Badge>
                   </TableCell>
@@ -119,7 +119,7 @@ export function TemplateManager() {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-xl border-border/40">
+                      <DropdownMenuContent align="end" className="rounded-xl border-[hsl(var(--border-strong))]">
                         <DropdownMenuItem className="text-[11px] font-bold gap-2 cursor-pointer">
                           <Edit className="h-3.5 w-3.5 text-primary" /> Editar
                         </DropdownMenuItem>

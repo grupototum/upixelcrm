@@ -119,7 +119,7 @@ export function RAGIntegrationStatus() {
             key={c.name}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
               c.status === null
-                ? "border-border/50"
+                ? "border-[hsl(var(--border-strong))]"
                 : c.status
                   ? "border-success/20 bg-success/5"
                   : "border-destructive/20 bg-destructive/5"

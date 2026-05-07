@@ -67,7 +67,7 @@ export function NodesPalette() {
                 return (
                   <div
                     key={node.type}
-                    className="flex items-center gap-3 p-3 border border-border rounded-lg bg-secondary/50 cursor-grab active:cursor-grabbing hover:bg-secondary hover:border-border-hover transition-colors shadow-sm"
+                    className="flex items-center gap-3 p-3 border border-border rounded-lg bg-secondary/50 cursor-grab active:cursor-grabbing hover:bg-secondary hover:border-[#ff4f00]/30 transition-colors shadow-sm"
                     onDragStart={(event) => onDragStart(event, node.type, node.label)}
                     draggable
                   >

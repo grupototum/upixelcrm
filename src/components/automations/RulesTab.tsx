@@ -78,10 +78,10 @@ export function RulesTab() {
             placeholder="Buscar automação..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs shadow-sm bg-card/50"
+            className="pl-9 h-9 text-xs shadow-sm bg-card"
           />
         </div>
-        <Badge variant="outline" className="text-[10px] text-muted-foreground px-2 py-0.5 border-border/50">
+        <Badge variant="outline" className="text-[10px] text-muted-foreground px-2 py-0.5 border-[hsl(var(--border-strong))]">
           {filtered.length} automação{filtered.length !== 1 ? "ões" : ""}
         </Badge>
       </div>
@@ -98,7 +98,7 @@ export function RulesTab() {
             return (
               <div
                 key={auto.id}
-                className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-primary/20 transition-all duration-200 group"
+                className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-[hsl(var(--border-strong))] transition-all duration-200 group"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -147,7 +147,7 @@ export function RulesTab() {
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <div className="rounded-xl border border-[hsl(var(--border-strong))] bg-primary/5 p-3">
                     <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-2 flex items-center gap-1">
                       <Cog className="h-3 w-3" /> Ações
                     </p>

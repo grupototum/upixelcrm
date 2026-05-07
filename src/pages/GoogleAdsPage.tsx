@@ -103,7 +103,7 @@ export default function GoogleAdsPage() {
               { label: "Cliques", value: totalClicks.toLocaleString("pt-BR"), icon: MousePointerClick, color: "text-accent" },
               { label: "Conversões", value: totalConversions.toLocaleString("pt-BR"), icon: Users, color: "text-success" },
             ].map((kpi) => (
-              <div key={kpi.label} className="bg-card border border-border/50 rounded-xl p-4">
+              <div key={kpi.label} className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-4">
                 <kpi.icon className={`h-4 w-4 ${kpi.color} mb-2`} />
                 <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">{kpi.label}</p>
                 <p className="text-xl font-heading font-black text-foreground mt-0.5">{kpi.value}</p>
@@ -114,7 +114,7 @@ export default function GoogleAdsPage() {
 
         {/* Connection form */}
         {!isConnected && (
-          <div className="bg-card border border-border/50 rounded-xl p-5 space-y-5">
+          <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5 space-y-5">
             <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
               <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
               <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
@@ -160,7 +160,7 @@ export default function GoogleAdsPage() {
             <h3 className="text-sm font-bold">Campanhas ({campaigns.length})</h3>
 
             {loadingCampaigns ? (
-              <div className="h-32 bg-card rounded-xl border border-border/50 animate-pulse" />
+              <div className="h-32 bg-card rounded-xl border border-[hsl(var(--border-strong))] animate-pulse" />
             ) : campaigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 border border-dashed border-border rounded-xl text-muted-foreground text-sm gap-2">
                 <TrendingUp className="h-6 w-6 opacity-30" />
@@ -184,7 +184,7 @@ export default function GoogleAdsPage() {
                   </thead>
                   <tbody>
                     {campaigns.map((c) => (
-                      <tr key={c.id} className="border-t border-border/50 hover:bg-secondary/20">
+                      <tr key={c.id} className="border-t border-[hsl(var(--border-strong))] hover:bg-secondary/20">
                         <td className="p-2.5 font-medium max-w-[180px] truncate">{c.name}</td>
                         <td className="p-2.5 text-muted-foreground">{c.channel_type ?? "—"}</td>
                         <td className="p-2.5">

@@ -444,7 +444,7 @@ export default function ImportPage() {
         {/* Step 1: Upload */}
         {step === 1 && (
           <div
-            className={`bg-card border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+            className={`bg-card border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${dragOver ? "border-primary bg-primary/5" : "border-border hover:border-[hsl(var(--border-strong))]"}`}
             onClick={() => inputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -503,7 +503,7 @@ export default function ImportPage() {
               <Button variant="outline" size="sm" className="text-xs" onClick={clearFile}>Voltar</Button>
               <Button
                 size="sm"
-                className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground"
                 onClick={() => setStep(3)}
                 disabled={!column}
               >
@@ -546,7 +546,7 @@ export default function ImportPage() {
             </div>
 
             {/* Custom fields section */}
-            <div className="pt-2 border-t border-border/50">
+            <div className="pt-2 border-t border-[hsl(var(--border-strong))]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -639,7 +639,7 @@ export default function ImportPage() {
               <Button variant="outline" size="sm" className="text-xs" onClick={() => setStep(2)}>Voltar</Button>
               <Button
                 size="sm"
-                className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground"
                 onClick={() => {
                   if (!mapping.name || mapping.name === "__skip") {
                     toast.error("O campo Nome é obrigatório.");
@@ -700,7 +700,7 @@ export default function ImportPage() {
               <Button variant="outline" size="sm" className="text-xs" onClick={clearFile}>
                 Nova Importação
               </Button>
-              <Button size="sm" className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground" asChild>
+              <Button size="sm" className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground" asChild>
                 <a href="/crm">Ver no CRM</a>
               </Button>
             </div>

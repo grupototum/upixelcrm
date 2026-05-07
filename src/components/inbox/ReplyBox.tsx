@@ -5,9 +5,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { CannedResponsePicker } from "./CannedResponsePicker";
 import { MessageTemplatePopover } from "./MessageTemplatePopover";
-import { ApprovedTemplatesPopover } from "./ApprovedTemplatesPopover";
-import { WindowStatus, CreditWarning } from "./WindowStatusBadge";
-import { useConversationWindow } from "@/hooks/useConversationWindow";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
@@ -36,7 +33,6 @@ interface ReplyBoxProps {
   leadPhone?: string;
   leadEmail?: string;
   onAddChannel?: (channel: string) => Promise<void>;
-  channel?: string;
 }
 
 const channelConfig: Record<string, { icon: any; label: string; color: string }> = {
@@ -60,7 +56,6 @@ export function ReplyBox({
   leadPhone,
   leadEmail,
   onAddChannel,
-  channel,
 }: ReplyBoxProps) {
   const [message, setMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -70,7 +65,6 @@ export function ReplyBox({
   const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { window: windowStatus, hasEnoughCredits } = useConversationWindow(activeConversationId);
 
 
   const activeSource = sourceConversations.find(sc => sc.id === activeConversationId);
@@ -118,11 +112,6 @@ export function ReplyBox({
     if (!message.trim()) return;
     if (!isPrivate && !activeConversationId) {
       toast.error("Selecione um canal para enviar a mensagem.");
-      return;
-    }
-    // Check if fora da janela and not enough credits
-    if (channel === "whatsapp_official" && !hasEnoughCredits) {
-      toast.error("Você não tem créditos suficientes para enviar mensagens fora da janela de 24h.");
       return;
     }
     await onSend(message, isPrivate, activeConversationId);
@@ -197,34 +186,26 @@ export function ReplyBox({
   };
 
   return (
-    <div className={`p-4 border-t transition-colors duration-200 ${isPrivate ? "bg-amber-50/50 border-amber-200" : "bg-card/50"}`}>
+    <div className={`p-4 border-t transition-colors duration-200 ${isPrivate ? "bg-amber-50/50 border-amber-200" : "bg-card"}`}>
       <div className="max-w-4xl mx-auto space-y-3 relative">
         
         {showCannedPicker && (
-          <CannedResponsePicker
-            searchQuery={cannedSearch}
-            onSelect={handleSelectCanned}
-            onClose={() => setShowCannedPicker(false)}
+          <CannedResponsePicker 
+            searchQuery={cannedSearch} 
+            onSelect={handleSelectCanned} 
+            onClose={() => setShowCannedPicker(false)} 
           />
-        )}
-
-        {/* Window status and credit warning */}
-        {!isPrivate && activeConversationId && (
-          <div className="space-y-2">
-            <WindowStatus conversationId={activeConversationId} channel={channel || activeChannel} />
-            <CreditWarning conversationId={activeConversationId} channel={channel || activeChannel} />
-          </div>
         )}
 
         {/* Header: Mode & Channel Selector */}
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             {/* Reply / Private Note toggle */}
-            <div className="flex items-center gap-1.5 p-1 bg-secondary/30 rounded-2xl border border-border/20">
+            <div className="flex items-center gap-1.5 p-1 bg-secondary/30 rounded-card border border-[hsl(var(--border-strong))]">
               <button
                 onClick={() => setIsPrivate(false)}
                 className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl transition-all duration-200 ${
-                  !isPrivate ? "bg-background text-primary shadow-sm border border-border/50" : "text-muted-foreground hover:text-foreground"
+                  !isPrivate ? "bg-background text-primary shadow-sm border border-[hsl(var(--border-strong))]" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 Resposta
@@ -244,7 +225,7 @@ export function ReplyBox({
           {!isPrivate && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/30 border border-border/20 hover:bg-secondary/50 transition-all text-[10px] font-bold uppercase tracking-wider">
+                <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/30 border border-[hsl(var(--border-strong))] hover:bg-secondary/50 transition-all text-[10px] font-bold uppercase tracking-wider">
                   <ActiveIcon className={`h-3.5 w-3.5 ${activeConfig.color}`} />
                   <span className="text-foreground">{activeConfig.label}</span>
                   <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -311,8 +292,8 @@ export function ReplyBox({
 
         {/* Pending file preview */}
         {pendingFile && (
-          <div className="flex items-center gap-3 p-3 bg-secondary/40 rounded-xl border border-border/40 animate-in fade-in slide-in-from-bottom-2">
-            <div className="h-12 w-12 rounded-lg bg-background flex items-center justify-center shrink-0 border border-border/40">
+          <div className="flex items-center gap-3 p-3 bg-secondary/40 rounded-xl border border-[hsl(var(--border-strong))] animate-in fade-in slide-in-from-bottom-2">
+            <div className="h-12 w-12 rounded-lg bg-background flex items-center justify-center shrink-0 border border-[hsl(var(--border-strong))]">
               {getFilePreviewType(pendingFile) === "image" ? (
                 <img
                   src={URL.createObjectURL(pendingFile)}
@@ -360,10 +341,10 @@ export function ReplyBox({
         )}
 
         {/* Input Area */}
-        <div className={`relative rounded-3xl p-2 shadow-xl border transition-all duration-300 ${
+        <div className={`relative rounded-card p-2 shadow-xl border transition-all duration-300 ${
           isPrivate
             ? "bg-amber-50 border-amber-200 focus-within:border-amber-400 focus-within:ring-4 focus-within:ring-amber-500/10"
-            : "bg-background border-border/40 focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10"
+            : "bg-background border-[hsl(var(--border-strong))] focus-within:border-[hsl(var(--border-strong))] focus-within:ring-4 focus-within:ring-primary/10"
         }`}>
           <div className="flex items-end gap-2 px-1">
             <div className="flex items-center gap-1 pb-1">
@@ -457,17 +438,15 @@ export function ReplyBox({
 
             <div className="flex items-center gap-2 pb-1 pr-1">
               {!isPrivate && (
-                <div className="h-8 border-l border-border/50 mx-1" />
+                <div className="h-8 border-l border-[hsl(var(--border-strong))] mx-1" />
               )}
-              {!isPrivate && <ApprovedTemplatesPopover channel={activeChannel} onSelect={(name, content) => setMessage(content)} />}
-              {!isPrivate && <MessageTemplatePopover onSelect={body => setMessage(body)} disabled={sending || uploading} />}
+              {!isPrivate && <MessageTemplatePopover onSelect={body => setMessage(body)} />}
               
               <Button
                 size="icon"
-                className={`h-9 w-9 rounded-full shrink-0 shadow-lg transition-all active:scale-95 ${isPrivate ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-primary shadow-primary/20 hover:bg-primary-hover disabled:opacity-50"}`}
-                disabled={!message.trim() || sending || (channel === "whatsapp_official" && !hasEnoughCredits)}
+                className={`h-9 w-9 rounded-full shrink-0 shadow-lg transition-all active:scale-95 ${isPrivate ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-primary shadow-primary/20 hover:bg-[#e04400]"}`}
+                disabled={!message.trim() || sending}
                 onClick={handleSend}
-                title={channel === "whatsapp_official" && !hasEnoughCredits ? "Créditos insuficientes para enviar fora da janela de 24h" : undefined}
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>

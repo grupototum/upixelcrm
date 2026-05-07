@@ -28,7 +28,7 @@ export function SettingsPopover() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-0 shadow-2xl border-none" align="end">
-        <div className="p-4 bg-card/50 backdrop-blur-md">
+        <div className="p-4 bg-card">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary uppercase">
               {initials}

@@ -202,7 +202,7 @@ export function AutomationCanvas({ automationId }: { automationId: string }) {
           <Controls />
           <MiniMap style={{ borderRadius: 8, overflow: 'hidden' }} zoomable pannable />
           
-          <Panel position="top-center" className="flex gap-2 bg-card/50 p-1.5 rounded-full backdrop-blur-md shadow-sm border border-border">
+          <Panel position="top-center" className="flex gap-2 bg-card p-1.5 rounded-full shadow-sm border border-border">
             <Button onClick={organizeLayout} variant="secondary" size="sm" className="gap-2 shadow-sm font-medium rounded-full px-4 text-xs h-8">
               <LayoutGrid className="w-3.5 h-3.5" />
               Auto-Mágica

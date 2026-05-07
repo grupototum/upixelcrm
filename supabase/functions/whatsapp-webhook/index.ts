@@ -2,45 +2,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
-// ─── Meta X-Hub-Signature-256 verification ───
-// Meta signs official webhook payloads with HMAC-SHA256 using the App Secret.
-// We verify the signature only for the Official path; the Evolution/Lite path
-// does not send this header and is left untouched.
-async function verifyMetaSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  const appSecret = Deno.env.get("META_APP_SECRET") || Deno.env.get("FACEBOOK_APP_SECRET");
-  if (!appSecret) {
-    // No secret configured — skip verification but warn. Set META_APP_SECRET in
-    // Supabase secrets to enforce signature checks in production.
-    console.warn("META_APP_SECRET not set — skipping X-Hub-Signature-256 verification");
-    return true;
-  }
-  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
-    return false;
-  }
-  const expected = signatureHeader.slice("sha256=".length).toLowerCase();
-
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(appSecret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  // Constant-time comparison
-  if (computed.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < computed.length; i++) {
-    diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return diff === 0;
-}
-
 // ─── Push notification helper ───
 async function sendPushNotification(
   adminClient: any,
@@ -230,105 +191,102 @@ async function downloadOfficialMedia(
   } catch (err) { console.error("Error downloading official media:", err); return null; }
 }
 
-// ─── Find or create lead via RPC unificada ───
-// Delega toda a logica de matching/merge para a funcao SQL match_or_create_lead.
-// Dispara automacao + push notification SO quando o lead foi recem-criado.
+// ─── Find or create lead ───
 async function findOrCreateLead(
-  adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>,
-  origin: string = "whatsapp"
+  adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>
 ): Promise<string | null> {
-  const { data, error } = await adminClient.rpc("match_or_create_lead", {
-    p_client_id: clientId,
-    p_phone: phone,
-    p_email: null,
-    p_instagram_id: null,
-    p_facebook_id: null,
-    p_name: senderName,
-    p_origin: origin,
-    p_target_column_id: config?.target_column_id ?? null,
+  const cleanPhone = phone.replace(/\D/g, '');
+  const phoneSuffix8 = cleanPhone.length >= 8 ? cleanPhone.slice(-8) : cleanPhone;
+  const phoneSuffix9 = cleanPhone.length >= 9 ? cleanPhone.slice(-9) : cleanPhone;
+  
+  // Try matching by suffix first (more precise)
+  const { data: existingLeads } = await adminClient
+    .from("leads").select("id, created_at, tags, notes, phone")
+    .eq("client_id", clientId)
+    .or(`phone.ilike.%${phoneSuffix8},phone.ilike.%${phoneSuffix9}`)
+    .order("created_at", { ascending: true });
+
+  if (existingLeads && existingLeads.length > 0) {
+    const primaryLead = existingLeads[0];
+    if (existingLeads.length > 1) {
+      const duplicates = existingLeads.slice(1);
+      const duplicateIds = duplicates.map((d: any) => d.id);
+      await Promise.all([
+        adminClient.from("conversations").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
+        adminClient.from("tasks").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
+        adminClient.from("timeline_events").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
+      ]);
+      let mergedTags = [...(primaryLead.tags || [])];
+      let mergedNotes = primaryLead.notes || "";
+      duplicates.forEach((d: any) => {
+        (d.tags || []).forEach((t: string) => { if (!mergedTags.includes(t)) mergedTags.push(t); });
+        if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
+      });
+      await adminClient.from("leads").update({ tags: mergedTags, notes: mergedNotes }).eq("id", primaryLead.id);
+      await adminClient.from("leads").delete().in("id", duplicateIds);
+    }
+    return primaryLead.id;
+  }
+
+  let targetColId = config?.target_column_id;
+  if (!targetColId) {
+    const { data: firstCol } = await adminClient.from("pipeline_columns").select("id")
+      .eq("client_id", clientId).order("order", { ascending: true }).limit(1).maybeSingle();
+    targetColId = firstCol?.id;
+  }
+  if (!targetColId) {
+    // Cria pipeline padrão automaticamente para clients que ainda não configuraram
+    console.log("No pipeline columns — creating default for client:", clientId);
+    const defaultCols = [
+      { client_id: clientId, name: "Novo", order: 0, color: "#3b82f6" },
+      { client_id: clientId, name: "Em Atendimento", order: 1, color: "#f59e0b" },
+      { client_id: clientId, name: "Negociação", order: 2, color: "#8b5cf6" },
+      { client_id: clientId, name: "Ganho", order: 3, color: "#10b981" },
+      { client_id: clientId, name: "Perdido", order: 4, color: "#ef4444" },
+    ];
+    const { data: created, error: colErr } = await adminClient.from("pipeline_columns")
+      .insert(defaultCols).select("id").order("order", { ascending: true });
+    if (colErr || !created?.length) {
+      console.error("Failed to create default pipeline columns:", colErr);
+      return null;
+    }
+    targetColId = created[0].id;
+  }
+
+  const { data: newLead, error: leadError } = await adminClient.from("leads").insert({
+    client_id: clientId, name: senderName, phone, column_id: targetColId,
+    tags: ["whatsapp-auto"], origin: "whatsapp",
+  }).select("id").single();
+  if (leadError) { console.error("Error creating lead:", leadError); return null; }
+
+  await adminClient.from("timeline_events").insert({
+    client_id: clientId, lead_id: newLead.id, type: "stage_change",
+    content: `Lead "${senderName}" criado automaticamente via WhatsApp`, user_name: "Sistema",
+  });
+  console.log("Created lead:", newLead.id);
+
+  // Trigger automation for new lead
+  triggerAutomations(adminClient, clientId, "new_lead", newLead.id, { origin: "whatsapp" });
+
+  // Push notification for new lead (broadcast to all users of this client)
+  sendPushNotification(adminClient, {
+    title: "🆕 Novo Lead",
+    body: `${senderName} entrou via WhatsApp`,
+    tag: `lead-${newLead.id}`,
+    type: "new_lead",
+    target_client_id: clientId,
+    lead_id: newLead.id,
   });
 
-  if (error || !data) {
-    console.error("match_or_create_lead failed:", error);
-    return null;
-  }
-
-  const leadId = (data as any).lead_id as string;
-  const created = (data as any).created as boolean;
-  const mergedCount = (data as any).merged_count as number;
-
-  if (mergedCount > 0) {
-    console.log(`Lead ${leadId}: mesclados ${mergedCount} duplicados ao receber mensagem`);
-  }
-
-  // So dispara automacao + push para leads NOVOS (recem-criados)
-  if (created) {
-    console.log("Created lead via RPC:", leadId);
-    triggerAutomations(adminClient, clientId, "new_lead", leadId, { origin });
-    sendPushNotification(adminClient, {
-      title: "🆕 Novo Lead",
-      body: `${senderName} entrou via ${origin === "whatsapp_official" ? "WhatsApp Oficial" : "WhatsApp"}`,
-      tag: `lead-${leadId}`,
-      type: "new_lead",
-      target_client_id: clientId,
-      lead_id: leadId,
-    });
-  }
-
-  return leadId;
+  return newLead.id;
 }
 
-// ─── Check message deduplication ───
-async function isDuplicateMessage(
-  adminClient: any,
-  clientId: string,
-  whatsappMsgId: string | undefined,
-  source: string
-): Promise<boolean> {
-  if (!whatsappMsgId) return false;
-
-  const { data: existing } = await adminClient
-    .from("whatsapp_message_dedup")
-    .select("id")
-    .eq("client_id", clientId)
-    .eq("whatsapp_msg_id", whatsappMsgId)
-    .eq("source", source)
-    .limit(1);
-
-  return (existing?.length || 0) > 0;
-}
-
-// ─── Record message as processed ───
-async function recordMessageProcessed(
-  adminClient: any,
-  clientId: string,
-  whatsappMsgId: string | undefined,
-  source: string
-) {
-  if (!whatsappMsgId) return;
-
-  try {
-    await adminClient.from("whatsapp_message_dedup").insert({
-      client_id: clientId,
-      whatsapp_msg_id: whatsappMsgId,
-      source,
-    });
-  } catch (err) {
-    // Ignore duplicate key error - means message was already recorded
-    console.log("Message already recorded:", whatsappMsgId);
-  }
-}
-
-// ─── Trigger Complex Automations with retry logic ───
-async function triggerAutomations(
-  adminClient: any,
-  clientId: string,
-  eventType: string,
-  leadId: string,
-  context: any
-) {
+// ─── Trigger Complex Automations ───
+async function triggerAutomations(adminClient: any, clientId: string, eventType: string, leadId: string, context: any) {
   try {
     // PARTE 1 (Salesbot): retoma runs em status='waiting' para esse lead.
+    // Quando o lead manda uma mensagem, qualquer automação parada num
+    // wait_for_reply deve continuar a partir do próximo nó.
     if (eventType === "new_message" || eventType?.startsWith("message_received")) {
       const { data: waitingRuns } = await adminClient
         .from("automation_runs")
@@ -351,6 +309,7 @@ async function triggerAutomations(
             edges.find((e: any) => e.source === run.current_node_id);
 
           if (!replyEdge) {
+            // Sem próximo nó — finaliza o run
             await adminClient
               .from("automation_runs")
               .update({ status: "completed", finished_at: new Date().toISOString() })
@@ -358,6 +317,7 @@ async function triggerAutomations(
             continue;
           }
 
+          // Salva a mensagem do lead em context[saveAs] e retoma o engine
           const saveAs = (run.context as any)?._wait_save_as ?? "last_reply";
           const newContext = {
             ...(run.context as any),
@@ -370,8 +330,21 @@ async function triggerAutomations(
             .update({ status: "running", context: newContext })
             .eq("id", run.id);
 
-          // Use async fire-and-forget with better error handling
-          invokeEngineWithRetry(run.automation_id, leadId, replyEdge.target, newContext, run.id);
+          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              tenant_id: (run.context as any)?.tenant_id,
+              automation_id: run.automation_id,
+              lead_id: leadId,
+              node_id: replyEdge.target,
+              context: newContext,
+              run_id: run.id,
+            }),
+          }).catch((err: any) => console.error("Error resuming run:", err));
         } catch (innerErr) {
           console.error("Failed to resume run:", run.id, innerErr);
         }
@@ -388,50 +361,25 @@ async function triggerAutomations(
 
       for (const trigger of triggerNodes) {
         console.log(`Triggering automation ${auto.id} via node ${trigger.id}`);
-        invokeEngineWithRetry(auto.id, leadId, trigger.id, context, undefined);
+        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
+          },
+          body: JSON.stringify({
+            tenant_id: auto.tenant_id,
+            automation_id: auto.id,
+            lead_id: leadId,
+            node_id: trigger.id,
+            context
+          })
+        }).catch((err: any) => console.error("Error invoking engine:", err));
       }
     }
   } catch (err) {
     console.error("Error finding automations:", err);
   }
-}
-
-// ─── Invoke engine with retry logic ───
-function invokeEngineWithRetry(
-  automationId: string,
-  leadId: string,
-  nodeId: string,
-  context: any,
-  runId?: string,
-  attempt: number = 0
-) {
-  const maxAttempts = 3;
-  const baseDelay = 1000; // 1s
-
-  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-    },
-    body: JSON.stringify({
-      automation_id: automationId,
-      lead_id: leadId,
-      node_id: nodeId,
-      context,
-      run_id: runId,
-    }),
-  }).catch((err: any) => {
-    if (attempt < maxAttempts) {
-      const delay = baseDelay * Math.pow(2, attempt);
-      console.warn(`Engine invoke failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`);
-      setTimeout(() => {
-        invokeEngineWithRetry(automationId, leadId, nodeId, context, runId, attempt + 1);
-      }, delay);
-    } else {
-      console.error("Engine invoke failed after max retries:", automationId, err);
-    }
-  });
 }
 
 // Build display text from message type
@@ -502,21 +450,12 @@ async function upsertConversationAndMessage(
   adminClient: any, clientId: string, phone: string, senderName: string,
   finalContent: string, msgType: string, msgMeta: Record<string, unknown>,
   channel: string, config: Record<string, any>, messageId?: string,
-  integrationId?: string, source?: string
+  integrationId?: string
 ) {
   const displayText = buildDisplayText(msgType, finalContent, msgMeta);
 
-  // Check for duplicate message
-  if (messageId && source) {
-    const isDuplicate = await isDuplicateMessage(adminClient, clientId, messageId, source);
-    if (isDuplicate) {
-      console.log("Duplicate message detected:", messageId);
-      return null; // Skip processing
-    }
-    await recordMessageProcessed(adminClient, clientId, messageId, source);
-  }
-
   // Look up existing conversation by (client_id, channel, phone)
+  // Note: avoid filtering by integration_id - column may not exist yet
   const { data: existingConv } = await adminClient.from("conversations")
     .select("id, unread_count, status")
     .eq("client_id", clientId)
@@ -527,22 +466,12 @@ async function upsertConversationAndMessage(
   let convId: string;
   if (existingConv) {
     convId = existingConv.id;
-    // Update conversation with retries
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await adminClient.from("conversations").update({
-          last_message: displayText, last_message_at: new Date().toISOString(),
-          unread_count: (existingConv.unread_count || 0) + 1, status: "open", updated_at: new Date().toISOString(),
-        }).eq("id", convId);
-        break;
-      } catch (err) {
-        if (attempt === 2) throw err;
-        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
-      }
-    }
+    await adminClient.from("conversations").update({
+      last_message: displayText, last_message_at: new Date().toISOString(),
+      unread_count: (existingConv.unread_count || 0) + 1, status: "open", updated_at: new Date().toISOString(),
+    }).eq("id", convId);
   } else {
-    const origin = channel === "whatsapp_official" ? "whatsapp_official" : "whatsapp";
-    const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config, origin);
+    const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config);
     const insertPayload = {
       client_id: clientId, lead_id: leadId, channel, status: "open",
       last_message: displayText, last_message_at: new Date().toISOString(), unread_count: 1,
@@ -603,7 +532,7 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
 
   const convId = await upsertConversationAndMessage(
     adminClient, clientId, phone, senderName, finalContent, msgType, msgMeta,
-    "whatsapp", matchConfig, messageData.key?.id, integrationId, "evolution"
+    "whatsapp", matchConfig, messageData.key?.id, integrationId
   );
 
   // Trigger Automations
@@ -683,7 +612,7 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
 
         const convId = await upsertConversationAndMessage(
           adminClient, clientId, senderPhone, senderName, finalContent, msgType, msgMeta,
-          "whatsapp_official", matchConfig, msg.id, integrationId, "official"
+          "whatsapp_official", matchConfig, msg.id, integrationId
         );
 
         // Trigger Automations
@@ -757,34 +686,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Read body as text first so we can verify HMAC signature on the raw payload.
-    const rawBody = await req.text();
-    let body: any;
-    try {
-      body = rawBody ? JSON.parse(rawBody) : {};
-    } catch (e) {
-      console.error("Webhook: invalid JSON body");
-      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const body = await req.json();
     console.log("Webhook received");
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Detect format: Meta Official API has "object": "whatsapp_business_account"
     if (body.object === "whatsapp_business_account") {
-      // Verify X-Hub-Signature-256 (Meta-only). Lite/Evolution path is unaffected.
-      const signatureHeader = req.headers.get("x-hub-signature-256");
-      const valid = await verifyMetaSignature(rawBody, signatureHeader);
-      if (!valid) {
-        console.warn("Meta webhook signature verification failed");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const result = await handleOfficialWebhook(body, adminClient);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

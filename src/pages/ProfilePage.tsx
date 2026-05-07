@@ -43,7 +43,7 @@ export default function ProfilePage() {
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar / Left Column */}
           <div className="w-full md:w-80 space-y-6">
-            <Card className="rounded-2xl ghost-border overflow-hidden bg-card/30 backdrop-blur-xl">
+            <Card className="rounded-card ghost-border overflow-hidden bg-card">
               <div className="h-24 bg-gradient-to-r from-primary/40 to-accent/40" />
               <CardContent className="pt-0 -mt-12 text-center pb-8">
                 <div className="relative inline-block group mb-4">
@@ -60,7 +60,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl ghost-border bg-card/30 backdrop-blur-xl">
+            <Card className="rounded-card ghost-border bg-card">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <Settings className="h-4 w-4 text-primary" /> Atalhos
@@ -79,7 +79,7 @@ export default function ProfilePage() {
 
           {/* Main Content / Right Column */}
           <div className="flex-1 space-y-6">
-            <Card className="rounded-2xl ghost-border bg-card/50 backdrop-blur-xl shadow-card">
+            <Card className="rounded-card ghost-border bg-card shadow-card">
               <CardHeader>
                 <CardTitle className="text-lg font-bold">Informações Básicas</CardTitle>
                 <CardDescription className="text-xs">Essas informações são visíveis para outros membros da equipe.</CardDescription>
@@ -117,7 +117,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={handleSave} disabled={saving} className="rounded-xl h-11 px-8 bg-primary hover:bg-primary-hover shadow-lg neon-glow">
+                  <Button onClick={handleSave} disabled={saving} className="rounded-xl h-11 px-8 bg-primary hover:bg-[#e04400] shadow-lg">
                     {saving ? "Salvando..." : "Salvar Alterações"}
                   </Button>
                 </div>
@@ -128,7 +128,7 @@ export default function ProfilePage() {
 
             <PushNotificationSettings />
 
-            <Card className="rounded-2xl ghost-border bg-card/50 backdrop-blur-xl shadow-card overflow-hidden">
+            <Card className="rounded-card ghost-border bg-card shadow-card overflow-hidden">
               <CardHeader className="bg-destructive/5">
                 <CardTitle className="text-lg font-bold text-destructive">Zona de Perigo</CardTitle>
                 <CardDescription className="text-xs">Ações que podem deletar sua conta permanentemente.</CardDescription>

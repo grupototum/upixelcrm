@@ -8,7 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const statusConfig: Record<RunStatus, { label: string; color: string; icon: typeof Activity }> = {
-  running: { label: "Em execução", color: "border-primary/40 text-primary", icon: Activity },
+  running: { label: "Em execução", color: "border-[hsl(var(--border-strong))] text-primary", icon: Activity },
   waiting: { label: "Aguardando resposta", color: "border-cyan-500/40 text-cyan-600", icon: MessagesSquare },
   completed: { label: "Concluído", color: "border-success/40 text-success", icon: CheckCircle2 },
   failed: { label: "Falhou", color: "border-destructive/40 text-destructive", icon: XCircle },
@@ -77,7 +77,7 @@ export default function AutomationRunsPage() {
                 return (
                   <div
                     key={run.id}
-                    className="bg-card ghost-border rounded-lg p-4 hover:border-primary/40 transition-colors"
+                    className="bg-card ghost-border rounded-lg p-4 hover:border-[hsl(var(--border-strong))] transition-colors"
                   >
                     <div className="flex items-start gap-4">
                       <div className="h-9 w-9 rounded-full bg-secondary/40 flex items-center justify-center shrink-0">

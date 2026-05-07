@@ -132,7 +132,7 @@ export default function IntegrationsPage() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Canais de comunicação</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {loading ? (
-              Array(3).fill(0).map((_, i) => <div key={i} className="h-44 bg-card/50 ghost-border rounded-xl animate-pulse" />)
+              Array(3).fill(0).map((_, i) => <div key={i} className="h-44 bg-card ghost-border rounded-xl animate-pulse" />)
             ) : (
               channels.map((int) => (
                 <IntegrationCard
@@ -152,7 +152,7 @@ export default function IntegrationsPage() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Ferramentas e APIs</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {loading ? (
-              Array(2).fill(0).map((_, i) => <div key={i} className="h-44 bg-card/50 ghost-border rounded-xl animate-pulse" />)
+              Array(2).fill(0).map((_, i) => <div key={i} className="h-44 bg-card ghost-border rounded-xl animate-pulse" />)
             ) : (
               devTools.map((int) => (
                 <IntegrationCard
@@ -178,7 +178,7 @@ function StatusBadge({ status, active }: { status: string; active?: boolean }) {
   const B = Badge as any;
   if (status === "coming_soon") return <ComingSoonBadge />;
   if (status === "connected") return <B variant="success" className="bg-success/15 text-success border-success/30 text-[10px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> Conectado</B>;
-  if (status === "configured") return <B className="bg-primary/15 text-primary border-primary/30 text-[10px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> Configurado</B>;
+  if (status === "configured") return <B className="bg-primary/15 text-primary border-[hsl(var(--border-strong))] text-[10px] gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> Configurado</B>;
   return <B variant="outline" className="text-[10px] gap-1 text-muted-foreground opacity-60"><XCircle className="h-2.5 w-2.5" /> Inativo</B>;
 }
 
@@ -186,7 +186,7 @@ function IntegrationCard({ integration: int, active, onToggle, onConfigure }: In
   const isAvailable = int.status !== "coming_soon";
 
   return (
-    <div className={`bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col ${active && isAvailable ? 'hover:border-primary/20 ring-1 ring-primary/10' : 'hover:border-border-hover'}`}>
+    <div className={`bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col ${active && isAvailable ? 'hover:border-[hsl(var(--border-strong))] ring-1 ring-primary/10' : 'hover:border-[#ff4f00]/30'}`}>
       <div className="flex items-start justify-between mb-3">
         <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${active && isAvailable ? 'bg-primary/10' : 'bg-muted'}`}>
           <int.icon className={`h-5 w-5 ${active && isAvailable ? int.color : 'text-muted-foreground'}`} />

@@ -129,12 +129,12 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
             placeholder="Buscar no Drive..." 
             value={search} 
             onChange={(e) => setSearch(e.target.value)} 
-            className="pl-9 h-10 shadow-sm border-border/40 bg-card rounded-xl text-xs" 
+            className="pl-9 h-10 shadow-sm border-[hsl(var(--border-strong))] bg-card rounded-xl text-xs" 
           />
         </div>
         
         <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-none w-full md:w-auto">
-          <div className="flex items-center gap-1 bg-card/30 border border-border/40 p-1 rounded-xl shrink-0">
+          <div className="flex items-center gap-1 bg-card border border-[hsl(var(--border-strong))] p-1 rounded-xl shrink-0">
             <Button
               variant={viewMode === "grid" ? "secondary" : "ghost"}
               size="icon"
@@ -156,7 +156,7 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
           <div className="h-6 w-px bg-border/40 mx-1 shrink-0" />
 
           <Tabs value={activeType} onValueChange={(v) => setActiveType(v as any)} className="w-auto shrink-0">
-            <TabsList className="bg-card/30 border border-border/40 p-1 rounded-xl h-10">
+            <TabsList className="bg-card border border-[hsl(var(--border-strong))] p-1 rounded-xl h-10">
               {Object.entries(typeLabels).map(([val, label]) => (
                 <TabsTrigger 
                   key={val} 
@@ -178,7 +178,7 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center rounded-2xl border-2 border-dashed border-border/30 bg-secondary/5">
+        <div className="flex flex-col items-center justify-center py-24 text-center rounded-card border-2 border-dashed border-[hsl(var(--border-strong))] bg-secondary/5">
           <div className="h-16 w-16 rounded-full bg-secondary/10 flex items-center justify-center mb-4">
             <FolderX className="h-8 w-8 text-muted-foreground/40" />
           </div>
@@ -196,7 +196,7 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
               <div
                 key={file.id}
                 onClick={() => handleOpenFile(file.webViewLink)}
-                className="group relative bg-card border border-border/40 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300 cursor-pointer"
+                className="group relative bg-card border border-[hsl(var(--border-strong))] rounded-card p-5 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-[hsl(var(--border-strong))] transition-all duration-300 cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", bgColor)}>
@@ -208,7 +208,7 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
                         <MoreVertical className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl border-none shadow-2xl bg-card">
+                    <DropdownMenuContent align="end" className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
                       <DropdownMenuItem className="text-xs gap-2 rounded-lg">
                         <Download className="h-3.5 w-3.5" /> Baixar
                       </DropdownMenuItem>
@@ -233,7 +233,7 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-border/20">
+                <div className="flex items-center justify-between pt-3 border-t border-[hsl(var(--border-strong))]">
                   <div className="flex items-center gap-1.5 text-muted-foreground text-[10px]">
                     <Calendar className="h-3 w-3" />
                     {file.modified}
@@ -247,10 +247,10 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
           })}
         </div>
       ) : (
-        <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden animate-in fade-in duration-500">
+        <div className="bg-card border border-[hsl(var(--border-strong))] rounded-card shadow-sm overflow-hidden animate-in fade-in duration-500">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-secondary/20 border-b border-border/30">
+              <tr className="bg-secondary/20 border-b border-[hsl(var(--border-strong))]">
                 <th className="px-6 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nome</th>
                 <th className="px-6 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Proprietário</th>
                 <th className="px-6 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Modificado</th>

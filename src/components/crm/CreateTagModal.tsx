@@ -26,7 +26,7 @@ export function CreateTagModal({ open, onOpenChange }: CreateTagModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-3xl ghost-border bg-card/70 backdrop-blur-2xl">
+      <DialogContent className="max-w-md rounded-card ghost-border bg-card">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-xl font-bold">
             <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -46,14 +46,14 @@ export function CreateTagModal({ open, onOpenChange }: CreateTagModalProps) {
                   value={tagName}
                   onChange={(e) => setTagName(e.target.value)}
                   placeholder="Ex: VIP, Black Friday..."
-                  className="pl-10 rounded-2xl ghost-border bg-secondary/10 h-12 text-sm focus:ring-primary"
+                  className="pl-10 rounded-card ghost-border bg-secondary/10 h-12 text-sm focus:ring-primary"
                   onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 />
               </div>
               <Button
                 onClick={handleCreate}
                 disabled={!tagName.trim()}
-                className="rounded-2xl h-12 px-6 bg-primary hover:bg-primary-hover shadow-lg neon-glow"
+                className="rounded-card h-12 px-6 bg-primary hover:bg-[#e04400] shadow-lg"
               >
                 <Plus className="h-5 w-5 mr-2" /> Criar
               </Button>
@@ -64,7 +64,7 @@ export function CreateTagModal({ open, onOpenChange }: CreateTagModalProps) {
 
           <div className="space-y-4">
             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Tags Disponíveis ({globalTags.length})</Label>
-            <div className="flex flex-wrap gap-2 p-4 rounded-2xl border border-dashed border-border/40 bg-card/30 min-h-[100px] overflow-y-auto max-h-[200px]">
+            <div className="flex flex-wrap gap-2 p-4 rounded-card border border-dashed border-[hsl(var(--border-strong))] bg-card min-h-[100px] overflow-y-auto max-h-[200px]">
               {globalTags.map((tag) => (
                 <Badge
                   key={tag}
@@ -91,7 +91,7 @@ export function CreateTagModal({ open, onOpenChange }: CreateTagModalProps) {
         </div>
 
         <DialogFooter className="sm:justify-center">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-2xl h-11 w-full text-xs font-bold hover:bg-secondary/50 transition-all">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-card h-11 w-full text-xs font-bold hover:bg-secondary/50 transition-all">
             Fechar
           </Button>
         </DialogFooter>

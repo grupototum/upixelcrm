@@ -77,7 +77,7 @@ export function ComplexTab() {
           return (
             <div
               key={wf.id}
-              className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200 group flex flex-col relative"
+              className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-[#ff4f00]/30 transition-all duration-200 group flex flex-col relative"
             >
               <div
                 onClick={() => navigate(`/automations/builder/${wf.id}`)}
@@ -112,7 +112,7 @@ export function ComplexTab() {
               </div>
 
               {/* Stats inline */}
-              <div className="mt-4 pt-3 border-t border-border/40">
+              <div className="mt-4 pt-3 border-t border-[hsl(var(--border-strong))]">
                 {statsLoading ? (
                   <div className="flex items-center justify-center py-2">
                     <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />

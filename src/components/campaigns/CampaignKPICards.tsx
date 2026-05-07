@@ -21,7 +21,7 @@ function KPICard({ label, value, icon: Icon, accent }: KPICardProps) {
     destructive: "bg-destructive/10",
   };
   return (
-    <div className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-border-hover transition-all duration-200">
+    <div className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-[#ff4f00]/30 transition-all duration-200">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
         <div className={`h-8 w-8 rounded-lg ${bgMap[accent] ?? "bg-secondary"} flex items-center justify-center`}>

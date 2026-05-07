@@ -17,7 +17,6 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import { DynamicFieldRenderer } from "@/components/crm/DynamicFieldRenderer";
 import { CustomFieldsManager } from "@/components/crm/CustomFieldsManager";
 import { TagsManager } from "@/components/crm/TagsManager";
-import { LeadAssignmentSelect } from "@/components/crm/LeadAssignmentSelect";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -232,10 +231,10 @@ export default function LeadProfilePage() {
                 }}
                 disabled={!hasPermission("lead.change_category")}
               >
-                <SelectTrigger className="w-auto h-7 text-[10px] uppercase font-bold tracking-wider px-3 rounded-lg border-primary/20 bg-primary/5 text-primary">
+                <SelectTrigger className="w-auto h-7 text-[10px] uppercase font-bold tracking-wider px-3 rounded-lg border-[hsl(var(--border-strong))] bg-primary/5 text-primary">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-none shadow-2xl bg-card">
+                <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
                   <SelectItem value="lead" className="text-[10px] font-bold">LEAD</SelectItem>
                   <SelectItem value="partner" className="text-[10px] font-bold">PARCEIRO</SelectItem>
                   <SelectItem value="collaborator" className="text-[10px] font-bold">COLABORADOR</SelectItem>
@@ -314,7 +313,7 @@ export default function LeadProfilePage() {
                     <EditableDataRow icon={DollarSign} label="Valor" value={lead.value ? String(lead.value) : undefined} onSave={(v) => updateLead(lead.id, { value: parseFloat(v) || 0 })} />
                   )}
                   {(lead.utm_campaign || lead.ad_campaign_id) && (
-                    <div className="space-y-1.5 pt-2 border-t border-border/50">
+                    <div className="space-y-1.5 pt-2 border-t border-[hsl(var(--border-strong))]">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Atribuição de Anúncio</p>
                       {lead.utm_campaign && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Campanha</span><span className="text-[11px] font-medium truncate max-w-[160px]">{lead.utm_campaign}</span></div>}
                       {lead.utm_medium && <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">Meio</span><span className="text-[11px] font-medium">{lead.utm_medium}</span></div>}
@@ -350,8 +349,8 @@ export default function LeadProfilePage() {
                     )) : <p className="text-xs text-muted-foreground italic">Nenhuma tag</p>}
                   </div>
                 </div>
-                <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Funil e atribuição</h3>
+                <div className="bg-card border border-border rounded-lg p-5">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Funil de vendas</h3>
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Etapas do Funil</Label>
                     <Select value={lead.column_id} onValueChange={async (val) => { await updateLead(lead.id, { column_id: val }); }}>
@@ -370,15 +369,7 @@ export default function LeadProfilePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Responsável pelo Lead</Label>
-                    <LeadAssignmentSelect
-                      value={lead.responsible_id}
-                      onChange={async (userId) => {
-                        await updateLead(lead.id, { responsible_id: userId || undefined });
-                      }}
-                    />
-                  </div>
+
                 </div>
 
                 {/* Custom fields tab/section */}
@@ -504,7 +495,7 @@ export default function LeadProfilePage() {
                 {threads.map((thread) => {
                   const msgs = mockMessages.filter((m) => m.thread_id === thread.id);
                   return (
-                    <div key={thread.id} className="bg-card border border-border rounded-lg p-4 hover:border-border-hover transition-colors cursor-pointer" onClick={() => navigate("/inbox")}>
+                    <div key={thread.id} className="bg-card border border-border rounded-lg p-4 hover:border-[#ff4f00]/30 transition-colors cursor-pointer" onClick={() => navigate("/inbox")}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px] capitalize">{thread.channel}</Badge>

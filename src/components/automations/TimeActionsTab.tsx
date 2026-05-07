@@ -77,10 +77,10 @@ export function TimeActionsTab() {
             placeholder="Buscar regra de tempo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs shadow-sm bg-card/50"
+            className="pl-9 h-9 text-xs shadow-sm bg-card"
           />
         </div>
-        <Badge variant="outline" className="text-[10px] text-muted-foreground px-2 py-0.5 border-border/50">
+        <Badge variant="outline" className="text-[10px] text-muted-foreground px-2 py-0.5 border-[hsl(var(--border-strong))]">
           {filtered.length} regr{filtered.length !== 1 ? "as" : "a"}
         </Badge>
       </div>
@@ -119,7 +119,7 @@ export function TimeActionsTab() {
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-foreground group-hover:text-accent transition-colors">{auto.name}</h3>
                         {targetLeads && targetLeads.length > 0 && (
-                          <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-primary/30 text-primary bg-primary/5">
+                          <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-[hsl(var(--border-strong))] text-primary bg-primary/5">
                             {targetLeads.length} Lead{targetLeads.length > 1 ? "s" : ""}
                           </Badge>
                         )}
@@ -152,7 +152,7 @@ export function TimeActionsTab() {
                 </div>
 
                 {/* Details */}
-                <div className="bg-secondary/30 rounded-lg p-3 border border-border/40">
+                <div className="bg-secondary/30 rounded-lg p-3 border border-[hsl(var(--border-strong))]">
                   <div className="flex items-center gap-2 text-[11px] mb-2">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-muted-foreground font-medium">Condição:</span>

@@ -118,7 +118,6 @@ Deno.serve(async (req) => {
           business_id: (row.config as any)?.business_id || "",
           has_access_token: !!(row.config as any)?.access_token,
           connected_number: (row.config as any)?.connected_number || "",
-          webhook_verify_token: (row.config as any)?.webhook_verify_token || "",
         }))
       );
     }

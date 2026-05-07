@@ -204,7 +204,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
                 </Label>
 
                 {actions.map((action, idx) => (
-                  <div key={idx} className="border border-primary/30 bg-primary/5 rounded-xl p-3 flex gap-2 items-start">
+                  <div key={idx} className="border border-[hsl(var(--border-strong))] bg-primary/5 rounded-xl p-3 flex gap-2 items-start">
                     <div className="flex-1 space-y-2">
                       <Select
                         value={action.type}

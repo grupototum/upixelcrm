@@ -118,7 +118,7 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
             placeholder="Buscar eventos ou locais..." 
             value={search} 
             onChange={(e) => setSearch(e.target.value)} 
-            className="pl-9 h-10 shadow-sm border-border/40 bg-card rounded-xl text-xs" 
+            className="pl-9 h-10 shadow-sm border-[hsl(var(--border-strong))] bg-card rounded-xl text-xs" 
           />
         </div>
         
@@ -128,7 +128,7 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
               <Button
                 variant="outline"
                 className={cn(
-                  "justify-start text-left font-normal h-10 px-4 rounded-xl border-border/40 bg-card shadow-sm text-xs gap-2 shrink-0",
+                  "justify-start text-left font-normal h-10 px-4 rounded-xl border-[hsl(var(--border-strong))] bg-card shadow-sm text-xs gap-2 shrink-0",
                   !selectedDate && "text-muted-foreground"
                 )}
               >
@@ -136,22 +136,22 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
                 {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Filtrar por data</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl bg-card" align="end">
+            <PopoverContent className="w-auto p-0 rounded-card border border-[hsl(var(--border-strong))] bg-card" align="end">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 initialFocus
                 locale={ptBR}
-                className="rounded-2xl"
+                className="rounded-card"
               />
-              <div className="p-3 border-t border-border/20 flex justify-end">
+              <div className="p-3 border-t border-[hsl(var(--border-strong))] flex justify-end">
                 <Button variant="ghost" size="sm" className="text-[10px] h-7 rounded-lg" onClick={() => setSelectedDate(undefined)}>Limpar Filtro</Button>
               </div>
             </PopoverContent>
           </Popover>
 
-          <Button size="icon" variant="outline" className="h-10 w-10 shrink-0 rounded-xl border-border/40 bg-card shadow-sm hover:text-primary transition-colors" onClick={load} title="Sincronizar">
+          <Button size="icon" variant="outline" className="h-10 w-10 shrink-0 rounded-xl border-[hsl(var(--border-strong))] bg-card shadow-sm hover:text-primary transition-colors" onClick={load} title="Sincronizar">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
@@ -163,7 +163,7 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
             {filteredEvents.length} {filteredEvents.length === 1 ? "evento" : "eventos"}
           </Badge>
           {selectedDate && (
-            <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-border/40 bg-secondary/20">
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-[hsl(var(--border-strong))] bg-secondary/20">
               {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
             </Badge>
           )}
@@ -171,7 +171,7 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
       </div>
 
       {filteredEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center rounded-2xl border-2 border-dashed border-border/30 bg-secondary/5">
+        <div className="flex flex-col items-center justify-center py-24 text-center rounded-card border-2 border-dashed border-[hsl(var(--border-strong))] bg-secondary/5">
           <div className="h-16 w-16 rounded-full bg-secondary/10 flex items-center justify-center mb-4">
             <CalendarX className="h-8 w-8 text-muted-foreground/40" />
           </div>
@@ -191,7 +191,7 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
         <div className="grid grid-cols-1 gap-8">
           {Object.entries(groupedEvents).map(([date, evts]) => (
             <div key={date} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <div className="flex items-center gap-3 mb-4 sticky top-0 bg-background/80 backdrop-blur-md py-2 z-10">
+              <div className="flex items-center gap-3 mb-4 sticky top-0 bg-background py-2 z-10">
                 <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
                   <CalendarIcon className="h-4 w-4 text-primary" />
                 </div>
@@ -206,13 +206,13 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
                   <div
                     key={evt.id}
                     onClick={() => handleOpenEvent(evt.htmlLink)}
-                    className="group relative h-full flex flex-col bg-card border border-border/40 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300 cursor-pointer"
+                    className="group relative h-full flex flex-col bg-card border border-[hsl(var(--border-strong))] rounded-card p-5 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-[hsl(var(--border-strong))] transition-all duration-300 cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className={`shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${idx % 2 === 0 ? 'from-blue-500/20 to-blue-500/5' : 'from-primary/20 to-primary/5'} flex items-center justify-center`}>
                         {evt.isOnline ? <Video className="h-5 w-5 text-blue-500" /> : <Clock className="h-5 w-5 text-primary" />}
                       </div>
-                      <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold bg-secondary/10 border-border/20 text-muted-foreground">
+                      <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold bg-secondary/10 border-[hsl(var(--border-strong))] text-muted-foreground">
                         {evt.time}
                       </Badge>
                     </div>
@@ -238,7 +238,7 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
                         </div>
                         
                         {evt.attendees > 0 && (
-                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/30 text-muted-foreground text-[10px] font-medium border border-border/20">
+                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/30 text-muted-foreground text-[10px] font-medium border border-[hsl(var(--border-strong))]">
                             <Users className="h-2.5 w-2.5" />
                             {evt.attendees}
                           </div>

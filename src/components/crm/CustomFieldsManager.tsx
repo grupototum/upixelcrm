@@ -114,7 +114,7 @@ export function CustomFieldsManager() {
               )}
 
               {["select", "multi_select", "radio"].includes(fieldType) && (
-                <div className="space-y-2 bg-muted/30 p-3 rounded-lg border border-border/40">
+                <div className="space-y-2 bg-muted/30 p-3 rounded-lg border border-[hsl(var(--border-strong))]">
                   <Label className="text-xs">Opções</Label>
                   <div className="flex gap-2">
                     <Input 

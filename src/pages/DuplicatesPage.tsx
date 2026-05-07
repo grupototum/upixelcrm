@@ -181,7 +181,7 @@ function DuplicateGroupCard({
             </Button>
             <Button
               size="sm"
-              className="text-xs bg-primary hover:bg-primary-hover text-primary-foreground"
+              className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground"
               onClick={handleMerge}
               disabled={merging}
             >
@@ -302,7 +302,7 @@ export default function DuplicatesPage() {
           <Button
             onClick={handleScan}
             disabled={scanning || bulkMerging}
-            className="bg-primary hover:bg-primary-hover text-primary-foreground shrink-0"
+            className="bg-primary hover:bg-[#e04400] text-primary-foreground shrink-0"
           >
             <ScanSearch className="h-4 w-4 mr-2" />
             {scanning ? "Escaneando..." : "Escanear Duplicatas"}
@@ -360,7 +360,7 @@ export default function DuplicatesPage() {
               )}
               <Button
                 size="sm"
-                className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="h-8 text-xs gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground"
                 onClick={() => setConfirmBulk("selected")}
                 disabled={bulkMerging || selectedCount === 0}
               >
@@ -462,7 +462,7 @@ export default function DuplicatesPage() {
                   if (confirmBulk) runBulkMerge(confirmBulk);
                 }}
                 disabled={bulkMerging}
-                className="bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="bg-primary hover:bg-[#e04400] text-primary-foreground"
               >
                 {bulkMerging ? "Mesclando..." : "Confirmar mesclagem"}
               </AlertDialogAction>

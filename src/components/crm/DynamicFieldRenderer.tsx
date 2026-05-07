@@ -153,7 +153,7 @@ export function DynamicFieldRenderer({ definition, value, onChange, readOnly }: 
                     setDraft(isActive ? selected.filter((v) => v !== opt.value) : [...selected, opt.value]);
                   }}
                   className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                    isActive ? "bg-primary text-white border-primary" : "bg-muted border-border text-muted-foreground hover:border-primary/40"
+                    isActive ? "bg-primary text-white border-primary" : "bg-muted border-border text-muted-foreground hover:border-[hsl(var(--border-strong))]"
                   }`}
                 >
                   {opt.label}

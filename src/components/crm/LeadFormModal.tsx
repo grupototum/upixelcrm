@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Lead, PipelineColumn } from "@/types";
-import { LeadAssignmentSelect } from "@/components/crm/LeadAssignmentSelect";
 
 interface LeadFormModalProps {
   open: boolean;
@@ -68,7 +67,7 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
                 <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-none shadow-2xl bg-card">
+                <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
                   <SelectItem value="lead" className="rounded-lg">Lead</SelectItem>
                   <SelectItem value="partner" className="rounded-lg">Parceiro</SelectItem>
                   <SelectItem value="collaborator" className="rounded-lg">Colaborador</SelectItem>
@@ -84,7 +83,7 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
                 <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
                   <SelectValue placeholder="Origem do lead" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-none shadow-2xl bg-card">
+                <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
                   <SelectItem value="Meta Ads" className="rounded-lg">Meta Ads</SelectItem>
                   <SelectItem value="Google Ads" className="rounded-lg">Google Ads</SelectItem>
                   <SelectItem value="Website" className="rounded-lg">Website</SelectItem>
@@ -148,16 +147,6 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
               <Input type="number" value={form.value ?? ""} onChange={(e) => setForm({ ...form, value: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
             </div>
           </div>
-
-          <div>
-            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Responsável</Label>
-            <div className="mt-1">
-              <LeadAssignmentSelect
-                value={form.responsible_id}
-                onChange={(userId) => setForm({ ...form, responsible_id: userId || undefined })}
-              />
-            </div>
-          </div>
           
           <div className="space-y-2">
             <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Tags</Label>
@@ -181,7 +170,7 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
             {form.tags && form.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {form.tags.map(tag => (
-                  <Badge key={tag} variant="secondary" className="text-[10px] pl-2 pr-1 py-1 flex items-center gap-1 bg-primary/10 text-primary border border-primary/20">
+                  <Badge key={tag} variant="secondary" className="text-[10px] pl-2 pr-1 py-1 flex items-center gap-1 bg-primary/10 text-primary border border-[hsl(var(--border-strong))]">
                     {tag}
                     <button type="button" onClick={() => handleRemoveTag(tag)} className="hover:bg-primary/20 rounded-full p-0.5 transition-colors">
                       <X className="h-2.5 w-2.5" />
@@ -194,7 +183,7 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
         </div>
         <DialogFooter className="mt-8 gap-2">
           <Button variant="ghost" onClick={onClose} className="rounded-xl grow h-11">Cancelar</Button>
-          <Button onClick={() => { if (form.name?.trim()) onSave(form); }} disabled={!form.name?.trim()} className="rounded-xl grow bg-primary hover:bg-primary-hover text-primary-foreground h-11">
+          <Button onClick={() => { if (form.name?.trim()) onSave(form); }} disabled={!form.name?.trim()} className="rounded-xl grow bg-primary hover:bg-[#e04400] text-primary-foreground h-11">
             {lead ? "Salvar Alterações" : "Criar Lead"}
           </Button>
         </DialogFooter>

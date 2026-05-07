@@ -121,7 +121,7 @@ export function CreateTaskModal({ open, onOpenChange, defaultLeadId }: CreateTas
           <Button
             onClick={handleCreate}
             disabled={!title.trim() || loading}
-            className="rounded-xl text-xs h-10 bg-primary hover:bg-primary-hover px-6"
+            className="rounded-xl text-xs h-10 bg-primary hover:bg-[#e04400] px-6"
           >
             {loading ? "Criando..." : "Criar Tarefa"}
           </Button>

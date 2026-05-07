@@ -217,7 +217,7 @@ export function KnowledgeBaseTab() {
         className={`border-2 border-dashed rounded-xl p-8 text-center bg-card cursor-pointer transition-all duration-300 ${
           dragOver
             ? "border-primary bg-primary/5 scale-[1.01]"
-            : "border-border hover:border-primary/40 hover:bg-secondary/30"
+            : "border-border hover:border-[hsl(var(--border-strong))] hover:bg-secondary/30"
         }`}
       >
         {uploading ? (

@@ -80,7 +80,7 @@ interface CampaignSummary {
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string; icon: typeof Send }> = {
     sent: { label: "Enviado", className: "text-success border-success/30 bg-success/5", icon: Send },
-    delivered: { label: "Entregue", className: "text-primary border-primary/30 bg-primary/5", icon: CheckCircle2 },
+    delivered: { label: "Entregue", className: "text-primary border-[hsl(var(--border-strong))] bg-primary/5", icon: CheckCircle2 },
     read: { label: "Lido", className: "text-accent border-accent/30 bg-accent/5", icon: CheckCircle2 },
     failed: { label: "Falhou", className: "text-destructive border-destructive/30 bg-destructive/5", icon: XCircle },
     pending: { label: "Pendente", className: "text-muted-foreground border-border bg-secondary", icon: Clock },
@@ -146,7 +146,7 @@ function BroadcastsTab({ clientId }: { clientId?: string }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {summaries.slice(0, 4).map((s) => (
           <button key={s.campaign_id} onClick={() => setSelectedCampaignId(selectedCampaignId === s.campaign_id ? "__all__" : s.campaign_id)}
-            className={`text-left p-3 rounded-xl border transition-colors ${selectedCampaignId === s.campaign_id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"}`}>
+            className={`text-left p-3 rounded-xl border transition-colors ${selectedCampaignId === s.campaign_id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-[hsl(var(--border-strong))]"}`}>
             <p className="text-[10px] font-semibold truncate text-muted-foreground">{s.campaign_name}</p>
             <p className="text-lg font-heading font-black text-foreground">{s.total}</p>
             <div className="flex items-center gap-1.5 mt-1">
@@ -180,7 +180,7 @@ function BroadcastsTab({ clientId }: { clientId?: string }) {
           </thead>
           <tbody>
             {filteredLogs.slice(0, 100).map((log) => (
-              <tr key={log.id} className="border-t border-border/50 hover:bg-secondary/20">
+              <tr key={log.id} className="border-t border-[hsl(var(--border-strong))] hover:bg-secondary/20">
                 <td className="p-2 font-medium truncate max-w-[160px]">{log.campaign_name}</td>
                 <td className="p-2 text-muted-foreground font-mono">{log.phone ?? "—"}</td>
                 <td className="p-2 capitalize text-muted-foreground">{log.channel}</td>
@@ -190,7 +190,7 @@ function BroadcastsTab({ clientId }: { clientId?: string }) {
             ))}
           </tbody>
         </table>
-        {filteredLogs.length > 100 && <p className="text-center text-[10px] text-muted-foreground p-2 border-t border-border/50">Mostrando 100 de {filteredLogs.length} registros</p>}
+        {filteredLogs.length > 100 && <p className="text-center text-[10px] text-muted-foreground p-2 border-t border-[hsl(var(--border-strong))]">Mostrando 100 de {filteredLogs.length} registros</p>}
       </div>
     </div>
   );
@@ -240,17 +240,17 @@ function AttributionTab({ clientId }: { clientId?: string }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-        <div className="bg-card border border-border/50 rounded-xl p-4">
+        <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-4">
           <Users className="h-4 w-4 text-primary mb-2" />
           <p className="text-xs text-muted-foreground uppercase font-semibold">Leads rastreados</p>
           <p className="text-2xl font-heading font-black">{attributedLeads.length}</p>
         </div>
-        <div className="bg-card border border-border/50 rounded-xl p-4">
+        <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-4">
           <Megaphone className="h-4 w-4 text-blue-500 mb-2" />
           <p className="text-xs text-muted-foreground uppercase font-semibold">Campanhas únicas</p>
           <p className="text-2xl font-heading font-black">{byCampaign.length}</p>
         </div>
-        <div className="bg-card border border-border/50 rounded-xl p-4">
+        <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-4">
           <MousePointerClick className="h-4 w-4 text-success mb-2" />
           <p className="text-xs text-muted-foreground uppercase font-semibold">Via Meta Ads</p>
           <p className="text-2xl font-heading font-black">{attributedLeads.filter((l: any) => l.fbclid || l.utm_source === "facebook").length}</p>
@@ -259,8 +259,8 @@ function AttributionTab({ clientId }: { clientId?: string }) {
 
       <div className="space-y-3">
         {byCampaign.map((camp) => (
-          <div key={camp.name} className="bg-card border border-border/50 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-secondary/20">
+          <div key={camp.name} className="bg-card border border-[hsl(var(--border-strong))] rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border-strong))] bg-secondary/20">
               <div className="flex items-center gap-2.5">
                 <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold ${camp.platform === "meta" ? "bg-blue-600" : camp.platform === "google" ? "bg-orange-500" : "bg-muted-foreground"}`}>
                   {camp.platform === "meta" ? "M" : camp.platform === "google" ? "G" : "?"}
