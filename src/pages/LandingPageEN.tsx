@@ -151,32 +151,32 @@ a:hover{text-decoration:underline}
 
 const FAQS = [
   {
-    q: "O uPixel funciona com WhatsApp pessoal ou precisa do WhatsApp Business?",
-    a: "Suporta ambos: Evolution API (conecta qualquer número via QR Code, inclusive pessoal) e Meta Official API (WhatsApp Business com CNPJ). Você escolhe conforme sua operação e volume.",
+    q: "Does uPixel work with a personal WhatsApp number?",
+    a: "Yes. uPixel supports both Evolution API (any number via QR Code, including personal) and Meta Official API (WhatsApp Business with verified business). You choose based on your volume and compliance needs.",
   },
   {
-    q: "Posso migrar minha base do Kommo para o uPixel?",
-    a: "Sim. Compatibilidade nativa com Kommo: importação de automações via JSON, mapeamento automático de triggers e ações, e migração zero-downtime. Histórico e configurações preservados.",
+    q: "Can I migrate from Kommo or another CRM?",
+    a: "Yes. Native Kommo compatibility: JSON-based automation import, automatic trigger/action mapping, and zero-downtime migration. History and configurations are preserved.",
   },
   {
-    q: "O sistema pode ser bloqueado pelo WhatsApp por causa dos disparos?",
-    a: "O uPixel inclui anti-bloqueio com throttling configurável, intervalo aleatório entre envios, rotação de instâncias e detecção de números inválidos. Para máxima segurança, recomendamos Meta Official API com templates aprovados.",
+    q: "Will WhatsApp ban my number for mass messaging?",
+    a: "uPixel includes an anti-ban system with configurable throttling, randomized send intervals, multi-instance rotation, and invalid number detection. For maximum safety, we recommend Meta Official API with approved message templates.",
   },
   {
-    q: "Preciso de um developer para usar as automações?",
-    a: "Não. O Visual Workflow Builder é completamente drag-and-drop. IF/ELSE, loops, delays e integrações de API sem escrever código. Templates prontos para os casos de uso mais comuns.",
+    q: "Do I need a developer to use automations?",
+    a: "No. The Visual Workflow Builder is fully drag-and-drop. Build IF/ELSE logic, loops, delays, and API integrations without writing any code. Ready-made templates cover the most common use cases.",
   },
   {
-    q: "O uPixel é LGPD compliant?",
-    a: "Sim. Criptografia de dados sensíveis, direito ao esquecimento, exportação de dados do titular, auditoria completa de acesso, opt-out automático e blocklist global. LGPD desde a arquitetura.",
+    q: "Is uPixel GDPR compliant?",
+    a: "Yes. The platform includes encryption of sensitive data, right to erasure, data portability, full access audit logs, automatic opt-out, and a global blocklist. Designed for GDPR and LGPD compliance from the ground up.",
   },
   {
-    q: "Como funciona o período de teste?",
-    a: "14 dias com acesso completo ao plano Pro, sem precisar de cartão de crédito. Após o período, escolhe o plano mais adequado ou cancela sem custo algum.",
+    q: "How does the free trial work?",
+    a: "14 days with full access to the Pro plan, no credit card required. After the trial, choose the plan that fits your operation or cancel at no cost.",
   },
 ];
 
-export default function LandingPage() {
+export default function LandingPageEN() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   function toggleFaq(i: number) {
@@ -184,21 +184,21 @@ export default function LandingPage() {
   }
 
   return (
-    <div>
+    <div lang="en">
       {/* eslint-disable-next-line react/no-danger */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       {/* NAV */}
       <div className="nav-wrap">
-        <nav className="nav" aria-label="Navegação principal">
+        <nav className="nav" aria-label="Main navigation">
           <div className="nav-logo">u<span>Pixel</span></div>
           <div className="nav-links">
-            <a href="#funcionalidades">Funcionalidades</a>
-            <a href="#automacoes">Automações</a>
-            <a href="#planos">Planos</a>
+            <a href="#features">Features</a>
+            <a href="#automations">Automations</a>
+            <a href="#pricing">Pricing</a>
             <a href="#faq">FAQ</a>
           </div>
-          <a href="https://upixel.app" className="btn-nav">Começar grátis</a>
+          <a href="https://upixel.app" className="btn-nav">Start free</a>
         </nav>
       </div>
 
@@ -206,121 +206,121 @@ export default function LandingPage() {
         {/* HERO */}
         <section className="hero" aria-label="Hero">
           <div className="hero-inner">
-            <div className="label-tag">CRM + WhatsApp + Automações</div>
-            <h1>Pare de perder vendas<br />por <em>falta de sistema</em></h1>
-            <p>uPixel é o CRM completo com WhatsApp nativo, disparos em massa e automações visuais — tudo em uma plataforma. Sem developer. Sem integração frágil.</p>
+            <div className="label-tag">CRM + WhatsApp + Automations</div>
+            <h1>Stop losing deals to<br /><em>broken toolstacks</em></h1>
+            <p>uPixel is the all-in-one CRM with native WhatsApp, mass messaging, visual automations, and AI — everything in one platform. No developer. No fragile integrations.</p>
             <div className="cta-row">
-              <a href="https://upixel.app" className="btn-orange">Testar 14 dias grátis →</a>
-              <a href="#funcionalidades" className="btn-ghost">Ver como funciona</a>
+              <a href="https://upixel.app" className="btn-orange">Start free 14-day trial →</a>
+              <a href="#features" className="btn-ghost">See how it works</a>
             </div>
             <div className="proof-row">
-              <div className="proof-item"><div className="proof-dot"></div>Sem cartão de crédito</div>
-              <div className="proof-item"><div className="proof-dot"></div>Setup em minutos</div>
-              <div className="proof-item"><div className="proof-dot"></div>Suporte em português</div>
-              <div className="proof-item"><div className="proof-dot"></div>100% LGPD compliant</div>
+              <div className="proof-item"><div className="proof-dot"></div>No credit card required</div>
+              <div className="proof-item"><div className="proof-dot"></div>Setup in minutes</div>
+              <div className="proof-item"><div className="proof-dot"></div>LGPD &amp; GDPR compliant</div>
+              <div className="proof-item"><div className="proof-dot"></div>Cancel anytime</div>
             </div>
           </div>
         </section>
 
         {/* STATS */}
-        <div className="stats-bar" aria-label="Números do produto">
+        <div className="stats-bar" aria-label="Key numbers">
           <div className="stats-inner">
-            <div className="stat"><div className="stat-n">50<em>+</em></div><div className="stat-l">tipos de ação em automações</div></div>
-            <div className="stat"><div className="stat-n">6</div><div className="stat-l">canais num único inbox</div></div>
-            <div className="stat"><div className="stat-n">5<em>×</em></div><div className="stat-l">mais leads convertidos</div></div>
-            <div className="stat"><div className="stat-n">0</div><div className="stat-l">linhas de código necessárias</div></div>
+            <div className="stat"><div className="stat-n">50<em>+</em></div><div className="stat-l">automation action types</div></div>
+            <div className="stat"><div className="stat-n">6</div><div className="stat-l">channels in one inbox</div></div>
+            <div className="stat"><div className="stat-n">5<em>×</em></div><div className="stat-l">more leads converted</div></div>
+            <div className="stat"><div className="stat-n">0</div><div className="stat-l">lines of code needed</div></div>
           </div>
         </div>
 
         {/* PAIN */}
-        <section className="section" id="dor" aria-label="Problemas que o uPixel resolve">
+        <section className="section" aria-label="Problems">
           <div className="section-header">
-            <div className="label-tag">O problema</div>
-            <h2>Você está deixando dinheiro na mesa todo dia</h2>
-            <p>Sem um CRM integrado, seu time perde tempo, energia e clientes em potencial.</p>
+            <div className="label-tag">The problem</div>
+            <h2>You're leaving money on the table every day</h2>
+            <p>Without an integrated CRM, your team wastes time, energy, and potential customers.</p>
           </div>
           <div className="pain-grid">
-            <div className="pain-card"><div className="pain-mark">✗</div><h4>Conversas perdidas no WhatsApp</h4><p>Leads chegam pelo WhatsApp e somem nas conversas pessoais do vendedor. Sem histórico, sem rastreamento, sem funil.</p></div>
-            <div className="pain-card"><div className="pain-mark">✗</div><h4>Follow-up dependendo da memória</h4><p>Cada vendedor tem o próprio sistema. Planilha, caderninho ou cabeça. Leads quentes esfriam porque ninguém lembrou.</p></div>
-            <div className="pain-card"><div className="pain-mark">✗</div><h4>5 ferramentas, 5 assinaturas</h4><p>CRM aqui, disparo de WhatsApp ali, e-mail marketing lá. Dados fragmentados, custo alto, integração manual que quebra.</p></div>
-            <div className="pain-card"><div className="pain-mark">✗</div><h4>Automação só pra quem sabe codar</h4><p>Qualquer fluxo depende de um dev. Mudou o processo? Abre chamado. Espera. Paga. Repete no mês seguinte.</p></div>
+            <div className="pain-card"><div className="pain-mark">✗</div><h4>Conversations lost in WhatsApp</h4><p>Leads come through WhatsApp and disappear in personal chats. No history, no tracking, no funnel.</p></div>
+            <div className="pain-card"><div className="pain-mark">✗</div><h4>Follow-up depends on memory</h4><p>Every rep has their own system — spreadsheet, notebook, or brain. Hot leads go cold because no one remembered.</p></div>
+            <div className="pain-card"><div className="pain-mark">✗</div><h4>5 tools, 5 subscriptions</h4><p>CRM here, WhatsApp blaster there, email marketing somewhere else. Fragmented data, high cost, manual integrations that break.</p></div>
+            <div className="pain-card"><div className="pain-mark">✗</div><h4>Automations require a developer</h4><p>Every workflow depends on a dev. Process changed? Open a ticket. Wait. Pay. Repeat next month.</p></div>
           </div>
         </section>
 
         <hr className="divider" />
 
         {/* FEATURES */}
-        <section className="section" id="funcionalidades" aria-label="Funcionalidades do uPixel CRM">
+        <section className="section" id="features" aria-label="Features">
           <div className="section-header">
-            <div className="label-tag">A solução</div>
-            <h2>Uma plataforma. Tudo resolvido.</h2>
-            <p>Do primeiro contato ao pós-venda, o uPixel centraliza sua operação comercial completa.</p>
+            <div className="label-tag">The solution</div>
+            <h2>One platform. Everything solved.</h2>
+            <p>From first contact to post-sale, uPixel centralizes your entire commercial operation.</p>
           </div>
           <div className="feat-grid">
             <div className="feat-card featured">
               <div className="feat-icon">💬</div>
-              <h3>WhatsApp + Inbox Multi-Canal</h3>
-              <p>WhatsApp (Evolution API e Meta Oficial), Instagram Direct, Gmail, Facebook Messenger e Webchat em uma única caixa de entrada.</p>
+              <h3>WhatsApp + Unified Inbox</h3>
+              <p>WhatsApp (Evolution API &amp; Meta Official), Instagram Direct, Gmail, Facebook Messenger, and Webchat — all in one inbox.</p>
               <ul>
-                <li>Zero perda de mensagem com dedup automático</li>
-                <li>Round-robin inteligente entre atendentes</li>
-                <li>Status em tempo real, notas internas</li>
-                <li>Múltiplas instâncias por conta</li>
+                <li>Zero message loss with auto-dedup</li>
+                <li>Smart round-robin assignment</li>
+                <li>Real-time status, internal notes</li>
+                <li>Multiple WhatsApp instances per account</li>
               </ul>
             </div>
             <div className="feat-card">
               <div className="feat-icon">📢</div>
-              <h3>Disparos em Massa Inteligentes</h3>
-              <p>Campanhas segmentadas com filtros avançados, A/B testing, throttling anti-bloqueio e rastreamento completo.</p>
+              <h3>Smart Mass Messaging</h3>
+              <p>Segmented campaigns with advanced filters, A/B testing, anti-ban throttling, and full performance tracking.</p>
               <ul>
-                <li>Segmentação por tags, score, custom fields</li>
-                <li>Intervalo aleatório entre envios</li>
-                <li>Opt-out automático "PARAR"/"CANCELAR"</li>
-                <li>ROI calculado por campanha</li>
+                <li>Segment by tags, lead score, custom fields</li>
+                <li>Randomized send intervals</li>
+                <li>Auto opt-out on "STOP" keyword</li>
+                <li>ROI calculated per campaign</li>
               </ul>
             </div>
             <div className="feat-card">
               <div className="feat-icon">⚡</div>
-              <h3>Automações Visuais Sem Código</h3>
-              <p>Editor drag-and-drop com 50+ tipos de ação. Crie follow-ups, recuperação de carrinho e upsell sem escrever código.</p>
+              <h3>Visual Automations — No Code</h3>
+              <p>Drag-and-drop builder with 50+ action types. Build follow-up flows, cart recovery, upsell sequences — no developer needed.</p>
               <ul>
-                <li>Triggers por evento, tempo ou webhook</li>
-                <li>Lógica IF/ELSE, loops e delays</li>
-                <li>Variáveis dinâmicas de CRM</li>
-                <li>Logs de execução detalhados</li>
+                <li>Event, time, and webhook triggers</li>
+                <li>IF/ELSE logic, loops, and delays</li>
+                <li>Dynamic CRM variables</li>
+                <li>Detailed execution logs</li>
               </ul>
             </div>
             <div className="feat-card">
               <div className="feat-icon">🧠</div>
-              <h3>IA &amp; Alexandria (RAG)</h3>
-              <p>Base de conhecimento com geração aumentada por recuperação. Responde com contexto real da sua empresa.</p>
+              <h3>AI &amp; Alexandria (RAG)</h3>
+              <p>Knowledge base with Retrieval-Augmented Generation. Answers with real company context, not generic chatbot responses.</p>
               <ul>
-                <li>Sugestões de resposta em tempo real</li>
-                <li>Análise de sentimento do cliente</li>
-                <li>Score de probabilidade de fechamento</li>
-                <li>Resumo automático de conversas</li>
+                <li>Real-time response suggestions</li>
+                <li>Customer sentiment analysis</li>
+                <li>Deal closing probability score</li>
+                <li>Automatic conversation summaries</li>
               </ul>
             </div>
             <div className="feat-card">
               <div className="feat-icon">📊</div>
-              <h3>CRM Completo + Pipeline</h3>
-              <p>Gestão de leads, contatos e oportunidades com funil visual, drag-and-drop e histórico completo de interações.</p>
+              <h3>Full CRM + Pipeline</h3>
+              <p>Lead, contact, and opportunity management with visual pipeline, drag-and-drop stages, and full interaction history.</p>
               <ul>
-                <li>Deduplicação automática por email/CPF</li>
-                <li>Lead scoring por engajamento</li>
-                <li>Forecasting automático</li>
-                <li>Campos customizáveis por conta</li>
+                <li>Auto-deduplication by email/phone</li>
+                <li>Activity-based lead scoring</li>
+                <li>Automatic forecasting</li>
+                <li>Customizable fields per account</li>
               </ul>
             </div>
             <div className="feat-card">
               <div className="feat-icon">📈</div>
-              <h3>Analytics &amp; Relatórios</h3>
-              <p>Dashboard executivo com KPIs em tempo real, heatmaps de atividade, cohort analysis e exports em CSV/Excel/PDF.</p>
+              <h3>Analytics &amp; Reports</h3>
+              <p>Executive dashboard with real-time KPIs, activity heatmaps, cohort analysis, and CSV/Excel/PDF exports.</p>
               <ul>
-                <li>Taxa de conversão por etapa do funil</li>
-                <li>Ranking de representantes</li>
-                <li>Métricas de campanha com ROI</li>
-                <li>Relatórios agendados por e-mail</li>
+                <li>Conversion rate by funnel stage</li>
+                <li>Rep performance ranking</li>
+                <li>Campaign ROI metrics</li>
+                <li>Scheduled email reports</li>
               </ul>
             </div>
           </div>
@@ -329,43 +329,43 @@ export default function LandingPage() {
         <hr className="divider" />
 
         {/* AUTOMATIONS */}
-        <section className="section" id="automacoes" aria-label="Automações prontas">
+        <section className="section" id="automations" aria-label="Ready-to-use automations">
           <div className="section-header">
-            <div className="label-tag">Automações prontas</div>
-            <h2>Fluxos que trabalham enquanto você dorme</h2>
-            <p>Templates prontos para ativar. Só configurar e ligar.</p>
+            <div className="label-tag">Ready-to-use automations</div>
+            <h2>Workflows that run while you sleep</h2>
+            <p>Pre-built automation templates. Just configure and activate.</p>
           </div>
           <div className="auto-grid">
-            <div className="auto-card"><div className="auto-label" style={{ color: "var(--z-orange)" }}>Atração</div><h4>Follow-up automático de leads</h4><p>Lead criado → WhatsApp 5 min → e-mail 2h → SMS 1 dia → "cold" se silêncio total</p></div>
-            <div className="auto-card"><div className="auto-label">Recuperação</div><h4>Carrinho abandonado</h4><p>Webhook → WhatsApp + cupom → 6h sem compra → e-mail → 1 dia → frete grátis</p></div>
-            <div className="auto-card"><div className="auto-label" style={{ color: "var(--z-orange)" }}>Expansão</div><h4>Upsell pós-fechamento</h4><p>Deal won → produtos relacionados → e-mail + WhatsApp → task de follow-up 7 dias</p></div>
-            <div className="auto-card"><div className="auto-label">Retenção</div><h4>NPS automático</h4><p>Suporte resolvido → 2h → NPS via WhatsApp → score &lt;7 vai pro gerente</p></div>
-            <div className="auto-card"><div className="auto-label" style={{ color: "var(--z-orange)" }}>Reengajamento</div><h4>Lead frio (60 dias)</h4><p>Trigger automático → "ainda interessado?" → respondeu: ativo / silêncio: inativo</p></div>
-            <div className="auto-card"><div className="auto-label">Relacionamento</div><h4>Aniversário com oferta</h4><p>Cron diário → detecta aniversários → "Parabéns + 15% de desconto" + task pro gerente</p></div>
+            <div className="auto-card"><div className="auto-label" style={{ color: "var(--z-orange)" }}>Acquisition</div><h4>Automatic lead follow-up</h4><p>Lead created → WhatsApp 5 min → email 2h → SMS 1 day → mark "cold" if no reply</p></div>
+            <div className="auto-card"><div className="auto-label">Recovery</div><h4>Abandoned cart</h4><p>Webhook → WhatsApp + coupon → 6h no purchase → email → 1 day → free shipping offer</p></div>
+            <div className="auto-card"><div className="auto-label" style={{ color: "var(--z-orange)" }}>Expansion</div><h4>Post-close upsell</h4><p>Deal won → related products → email + WhatsApp → follow-up task in 7 days</p></div>
+            <div className="auto-card"><div className="auto-label">Retention</div><h4>Automatic NPS</h4><p>Support resolved → 2h → NPS via WhatsApp → score &lt;7 escalates to manager</p></div>
+            <div className="auto-card"><div className="auto-label" style={{ color: "var(--z-orange)" }}>Re-engagement</div><h4>Cold lead (60 days silent)</h4><p>Auto trigger → "still interested?" → replied: active / silence: mark inactive</p></div>
+            <div className="auto-card"><div className="auto-label">Relationship</div><h4>Birthday offer</h4><p>Daily cron → detects birthdays → "Happy birthday + 15% off" + task for manager to call</p></div>
           </div>
         </section>
 
         <hr className="divider" />
 
         {/* HOW IT WORKS */}
-        <section className="section" aria-label="Como começar">
+        <section className="section" aria-label="How to get started">
           <div className="section-header">
-            <div className="label-tag">Como funciona</div>
-            <h2>Ativo em minutos, não em semanas</h2>
+            <div className="label-tag">How it works</div>
+            <h2>Live in minutes, not weeks</h2>
           </div>
           <div className="steps-wrap">
-            <div className="step"><div className="step-num">01</div><h4>Crie sua conta</h4><p>Setup guiado. Sem instalar nada. 100% na nuvem.</p></div>
-            <div className="step"><div className="step-num">02</div><h4>Conecte seus canais</h4><p>WhatsApp via QR Code, e-mail, Instagram em poucos cliques.</p></div>
-            <div className="step"><div className="step-num">03</div><h4>Importe seus leads</h4><p>CSV, via API ou migre do Kommo automaticamente.</p></div>
-            <div className="step"><div className="step-num">04</div><h4>Ative as automações</h4><p>Template pronto ou crie o seu no builder visual sem código.</p></div>
+            <div className="step"><div className="step-num">01</div><h4>Create your account</h4><p>Guided setup. Nothing to install. 100% cloud.</p></div>
+            <div className="step"><div className="step-num">02</div><h4>Connect your channels</h4><p>WhatsApp via QR Code, email, Instagram in a few clicks.</p></div>
+            <div className="step"><div className="step-num">03</div><h4>Import your leads</h4><p>CSV, API, or migrate from Kommo automatically.</p></div>
+            <div className="step"><div className="step-num">04</div><h4>Activate automations</h4><p>Pick a ready template or build yours in the visual editor.</p></div>
           </div>
         </section>
 
         {/* INTEGRATIONS */}
-        <section className="section-sm" aria-label="Integrações disponíveis">
+        <section className="section-sm" aria-label="Integrations">
           <div className="section-header">
-            <div className="label-tag">Integrações</div>
-            <h2>Integra com o que você já usa</h2>
+            <div className="label-tag">Integrations</div>
+            <h2>Works with your existing stack</h2>
           </div>
           <div className="integ-grid">
             {["WhatsApp Business","Evolution API","Instagram DM","Gmail","Facebook Messenger","Zapier","Make","Google Calendar","Google Sheets","Stripe","MercadoPago","Hotmart","Kommo","RD Station","HubSpot","SendGrid","AWS SES","Supabase"].map(name => (
@@ -377,30 +377,30 @@ export default function LandingPage() {
         <hr className="divider" />
 
         {/* COMPARE */}
-        <section className="section" aria-label="Comparativo com concorrentes">
+        <section className="section" aria-label="Comparison">
           <div className="section-header">
-            <div className="label-tag">Comparativo</div>
-            <h2>Por que uPixel e não as outras opções?</h2>
+            <div className="label-tag">Comparison</div>
+            <h2>Why uPixel over the alternatives?</h2>
           </div>
           <div className="compare-wrap">
             <table className="compare-table">
               <thead>
                 <tr>
-                  <th style={{ width: "36%" }}>Recurso</th>
+                  <th style={{ width: "36%" }}>Feature</th>
                   <th className="upixel">uPixel</th>
                   <th>Kommo</th>
                   <th>Zendesk</th>
-                  <th>Solução caseira</th>
+                  <th>DIY stack</th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td className="feat-name">WhatsApp nativo e estável</td><td className="yes">✓</td><td className="partial">Parcial</td><td className="no">—</td><td className="no">—</td></tr>
-                <tr><td className="feat-name">Disparos em massa anti-bloqueio</td><td className="yes">✓</td><td className="no">—</td><td className="no">—</td><td className="partial">Complexo</td></tr>
-                <tr><td className="feat-name">Automações sem código</td><td className="yes">✓</td><td className="partial">Limitado</td><td className="partial">Limitado</td><td className="no">—</td></tr>
-                <tr><td className="feat-name">IA com RAG contextual</td><td className="yes">✓</td><td className="no">—</td><td className="partial">Básico</td><td className="no">—</td></tr>
-                <tr><td className="feat-name">Multi-canal (6 canais)</td><td className="yes">✓</td><td className="partial">Alguns</td><td className="yes">✓</td><td className="no">—</td></tr>
-                <tr><td className="feat-name">Preço acessível para PMEs</td><td className="yes">✓</td><td className="no">$$$</td><td className="no">$$$</td><td className="partial">Custo oculto</td></tr>
-                <tr><td className="feat-name">LGPD + suporte em PT-BR</td><td className="yes">✓</td><td className="no">—</td><td className="no">—</td><td className="no">—</td></tr>
+                <tr><td className="feat-name">Native, stable WhatsApp</td><td className="yes">✓</td><td className="partial">Partial</td><td className="no">—</td><td className="no">—</td></tr>
+                <tr><td className="feat-name">Mass messaging with anti-ban</td><td className="yes">✓</td><td className="no">—</td><td className="no">—</td><td className="partial">Complex</td></tr>
+                <tr><td className="feat-name">No-code automations</td><td className="yes">✓</td><td className="partial">Limited</td><td className="partial">Limited</td><td className="no">—</td></tr>
+                <tr><td className="feat-name">Contextual RAG-based AI</td><td className="yes">✓</td><td className="no">—</td><td className="partial">Basic</td><td className="no">—</td></tr>
+                <tr><td className="feat-name">Unified multi-channel (6)</td><td className="yes">✓</td><td className="partial">Some</td><td className="yes">✓</td><td className="no">—</td></tr>
+                <tr><td className="feat-name">SMB-friendly pricing</td><td className="yes">✓</td><td className="no">$$$</td><td className="no">$$$</td><td className="partial">Hidden costs</td></tr>
+                <tr><td className="feat-name">GDPR/LGPD compliant</td><td className="yes">✓</td><td className="partial">Partial</td><td className="partial">Partial</td><td className="no">—</td></tr>
               </tbody>
             </table>
           </div>
@@ -409,61 +409,61 @@ export default function LandingPage() {
         <hr className="divider" />
 
         {/* PRICING */}
-        <section className="section" id="planos" aria-label="Planos e preços">
+        <section className="section" id="pricing" aria-label="Pricing">
           <div className="section-header">
-            <div className="label-tag">Planos</div>
-            <h2>Simples, sem surpresa no boleto</h2>
-            <p>Escale conforme sua operação cresce. Cancele quando quiser.</p>
+            <div className="label-tag">Pricing</div>
+            <h2>Simple. No surprises.</h2>
+            <p>Scale as you grow. Cancel anytime.</p>
           </div>
           <div className="pricing-grid">
             <div className="plan">
               <div className="plan-name">Starter</div>
-              <div className="plan-price">R$ 297 <span>/mês</span></div>
-              <div className="plan-desc">Para quem está começando ou tem equipe pequena</div>
+              <div className="plan-price">$49 <span>/mo</span></div>
+              <div className="plan-desc">For small teams getting started</div>
               <ul>
-                <li>Inbox unificado (até 2 canais)</li>
-                <li>1 instância de WhatsApp</li>
-                <li>100 automações / mês</li>
-                <li>CRM + Pipeline completo</li>
-                <li>Relatórios básicos</li>
-                <li className="off">Disparos em massa</li>
-                <li className="off">IA / Alexandria</li>
-                <li className="off">API pública</li>
+                <li>Unified inbox (up to 2 channels)</li>
+                <li>1 WhatsApp instance</li>
+                <li>100 automations / month</li>
+                <li>Full CRM + Pipeline</li>
+                <li>Basic reports</li>
+                <li className="off">Mass messaging</li>
+                <li className="off">AI / Alexandria</li>
+                <li className="off">Public API</li>
               </ul>
-              <a href="https://upixel.app" className="btn-plan default">Começar com Starter</a>
+              <a href="https://upixel.app" className="btn-plan default">Start with Starter</a>
             </div>
             <div className="plan featured">
-              <div className="plan-popular-badge">Mais popular</div>
+              <div className="plan-popular-badge">Most popular</div>
               <div className="plan-name">Pro</div>
-              <div className="plan-price">R$ 897 <span>/mês</span></div>
-              <div className="plan-desc">Para operações comerciais ativas com time de vendas</div>
+              <div className="plan-price">$149 <span>/mo</span></div>
+              <div className="plan-desc">For active sales teams</div>
               <ul>
-                <li>Todos os canais ilimitados</li>
-                <li>Múltiplas instâncias WhatsApp</li>
-                <li>Disparos em massa ilimitados</li>
-                <li>10.000 automações / mês</li>
-                <li>IA + Alexandria (RAG)</li>
-                <li>API REST pública</li>
-                <li>Relatórios avançados + export</li>
-                <li>Suporte prioritário</li>
+                <li>All channels, unlimited</li>
+                <li>Multiple WhatsApp instances</li>
+                <li>Unlimited mass messaging</li>
+                <li>10,000 automations / month</li>
+                <li>AI + Alexandria (RAG)</li>
+                <li>Public REST API</li>
+                <li>Advanced reports + export</li>
+                <li>Priority support</li>
               </ul>
-              <a href="https://upixel.app" className="btn-plan primary">Ativar plano Pro →</a>
+              <a href="https://upixel.app" className="btn-plan primary">Activate Pro →</a>
             </div>
             <div className="plan">
               <div className="plan-name">Enterprise</div>
-              <div className="plan-price" style={{ fontSize: "1.8rem" }}>Sob consulta</div>
-              <div className="plan-desc">Para operações grandes, agências e white-label</div>
+              <div className="plan-price" style={{ fontSize: "1.8rem" }}>Custom</div>
+              <div className="plan-desc">For large operations, agencies, white-label</div>
               <ul>
-                <li>Tudo do Pro</li>
-                <li>White-label completo</li>
-                <li>SLA garantido</li>
-                <li>Suporte dedicado</li>
-                <li>Multi-tenant avançado</li>
-                <li>Customizações sob medida</li>
-                <li>Onboarding personalizado</li>
-                <li>Migração assistida</li>
+                <li>Everything in Pro</li>
+                <li>Full white-label</li>
+                <li>Guaranteed SLA</li>
+                <li>Dedicated support</li>
+                <li>Advanced multi-tenant</li>
+                <li>Custom development</li>
+                <li>Personalized onboarding</li>
+                <li>Assisted migration</li>
               </ul>
-              <a href="https://upixel.app" className="btn-plan dark">Falar com especialista</a>
+              <a href="https://upixel.app" className="btn-plan dark">Talk to sales</a>
             </div>
           </div>
         </section>
@@ -471,10 +471,10 @@ export default function LandingPage() {
         <hr className="divider" />
 
         {/* FAQ */}
-        <section className="section" id="faq" aria-label="Perguntas frequentes">
+        <section className="section" id="faq" aria-label="FAQ">
           <div className="section-header">
             <div className="label-tag">FAQ</div>
-            <h2>Perguntas frequentes</h2>
+            <h2>Frequently asked questions</h2>
           </div>
           <div className="faq-list">
             {FAQS.map((faq, i) => (
@@ -492,22 +492,22 @@ export default function LandingPage() {
         {/* FINAL CTA */}
         <div className="section">
           <div className="cta-block">
-            <div className="label-tag" style={{ color: "var(--z-sand)" }}>Comece hoje</div>
-            <h2>Sua operação comercial merece<br />uma ferramenta à altura</h2>
-            <p>14 dias grátis. Sem cartão de crédito. Setup em minutos.</p>
+            <div className="label-tag" style={{ color: "var(--z-sand)" }}>Start today</div>
+            <h2>Your sales operation deserves<br />tools that actually work</h2>
+            <p>14-day free trial. No credit card. Setup in minutes.</p>
             <div className="cta-row">
-              <a href="https://upixel.app" className="btn-orange" style={{ fontSize: "16px", padding: "16px 32px" }}>Criar minha conta grátis →</a>
-              <a href="https://upixel.app" className="btn-ghost" style={{ borderColor: "rgba(197,192,177,.3)", color: "var(--z-sand)" }}>Ver demonstração</a>
+              <a href="https://upixel.app" className="btn-orange" style={{ fontSize: "16px", padding: "16px 32px" }}>Create my free account →</a>
+              <a href="https://upixel.app" className="btn-ghost" style={{ borderColor: "rgba(197,192,177,.3)", color: "var(--z-sand)" }}>Book a demo</a>
             </div>
-            <div className="cta-guarantee">✓ Sem fidelidade &nbsp;&nbsp; ✓ Cancele quando quiser &nbsp;&nbsp; ✓ Suporte em português</div>
+            <div className="cta-guarantee">✓ No commitment &nbsp;&nbsp; ✓ Cancel anytime &nbsp;&nbsp; ✓ GDPR &amp; LGPD compliant</div>
           </div>
         </div>
       </main>
 
       <footer className="footer">
         <div className="footer-inner">
-          <p>© {new Date().getFullYear()} uPixel CRM — Tecnologia de vendas para times que levam resultado a sério.</p>
-          <small>Desenvolvido com Supabase · TypeScript · React · Edge Functions</small>
+          <p>© {new Date().getFullYear()} uPixel CRM — Sales technology for teams that take results seriously.</p>
+          <small>Built with Supabase · TypeScript · React · Edge Functions</small>
         </div>
       </footer>
     </div>

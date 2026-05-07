@@ -34,6 +34,7 @@ import ProfilePage from "./pages/ProfilePage";
 import SecurityPage from "./pages/SecurityPage";
 import ContactsPage from "./pages/ContactsPage";
 import LandingPage from "./pages/LandingPage";
+import LandingPageEN from "./pages/LandingPageEN";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
 import RagDocumentsPage from "./pages/alexandria/RagDocuments";
@@ -72,6 +73,7 @@ function AppRoutes() {
       <BrowserRouter>
         <Routes>
           <Route path="/cadastro" element={<SignupPage />} />
+          <Route path="/en" element={<LandingPageEN />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
