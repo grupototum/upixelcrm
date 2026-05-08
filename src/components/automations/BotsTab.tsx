@@ -60,7 +60,7 @@ function BotFormDialog({
     setSaving(true);
     try {
       if (isNew) {
-        const { data, error } = await (supabase.from as any)("bots").insert({
+        const { data, error } = await supabase.from("bots").insert({
           client_id: clientId,
           name: name.trim(),
           folder: folder.trim() || "Geral",
@@ -74,7 +74,7 @@ function BotFormDialog({
         toast.success("Bot criado!");
         onSaved(data?.id);
       } else {
-        const { error } = await (supabase.from as any)("bots").update({
+        const { error } = await supabase.from("bots").update({
           name: name.trim(),
           folder: folder.trim() || "Geral",
           status,
@@ -153,7 +153,7 @@ export function BotsTab() {
     queryKey: ["bots", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      const { data, error } = await (supabase.from as any)("bots")
+      const { data, error } = await supabase.from("bots")
         .select("id, name, folder, status, trigger_type, created_at")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
@@ -171,10 +171,10 @@ export function BotsTab() {
   function refresh() { queryClient.invalidateQueries({ queryKey: ["bots", clientId] }); }
 
   async function handleDuplicate(bot: BotRow) {
-    const { data: src } = await (supabase.from as any)("bots")
+    const { data: src } = await supabase.from("bots")
       .select("nodes, edges, trigger_type, trigger_value")
       .eq("id", bot.id).single();
-    const { error } = await (supabase.from as any)("bots").insert({
+    const { error } = await supabase.from("bots").insert({
       client_id: clientId,
       name: `${bot.name} (cópia)`,
       folder: bot.folder,
@@ -191,7 +191,7 @@ export function BotsTab() {
   }
 
   async function handleDelete(bot: BotRow) {
-    const { error } = await (supabase.from as any)("bots").delete().eq("id", bot.id);
+    const { error } = await supabase.from("bots").delete().eq("id", bot.id);
     if (error) { toast.error("Erro ao excluir"); return; }
     if (selectedBot?.id === bot.id) setSelectedBot(null);
     toast.success("Bot excluído");

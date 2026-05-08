@@ -26,7 +26,7 @@ function BuilderInner({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => v
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await (supabase.from as any)('bots').update({
+      const { error } = await supabase.from('bots').update({
         nodes: getNodes(),
         edges: getEdges(),
       }).eq('id', bot.id);
@@ -44,7 +44,7 @@ function BuilderInner({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => v
     setToggling(true);
     const next = bot.status === 'published' ? 'draft' : 'published';
     try {
-      const { error } = await (supabase.from as any)('bots').update({ status: next }).eq('id', bot.id);
+      const { error } = await supabase.from('bots').update({ status: next }).eq('id', bot.id);
       if (error) throw error;
       toast.success(next === 'published' ? 'Bot ativado' : 'Bot pausado');
       onSaved({ ...bot, status: next });
@@ -81,7 +81,7 @@ function BuilderHeader({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await (supabase.from as any)('bots').update({
+      const { error } = await supabase.from('bots').update({
         nodes: getNodes(),
         edges: getEdges(),
       }).eq('id', current.id);
@@ -101,7 +101,7 @@ function BuilderHeader({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => 
     setToggling(true);
     const next = current.status === 'published' ? 'draft' : 'published';
     try {
-      const { error } = await (supabase.from as any)('bots').update({ status: next }).eq('id', current.id);
+      const { error } = await supabase.from('bots').update({ status: next }).eq('id', current.id);
       if (error) throw error;
       toast.success(next === 'published' ? 'Bot ativado — receberá mensagens' : 'Bot pausado');
       const updated = { ...current, status: next as 'published' | 'draft' };
@@ -158,7 +158,7 @@ export default function BotBuilderPage() {
 
   useEffect(() => {
     if (!id) return;
-    (supabase.from as any)('bots')
+    supabase.from('bots')
       .select('id, name, status, nodes, edges, trigger_type, trigger_value')
       .eq('id', id)
       .single()

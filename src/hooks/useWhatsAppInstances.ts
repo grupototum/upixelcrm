@@ -29,7 +29,6 @@ export function useWhatsAppInstances() {
         console.error("Proxy error:", error);
         throw new Error(error.message);
       }
-      console.log("Loaded instances:", data);
       setInstances(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error("Failed to load WA instances:", err.message || err);

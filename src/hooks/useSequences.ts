@@ -60,7 +60,7 @@ export function useSequences() {
     }
 
     const ids = (seqs ?? []).map((s: any) => s.id);
-    let stepsBySeq = new Map<string, SequenceStep[]>();
+    const stepsBySeq = new Map<string, SequenceStep[]>();
     if (ids.length > 0) {
       const { data: steps, error: stepsErr } = await supabase
         .from("message_sequence_steps")

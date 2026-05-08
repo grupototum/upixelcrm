@@ -44,7 +44,7 @@ export function NotificationPopover() {
     queryKey: ["notifications", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data } = await (supabase.from as any)("notifications")
+      const { data } = await supabase.from("notifications")
         .select("id, title, body, type, read, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -81,7 +81,7 @@ export function NotificationPopover() {
 
   async function markAllRead() {
     if (!user?.id || unreadCount === 0) return;
-    await (supabase.from as any)("notifications")
+    await supabase.from("notifications")
       .update({ read: true })
       .eq("user_id", user.id)
       .eq("read", false);
@@ -92,7 +92,7 @@ export function NotificationPopover() {
     queryClient.setQueryData<NotificationRow[]>(["notifications", user?.id], (prev) =>
       prev?.map((n) => (n.id === id ? { ...n, read: true } : n)) ?? []
     );
-    await (supabase.from as any)("notifications").update({ read: true }).eq("id", id);
+    await supabase.from("notifications").update({ read: true }).eq("id", id);
   }
 
   return (

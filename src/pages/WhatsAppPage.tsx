@@ -75,7 +75,7 @@ function InstanceCard({
         const data = await invokeProxy("status");
         setStatus(data.status);
         if (data.instance?.owner) setConnectedNumber(data.instance.owner);
-      } catch {}
+      } catch { /* noop */ }
     }, 10000);
     return () => clearInterval(interval);
   }, [status, invokeProxy]);
@@ -91,7 +91,7 @@ function InstanceCard({
           setQrStep("success");
           clearInterval(interval);
         }
-      } catch {}
+      } catch { /* noop */ }
     }, 3000);
     return () => clearInterval(interval);
   }, [qrModalOpen, qrStep, invokeProxy]);

@@ -153,7 +153,7 @@ export function useBroadcast() {
           const { config } = integration;
           const cleanPhone = lead.phone.replace(/\D/g, "");
           const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-          let apiUrl = (config.api_url || "").replace(/\/$/, "");
+          const apiUrl = (config.api_url || "").replace(/\/$/, "");
 
           const res = await fetch(`${apiUrl}/message/sendText/${config.instance_name}`, {
             method: "POST",

@@ -187,8 +187,8 @@ Deno.serve(async (req) => {
 
         const isEcho = messaging.message.is_echo || false;
         
-        let senderId = messaging.sender?.id;
-        let recipientId = messaging.recipient?.id;
+        const senderId = messaging.sender?.id;
+        const recipientId = messaging.recipient?.id;
         
         // Se for um echo (enviado pelo App mas reportado no Webhook), invertemos: quem "enviou" é o IGAccountId pra gente
         // Mas a conversa pertence ao cliente (o verdadeiro destinatario da DM nesse caso)
