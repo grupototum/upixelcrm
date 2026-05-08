@@ -60,6 +60,15 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [];
 
+const sanitizeNodes = (rawNodes: Node[]): Node[] =>
+  rawNodes.map(({ positionAbsolute: _pa, width: _w, height: _h, ...n }) => ({
+    ...n,
+    position:
+      n.position && typeof n.position.x === "number" && typeof n.position.y === "number"
+        ? n.position
+        : { x: 0, y: 0 },
+  }));
+
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -94,15 +103,17 @@ export function AutomationCanvas({ automationId }: { automationId: string }) {
   const { complexAutomations } = useAppState();
   const auto = complexAutomations.find((a) => a.id === automationId);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(auto?.nodes?.length ? auto.nodes : initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    sanitizeNodes(auto?.nodes?.length ? auto.nodes : initialNodes)
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState(auto?.edges?.length ? auto.edges : initialEdges);
-  
+
   useEffect(() => {
     if (auto) {
-      setNodes(auto.nodes.length ? auto.nodes : initialNodes);
+      setNodes(sanitizeNodes(auto.nodes.length ? auto.nodes : initialNodes));
       setEdges(auto.edges.length ? auto.edges : initialEdges);
     }
-  }, [auto, setNodes, setEdges]); // Sync state if auto changes
+  }, [auto, setNodes, setEdges]);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   
