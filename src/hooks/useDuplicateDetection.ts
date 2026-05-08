@@ -139,7 +139,7 @@ export function useDuplicateDetection() {
     const primary = group.leads.find((l) => l.id === primaryId)!;
     const duplicates = group.leads.filter((l) => l.id !== primaryId);
 
-    let mergedTags = [...(primary.tags || [])];
+    const mergedTags = [...(primary.tags || [])];
     let mergedNotes = primary.notes || "";
     duplicates.forEach((d) => {
       (d.tags || []).forEach((t) => { if (!mergedTags.includes(t)) mergedTags.push(t); });
@@ -210,7 +210,7 @@ export function useDuplicateDetection() {
         const duplicates = g.leads.filter((l) => l.id !== primaryId);
 
         // Merge tags + notes (cálculo local)
-        let mergedTags = [...(primary.tags || [])];
+        const mergedTags = [...(primary.tags || [])];
         let mergedNotes = primary.notes || "";
         duplicates.forEach((d) => {
           (d.tags || []).forEach((t) => { if (!mergedTags.includes(t)) mergedTags.push(t); });

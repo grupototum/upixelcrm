@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#fffefb">
+<title>uPixel CRM — CRM com WhatsApp para times de vendas</title>
+<meta name="description" content="CRM com WhatsApp nativo, automações visuais e IA. Sem developer. Teste 14 dias grátis.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --z-black:#201515;
+  --z-cream:#fffefb;
+  --z-offwhite:#fffdf9;
+  --z-orange:#ff4f00;
+  --z-charcoal:#36342e;
+  --z-warm-gray:#939084;
+  --z-sand:#c5c0b1;
+  --z-light-sand:#eceae3;
+  --z-mid-warm:#b5b2aa;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--z-cream);color:var(--z-black);
+  font-family:'Inter',Helvetica,Arial,sans-serif;
+  font-size:16px;line-height:1.5;overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+h2{font-size:1.75rem;font-weight:600;line-height:1.15;letter-spacing:-0.03em;color:var(--z-black)}
+h3{font-size:1.05rem;font-weight:600;line-height:1.25;letter-spacing:-0.015em;color:var(--z-black)}
+h4{font-size:.97rem;font-weight:600;color:var(--z-black)}
+p{color:var(--z-charcoal);line-height:1.6}
+a{color:var(--z-black);text-decoration:none}
+.label-tag{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--z-warm-gray);display:inline-block;margin-bottom:.75rem}
+/* NAV */
+.nav{
+  position:sticky;top:0;z-index:100;
+  background:var(--z-cream);border-bottom:1px solid var(--z-sand);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;
+}
+.nav-logo{font-size:1.15rem;font-weight:700;letter-spacing:-0.04em;color:var(--z-orange)}
+.nav-logo span{color:var(--z-black)}
+.btn-nav{
+  background:var(--z-orange);color:#fff;border:none;
+  padding:9px 18px;border-radius:4px;
+  font-family:'Inter',Helvetica,Arial,sans-serif;font-size:13px;font-weight:500;
+  cursor:pointer;min-height:44px;display:flex;align-items:center;
+}
+/* HERO */
+.hero{
+  padding:52px 20px 44px;
+  text-align:center;border-bottom:1px solid var(--z-sand);
+}
+.hero h1{
+  font-size:2.3rem;font-weight:600;
+  line-height:1.0;letter-spacing:-0.04em;
+  color:var(--z-black);margin-bottom:1.25rem;
+}
+.hero h1 em{font-style:normal;color:var(--z-orange)}
+.hero p{
+  font-size:1rem;color:var(--z-charcoal);
+  margin-bottom:2rem;line-height:1.55;
+}
+.btn-orange-full{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;background:var(--z-orange);color:#fff;
+  border:none;padding:16px 24px;border-radius:4px;
+  font-family:'Inter',Helvetica,Arial,sans-serif;
+  font-size:16px;font-weight:500;cursor:pointer;
+  min-height:52px;text-decoration:none;
+  -webkit-appearance:none;
+}
+.btn-ghost-full{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;background:transparent;color:var(--z-black);
+  border:1px solid var(--z-sand);padding:14px 24px;border-radius:8px;
+  font-family:'Inter',Helvetica,Arial,sans-serif;
+  font-size:15px;font-weight:500;cursor:pointer;
+  min-height:48px;text-decoration:none;
+  -webkit-appearance:none;
+}
+.btn-stack{display:flex;flex-direction:column;gap:10px}
+.proof-list{
+  margin-top:2rem;display:flex;flex-direction:column;
+  gap:8px;align-items:flex-start;
+}
+.proof-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--z-warm-gray);font-weight:500}
+.proof-dot{width:5px;height:5px;border-radius:50%;background:var(--z-orange);flex-shrink:0}
+/* STATS */
+.stats-grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  border-bottom:1px solid var(--z-sand);background:var(--z-offwhite);
+}
+.stat{
+  padding:24px 16px;text-align:center;
+  border-right:1px solid var(--z-sand);border-bottom:1px solid var(--z-sand);
+}
+.stat:nth-child(even){border-right:none}
+.stat:nth-last-child(-n+2){border-bottom:none}
+.stat-n{font-size:2rem;font-weight:600;letter-spacing:-0.04em;color:var(--z-black);line-height:1;margin-bottom:4px}
+.stat-n em{color:var(--z-orange);font-style:normal}
+.stat-l{font-size:.75rem;color:var(--z-warm-gray);font-weight:500;line-height:1.4}
+/* SECTIONS */
+.section{padding:52px 20px;border-bottom:1px solid var(--z-sand)}
+.section:last-of-type{border-bottom:none}
+.section-header{margin-bottom:1.75rem}
+.section-header h2{margin-bottom:.5rem}
+.section-header p{color:var(--z-warm-gray);font-size:.93rem}
+/* CARDS STACK */
+.card-stack{display:flex;flex-direction:column;gap:1px;background:var(--z-sand);border:1px solid var(--z-sand);border-radius:8px;overflow:hidden}
+.card{background:var(--z-cream);padding:20px}
+.card.alt{background:var(--z-offwhite)}
+.card-icon{font-size:20px;margin-bottom:.75rem;display:block}
+.card h3{margin-bottom:.4rem}
+.card p{font-size:.875rem;color:var(--z-warm-gray);line-height:1.6;margin-bottom:.75rem}
+.card ul{list-style:none;padding:0}
+.card ul li{font-size:.82rem;color:var(--z-charcoal);padding:4px 0 4px 1rem;position:relative;border-top:1px solid var(--z-light-sand)}
+.card ul li::before{content:'→';position:absolute;left:0;color:var(--z-orange);font-size:.8rem}
+/* PAIN CARDS */
+.pain-card{background:var(--z-cream);padding:18px 20px}
+.pain-mark{width:22px;height:22px;border-radius:50%;background:var(--z-light-sand);border:1px solid var(--z-sand);color:var(--z-warm-gray);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:.75rem}
+.pain-card h4{margin-bottom:.35rem;font-size:.93rem}
+.pain-card p{font-size:.845rem;color:var(--z-warm-gray);line-height:1.6}
+/* AUTO CARDS */
+.auto-card{background:var(--z-cream);padding:18px 20px}
+.auto-label{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--z-warm-gray);margin-bottom:.35rem}
+.auto-card h4{font-size:.9rem;margin-bottom:.35rem}
+.auto-card p{font-size:.82rem;color:var(--z-warm-gray);line-height:1.55}
+/* STEPS */
+.steps-list{display:flex;flex-direction:column;gap:1px;background:var(--z-sand);border:1px solid var(--z-sand);border-radius:8px;overflow:hidden}
+.step-item{background:var(--z-cream);padding:18px 20px;display:flex;align-items:flex-start;gap:14px}
+.step-num{width:36px;height:36px;border-radius:50%;border:1px solid var(--z-sand);background:var(--z-cream);display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:600;color:var(--z-orange);flex-shrink:0}
+.step-item h4{font-size:.9rem;margin-bottom:.2rem}
+.step-item p{font-size:.82rem;color:var(--z-warm-gray)}
+/* INTEG */
+.integ-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.integ-badge{background:var(--z-cream);border:1px solid var(--z-sand);border-radius:5px;padding:8px 6px;text-align:center;font-size:.72rem;font-weight:500;color:var(--z-charcoal)}
+/* COMPARE */
+.compare-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--z-sand);border-radius:8px}
+.compare-table{width:100%;min-width:500px;border-collapse:collapse;font-size:.82rem}
+.compare-table th{padding:10px 12px;background:var(--z-offwhite);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--z-warm-gray);border-bottom:1px solid var(--z-sand);white-space:nowrap}
+.compare-table th:not(:first-child){text-align:center}
+.compare-table th.upixel{color:var(--z-orange)}
+.compare-table td{padding:10px 12px;border-bottom:1px solid var(--z-light-sand);color:var(--z-warm-gray)}
+.compare-table td.feat-name{color:var(--z-black);font-weight:500;font-size:.8rem}
+.compare-table td:not(:first-child){text-align:center}
+.compare-table td.yes{color:var(--z-orange);font-weight:600}
+.compare-table td.no{color:var(--z-mid-warm)}
+.compare-table td.partial{color:var(--z-charcoal)}
+.compare-table tr:last-child td{border-bottom:none}
+/* PRICING */
+.plan{background:var(--z-cream);border:1px solid var(--z-sand);border-radius:8px;padding:24px 20px;margin-bottom:12px}
+.plan:last-child{margin-bottom:0}
+.plan.featured{border:2px solid var(--z-black)}
+.plan-popular-badge{display:inline-block;background:var(--z-black);color:var(--z-cream);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:4px 12px;border-radius:4px;margin-bottom:.75rem}
+.plan-name{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--z-warm-gray);margin-bottom:.4rem}
+.plan-price{font-size:2.2rem;font-weight:600;letter-spacing:-0.04em;color:var(--z-black);margin-bottom:.2rem;line-height:1}
+.plan-price span{font-size:.9rem;font-weight:400;color:var(--z-warm-gray)}
+.plan-desc{font-size:.83rem;color:var(--z-warm-gray);margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--z-sand)}
+.plan ul{list-style:none;padding:0;margin-bottom:1.5rem}
+.plan ul li{font-size:.845rem;padding:6px 0 6px 1.4rem;position:relative;border-bottom:1px solid var(--z-light-sand);color:var(--z-charcoal)}
+.plan ul li::before{content:'✓';position:absolute;left:0;color:var(--z-orange);font-size:.8rem;font-weight:600}
+.plan ul li.off{color:var(--z-mid-warm)}
+.plan ul li.off::before{content:'—';color:var(--z-light-sand)}
+.btn-plan{width:100%;padding:14px;border-radius:4px;font-family:'Inter',Helvetica,Arial,sans-serif;font-size:14px;font-weight:500;cursor:pointer;border:none;min-height:48px;-webkit-appearance:none}
+.btn-plan.default{background:var(--z-light-sand);color:var(--z-black)}
+.btn-plan.primary{background:var(--z-orange);color:#fff}
+.btn-plan.dark{background:var(--z-black);color:#fff}
+/* FAQ */
+.faq-list{border:1px solid var(--z-sand);border-radius:8px;overflow:hidden}
+.faq-item{background:var(--z-cream);border-bottom:1px solid var(--z-sand);padding:16px 18px;cursor:pointer}
+.faq-item:last-child{border-bottom:none}
+.faq-q{font-size:.9rem;font-weight:500;color:var(--z-black);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.faq-a{font-size:.845rem;color:var(--z-warm-gray);margin-top:10px;line-height:1.65;display:none}
+.faq-item.open .faq-a{display:block}
+.faq-toggle{color:var(--z-orange);font-size:1.25rem;line-height:1;flex-shrink:0;transition:transform .18s;font-weight:300;margin-top:2px}
+.faq-item.open .faq-toggle{transform:rotate(45deg)}
+/* CTA FINAL */
+.cta-block{background:var(--z-black);border-radius:8px;padding:44px 24px;text-align:center}
+.cta-block h2{color:var(--z-cream);font-size:1.75rem;margin-bottom:.75rem;letter-spacing:-0.03em}
+.cta-block p{color:var(--z-sand);margin-bottom:2rem;font-size:.97rem}
+.cta-guarantee{margin-top:1.25rem;font-size:.78rem;color:var(--z-mid-warm);line-height:1.8}
+/* FOOTER */
+.footer{background:var(--z-black);border-top:1px solid rgba(197,192,177,.12);padding:32px 20px;text-align:center}
+.footer p{color:var(--z-sand);font-size:.82rem;margin-bottom:.4rem}
+.footer small{color:var(--z-warm-gray);font-size:.75rem}
+/* STICKY CTA BAR */
+.sticky-cta{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:var(--z-cream);border-top:1px solid var(--z-sand);
+  padding:12px 20px;
+  display:none;
+}
+.sticky-cta.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav" aria-label="Navegação">
+  <div class="nav-logo">u<span>Pixel</span></div>
+  <a href="https://upixel.app" class="btn-nav">Grátis →</a>
+</nav>
+
+<main>
+<!-- HERO -->
+<section class="hero" aria-label="Hero">
+  <div class="label-tag">CRM + WhatsApp + Automações</div>
+  <h1>Pare de perder vendas por <em>falta de sistema</em></h1>
+  <p>CRM completo com WhatsApp nativo, disparos em massa e automações visuais. Sem developer. Sem integração frágil.</p>
+  <div class="btn-stack">
+    <a href="https://upixel.app" class="btn-orange-full">Testar 14 dias grátis →</a>
+    <a href="#funcionalidades" class="btn-ghost-full">Ver como funciona</a>
+  </div>
+  <div class="proof-list">
+    <div class="proof-item"><div class="proof-dot"></div>Sem cartão de crédito</div>
+    <div class="proof-item"><div class="proof-dot"></div>Setup em minutos</div>
+    <div class="proof-item"><div class="proof-dot"></div>Suporte em português</div>
+    <div class="proof-item"><div class="proof-dot"></div>100% LGPD compliant</div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-grid" aria-label="Números">
+  <div class="stat"><div class="stat-n">50<em>+</em></div><div class="stat-l">tipos de ação</div></div>
+  <div class="stat"><div class="stat-n">6</div><div class="stat-l">canais no inbox</div></div>
+  <div class="stat"><div class="stat-n">5<em>×</em></div><div class="stat-l">mais conversões</div></div>
+  <div class="stat"><div class="stat-n">0</div><div class="stat-l">linhas de código</div></div>
+</div>
+
+<!-- DOR -->
+<section class="section" aria-label="Problema">
+  <div class="section-header">
+    <div class="label-tag">O problema</div>
+    <h2>Você deixa dinheiro na mesa todo dia</h2>
+  </div>
+  <div class="card-stack">
+    <div class="pain-card"><div class="pain-mark">✗</div><h4>Conversas perdidas no WhatsApp</h4><p>Leads somem nas conversas pessoais do vendedor. Sem histórico, sem funil.</p></div>
+    <div class="pain-card"><div class="pain-mark">✗</div><h4>Follow-up dependendo da memória</h4><p>Planilha, caderninho ou cabeça. Leads quentes esfriam porque ninguém lembrou.</p></div>
+    <div class="pain-card"><div class="pain-mark">✗</div><h4>5 ferramentas, 5 assinaturas</h4><p>Dados fragmentados, custo alto, integração manual que quebra toda hora.</p></div>
+    <div class="pain-card"><div class="pain-mark">✗</div><h4>Automação só pra quem sabe codar</h4><p>Qualquer fluxo depende de dev. Mudou o processo? Abre chamado. Paga. Espera.</p></div>
+  </div>
+</section>
+
+<!-- FUNCIONALIDADES -->
+<section class="section" id="funcionalidades" aria-label="Funcionalidades">
+  <div class="section-header">
+    <div class="label-tag">A solução</div>
+    <h2>Uma plataforma. Tudo resolvido.</h2>
+    <p>Do primeiro contato ao pós-venda.</p>
+  </div>
+  <div class="card-stack">
+    <div class="card alt"><span class="card-icon">💬</span><h3>WhatsApp + Inbox Multi-Canal</h3><p>WhatsApp, Instagram, Gmail, Facebook e Webchat em uma única caixa de entrada.</p><ul><li>Zero perda de mensagem com dedup automático</li><li>Round-robin entre atendentes</li><li>Múltiplas instâncias WhatsApp</li></ul></div>
+    <div class="card"><span class="card-icon">📢</span><h3>Disparos em Massa</h3><p>Campanhas segmentadas com anti-bloqueio garantido e ROI calculado.</p><ul><li>Segmentação avançada por tags e score</li><li>Intervalo aleatório entre envios</li><li>Opt-out automático</li></ul></div>
+    <div class="card"><span class="card-icon">⚡</span><h3>Automações Sem Código</h3><p>Drag-and-drop com 50+ ações. Follow-up, carrinho abandonado, upsell — sem dev.</p><ul><li>IF/ELSE, loops e delays visuais</li><li>Templates prontos para ativar</li><li>Logs de execução detalhados</li></ul></div>
+    <div class="card alt"><span class="card-icon">🧠</span><h3>IA & Alexandria (RAG)</h3><p>Chatbot com base de conhecimento da sua empresa. Responde com contexto real.</p><ul><li>Sugestões de resposta em tempo real</li><li>Score de probabilidade de fechamento</li><li>Análise de sentimento do cliente</li></ul></div>
+    <div class="card"><span class="card-icon">📊</span><h3>CRM + Pipeline</h3><p>Funil visual, drag-and-drop e histórico completo de todas as interações.</p><ul><li>Deduplicação automática</li><li>Lead scoring por engajamento</li><li>Forecasting automático</li></ul></div>
+    <div class="card alt"><span class="card-icon">📈</span><h3>Analytics & Relatórios</h3><p>Dashboard executivo com KPIs em tempo real, cohort analysis e exports.</p><ul><li>Taxa de conversão por etapa</li><li>ROI por campanha</li><li>Relatórios agendados por e-mail</li></ul></div>
+  </div>
+</section>
+
+<!-- AUTOMAÇÕES -->
+<section class="section" id="automacoes" aria-label="Automações prontas">
+  <div class="section-header">
+    <div class="label-tag">Automações prontas</div>
+    <h2>Fluxos que trabalham enquanto você dorme</h2>
+  </div>
+  <div class="card-stack">
+    <div class="auto-card"><div class="auto-label" style="color:var(--z-orange)">Atração</div><h4>Follow-up automático</h4><p>Lead criado → WhatsApp 5 min → e-mail 2h → SMS 1 dia → "cold" se silêncio</p></div>
+    <div class="auto-card"><div class="auto-label">Recuperação</div><h4>Carrinho abandonado</h4><p>Webhook → WhatsApp + cupom → 6h → e-mail → 1 dia → frete grátis</p></div>
+    <div class="auto-card"><div class="auto-label" style="color:var(--z-orange)">Expansão</div><h4>Upsell pós-fechamento</h4><p>Deal won → produtos relacionados → WhatsApp + e-mail → task 7 dias</p></div>
+    <div class="auto-card"><div class="auto-label">Retenção</div><h4>NPS automático</h4><p>Suporte resolvido → 2h → NPS via WhatsApp → score &lt;7 vai pro gerente</p></div>
+    <div class="auto-card"><div class="auto-label" style="color:var(--z-orange)">Reengajamento</div><h4>Lead frio (60 dias)</div><p>Trigger automático → "ainda interessado?" → ativo ou inativo</p></div>
+    <div class="auto-card"><div class="auto-label">Relacionamento</div><h4>Aniversário com oferta</h4><p>Cron diário → "Parabéns + 15% de desconto" + task pro gerente ligar</p></div>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section class="section" aria-label="Como começar">
+  <div class="section-header">
+    <div class="label-tag">Como funciona</div>
+    <h2>Ativo em minutos</h2>
+  </div>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">01</div><div><h4>Crie sua conta</h4><p style="font-size:.82rem;color:var(--z-warm-gray)">Setup guiado. 100% na nuvem. Zero instalação.</p></div></div>
+    <div class="step-item"><div class="step-num">02</div><div><h4>Conecte seus canais</h4><p style="font-size:.82rem;color:var(--z-warm-gray)">WhatsApp via QR Code, e-mail, Instagram em poucos cliques.</p></div></div>
+    <div class="step-item"><div class="step-num">03</div><div><h4>Importe seus leads</h4><p style="font-size:.82rem;color:var(--z-warm-gray)">CSV, via API ou migre do Kommo automaticamente.</p></div></div>
+    <div class="step-item"><div class="step-num">04</div><div><h4>Ative as automações</h4><p style="font-size:.82rem;color:var(--z-warm-gray)">Template pronto ou crie o seu no builder visual.</p></div></div>
+  </div>
+</section>
+
+<!-- INTEGRAÇÕES -->
+<section class="section" aria-label="Integrações">
+  <div class="section-header">
+    <div class="label-tag">Integrações</div>
+    <h2>Integra com o que você já usa</h2>
+  </div>
+  <div class="integ-grid">
+    <div class="integ-badge">WhatsApp</div><div class="integ-badge">Evolution API</div><div class="integ-badge">Instagram</div><div class="integ-badge">Gmail</div><div class="integ-badge">Messenger</div><div class="integ-badge">Zapier</div><div class="integ-badge">Make</div><div class="integ-badge">G Calendar</div><div class="integ-badge">G Sheets</div><div class="integ-badge">Stripe</div><div class="integ-badge">MercadoPago</div><div class="integ-badge">Hotmart</div><div class="integ-badge">Kommo</div><div class="integ-badge">RD Station</div><div class="integ-badge">HubSpot</div><div class="integ-badge">SendGrid</div><div class="integ-badge">AWS SES</div><div class="integ-badge">Supabase</div>
+  </div>
+</section>
+
+<!-- COMPARATIVO -->
+<section class="section" aria-label="Comparativo">
+  <div class="section-header">
+    <div class="label-tag">Comparativo</div>
+    <h2>Por que uPixel?</h2>
+  </div>
+  <div class="compare-scroll">
+    <table class="compare-table">
+      <thead><tr><th>Recurso</th><th class="upixel">uPixel</th><th>Kommo</th><th>Zendesk</th></tr></thead>
+      <tbody>
+        <tr><td class="feat-name">WhatsApp nativo</td><td class="yes">✓</td><td class="partial">Parcial</td><td class="no">—</td></tr>
+        <tr><td class="feat-name">Disparos anti-bloqueio</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td class="feat-name">Automações sem código</td><td class="yes">✓</td><td class="partial">Limitado</td><td class="partial">Limitado</td></tr>
+        <tr><td class="feat-name">IA com RAG</td><td class="yes">✓</td><td class="no">—</td><td class="partial">Básico</td></tr>
+        <tr><td class="feat-name">LGPD + PT-BR</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td class="feat-name">Preço para PMEs</td><td class="yes">✓</td><td class="no">$$$</td><td class="no">$$$</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- PLANOS -->
+<section class="section" id="planos" aria-label="Planos">
+  <div class="section-header">
+    <div class="label-tag">Planos</div>
+    <h2>Sem surpresa no boleto</h2>
+    <p>Cancele quando quiser.</p>
+  </div>
+  <div class="plan">
+    <div class="plan-name">Starter</div>
+    <div class="plan-price">R$ 297 <span>/mês</span></div>
+    <div class="plan-desc">Para quem está começando</div>
+    <ul><li>Inbox (até 2 canais)</li><li>1 instância WhatsApp</li><li>100 automações/mês</li><li>CRM + Pipeline</li><li class="off">Disparos em massa</li><li class="off">IA / Alexandria</li></ul>
+    <button class="btn-plan default">Começar com Starter</button>
+  </div>
+  <div class="plan featured">
+    <div class="plan-popular-badge">Mais popular</div>
+    <div class="plan-name">Pro</div>
+    <div class="plan-price">R$ 897 <span>/mês</span></div>
+    <div class="plan-desc">Para times de vendas ativos</div>
+    <ul><li>Todos os canais ilimitados</li><li>Múltiplas instâncias WhatsApp</li><li>Disparos em massa ilimitados</li><li>10.000 automações/mês</li><li>IA + Alexandria (RAG)</li><li>API REST pública</li><li>Suporte prioritário</li></ul>
+    <button class="btn-plan primary">Ativar plano Pro →</button>
+  </div>
+  <div class="plan">
+    <div class="plan-name">Enterprise</div>
+    <div class="plan-price" style="font-size:1.6rem">Sob consulta</div>
+    <div class="plan-desc">Para agências e white-label</div>
+    <ul><li>Tudo do Pro</li><li>White-label completo</li><li>SLA + suporte dedicado</li><li>Onboarding personalizado</li></ul>
+    <button class="btn-plan dark">Falar com especialista</button>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq" aria-label="FAQ">
+  <div class="section-header">
+    <div class="label-tag">FAQ</div>
+    <h2>Perguntas frequentes</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item"><div class="faq-q">Funciona com WhatsApp pessoal?<span class="faq-toggle">+</span></div><div class="faq-a">Sim. Suporta Evolution API (qualquer número via QR Code) e Meta Official API (WhatsApp Business com CNPJ).</div></div>
+    <div class="faq-item"><div class="faq-q">Posso migrar do Kommo?<span class="faq-toggle">+</span></div><div class="faq-a">Sim. Compatibilidade nativa com Kommo: importação via JSON, mapeamento automático e migração zero-downtime.</div></div>
+    <div class="faq-item"><div class="faq-q">Risco de bloqueio no WhatsApp?<span class="faq-toggle">+</span></div><div class="faq-a">Anti-bloqueio com throttling configurável, intervalo aleatório e rotação de instâncias. Para máxima segurança: Meta Official API com templates aprovados.</div></div>
+    <div class="faq-item"><div class="faq-q">Preciso de developer?<span class="faq-toggle">+</span></div><div class="faq-a">Não. O builder é 100% drag-and-drop. Templates prontos para os casos mais comuns.</div></div>
+    <div class="faq-item"><div class="faq-q">Como funciona o teste grátis?<span class="faq-toggle">+</span></div><div class="faq-a">14 dias com acesso completo ao plano Pro. Sem cartão de crédito. Cancela sem custo.</div></div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<div style="padding:0 20px 20px">
+  <div class="cta-block">
+    <div class="label-tag" style="color:var(--z-sand)">Comece hoje</div>
+    <h2>Sua operação merece uma ferramenta à altura</h2>
+    <p>14 dias grátis. Setup em minutos.</p>
+    <div class="btn-stack" style="max-width:320px;margin:0 auto">
+      <a href="https://upixel.app" class="btn-orange-full" style="font-size:16px;padding:17px 24px">Criar conta grátis →</a>
+    </div>
+    <div class="cta-guarantee">✓ Sem fidelidade · ✓ Cancele quando quiser · ✓ Suporte PT-BR</div>
+  </div>
+</div>
+</main>
+
+<footer class="footer">
+  <p>© 2025 uPixel CRM</p>
+  <small>Supabase · TypeScript · React · Edge Functions</small>
+</footer>
+
+<!-- STICKY CTA -->
+<div class="sticky-cta" id="stickyCta">
+  <a href="https://upixel.app" class="btn-orange-full" style="font-size:15px;padding:14px">Começar grátis — 14 dias →</a>
+</div>
+
+<script>
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.faq-item').forEach(o => { if(o !== this) o.classList.remove('open'); });
+    this.classList.toggle('open');
+  });
+});
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', function(e) {
+    const t = document.querySelector(this.getAttribute('href'));
+    if(t){ e.preventDefault(); t.scrollIntoView({behavior:'smooth',block:'start'}); }
+  });
+});
+const sticky = document.getElementById('stickyCta');
+const hero = document.querySelector('.hero');
+const observer = new IntersectionObserver(entries => {
+  sticky.classList.toggle('show', !entries[0].isIntersecting);
+}, {threshold:0});
+observer.observe(hero);
+</script>
+</body>
+</html>

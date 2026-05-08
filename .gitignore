@@ -29,6 +29,7 @@ dist-ssr
 migration-dump/
 
 # Credenciais de migração — NUNCA commitar
+.env
 .env.migration
 
 # Agent Skills e configs locais do AI Assistant

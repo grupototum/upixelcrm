@@ -185,7 +185,6 @@ export default function LandingPage() {
 
   return (
     <div>
-      {/* eslint-disable-next-line react/no-danger */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       {/* NAV */}

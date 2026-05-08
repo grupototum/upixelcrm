@@ -6,9 +6,9 @@ function sendError(args: any[]) {
       .map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a)))
       .join(" ");
     import("@/integrations/supabase/client").then(({ supabase }) => {
-      (supabase.from as any)("error_logs").insert({ message }).then(() => {});
+      supabase.from("error_logs").insert({ message }).then(() => {});
     });
-  } catch {}
+  } catch { /* noop */ }
 }
 
 export const logger = {

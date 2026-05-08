@@ -1,0 +1,772 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --u-dark:#0A0A0F;
+  --u-surface:#101018;
+  --u-card:#16161F;
+  --u-border:#2A2A3A;
+  --u-accent:#4F6EFF;
+  --u-accent2:#00D4A0;
+  --u-accent3:#FF6B4A;
+  --u-text:#F0EFF8;
+  --u-muted:#8884A0;
+  --u-subtle:#55536A;
+}
+
+.lp{
+  background:var(--u-dark);
+  color:var(--u-text);
+  font-family:'DM Sans',sans-serif;
+  font-size:16px;
+  line-height:1.65;
+  overflow-x:hidden;
+}
+
+h1,h2,h3,h4{font-family:'Syne',sans-serif;line-height:1.15}
+
+.tag{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(79,110,255,.12);
+  border:1px solid rgba(79,110,255,.3);
+  color:var(--u-accent);
+  font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 14px;border-radius:100px;
+  margin-bottom:1.5rem;
+}
+
+.badge-green{background:rgba(0,212,160,.1);border-color:rgba(0,212,160,.3);color:var(--u-accent2)}
+
+/* HERO */
+.hero{
+  padding:100px 0 80px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.hero::before{
+  content:'';
+  position:absolute;top:-80px;left:50%;transform:translateX(-50%);
+  width:700px;height:500px;
+  background:radial-gradient(ellipse at center, rgba(79,110,255,.18) 0%, transparent 70%);
+  pointer-events:none;
+}
+.hero h1{
+  font-size:clamp(2.6rem,5vw,4.2rem);
+  font-weight:800;
+  letter-spacing:-.03em;
+  max-width:760px;margin:0 auto 1.5rem;
+}
+.hero h1 span{
+  background:linear-gradient(135deg,#4F6EFF,#00D4A0);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero p{
+  font-size:1.15rem;color:var(--u-muted);
+  max-width:580px;margin:0 auto 2.5rem;
+  font-weight:300;
+}
+.cta-row{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.btn-primary{
+  background:var(--u-accent);color:#fff;
+  border:none;padding:14px 32px;
+  border-radius:10px;font-size:15px;font-weight:500;
+  cursor:pointer;
+  transition:opacity .2s,transform .15s;
+  font-family:'DM Sans',sans-serif;
+}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-ghost{
+  background:transparent;
+  color:var(--u-text);
+  border:1px solid var(--u-border);
+  padding:14px 28px;border-radius:10px;
+  font-size:15px;font-weight:400;cursor:pointer;
+  transition:border-color .2s,background .2s;
+  font-family:'DM Sans',sans-serif;
+}
+.btn-ghost:hover{border-color:var(--u-accent);background:rgba(79,110,255,.06)}
+
+.social-proof{
+  margin-top:3rem;display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;
+}
+.sp-item{
+  display:flex;align-items:center;gap:8px;
+  color:var(--u-muted);font-size:13px;
+}
+.sp-dot{width:6px;height:6px;border-radius:50%;background:var(--u-accent2)}
+
+/* SECTION */
+.section{padding:80px 24px;max-width:1060px;margin:0 auto}
+.section-sm{padding:60px 24px;max-width:1060px;margin:0 auto}
+.section-header{text-align:center;margin-bottom:3.5rem}
+.section-header h2{font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:700;letter-spacing:-.025em;margin-bottom:.75rem}
+.section-header p{color:var(--u-muted);font-size:1rem;max-width:520px;margin:0 auto;font-weight:300}
+
+/* PAIN */
+.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.pain-card{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:14px;padding:24px;
+  position:relative;overflow:hidden;
+}
+.pain-card::before{
+  content:'✗';
+  position:absolute;top:16px;right:16px;
+  color:rgba(255,107,74,.3);font-size:22px;font-weight:700;
+}
+.pain-card h4{font-size:.95rem;font-weight:600;margin-bottom:.5rem;font-family:'Syne',sans-serif}
+.pain-card p{font-size:.88rem;color:var(--u-muted);line-height:1.6}
+
+/* DIVIDER */
+.divider{
+  border:none;
+  border-top:1px solid var(--u-border);
+  margin:0 24px;
+}
+
+/* FEATURES GRID */
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.feat-card{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:16px;padding:28px 24px;
+  transition:border-color .2s;
+}
+.feat-card:hover{border-color:rgba(79,110,255,.4)}
+.feat-card.highlight{border-color:rgba(0,212,160,.35);background:rgba(0,212,160,.04)}
+.feat-icon{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:1rem;font-size:20px;
+}
+.ico-blue{background:rgba(79,110,255,.15);color:var(--u-accent)}
+.ico-green{background:rgba(0,212,160,.15);color:var(--u-accent2)}
+.ico-orange{background:rgba(255,107,74,.15);color:var(--u-accent3)}
+.feat-card h3{font-size:1.05rem;font-weight:600;margin-bottom:.5rem}
+.feat-card p{font-size:.875rem;color:var(--u-muted);line-height:1.65}
+.feat-card ul{margin-top:.75rem;padding-left:0;list-style:none}
+.feat-card ul li{
+  font-size:.84rem;color:var(--u-muted);padding:4px 0;padding-left:1.2rem;position:relative;
+}
+.feat-card ul li::before{
+  content:'→';
+  position:absolute;left:0;color:var(--u-accent);font-size:.8rem;
+}
+
+/* HOW */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;position:relative}
+.step{
+  text-align:center;padding:32px 20px;
+  position:relative;
+}
+.step:not(:last-child)::after{
+  content:'';
+  position:absolute;top:42px;right:0;
+  width:1px;height:60px;
+  background:var(--u-border);
+}
+.step-num{
+  width:52px;height:52px;border-radius:50%;
+  background:rgba(79,110,255,.1);
+  border:1.5px solid rgba(79,110,255,.35);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1rem;
+  font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;
+  color:var(--u-accent);
+}
+.step h4{font-size:.95rem;font-weight:600;margin-bottom:.4rem}
+.step p{font-size:.84rem;color:var(--u-muted)}
+
+/* STATS */
+.stats-bar{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:16px;padding:40px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:32px;
+  text-align:center;
+}
+.stat-n{
+  font-family:'Syne',sans-serif;
+  font-size:2.5rem;font-weight:800;
+  background:linear-gradient(135deg,#4F6EFF,#00D4A0);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1;margin-bottom:6px;
+}
+.stat-l{font-size:.85rem;color:var(--u-muted)}
+
+/* INTEGRATIONS */
+.integ-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.integ-badge{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:10px;padding:14px 10px;
+  text-align:center;font-size:.82rem;color:var(--u-muted);
+  transition:border-color .2s,color .2s;
+}
+.integ-badge:hover{border-color:var(--u-accent);color:var(--u-text)}
+
+/* PRICING */
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;align-items:start}
+.plan{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:18px;padding:32px 28px;
+}
+.plan.featured{
+  border-color:rgba(79,110,255,.6);
+  background:rgba(79,110,255,.06);
+  position:relative;
+}
+.plan-popular{
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  background:var(--u-accent);color:#fff;
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 16px;border-radius:100px;white-space:nowrap;
+}
+.plan-name{font-size:.85rem;font-weight:500;color:var(--u-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
+.plan-price{
+  font-family:'Syne',sans-serif;
+  font-size:2.8rem;font-weight:800;
+  letter-spacing:-.04em;margin-bottom:.25rem;
+}
+.plan-price span{font-size:1rem;font-weight:400;color:var(--u-muted)}
+.plan-desc{font-size:.87rem;color:var(--u-muted);margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--u-border)}
+.plan ul{list-style:none;margin-bottom:2rem}
+.plan ul li{
+  font-size:.875rem;padding:7px 0 7px 1.6rem;
+  position:relative;border-bottom:1px solid rgba(255,255,255,.04);
+}
+.plan ul li::before{
+  content:'✓';position:absolute;left:0;
+  color:var(--u-accent2);font-size:.85rem;font-weight:600;
+}
+.plan ul li.muted{color:var(--u-subtle)}
+.plan ul li.muted::before{content:'—';color:var(--u-subtle)}
+.btn-plan{
+  width:100%;padding:13px;border-radius:10px;
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;
+  cursor:pointer;transition:all .2s;border:none;
+}
+.btn-plan.default{
+  background:var(--u-border);color:var(--u-text);
+}
+.btn-plan.default:hover{background:#3A3A50}
+.btn-plan.accent{background:var(--u-accent);color:#fff}
+.btn-plan.accent:hover{opacity:.88;transform:translateY(-1px)}
+
+/* COMPARE */
+.compare-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.compare-table th{
+  padding:14px 16px;text-align:left;
+  font-family:'Syne',sans-serif;font-size:.85rem;font-weight:600;
+  color:var(--u-muted);border-bottom:1px solid var(--u-border);
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.compare-table th:not(:first-child){text-align:center}
+.compare-table td{
+  padding:13px 16px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  color:var(--u-muted);font-size:.875rem;
+}
+.compare-table td.feat-name{color:var(--u-text);font-weight:400}
+.compare-table td:not(:first-child){text-align:center}
+.compare-table td.yes{color:var(--u-accent2);font-weight:600}
+.compare-table td.no{color:var(--u-subtle)}
+.compare-table td.partial{color:var(--u-accent3)}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-wrap{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:16px;overflow:hidden;
+}
+.compare-table th.upixel{color:var(--u-accent)}
+
+/* FAQ */
+.faq-list{display:flex;flex-direction:column;gap:12px}
+.faq-item{
+  background:var(--u-card);border:1px solid var(--u-border);
+  border-radius:12px;padding:20px 24px;cursor:pointer;
+}
+.faq-q{font-size:.95rem;font-weight:500;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.faq-a{font-size:.875rem;color:var(--u-muted);margin-top:12px;line-height:1.7;display:none}
+.faq-item.open .faq-a{display:block}
+.faq-item.open .faq-toggle{transform:rotate(45deg)}
+.faq-toggle{color:var(--u-accent);font-size:1.4rem;line-height:1;flex-shrink:0;transition:transform .2s}
+
+/* CTA FINAL */
+.cta-block{
+  background:var(--u-card);
+  border:1px solid rgba(79,110,255,.3);
+  border-radius:20px;
+  padding:64px 40px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.cta-block::before{
+  content:'';
+  position:absolute;top:-100px;left:50%;transform:translateX(-50%);
+  width:600px;height:400px;
+  background:radial-gradient(ellipse at center,rgba(79,110,255,.15) 0%,transparent 70%);
+  pointer-events:none;
+}
+.cta-block h2{font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:800;margin-bottom:1rem;letter-spacing:-.025em}
+.cta-block p{color:var(--u-muted);max-width:460px;margin:0 auto 2.5rem;font-size:1rem;font-weight:300}
+.guarantee{margin-top:1.5rem;font-size:.82rem;color:var(--u-subtle)}
+
+/* NAV */
+.nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 32px;
+  border-bottom:1px solid var(--u-border);
+  max-width:1100px;margin:0 auto;
+}
+.nav-logo{
+  font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;
+  background:linear-gradient(135deg,#4F6EFF,#00D4A0);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.nav-links{display:flex;gap:28px}
+.nav-links a{font-size:.87rem;color:var(--u-muted);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--u-text)}
+
+/* FOOTER */
+.footer{
+  border-top:1px solid var(--u-border);
+  padding:40px 24px;text-align:center;
+  color:var(--u-subtle);font-size:.84rem;
+  max-width:1060px;margin:0 auto;
+}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .nav-links{display:none}
+  .hero{padding:70px 20px 60px}
+  .steps::after{display:none}
+  .step:not(:last-child)::after{display:none}
+  .stats-bar{padding:28px 20px;gap:24px}
+}
+</style>
+
+<div class="lp" role="main">
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">uPixel CRM — Plataforma de CRM, automações e comunicação omnichannel para times de vendas</h2>
+
+<!-- NAV -->
+<nav style="position:sticky;top:0;z-index:100;background:rgba(10,10,15,.92);backdrop-filter:blur(12px);border-bottom:1px solid #2A2A3A">
+  <div class="nav">
+    <div class="nav-logo">uPixel</div>
+    <div class="nav-links">
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#automacoes">Automações</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <button class="btn-primary" style="padding:10px 22px;font-size:13px" onclick="sendPrompt('Quero saber mais sobre os planos do uPixel CRM e como começar')">Começar grátis →</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div style="max-width:1060px;margin:0 auto;padding:0 24px">
+    <div class="tag"><span>🚀</span> O CRM que o Brasil estava esperando</div>
+    <h1>Pare de perder vendas por <span>falta de sistema</span></h1>
+    <p>uPixel é o CRM completo com WhatsApp nativo, disparos em massa, automações visuais e IA — tudo em uma única plataforma, sem precisar de developer.</p>
+    <div class="cta-row">
+      <button class="btn-primary" onclick="sendPrompt('Quero começar a usar o uPixel CRM agora. Como faço o cadastro?')">Testar 14 dias grátis</button>
+      <button class="btn-ghost" onclick="sendPrompt('Pode me explicar como o uPixel CRM funciona na prática?')">Ver como funciona</button>
+    </div>
+    <div class="social-proof">
+      <div class="sp-item"><div class="sp-dot"></div>Sem cartão de crédito</div>
+      <div class="sp-item"><div class="sp-dot"></div>Setup em minutos</div>
+      <div class="sp-item"><div class="sp-dot"></div>Suporte em português</div>
+      <div class="sp-item"><div class="sp-dot"></div>100% LGPD compliant</div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div style="max-width:1060px;margin:0 auto;padding:0 24px 80px">
+  <div class="stats-bar">
+    <div><div class="stat-n">50+</div><div class="stat-l">tipos de ação em automações</div></div>
+    <div><div class="stat-n">6</div><div class="stat-l">canais num único inbox</div></div>
+    <div><div class="stat-n">5x</div><div class="stat-l">mais leads convertidos</div></div>
+    <div><div class="stat-n">0</div><div class="stat-l">código necessário</div></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- DOR -->
+<div class="section" id="dor">
+  <div class="section-header">
+    <div class="tag" style="background:rgba(255,107,74,.08);border-color:rgba(255,107,74,.3);color:var(--u-accent3)">O problema</div>
+    <h2>Você está deixando dinheiro na mesa todo dia</h2>
+    <p>Sem um CRM integrado, seu time perde tempo, energia e clientes em potencial.</p>
+  </div>
+  <div class="pain-grid">
+    <div class="pain-card">
+      <h4>Conversas perdidas no WhatsApp</h4>
+      <p>Leads que chegam pelo WhatsApp somem nas conversas pessoais do vendedor. Sem histórico, sem rastreamento, sem funil.</p>
+    </div>
+    <div class="pain-card">
+      <h4>Follow-up dependendo da memória</h4>
+      <p>Cada vendedor tem o próprio sistema. Alguns usam planilha, outros caderninho. Leads quentes esfriam porque ninguém lembrou.</p>
+    </div>
+    <div class="pain-card">
+      <h4>5 ferramentas, 5 assinaturas</h4>
+      <p>CRM aqui, disparo de WhatsApp ali, e-mail marketing lá. Dados fragmentados, custo alto, integração manual.</p>
+    </div>
+    <div class="pain-card">
+      <h4>Automação só pra quem sabe codar</h4>
+      <p>Você depende de um dev para criar qualquer fluxo. Mudou o processo? Abre chamado. Espera. Paga.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FUNCIONALIDADES -->
+<div class="section" id="funcionalidades">
+  <div class="section-header">
+    <div class="tag">A solução</div>
+    <h2>Uma plataforma. Tudo resolvido.</h2>
+    <p>Do primeiro contato ao pós-venda, o uPixel centraliza sua operação comercial completa.</p>
+  </div>
+  <div class="feat-grid">
+    <div class="feat-card highlight">
+      <div class="feat-icon ico-green"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i></div>
+      <h3>WhatsApp + Inbox Multi-Canal</h3>
+      <p>WhatsApp (Evolution API e Meta Oficial), Instagram Direct, Gmail, Facebook Messenger e Webchat — todos em uma única caixa de entrada unificada.</p>
+      <ul>
+        <li>Zero perda de mensagem com dedup automático</li>
+        <li>Round-robin inteligente entre atendentes</li>
+        <li>Notas internas, status em tempo real</li>
+        <li>Múltiplas instâncias por conta</li>
+      </ul>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon ico-orange"><i class="ti ti-send" aria-hidden="true"></i></div>
+      <h3>Disparos em Massa Inteligentes</h3>
+      <p>Campanhas segmentadas com filtros avançados, A/B testing, throttling anti-bloqueio e rastreamento completo de resultados.</p>
+      <ul>
+        <li>Segmentação por tags, score, custom fields</li>
+        <li>Intervalo aleatório entre envios</li>
+        <li>Opt-out automático ("PARAR"/"CANCELAR")</li>
+        <li>ROI calculado por campanha</li>
+      </ul>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon ico-blue"><i class="ti ti-api" aria-hidden="true"></i></div>
+      <h3>Automações Visuais Sem Código</h3>
+      <p>Editor drag-and-drop com 50+ tipos de ação. Crie fluxos de follow-up, recuperação de carrinho, upsell e NPS sem escrever uma linha de código.</p>
+      <ul>
+        <li>Triggers por evento, tempo ou webhook</li>
+        <li>Lógica IF/ELSE, loops e delays</li>
+        <li>Variáveis dinâmicas de CRM</li>
+        <li>Logs de execução detalhados</li>
+      </ul>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon ico-blue"><i class="ti ti-brain" aria-hidden="true"></i></div>
+      <h3>IA & Alexandria (RAG)</h3>
+      <p>Base de conhecimento inteligente com geração aumentada por recuperação. O chatbot responde com contexto real da sua empresa, não respostas genéricas.</p>
+      <ul>
+        <li>Sugestões de resposta em tempo real</li>
+        <li>Análise de sentimento do cliente</li>
+        <li>Score de probabilidade de fechamento</li>
+        <li>Resumo automático de conversas</li>
+      </ul>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon ico-green"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
+      <h3>CRM Completo + Pipeline</h3>
+      <p>Gestão de leads, contatos e oportunidades com funil visual, drag-and-drop entre estágios e histórico completo de interações.</p>
+      <ul>
+        <li>Deduplicação automática por email/CPF</li>
+        <li>Lead scoring por engajamento</li>
+        <li>Forecasting automático</li>
+        <li>Campos customizáveis por tenant</li>
+      </ul>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon ico-orange"><i class="ti ti-report-analytics" aria-hidden="true"></i></div>
+      <h3>Analytics & Relatórios</h3>
+      <p>Dashboard executivo com KPIs em tempo real, heatmaps de atividade, cohort analysis e relatórios exportáveis em CSV, Excel ou PDF.</p>
+      <ul>
+        <li>Taxa de conversão por etapa do funil</li>
+        <li>Ranking de representantes</li>
+        <li>Métricas de campanha com ROI</li>
+        <li>Agendamento de relatórios por e-mail</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- AUTOMAÇÕES -->
+<div class="section" id="automacoes">
+  <div class="section-header">
+    <div class="tag badge-green">Automações prontas</div>
+    <h2>Fluxos que trabalham enquanto você dorme</h2>
+    <p>Templates de automação prontos para ativar. Só configurar e ligar.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+    <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:12px;padding:20px 22px">
+      <div style="font-size:.8rem;color:var(--u-accent2);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.5rem">Atração</div>
+      <h4 style="font-size:.95rem;font-weight:600;margin-bottom:.4rem">Follow-up automático de leads</h4>
+      <p style="font-size:.84rem;color:var(--u-muted)">Lead criado → WhatsApp 5 min → e-mail 2h → SMS 1 dia → "cold" se silêncio total</p>
+    </div>
+    <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:12px;padding:20px 22px">
+      <div style="font-size:.8rem;color:var(--u-accent3);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.5rem">Recuperação</div>
+      <h4 style="font-size:.95rem;font-weight:600;margin-bottom:.4rem">Carrinho abandonado</h4>
+      <p style="font-size:.84rem;color:var(--u-muted)">Webhook → WhatsApp + cupom → 6h sem compra → e-mail → 1 dia → frete grátis</p>
+    </div>
+    <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:12px;padding:20px 22px">
+      <div style="font-size:.8rem;color:var(--u-accent);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.5rem">Expansão</div>
+      <h4 style="font-size:.95rem;font-weight:600;margin-bottom:.4rem">Upsell pós-fechamento</h4>
+      <p style="font-size:.84rem;color:var(--u-muted)">Deal won → produtos relacionados → e-mail + WhatsApp → task de follow-up 7 dias</p>
+    </div>
+    <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:12px;padding:20px 22px">
+      <div style="font-size:.8rem;color:var(--u-accent2);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.5rem">Retenção</div>
+      <h4 style="font-size:.95rem;font-weight:600;margin-bottom:.4rem">NPS automático</h4>
+      <p style="font-size:.84rem;color:var(--u-muted)">Suporte resolvido → 2h → NPS via WhatsApp → score &lt;7 vai pro gerente</p>
+    </div>
+    <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:12px;padding:20px 22px">
+      <div style="font-size:.8rem;color:var(--u-accent3);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.5rem">Reengajamento</div>
+      <h4 style="font-size:.95rem;font-weight:600;margin-bottom:.4rem">Lead frio (60 dias sem contato)</h4>
+      <p style="font-size:.84rem;color:var(--u-muted)">Trigger automático → WhatsApp "ainda interessado?" → respondeu: ativo / silêncio: inativo</p>
+    </div>
+    <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:12px;padding:20px 22px">
+      <div style="font-size:.8rem;color:var(--u-accent);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.5rem">Relacionamento</div>
+      <h4 style="font-size:.95rem;font-weight:600;margin-bottom:.4rem">Aniversário com oferta</h4>
+      <p style="font-size:.84rem;color:var(--u-muted)">Cron diário → detecta aniversários → "Parabéns + 15% de desconto" + task pro gerente ligar</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- COMO FUNCIONA -->
+<div class="section">
+  <div class="section-header">
+    <div class="tag">Como funciona</div>
+    <h2>Ativo em minutos, não em semanas</h2>
+  </div>
+  <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:16px;overflow:hidden">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h4>Crie sua conta</h4>
+        <p>Setup guiado. Sem instalar nada. 100% na nuvem.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h4>Conecte seus canais</h4>
+        <p>WhatsApp via QR Code, e-mail, Instagram em poucos cliques.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h4>Importe seus leads</h4>
+        <p>CSV, via API ou migrate do Kommo automaticamente.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h4>Ative as automações</h4>
+        <p>Escolha um template pronto ou crie o seu no builder visual.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INTEGRAÇÕES -->
+<div class="section-sm">
+  <div class="section-header">
+    <h2>Integra com o que você já usa</h2>
+  </div>
+  <div class="integ-grid">
+    <div class="integ-badge">WhatsApp Business</div>
+    <div class="integ-badge">Evolution API</div>
+    <div class="integ-badge">Instagram DM</div>
+    <div class="integ-badge">Gmail</div>
+    <div class="integ-badge">Facebook Messenger</div>
+    <div class="integ-badge">Zapier</div>
+    <div class="integ-badge">Make (Integromat)</div>
+    <div class="integ-badge">Google Calendar</div>
+    <div class="integ-badge">Google Sheets</div>
+    <div class="integ-badge">Stripe</div>
+    <div class="integ-badge">MercadoPago</div>
+    <div class="integ-badge">Hotmart</div>
+    <div class="integ-badge">Kommo</div>
+    <div class="integ-badge">RD Station</div>
+    <div class="integ-badge">HubSpot</div>
+    <div class="integ-badge">SendGrid</div>
+    <div class="integ-badge">AWS SES</div>
+    <div class="integ-badge">Supabase</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- COMPARATIVO -->
+<div class="section">
+  <div class="section-header">
+    <div class="tag">Comparativo</div>
+    <h2>Por que uPixel e não as outras opções?</h2>
+  </div>
+  <div class="compare-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th style="width:36%">Recurso</th>
+          <th class="upixel">uPixel</th>
+          <th>Kommo</th>
+          <th>Zendesk</th>
+          <th>Solução caseira</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="feat-name">WhatsApp nativo e estável</td><td class="yes">✓</td><td class="partial">Parcial</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Disparos em massa anti-bloqueio</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="partial">Complexo</td></tr>
+        <tr><td class="feat-name">Automações sem código</td><td class="yes">✓</td><td class="partial">Limitado</td><td class="partial">Limitado</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">IA com RAG contextual</td><td class="yes">✓</td><td class="no">✗</td><td class="partial">Básico</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Multi-canal unificado (6 canais)</td><td class="yes">✓</td><td class="partial">Alguns</td><td class="yes">✓</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Preço acessível para PMEs</td><td class="yes">✓</td><td class="no">$$$</td><td class="no">$$$</td><td class="partial">Custo oculto</td></tr>
+        <tr><td class="feat-name">LGPD + suporte em PT-BR</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- PLANOS -->
+<div class="section" id="planos">
+  <div class="section-header">
+    <div class="tag">Planos</div>
+    <h2>Simples, sem surpresa no boleto</h2>
+    <p>Escale conforme sua operação cresce. Cancele quando quiser.</p>
+  </div>
+  <div class="pricing-grid">
+    <div class="plan">
+      <div class="plan-name">Starter</div>
+      <div class="plan-price">R$ 297 <span>/mês</span></div>
+      <div class="plan-desc">Para quem está começando ou tem equipe pequena</div>
+      <ul>
+        <li>Inbox unificado (até 2 canais)</li>
+        <li>1 instância de WhatsApp</li>
+        <li>100 automações / mês</li>
+        <li>CRM + Pipeline completo</li>
+        <li>Relatórios básicos</li>
+        <li class="muted">Disparos em massa</li>
+        <li class="muted">IA / Alexandria</li>
+        <li class="muted">API pública</li>
+      </ul>
+      <button class="btn-plan default" onclick="sendPrompt('Quero o plano Starter do uPixel CRM')">Começar com Starter</button>
+    </div>
+    <div class="plan featured">
+      <div class="plan-popular">Mais popular</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price">R$ 897 <span>/mês</span></div>
+      <div class="plan-desc">Para operações comerciais ativas com time de vendas</div>
+      <ul>
+        <li>Todos os canais ilimitados</li>
+        <li>Múltiplas instâncias WhatsApp</li>
+        <li>Disparos em massa ilimitados</li>
+        <li>10.000 automações / mês</li>
+        <li>IA + Alexandria (RAG)</li>
+        <li>API REST pública</li>
+        <li>Relatórios avançados + export</li>
+        <li>Suporte prioritário</li>
+      </ul>
+      <button class="btn-plan accent" onclick="sendPrompt('Quero o plano Pro do uPixel CRM. Como começo?')">Ativar plano Pro →</button>
+    </div>
+    <div class="plan">
+      <div class="plan-name">Enterprise</div>
+      <div class="plan-price">Sob consulta</div>
+      <div class="plan-desc">Para operações grandes, agências e white-label</div>
+      <ul>
+        <li>Tudo do Pro</li>
+        <li>White-label completo</li>
+        <li>SLA garantido</li>
+        <li>Suporte dedicado</li>
+        <li>Multi-tenant avançado</li>
+        <li>Customizações sob medida</li>
+        <li>Onboarding personalizado</li>
+        <li>Migração assistida (Kommo etc.)</li>
+      </ul>
+      <button class="btn-plan default" onclick="sendPrompt('Quero falar com um especialista sobre o plano Enterprise do uPixel')">Falar com especialista</button>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FAQ -->
+<div class="section" id="faq">
+  <div class="section-header">
+    <div class="tag">FAQ</div>
+    <h2>Perguntas frequentes</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">O uPixel funciona com WhatsApp pessoal ou precisa do WhatsApp Business?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">O uPixel suporta ambos os modelos: Evolution API (que conecta qualquer número via QR Code, inclusive pessoal) e a Meta Official API (WhatsApp Business com CNPJ). Você escolhe qual usar dependendo da sua operação e volume de mensagens.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Posso migrar minha base do Kommo para o uPixel?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">Sim. O uPixel tem compatibilidade nativa com Kommo: importação de automações via JSON, mapeamento automático de triggers e ações, e migração zero-downtime. Você não perde histórico nem configurações.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">O sistema pode ser bloqueado pelo WhatsApp por uso de disparos?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">O uPixel inclui sistema anti-bloqueio com throttling configurável (mensagens por hora), intervalo aleatório entre envios, rotação de instâncias e detecção automática de números inválidos. Para máxima segurança, recomendamos a Meta Official API com templates aprovados.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Preciso de um developer para usar as automações?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">Não. O Visual Workflow Builder é completamente drag-and-drop. Você cria fluxos complexos com IF/ELSE, loops, delays e integrações de API sem escrever código. Há também templates prontos para os casos de uso mais comuns.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">O uPixel é LGPD compliant?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">Sim. A plataforma inclui criptografia de dados sensíveis, direito ao esquecimento, exportação de dados do titular, auditoria completa de acesso, opt-out automático e blocklist global. Desenvolvido seguindo os requisitos da LGPD desde a arquitetura.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Como funciona o período de teste?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">14 dias com acesso completo ao plano Pro, sem precisar de cartão de crédito. Após o período, você escolhe o plano mais adequado ou cancela sem custo algum.</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- CTA FINAL -->
+<div class="section">
+  <div class="cta-block">
+    <div class="tag" style="margin:0 auto 1.5rem;display:inline-flex">Comece hoje</div>
+    <h2>Sua operação comercial<br>merece uma ferramenta à altura</h2>
+    <p>14 dias grátis. Sem cartão de crédito. Setup em minutos.</p>
+    <div class="cta-row">
+      <button class="btn-primary" style="font-size:16px;padding:16px 36px" onclick="sendPrompt('Quero começar meu teste gratuito de 14 dias no uPixel CRM agora')">Criar minha conta grátis →</button>
+      <button class="btn-ghost" onclick="sendPrompt('Quero agendar uma demonstração do uPixel CRM com um especialista')">Ver demonstração</button>
+    </div>
+    <div class="guarantee">✓ Sem fidelidade &nbsp;&nbsp; ✓ Cancele quando quiser &nbsp;&nbsp; ✓ Suporte em português</div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>© 2025 uPixel CRM — Tecnologia de vendas para times que levam resultado a sério.</p>
+  <p style="margin-top:8px">Desenvolvido com Supabase · TypeScript · React · Edge Functions</p>
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.faq-item').forEach(other => {
+      if(other !== this) other.classList.remove('open');
+    });
+  });
+});
+</script>

@@ -216,7 +216,7 @@ async function findOrCreateLead(
         adminClient.from("tasks").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
         adminClient.from("timeline_events").update({ lead_id: primaryLead.id }).in("lead_id", duplicateIds),
       ]);
-      let mergedTags = [...(primaryLead.tags || [])];
+      const mergedTags = [...(primaryLead.tags || [])];
       let mergedNotes = primaryLead.notes || "";
       duplicates.forEach((d: any) => {
         (d.tags || []).forEach((t: string) => { if (!mergedTags.includes(t)) mergedTags.push(t); });
@@ -412,7 +412,7 @@ async function executeBotNodes(
   config: Record<string, any>, leadId: string
 ): Promise<void> {
   let currentId = startNodeId;
-  let vars = { ...variables };
+  const vars = { ...variables };
   const MAX_STEPS = 25;
 
   for (let step = 0; step < MAX_STEPS; step++) {

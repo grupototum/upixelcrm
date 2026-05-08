@@ -114,12 +114,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const PAGE = 1000;
 
       const [pipeRes, colRes, taskRes, tlRes, autoRes, rulesRes, countRes] = await Promise.all([
-        withClient((supabase.from as any)("pipelines").select("*")).order("name"),
+        withClient(supabase.from("pipelines").select("*")).order("name"),
         withClient(supabase.from("pipeline_columns").select("*")).order("order"),
         withClient(supabase.from("tasks").select("*")).order("created_at", { ascending: false }).limit(5000),
         withClient(supabase.from("timeline_events").select("*")).order("created_at", { ascending: false }).limit(100),
-        withClient((supabase.from as any)("automations").select("*")).order("created_at", { ascending: false }),
-        withClient((supabase.from as any)("automation_rules").select("*")).order("created_at", { ascending: false }),
+        withClient(supabase.from("automations").select("*")).order("created_at", { ascending: false }),
+        withClient(supabase.from("automation_rules").select("*")).order("created_at", { ascending: false }),
         withClient(supabase.from("leads").select("*", { count: "exact", head: true })),
       ]);
 

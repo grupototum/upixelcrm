@@ -45,7 +45,7 @@ interface ImportResult {
 
 // Handles quoted fields, commas inside quotes, CRLF/LF, and UTF-8 BOM
 function parseCSV(text: string): CsvData {
-  const clean = text.replace(/^﻿/, "");
+  const clean = text.replace(/^\uFEFF/, "");
   const lines: string[][] = [];
   let row: string[] = [];
   let cell = "";
@@ -245,12 +245,6 @@ export default function ImportPage() {
     }
 
     const activeDefs = (freshDefs as any[] | null) ?? customFieldDefs;
-    console.log("Import starting:", {
-      clientId,
-      customFieldDefsCount: activeDefs.length,
-      csvRowCount: csvData.rows.length,
-      mapping,
-    });
 
     // Busca todos os telefones existentes direto do banco (paginado, evita usar
     // o estado local que pode estar incompleto quando há mais de 1000 leads).
@@ -260,7 +254,7 @@ export default function ImportPage() {
       for (let page = 0; page < 60; page++) {
         const from = page * PAGE;
         const to = from + PAGE - 1;
-        let q = supabase
+        const q = supabase
           .from("leads")
           .select("phone")
           .eq("client_id", clientId)
@@ -323,9 +317,6 @@ export default function ImportPage() {
           custom_fields[def.slug] = raw;
         }
       }
-      if (Object.keys(custom_fields).length > 0 && leadsToInsert.length === 0) {
-        console.log("First lead with custom fields:", { name, custom_fields });
-      }
 
       leadsToInsert.push({
         name,
@@ -348,7 +339,6 @@ export default function ImportPage() {
     let errors = 0;
     const CHUNK = 500; // Aumentado de 100 para 500 — melhor performance
 
-    console.log("Leads to insert:", { count: leadsToInsert.length, sample: leadsToInsert[0] });
 
     for (let i = 0; i < leadsToInsert.length; i += CHUNK) {
       const chunk = leadsToInsert.slice(i, i + CHUNK);
@@ -399,7 +389,6 @@ export default function ImportPage() {
       }
     }
 
-    console.log("Import completed:", { inserted, errors, skipped });
 
     if (inserted > 0) await refreshData();
 
