@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useLocation } from "react-router-dom";
 import { useAppState } from "@/contexts/AppContext";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -8,6 +8,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { RulesTab } from "@/components/automations/RulesTab";
 import { SequencesTab } from "@/components/automations/SequencesTab";
 import { BotsTab } from "@/components/automations/BotsTab";
@@ -29,27 +32,53 @@ export default function AutomationsPage() {
   const [activeTab, setActiveTab] = useState(initialTab);
   const { addBasicAutomation } = useAppState();
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const supportedTabs = ["rules", "time_actions"];
+  const canCreateHere = supportedTabs.includes(activeTab);
+
   const handleCreate = () => {
-    if (activeTab === "rules") {
-      addBasicAutomation({
-        name: "Nova Automação " + (Math.floor(Math.random() * 100)),
-        trigger: { type: "card_entered" },
-        actions: [{ type: "add_tag", config: { tag: "novo" } }],
-      });
-    } else if (activeTab === "time_actions") {
-      addBasicAutomation({
-        name: "Ação de Tempo " + (Math.floor(Math.random() * 100)),
-        trigger: { 
-          type: "time_in_column", 
-          config: { 
-            hours: 24, 
-            ...(((location.state as any)?.lead_id) ? { target_lead_ids: [(location.state as any).lead_id] } : {}) 
-          } 
-        },
-        actions: [{ type: "send_message", config: { text: "Olá! Como podemos ajudar?" } }],
-      });
-    } else {
-      toast.success(`${tabLabels[activeTab]} criada com sucesso! (Demonstração)`);
+    if (!canCreateHere) {
+      toast.info(`Criação de "${tabLabels[activeTab]}" ainda não está disponível por aqui.`);
+      return;
+    }
+    setNewName("");
+    setCreateOpen(true);
+  };
+
+  const handleConfirmCreate = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toast.error("Informe um nome para a automação.");
+      return;
+    }
+    setCreating(true);
+    try {
+      if (activeTab === "rules") {
+        await addBasicAutomation({
+          name: trimmed,
+          trigger: { type: "card_entered" },
+          actions: [{ type: "add_tag", config: { tag: "novo" } }],
+        });
+      } else if (activeTab === "time_actions") {
+        await addBasicAutomation({
+          name: trimmed,
+          trigger: {
+            type: "time_in_column",
+            config: {
+              hours: 24,
+              ...(((location.state as any)?.lead_id) ? { target_lead_ids: [(location.state as any).lead_id] } : {}),
+            },
+          },
+          actions: [{ type: "send_message", config: { text: "Olá! Como podemos ajudar?" } }],
+        });
+      }
+      setCreateOpen(false);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -58,13 +87,15 @@ export default function AutomationsPage() {
       title="Automações"
       subtitle="Regras, sequências e bots"
       actions={
-        <Button 
-          size="sm" 
-          onClick={handleCreate}
-          className="text-xs gap-1 bg-primary hover:bg-[#e04400] text-primary-foreground"
-        >
-          <Plus className="h-3 w-3" /> {tabLabels[activeTab]}
-        </Button>
+        canCreateHere ? (
+          <Button
+            size="sm"
+            onClick={handleCreate}
+            className="text-xs gap-1 bg-primary hover:bg-[#e04400] text-primary-foreground"
+          >
+            <Plus className="h-3 w-3" /> {tabLabels[activeTab]}
+          </Button>
+        ) : null
       }
     >
       <div className="p-6 animate-fade-in">
@@ -80,7 +111,7 @@ export default function AutomationsPage() {
               <MessageSquare className="h-3 w-3" /> Mensagens e Sequências
             </TabsTrigger>
             <TabsTrigger value="bots" className="text-xs gap-1.5">
-              <Bot className="h-3 w-3" /> Bots <ComingSoonBadge />
+              <Bot className="h-3 w-3" /> Bots
             </TabsTrigger>
             <TabsTrigger value="complex" className="text-xs gap-1.5">
               <Workflow className="h-3 w-3" /> Automações Complexas
@@ -94,6 +125,38 @@ export default function AutomationsPage() {
           <TabsContent value="complex"><ComplexTab /></TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleConfirmCreate}>
+            <DialogHeader>
+              <DialogTitle>{tabLabels[activeTab] ?? "Nova automação"}</DialogTitle>
+              <DialogDescription>
+                Dê um nome agora. Você pode configurar o gatilho e as ações depois pelo card.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-4">
+              <Label htmlFor="new-automation-name" className="text-xs uppercase tracking-wider text-muted-foreground">Nome</Label>
+              <Input
+                id="new-automation-name"
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Ex: Boas-vindas para novos leads"
+                maxLength={80}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)} disabled={creating}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={creating || !newName.trim()}>
+                {creating ? "Criando..." : "Criar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

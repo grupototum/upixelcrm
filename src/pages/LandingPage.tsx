@@ -2,7 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import upixelDark from "@/assets/upixel_dark.png";
 
 declare global { interface Window { sendPrompt?: (msg: string) => void } }
-const sp = (msg: string) => window.sendPrompt?.(msg);
+const sp = (msg: string) => {
+  if (typeof window !== "undefined" && typeof window.sendPrompt === "function") {
+    window.sendPrompt(msg);
+    return;
+  }
+  // Fallback: leva o visitante pro cadastro quando o widget de chat não está disponível.
+  window.location.href = "/cadastro";
+};
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -245,7 +252,6 @@ const Placeholder = ({ label }: { label: string }) => (
         <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" />
       </svg>
       <span>{label}</span>
-      <small>Substituir por print do sistema</small>
     </div>
   </div>
 );
@@ -555,8 +561,8 @@ export default function LandingPage() {
         <div className="section fade-up" id="planos">
           <div className="section-header">
             <div className="tag">Planos</div>
-            <h2>Seu período de teste acabou,<br />mas seus leads não esperam!</h2>
-            <p>Escolha o plano certo para sua operação. Cancele quando quiser.</p>
+            <h2>Pronto para escalar suas vendas?<br />Escolha o plano certo para sua operação.</h2>
+            <p>Comece com 14 dias grátis. Cancele quando quiser.</p>
           </div>
           <div className="pricing-tabs">
             {(["mensal","trimestral","semestral","anual"] as Period[]).map((p) => (

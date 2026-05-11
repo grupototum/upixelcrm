@@ -170,6 +170,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
         setLeadCountByPipeline(counts);
+
+        // Se o pipeline default (alfabético) está vazio mas outro tem leads,
+        // troca pelo pipeline com mais leads para o usuário ver dados imediatamente.
+        // Usa o pipeline atual capturado neste closure — se o usuário já mudou,
+        // a checagem `counts[currentPipelineId] ?? 0` reflete a escolha real.
+        const activePid = currentPipelineId || (pipeRes.data?.[0]?.id ?? "");
+        if (activePid && (counts[activePid] ?? 0) === 0) {
+          const bestPid = Object.entries(counts).sort(([, a], [, b]) => b - a)[0]?.[0];
+          if (bestPid && bestPid !== activePid) {
+            setCurrentPipelineId(bestPid);
+          }
+        }
       }
 
       // Libera o loading principal — UI fica navegável agora

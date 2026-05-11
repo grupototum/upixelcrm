@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { extractEdgeError } from "@/lib/edge-error";
 
 export interface LeadConversation {
   lead_id: string;
@@ -292,7 +293,8 @@ export function useInbox(onLeadCreated?: () => void) {
       });
 
       if (error) {
-        throw new Error(error.message || "Failed to send message");
+        const detail = await extractEdgeError(error, "Falha ao enviar mensagem");
+        throw new Error(detail);
       }
 
       await loadMessages(leadId);
@@ -346,7 +348,10 @@ export function useInbox(onLeadCreated?: () => void) {
           },
         });
 
-        if (error) throw new Error(error.message || "Falha ao enviar via WhatsApp.");
+        if (error) {
+          const detail = await extractEdgeError(error, "Falha ao enviar via WhatsApp.");
+          throw new Error(detail);
+        }
       } else if (target.channel === "instagram") {
         const phone = target.metadata?.phone || leadGroup.lead_phone || "";
         const { error } = await supabase.functions.invoke("instagram-proxy?action=send-media", {
@@ -359,7 +364,10 @@ export function useInbox(onLeadCreated?: () => void) {
           },
         });
 
-        if (error) throw new Error(error.message || "Falha ao enviar via Instagram.");
+        if (error) {
+          const detail = await extractEdgeError(error, "Falha ao enviar via Instagram.");
+          throw new Error(detail);
+        }
       } else {
         // Webchat/email/outros: apenas registra a mensagem com o link da mídia.
         // Para email, idealmente usaríamos anexo via Gmail API, mas isso requer extensão futura.

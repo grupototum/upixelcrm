@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -38,6 +38,7 @@ import LandingPageEN from "./pages/LandingPageEN";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
 import RagDocumentsPage from "./pages/alexandria/RagDocuments";
+import { getTenantUrl } from "@/utils/tenant";
 import MetaAdsPage from "./pages/MetaAdsPage";
 import GoogleAdsPage from "./pages/GoogleAdsPage";
 import DatabaseBackupPage from "./pages/DatabaseBackupPage";
@@ -48,6 +49,15 @@ const queryClient = new QueryClient();
 
 function AutomationWorkerRunner() {
   useAutomationWorker();
+  return null;
+}
+
+function RedirectToMasterLogin() {
+  // Acessar /login na raiz manda o usuário pro app do tenant master,
+  // que é onde o formulário de login realmente existe.
+  if (typeof window !== "undefined") {
+    window.location.replace(`${getTenantUrl("master")}/login`);
+  }
   return null;
 }
 
@@ -73,6 +83,13 @@ function AppRoutes() {
       <BrowserRouter>
         <Routes>
           <Route path="/cadastro" element={<SignupPage />} />
+          {/* Aliases comuns que usuários e CTAs tentam — redireciona pro cadastro real */}
+          <Route path="/signup" element={<Navigate to="/cadastro" replace />} />
+          <Route path="/sign-up" element={<Navigate to="/cadastro" replace />} />
+          <Route path="/register" element={<Navigate to="/cadastro" replace />} />
+          {/* /login no domínio raiz não tem formulário próprio: manda pro tenant master,
+              que é onde o usuário admin entra. Tenants de cliente acessam pelo próprio subdomínio. */}
+          <Route path="/login" element={<RedirectToMasterLogin />} />
           <Route path="/en" element={<LandingPageEN />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<LandingPage />} />

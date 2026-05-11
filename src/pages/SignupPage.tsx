@@ -4,23 +4,14 @@ import { getTenantUrl } from "@/utils/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle2, Building2, Globe, Mail, Lock, User, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Building2, Globe, Mail, Lock, User } from "lucide-react";
 
 const SUBDOMAIN_REGEX = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 const ROOT_DOMAIN = import.meta.env.VITE_ROOT_DOMAIN ?? "upixel.app";
-const SIGNUP_PASSWORD = import.meta.env.VITE_SIGNUP_PASSWORD ?? "Master123!";
-const GATE_STORAGE_KEY = "upixel.signup.unlocked";
 
 type Step = "form" | "success";
 
 export default function SignupPage() {
-  // Gate de senha — sempre obrigatório
-  const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => {
-    return sessionStorage.getItem(GATE_STORAGE_KEY) === "1";
-  });
-  const [gatePassword, setGatePassword] = useState("");
-  const [gateError, setGateError] = useState("");
-
   const [step, setStep] = useState<Step>("form");
 
   // Campos do form
@@ -53,17 +44,6 @@ export default function SignupPage() {
 
     return () => clearTimeout(timer);
   }, [subdomain]);
-
-  const handleGateSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (gatePassword === SIGNUP_PASSWORD) {
-      sessionStorage.setItem(GATE_STORAGE_KEY, "1");
-      setGateUnlocked(true);
-      setGateError("");
-    } else {
-      setGateError("Senha incorreta");
-    }
-  };
 
   const handleSubdomainInput = (value: string) => {
     setSubdomain(value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
@@ -157,6 +137,18 @@ export default function SignupPage() {
         .update({ organization_id: orgId })
         .eq("id", authData.user.id);
 
+      // 6. Notifica usuários master sobre o novo cadastro (fire-and-forget).
+      // Se falhar, o cadastro continua válido — não bloqueia o usuário.
+      supabase.functions.invoke("notify-signup", {
+        body: {
+          tenantId,
+          tenantName: companyName.trim(),
+          subdomain,
+          ownerEmail: email.trim(),
+          ownerName: name.trim(),
+        },
+      }).catch(() => undefined);
+
       setCreatedSubdomain(subdomain);
       setStep("success");
     } catch {
@@ -175,59 +167,6 @@ export default function SignupPage() {
   const handleGoToApp = () => {
     window.location.href = getTenantUrl(createdSubdomain);
   };
-
-  if (!gateUnlocked) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="w-full max-w-sm space-y-6">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <ShieldCheck className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">Área restrita</h1>
-            <p className="text-sm text-muted-foreground mt-2">
-              Informe a senha para acessar o cadastro de novos clientes.
-            </p>
-          </div>
-
-          <form
-            onSubmit={handleGateSubmit}
-            className="bg-card border border-border rounded-card p-6 shadow-xl space-y-4"
-          >
-            {gateError && (
-              <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-                <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                <p className="text-xs text-destructive">{gateError}</p>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="gate-password" className="text-xs">Senha de acesso</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="gate-password"
-                  type="password"
-                  value={gatePassword}
-                  onChange={(e) => setGatePassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="pl-10 h-10"
-                  autoFocus
-                  required
-                />
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full h-10 font-medium">
-              Entrar
-            </Button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   if (step === "success") {
     return (

@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { User, Mail, Phone, Building2, Camera, Settings, Bell, Globe } from "lucide-react";
+import { User, Mail, Phone, Building2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,21 +60,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-card ghost-border bg-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Settings className="h-4 w-4 text-primary" /> Atalhos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                <Button variant="ghost" className="w-full justify-start text-xs h-9 rounded-lg gap-3">
-                  <Bell className="h-4 w-4 text-muted-foreground" /> Notificações
-                </Button>
-                <Button variant="ghost" className="w-full justify-start text-xs h-9 rounded-lg gap-3">
-                  <Globe className="h-4 w-4 text-muted-foreground" /> Idioma e Região
-                </Button>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Main Content / Right Column */}
@@ -128,21 +113,6 @@ export default function ProfilePage() {
 
             <PushNotificationSettings />
 
-            <Card className="rounded-card ghost-border bg-card shadow-card overflow-hidden">
-              <CardHeader className="bg-destructive/5">
-                <CardTitle className="text-lg font-bold text-destructive">Zona de Perigo</CardTitle>
-                <CardDescription className="text-xs">Ações que podem deletar sua conta permanentemente.</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold">Excluir Conta</p>
-                    <p className="text-xs text-muted-foreground">Isso apagará todos os seus dados e não poderá ser desfeito.</p>
-                  </div>
-                  <Button variant="outline" className="rounded-xl h-10 px-6 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">Excluir Conta</Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
 

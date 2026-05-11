@@ -2,11 +2,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { BroadcastDashboard } from "@/components/whatsapp/broadcast/BroadcastDashboard";
 import { BroadcastConfigModal } from "@/components/whatsapp/broadcast/BroadcastConfigModal";
 import { TemplateManager } from "@/components/whatsapp/broadcast/TemplateManager";
-import { ImplementationChecklist } from "@/components/whatsapp/broadcast/ImplementationChecklist";
 import { useBroadcast } from "@/hooks/useBroadcast";
-import { MessageSquare, Sparkles, LayoutDashboard, History, FileText, Bot } from "lucide-react";
+import { MessageSquare, Sparkles, LayoutDashboard, History, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 
 export default function WhatsAppBroadcastPage() {
   const { credits, loadingCredits } = useBroadcast();
@@ -31,15 +29,6 @@ export default function WhatsAppBroadcastPage() {
             <p className="text-sm text-muted-foreground font-medium max-w-md leading-relaxed">
               Crie modelos persuasivos, envie para aprovação e acompanhe o desempenho das suas campanhas.
             </p>
-          </div>
-          <div className="flex items-center gap-6 relative z-10">
-            <div className="text-center">
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">API Meta Status</p>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-success" />
-                <p className="text-2xl font-heading font-black text-foreground">Operacional</p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -74,40 +63,16 @@ export default function WhatsAppBroadcastPage() {
           <TabsContent value="overview" className="space-y-8 mt-0 focus-visible:outline-none">
             <BroadcastDashboard credits={credits} loadingCredits={loadingCredits} />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                <div className="bg-card ghost-border rounded-card p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group">
                   <div className="h-12 w-12 rounded-card bg-accent/10 flex items-center justify-center">
                     <MessageSquare className="h-6 w-6 text-accent" />
                   </div>
                   <h3 className="text-sm font-black font-heading">Dicas e Melhores Práticas</h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    "Mantenha uma proporção alta de respostas dos clientes. Campanhas com muitos bloqueios podem impactar sua reputação na Meta."
+                    Mantenha uma proporção alta de respostas dos clientes. Campanhas com muitos bloqueios podem impactar sua reputação na Meta.
                   </p>
-                  <button className="text-[10px] font-bold text-accent uppercase tracking-widest hover:underline flex items-center gap-1 group-hover:gap-2 transition-all">
-                    Acessar Central de Ajuda
-                  </button>
                </div>
-
-               {/* Typebot Integration Foundation Card */}
-               <div className="bg-card ghost-border rounded-card p-6 space-y-4 hover:shadow-card transition-all relative overflow-hidden group border-[hsl(var(--border-strong))] bg-gradient-to-br from-card to-primary/5">
-                  <div className="flex justify-between items-start">
-                    <div className="h-12 w-12 rounded-card bg-primary/10 flex items-center justify-center">
-                      <Bot className="h-6 w-6 text-primary" />
-                    </div>
-                    <Badge variant="outline" className="text-[8px] font-black uppercase tracking-tighter bg-primary/5 border-[hsl(var(--border-strong))] text-primary">Soon</Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-black font-heading">Integração Typebot</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Conecte seus fluxos de atendimento automático. O sistema está preparado para acionar bots após o envio.
-                    </p>
-                  </div>
-                  <button className="w-full h-9 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                    Configurar Webhook
-                  </button>
-               </div>
-
-               <ImplementationChecklist />
             </div>
           </TabsContent>
 
