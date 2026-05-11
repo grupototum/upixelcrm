@@ -2,34 +2,96 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
-  Settings, RefreshCw, Phone, Wifi, WifiOff, Zap, ArrowLeft,
-  Plus, Trash2, ChevronDown, ChevronUp,
+  Settings, Phone, Wifi, WifiOff, Plus, Trash2, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWhatsAppInstances, WaInstance } from "@/hooks/useWhatsAppInstances";
+import { QuickConnectWizard } from "@/components/whatsapp/QuickConnectWizard";
 
-type ConnectionStatus = "disconnected" | "connecting" | "connected" | "configured" | "error";
+// ── Status badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    disconnected: { label: "Desconectado", cls: "border-muted-foreground/40 text-muted-foreground" },
-    connecting: { label: "Conectando...", cls: "border-accent/40 text-accent" },
-    connected: { label: "Conectado", cls: "border-success/40 text-success" },
-    configured: { label: "Configurado", cls: "border-[hsl(var(--border-strong))] text-primary" },
-    error: { label: "Erro", cls: "border-destructive/40 text-destructive" },
+  const map: Record<string, { label: string; cls: string; dot: string }> = {
+    disconnected: { label: "Desconectado", cls: "border-muted-foreground/40 text-muted-foreground", dot: "bg-muted-foreground/50" },
+    connecting:   { label: "Conectando…",  cls: "border-yellow-500/40 text-yellow-600",            dot: "bg-yellow-500 animate-pulse" },
+    connected:    { label: "Conectado",     cls: "border-success/40 text-success",                  dot: "bg-success animate-pulse" },
+    configured:   { label: "Configurado",   cls: "border-primary/40 text-primary",                  dot: "bg-primary" },
+    error:        { label: "Erro",          cls: "border-destructive/40 text-destructive",           dot: "bg-destructive" },
   };
-  const { label, cls } = map[status] || map.disconnected;
-  return <Badge variant="outline" className={`text-[9px] ${cls}`}>{label}</Badge>;
+  const cfg = map[status] ?? map.disconnected;
+  return (
+    <Badge variant="outline" className={`text-[9px] gap-1 ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </Badge>
+  );
 }
 
-// Per-instance card that manages its own connect/disconnect/qr state
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState({ onConnect }: { onConnect: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 py-12 px-4">
+      <div className="relative">
+        <div className="h-24 w-24 rounded-full bg-[#25D366]/10 flex items-center justify-center">
+          <MessageCircle className="h-12 w-12 text-[#25D366]" />
+        </div>
+        <div className="absolute inset-0 rounded-full border-2 border-[#25D366]/20 animate-pulse" />
+      </div>
+
+      <div className="text-center max-w-md">
+        <h2 className="text-xl font-bold text-foreground mb-2">Conecte seu WhatsApp</h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Receba e responda mensagens do WhatsApp direto no uPixel.
+          Automatize, organize e converta mais clientes.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
+        {[
+          { icon: "💬", label: "Receba mensagens no inbox" },
+          { icon: "💻", label: "Responda pelo computador" },
+          { icon: "🤖", label: "Automatize respostas" },
+          { icon: "👥", label: "Atribua à equipe" },
+        ].map(({ icon, label }) => (
+          <div key={label} className="bg-card border border-border rounded-xl p-3 flex items-center gap-2">
+            <span className="text-lg">{icon}</span>
+            <span className="text-xs text-muted-foreground">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col items-center gap-3">
+        <Button
+          size="lg"
+          className="gap-2 bg-[#25D366] hover:bg-[#1da851] text-white font-semibold px-8"
+          onClick={onConnect}
+        >
+          <MessageCircle className="h-5 w-5" />
+          Conectar WhatsApp →
+        </Button>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span>✓ Leva menos de 1 minuto</span>
+          <span>✓ Sem servidor próprio</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Instance card ─────────────────────────────────────────────────────────────
+
 function InstanceCard({
   instance,
   onDeleted,
@@ -45,55 +107,53 @@ function InstanceCard({
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrStep, setQrStep] = useState<"scan" | "success">("scan");
   const [working, setWorking] = useState(false);
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const type = instance.provider === "whatsapp_official" ? "official" : "normal";
-  const isOfficial = type === "official";
+  const isOfficial = instance.provider === "whatsapp_official";
+  const type = isOfficial ? "official" : "normal";
+
+  const displayName = instance.friendly_name || instance.instance_name;
 
   const invokeProxy = useCallback(
     async (action: string, body?: Record<string, unknown>) => {
-      const params = new URLSearchParams({
-        action,
-        type,
-        instance_name: instance.instance_name,
-      });
-      const { data, error } = await supabase.functions.invoke(
-        `whatsapp-proxy?${params.toString()}`,
-        { body }
-      );
+      const params = new URLSearchParams({ action, type, instance_name: instance.instance_name });
+      const { data, error } = await supabase.functions.invoke(`whatsapp-proxy?${params.toString()}`, { body });
       if (error) throw new Error(error.message);
       return data;
     },
     [type, instance.instance_name]
   );
 
-  // Periodic status check every 10s
+  // Periodic status refresh (every 10s when connected)
   useEffect(() => {
     if (status !== "connected" && status !== "configured") return;
-    const interval = setInterval(async () => {
+    const t = setInterval(async () => {
       try {
         const data = await invokeProxy("status");
         setStatus(data.status);
         if (data.instance?.owner) setConnectedNumber(data.instance.owner);
       } catch { /* noop */ }
     }, 10000);
-    return () => clearInterval(interval);
+    return () => clearInterval(t);
   }, [status, invokeProxy]);
 
   // Poll for QR scan completion
   useEffect(() => {
     if (!qrModalOpen || qrStep !== "scan") return;
-    const interval = setInterval(async () => {
+    const t = setInterval(async () => {
       try {
         const data = await invokeProxy("status");
         if (data.status === "connected") {
           setStatus("connected");
+          if (data.instance?.owner) setConnectedNumber(data.instance.owner);
           setQrStep("success");
-          clearInterval(interval);
+          clearInterval(t);
         }
       } catch { /* noop */ }
     }, 3000);
-    return () => clearInterval(interval);
+    return () => clearInterval(t);
   }, [qrModalOpen, qrStep, invokeProxy]);
 
   const handleConnect = async () => {
@@ -101,13 +161,11 @@ function InstanceCard({
     try {
       const data = await invokeProxy("connect");
       if (!data) return;
-
       if (data.reachable === false) {
         toast.error(data.error || "Evolution API indisponível.");
         setStatus(data.status || status);
         return;
       }
-
       if (isOfficial) {
         if (data.connected || data.instance?.state === "open") {
           setStatus("connected");
@@ -133,7 +191,7 @@ function InstanceCard({
   };
 
   const handleDisconnect = async () => {
-    if (!confirm(`Desconectar "${instance.instance_name}"?`)) return;
+    setDisconnectDialogOpen(false);
     setWorking(true);
     try {
       await invokeProxy("disconnect");
@@ -148,17 +206,13 @@ function InstanceCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Remover a instância "${instance.instance_name}" permanentemente?`)) return;
+    setDeleteDialogOpen(false);
     setDeleting(true);
     try {
-      const params = new URLSearchParams({
-        action: "delete-instance",
-        type,
-        instance_name: instance.instance_name,
-      });
+      const params = new URLSearchParams({ action: "delete-instance", type, instance_name: instance.instance_name });
       const { error } = await supabase.functions.invoke(`whatsapp-proxy?${params.toString()}`);
       if (error) throw new Error(error.message);
-      toast.success("Instância removida.");
+      toast.success("Número removido.");
       onDeleted();
     } catch (err: any) {
       toast.error(err.message);
@@ -167,25 +221,25 @@ function InstanceCard({
     }
   };
 
-  const accentColor = isOfficial ? "success" : "accent";
-
   return (
     <>
-      <div className="bg-card ghost-border rounded-xl shadow-card overflow-hidden">
-        <div className="p-6 space-y-4">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`h-12 w-12 rounded-xl bg-${accentColor}/10 flex items-center justify-center`}>
+      <div className="bg-card border border-border rounded-xl overflow-hidden transition-shadow hover:shadow-md">
+        {/* Card header */}
+        <div className="p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                isOfficial ? "bg-success/10" : "bg-[#25D366]/10"
+              }`}>
                 {isOfficial
-                  ? <Shield className={`h-6 w-6 text-${accentColor}`} />
-                  : <QrCode className={`h-6 w-6 text-${accentColor}`} />
+                  ? <Shield className="h-5 w-5 text-success" />
+                  : <MessageCircle className="h-5 w-5 text-[#25D366]" />
                 }
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">{instance.instance_name}</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  {isOfficial ? "API Oficial (Meta)" : "QR Code (Evolution API)"}
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-foreground truncate">{displayName}</h3>
+                <p className="text-[10px] text-muted-foreground">
+                  {isOfficial ? "API Oficial (Meta)" : "WhatsApp via QR Code"}
                 </p>
               </div>
             </div>
@@ -194,36 +248,31 @@ function InstanceCard({
 
           {/* Connected number */}
           {status === "connected" && connectedNumber && (
-            <div className="bg-secondary rounded-lg p-3 flex items-center gap-3">
-              <Phone className="h-4 w-4 text-success" />
-              <div>
-                <p className="text-xs font-semibold text-foreground">{connectedNumber}</p>
+            <div className="bg-[#25D366]/5 border border-[#25D366]/20 rounded-lg p-3 flex items-center gap-2.5">
+              <Phone className="h-3.5 w-3.5 text-[#25D366] shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">{connectedNumber}</p>
                 <p className="text-[10px] text-muted-foreground">Sessão ativa</p>
               </div>
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#25D366] ml-auto shrink-0" />
             </div>
           )}
 
-          {/* Actions */}
-          <div className="border-t border-[hsl(var(--border-strong))] pt-4 flex items-center gap-2">
+          {/* Primary actions */}
+          <div className="flex items-center gap-2">
             {status === "connected" ? (
-              <>
-                <Button size="sm" variant="outline" className="text-xs gap-1 flex-1" onClick={onEdit}>
-                  <Settings className="h-3 w-3" /> Config
-                </Button>
-                <Button
-                  size="sm" variant="outline"
-                  className="text-xs gap-1 text-destructive"
-                  onClick={handleDisconnect}
-                  disabled={working}
-                >
-                  {working ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                  Desconectar
-                </Button>
-              </>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1 flex-1"
+                onClick={onEdit}
+              >
+                <Settings className="h-3 w-3" /> Configurar
+              </Button>
             ) : status === "connecting" ? (
               <>
                 <Button size="sm" disabled className="text-xs gap-1 flex-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Conectando...
+                  <Loader2 className="h-3 w-3 animate-spin" /> Conectando…
                 </Button>
                 {!isOfficial && (
                   <Button size="sm" variant="outline" className="text-xs gap-1"
@@ -233,58 +282,60 @@ function InstanceCard({
                 )}
               </>
             ) : (
-              <>
-                <Button
-                  size="sm"
-                  className={`text-xs gap-1 flex-1 bg-${accentColor} hover:bg-${accentColor}/90 text-white`}
-                  onClick={handleConnect}
-                  disabled={working}
-                >
-                  {working
-                    ? <Loader2 className="h-3 w-3 animate-spin" />
-                    : isOfficial ? <Zap className="h-3 w-3" /> : <QrCode className="h-3 w-3" />
-                  }
-                  {isOfficial ? "Conectar" : "Conectar via QR"}
-                </Button>
-                <Button size="sm" variant="outline" className="text-xs gap-1" onClick={onEdit}>
-                  <Settings className="h-3 w-3" />
-                </Button>
-              </>
+              <Button
+                size="sm"
+                className={`text-xs gap-1 flex-1 ${isOfficial ? "bg-success hover:bg-success/90" : "bg-[#25D366] hover:bg-[#1da851]"} text-white`}
+                onClick={handleConnect}
+                disabled={working}
+              >
+                {working ? <Loader2 className="h-3 w-3 animate-spin" /> : <QrCode className="h-3 w-3" />}
+                Conectar via QR
+              </Button>
             )}
-            <Button
-              size="sm" variant="ghost"
-              className="text-xs text-destructive/70 hover:text-destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-            </Button>
           </div>
         </div>
-        <div className={`bg-${accentColor}/5 border-t border-${accentColor}/20 px-6 py-2.5`}>
-          <p className={`text-[10px] text-${accentColor} font-medium flex items-center gap-1`}>
-            {isOfficial
-              ? <><CheckCircle2 className="h-3 w-3" /> Meta Business Platform</>
-              : <><MessageCircle className="h-3 w-3" /> Evolution API / Baileys</>
+
+        {/* Danger zone footer */}
+        <div className="border-t border-border px-5 py-3 flex items-center justify-between bg-muted/20">
+          {status === "connected" ? (
+            <button
+              className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors"
+              onClick={() => setDisconnectDialogOpen(true)}
+              disabled={working}
+            >
+              <XCircle className="h-3 w-3" /> Desconectar
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors disabled:opacity-50"
+            onClick={() => setDeleteDialogOpen(true)}
+            disabled={deleting}
+          >
+            {deleting
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : <Trash2 className="h-3 w-3" />
             }
-          </p>
+            Remover número
+          </button>
         </div>
       </div>
 
-      {/* QR Code Modal */}
+      {/* QR Code modal */}
       <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-success" />
-              Conectar — {instance.instance_name}
+              <MessageCircle className="h-4 w-4 text-[#25D366]" />
+              Conectar — {displayName}
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center py-6">
             {qrStep === "scan" && (
               <>
                 <div className="relative mb-4">
-                  <div className="h-48 w-48 bg-white rounded-xl p-3 flex items-center justify-center overflow-hidden">
+                  <div className="h-48 w-48 bg-white rounded-xl p-3 flex items-center justify-center overflow-hidden shadow-sm">
                     {qrData ? (
                       <img src={qrData} alt="WhatsApp QR Code" className="h-full w-full object-contain" />
                     ) : (
@@ -294,37 +345,70 @@ function InstanceCard({
                       </div>
                     )}
                   </div>
-                  <div className="absolute inset-0 rounded-xl border-2 border-success/50 animate-pulse pointer-events-none" />
+                  <div className="absolute inset-0 rounded-xl border-2 border-[#25D366]/50 animate-pulse pointer-events-none" />
                 </div>
-                <p className="text-xs text-foreground font-semibold mb-1">Escaneie o QR Code</p>
+                <p className="text-xs font-semibold text-foreground mb-1">Escaneie o QR Code</p>
                 <p className="text-[11px] text-muted-foreground text-center max-w-xs">
-                  Abra o WhatsApp → Menu (⋮) → Dispositivos conectados → Conectar dispositivo
+                  WhatsApp → Menu (⋮) → Dispositivos conectados → Conectar dispositivo
                 </p>
               </>
             )}
             {qrStep === "success" && (
               <>
-                <div className="h-16 w-16 rounded-full bg-success/15 flex items-center justify-center mb-4">
-                  <CheckCircle2 className="h-8 w-8 text-success" />
+                <div className="h-16 w-16 rounded-full bg-[#25D366]/15 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-[#25D366]" />
                 </div>
                 <p className="text-xs font-bold text-foreground mb-1">Conectado com sucesso!</p>
-                {connectedNumber && (
-                  <p className="text-[11px] text-muted-foreground mb-3">{connectedNumber}</p>
-                )}
-                <Button size="sm" className="text-xs" onClick={() => setQrModalOpen(false)}>
-                  Fechar
-                </Button>
+                {connectedNumber && <p className="text-[11px] text-muted-foreground mb-3">{connectedNumber}</p>}
+                <Button size="sm" className="text-xs" onClick={() => setQrModalOpen(false)}>Fechar</Button>
               </>
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Disconnect confirmation */}
+      <AlertDialog open={disconnectDialogOpen} onOpenChange={setDisconnectDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desconectar WhatsApp?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O número <strong>{connectedNumber || displayName}</strong> será desconectado. Você pode reconectar a qualquer momento escaneando um novo QR Code.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDisconnect} className="bg-destructive hover:bg-destructive/90">
+              Desconectar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover número permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O número <strong>{connectedNumber || displayName}</strong> será desconectado e removido do uPixel. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              Remover número
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
 
-// Modal to add or edit an instance
-function InstanceFormModal({
+// ── Edit modal (modo avançado — mantido para quem tem servidor próprio) ───────
+
+function InstanceEditModal({
   open,
   onClose,
   onSaved,
@@ -333,59 +417,33 @@ function InstanceFormModal({
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
-  editing?: WaInstance | null;
+  editing: WaInstance | null;
 }) {
-  const [instanceType, setInstanceType] = useState<"normal" | "official">("normal");
   const [apiUrl, setApiUrl] = useState("");
-  const [instanceName, setInstanceName] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [phoneId, setPhoneId] = useState("");
-  const [businessId, setBusinessId] = useState("");
-  const [accessToken, setAccessToken] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (editing) {
-      setInstanceType(editing.provider === "whatsapp_official" ? "official" : "normal");
       setApiUrl(editing.api_url);
-      setInstanceName(editing.instance_name);
       setApiKey("");
-      setPhoneId(editing.phone_number_id);
-      setBusinessId(editing.business_id);
-      setAccessToken("");
-    } else {
-      setInstanceType("normal");
-      setApiUrl("");
-      setInstanceName("");
-      setApiKey("");
-      setPhoneId("");
-      setBusinessId("");
-      setAccessToken("");
     }
   }, [editing, open]);
 
   const handleSave = async () => {
+    if (!editing) return;
     setSaving(true);
     try {
-      const params = new URLSearchParams({
-        action: "save-config",
-        type: instanceType,
+      const params = new URLSearchParams({ action: "save-config", type: "normal" });
+      const { error } = await supabase.functions.invoke(`whatsapp-proxy?${params.toString()}`, {
+        body: {
+          api_url: apiUrl,
+          instance_name: editing.instance_name,
+          api_key: apiKey || undefined,
+        },
       });
-      const { error } = await supabase.functions.invoke(
-        `whatsapp-proxy?${params.toString()}`,
-        {
-          body: {
-            api_url: apiUrl,
-            instance_name: instanceName,
-            api_key: apiKey,
-            phone_number_id: phoneId || undefined,
-            business_id: businessId || undefined,
-            access_token: accessToken || undefined,
-          },
-        }
-      );
       if (error) throw new Error(error.message);
-      toast.success(editing ? "Instância atualizada!" : "Instância adicionada!");
+      toast.success("Configurações salvas!");
       onSaved();
       onClose();
     } catch (err: any) {
@@ -395,147 +453,33 @@ function InstanceFormModal({
     }
   };
 
-  const isOfficial = instanceType === "official";
-  const hasExistingApiKey = !!(editing?.has_api_key);
-  const hasExistingToken = !!(editing?.has_access_token);
-
-  const canSave =
-    apiUrl &&
-    instanceName &&
-    (apiKey || hasExistingApiKey) &&
-    (!isOfficial || phoneId);
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm flex items-center gap-2">
-            {editing ? <Settings className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {editing ? `Editar — ${editing.instance_name}` : "Adicionar número"}
+            <Settings className="h-4 w-4" />
+            Configurar — {editing?.friendly_name || editing?.instance_name}
           </DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4 py-2">
-          {/* Type selector */}
-          {!editing && (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setInstanceType("normal")}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  instanceType === "normal"
-                    ? "border-accent bg-accent/10"
-                    : "border-border hover:border-accent/50"
-                }`}
-              >
-                <QrCode className="h-5 w-5 text-accent mb-1" />
-                <p className="text-xs font-semibold">QR Code</p>
-                <p className="text-[10px] text-muted-foreground">Via Evolution API</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstanceType("official")}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  instanceType === "official"
-                    ? "border-success bg-success/10"
-                    : "border-border hover:border-success/50"
-                }`}
-              >
-                <Shield className="h-5 w-5 text-success mb-1" />
-                <p className="text-xs font-semibold">API Oficial</p>
-                <p className="text-[10px] text-muted-foreground">Meta Business</p>
-              </button>
-            </div>
-          )}
-
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">URL do Servidor Evolution API</Label>
-            <Input
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="https://api.evolution.com.br"
-              className="text-xs h-9 bg-secondary"
-            />
+            <Input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="https://api.evolution.com.br" className="text-xs h-9 bg-secondary" />
           </div>
-
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Nome da Instância</Label>
-            <Input
-              value={instanceName}
-              onChange={(e) => setInstanceName(e.target.value)}
-              placeholder="meu-numero-1"
-              className="text-xs h-9 bg-secondary"
-              disabled={!!editing}
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Identificador único — use letras, números e hífens.
-            </p>
+            <Label className="text-xs font-semibold">API Key</Label>
+            <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+              placeholder={editing?.has_api_key ? "••••••• (já configurada)" : "Sua API Key"}
+              className="text-xs h-9 bg-secondary" />
           </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Evolution API Key</Label>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={hasExistingApiKey ? "••••••• (já configurada)" : "Sua API Key"}
-              className="text-xs h-9 bg-secondary"
-            />
-          </div>
-
-          {isOfficial && (
-            <>
-              <div className="h-px bg-border" />
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                Meta Business Platform
-              </p>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Phone Number ID</Label>
-                <Input
-                  value={phoneId}
-                  onChange={(e) => setPhoneId(e.target.value)}
-                  placeholder="ID do número de telefone"
-                  className="text-xs h-9 bg-secondary"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Business ID</Label>
-                <Input
-                  value={businessId}
-                  onChange={(e) => setBusinessId(e.target.value)}
-                  placeholder="ID da conta Business"
-                  className="text-xs h-9 bg-secondary"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Meta Access Token</Label>
-                <Input
-                  type="password"
-                  value={accessToken}
-                  onChange={(e) => setAccessToken(e.target.value)}
-                  placeholder={hasExistingToken ? "••••••• (já configurado)" : "Token de acesso permanente"}
-                  className="text-xs h-9 bg-secondary"
-                />
-              </div>
-            </>
-          )}
         </div>
-
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-            Cancelar
-          </Button>
-          <Button
-            size="sm"
-            className="text-xs"
-            onClick={handleSave}
-            disabled={!canSave || saving}
-          >
+          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">Cancelar</Button>
+          <Button size="sm" onClick={handleSave} disabled={!apiUrl || saving} className="text-xs">
             {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-            {editing ? "Salvar" : "Adicionar"}
+            Salvar
           </Button>
         </div>
       </DialogContent>
@@ -543,143 +487,174 @@ function InstanceFormModal({
   );
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function WhatsAppPage() {
   const navigate = useNavigate();
   const { instances, loading, refresh } = useWhatsAppInstances();
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingInstance, setEditingInstance] = useState<WaInstance | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editModal, setEditModal] = useState<WaInstance | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedType, setAdvancedType] = useState<"normal" | "official">("normal");
+
+  // Advanced add (for users with own server)
+  const [adApiUrl, setAdApiUrl] = useState("");
+  const [adInstanceName, setAdInstanceName] = useState("");
+  const [adApiKey, setAdApiKey] = useState("");
+  const [adPhoneId, setAdPhoneId] = useState("");
+  const [adSaving, setAdSaving] = useState(false);
+
+  const handleAdvancedSave = async () => {
+    setAdSaving(true);
+    try {
+      const params = new URLSearchParams({ action: "save-config", type: advancedType });
+      const { error } = await supabase.functions.invoke(`whatsapp-proxy?${params.toString()}`, {
+        body: { api_url: adApiUrl, instance_name: adInstanceName, api_key: adApiKey, phone_number_id: adPhoneId || undefined },
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Instância adicionada!");
+      refresh();
+      setAdvancedOpen(false);
+      setAdApiUrl(""); setAdInstanceName(""); setAdApiKey(""); setAdPhoneId("");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setAdSaving(false);
+    }
+  };
 
   const connectedCount = instances.filter((i) => i.status === "connected").length;
 
-  const handleEdit = (instance: WaInstance) => {
-    setEditingInstance(instance);
-    setFormOpen(true);
-  };
-
-  const handleAdd = () => {
-    setEditingInstance(null);
-    setFormOpen(true);
-  };
+  // Empty state
+  if (!loading && instances.length === 0) {
+    return (
+      <AppLayout title="WhatsApp" subtitle="Conecte seus números">
+        <EmptyState onConnect={() => setWizardOpen(true)} />
+        <QuickConnectWizard
+          open={wizardOpen}
+          onClose={() => setWizardOpen(false)}
+          onComplete={refresh}
+        />
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout
       title="WhatsApp"
-      subtitle="Gerencie todos os seus números"
+      subtitle={loading ? "Carregando…" : `${connectedCount > 0 ? `${connectedCount} conectado${connectedCount > 1 ? "s" : ""}` : "Nenhum conectado"} · ${instances.length} número${instances.length !== 1 ? "s" : ""}`}
       actions={
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => navigate("/integrations")}>
-            <ArrowLeft className="h-3 w-3" /> Voltar
+          <Button size="sm" variant="ghost" className="text-xs gap-1 text-muted-foreground" onClick={() => navigate(-1)}>
+            Voltar
           </Button>
-          <Button size="sm" className="text-xs gap-1" onClick={handleAdd}>
-            <Plus className="h-3 w-3" /> Adicionar número
+          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={refresh} disabled={loading}>
+            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+          <Button size="sm" className="text-xs gap-1 bg-[#25D366] hover:bg-[#1da851] text-white" onClick={() => setWizardOpen(true)}>
+            <Plus className="h-3.5 w-3.5" /> Conectar número
           </Button>
         </div>
       }
     >
       <div className="p-6 animate-fade-in space-y-6">
-        {/* Debug info */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="text-[10px] text-muted-foreground font-mono bg-secondary rounded p-2">
-            Debug: {loading ? "carregando..." : `${instances.length} instância(s)`}
-          </div>
-        )}
 
-        {/* Summary badge */}
-        <div className="flex items-center gap-3">
+        {/* Summary */}
+        <div className="flex items-center gap-3 flex-wrap">
           <Badge
             variant="outline"
-            className={`text-[10px] gap-1 ${
-              connectedCount > 0
-                ? "border-success/40 text-success"
-                : "border-muted-foreground/40 text-muted-foreground"
-            }`}
+            className={`text-[10px] gap-1.5 ${connectedCount > 0 ? "border-success/40 text-success" : "border-muted-foreground/40 text-muted-foreground"}`}
           >
             {connectedCount > 0
               ? <><Wifi className="h-3 w-3" /> {connectedCount} número{connectedCount > 1 ? "s" : ""} conectado{connectedCount > 1 ? "s" : ""}</>
               : <><WifiOff className="h-3 w-3" /> Nenhum número conectado</>
             }
           </Badge>
-          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-            {instances.length} instância{instances.length !== 1 ? "s" : ""}
-          </Badge>
         </div>
 
-        {/* Instance cards */}
+        {/* Cards */}
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+          <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Carregando instâncias...</span>
-          </div>
-        ) : instances.length === 0 ? (
-          <div className="bg-card ghost-border rounded-xl shadow-card p-10 flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
-              <MessageCircle className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-foreground mb-1">Nenhum número configurado</p>
-              <p className="text-xs text-muted-foreground max-w-xs">
-                Adicione um número de WhatsApp para começar a receber e enviar mensagens.
-              </p>
-            </div>
-            <Button size="sm" className="text-xs gap-1" onClick={handleAdd}>
-              <Plus className="h-3 w-3" /> Adicionar primeiro número
-            </Button>
+            <span className="text-sm">Carregando números…</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {instances.map((inst) => (
               <InstanceCard
                 key={inst.id}
                 instance={inst}
                 onDeleted={refresh}
-                onEdit={() => handleEdit(inst)}
+                onEdit={() => setEditModal(inst)}
               />
             ))}
           </div>
         )}
 
-        {/* Comparison table */}
-        {instances.length > 0 && (
-          <div className="bg-card ghost-border rounded-xl shadow-card p-6">
-            <h3 className="text-xs font-bold text-foreground mb-3">Comparativo de modalidades</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-[hsl(var(--border-strong))]">
-                    <th className="text-left py-2 text-muted-foreground font-medium">Recurso</th>
-                    <th className="text-center py-2 text-success font-medium">API Oficial</th>
-                    <th className="text-center py-2 text-accent font-medium">QR Code</th>
-                  </tr>
-                </thead>
-                <tbody className="text-muted-foreground">
-                  {[
-                    ["Estabilidade", "✅ Alta", "⚠️ Média"],
-                    ["Templates oficiais", "✅ Sim", "❌ Não"],
-                    ["Mensagens em massa", "✅ Sim", "❌ Não"],
-                    ["Setup", "⏳ Requer aprovação Meta", "⚡ Instantâneo"],
-                    ["Custo", "💰 Pago por conversa", "🆓 Gratuito"],
-                    ["Automações", "✅ Completas", "⚠️ Limitadas"],
-                    ["Multi-instância", "✅ Sim", "✅ Sim"],
-                  ].map(([feature, api, lite]) => (
-                    <tr key={feature} className="border-b border-[hsl(var(--border-strong))]">
-                      <td className="py-2 font-medium text-foreground/80">{feature}</td>
-                      <td className="py-2 text-center">{api}</td>
-                      <td className="py-2 text-center">{lite}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {/* Advanced mode link */}
+        <div className="text-center pt-4 border-t border-border">
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+            onClick={() => setAdvancedOpen(true)}
+          >
+            Adicionar com servidor próprio (modo avançado)
+          </button>
+        </div>
       </div>
 
-      <InstanceFormModal
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSaved={refresh}
-        editing={editingInstance}
+      {/* Wizard */}
+      <QuickConnectWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onComplete={refresh}
       />
+
+      {/* Edit modal */}
+      <InstanceEditModal
+        open={!!editModal}
+        onClose={() => setEditModal(null)}
+        onSaved={refresh}
+        editing={editModal}
+      />
+
+      {/* Advanced add modal */}
+      <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Adicionar — Modo avançado</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-2">
+              {(["normal", "official"] as const).map((t) => (
+                <button key={t} type="button" onClick={() => setAdvancedType(t)}
+                  className={`rounded-lg border p-3 text-left text-xs transition-colors ${advancedType === t ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                  {t === "normal" ? <><QrCode className="h-4 w-4 mb-1 text-primary" /><p className="font-semibold">QR Code</p><p className="text-muted-foreground">Evolution API</p></>
+                    : <><Shield className="h-4 w-4 mb-1 text-success" /><p className="font-semibold">API Oficial</p><p className="text-muted-foreground">Meta Business</p></>}
+                </button>
+              ))}
+            </div>
+            {[
+              { label: "URL do Servidor Evolution API", val: adApiUrl, set: setAdApiUrl, ph: "https://api.evolution.com.br" },
+              { label: "Nome da Instância", val: adInstanceName, set: setAdInstanceName, ph: "meu-numero-1" },
+              { label: "API Key", val: adApiKey, set: setAdApiKey, ph: "Sua API Key", type: "password" },
+              ...(advancedType === "official" ? [{ label: "Phone Number ID", val: adPhoneId, set: setAdPhoneId, ph: "ID do número" }] : []),
+            ].map(({ label, val, set, ph, type: t }) => (
+              <div key={label} className="space-y-1.5">
+                <Label className="text-xs font-semibold">{label}</Label>
+                <Input value={val} onChange={(e) => set(e.target.value)} placeholder={ph}
+                  type={t || "text"} className="text-xs h-9 bg-secondary" />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setAdvancedOpen(false)} className="text-xs">Cancelar</Button>
+            <Button size="sm" onClick={handleAdvancedSave} disabled={!adApiUrl || !adInstanceName || !adApiKey || adSaving} className="text-xs">
+              {adSaving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+              Adicionar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

@@ -6,6 +6,8 @@ export interface WaInstance {
   id: string;
   provider: "whatsapp" | "whatsapp_official";
   instance_name: string;
+  friendly_name: string;
+  managed: boolean;
   status: string;
   api_url: string;
   has_api_key: boolean;
