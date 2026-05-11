@@ -95,6 +95,87 @@ Deno.serve(async (req) => {
     // instance_name URL param selects a specific WhatsApp instance
     const instanceNameParam = url.searchParams.get("instance_name") || "";
 
+    // ── create-managed-instance: creates instance using shared server credentials ──
+    if (action === "create-managed-instance") {
+      const managedUrl = (Deno.env.get("UPIXEL_EVOLUTION_URL") || "").trim().replace(/\/+$/, "");
+      const managedKey = Deno.env.get("UPIXEL_EVOLUTION_KEY") || "";
+
+      if (!managedUrl || !managedKey) {
+        return jsonResponse({ error: "Servidor Evolution gerenciado não configurado. Use o modo avançado." }, 503);
+      }
+
+      const body = await req.json().catch(() => ({}));
+      const friendlyName = (body.name || "").trim().slice(0, 30) || "WhatsApp";
+      const slug = friendlyName.toLowerCase().normalize("NFD").replace(/[^\x00-\x7F]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "wa";
+      const suffix = Math.random().toString(36).slice(2, 6);
+      const instanceName = `c${clientId.slice(0, 8)}-${slug}-${suffix}`;
+      const instancePath = encodeURIComponent(instanceName);
+
+      // Create instance on shared Evolution server
+      const createRes = await fetch(`${managedUrl}/instance/create`, {
+        method: "POST",
+        headers: { apikey: managedKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ instanceName, integration: "WHATSAPP-BAILEYS", qrcode: true }),
+      });
+
+      if (!createRes.ok) {
+        const errBody = await readResponseBody(createRes);
+        console.error("Evolution create failed:", createRes.status, errBody);
+        return jsonResponse({ error: "Falha ao criar instância no servidor Evolution." }, 502);
+      }
+
+      // Save to integrations table
+      const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
+      const newConfig = {
+        api_url: managedUrl,
+        instance_name: instanceName,
+        api_key: managedKey,
+        friendly_name: friendlyName,
+        managed: true,
+      };
+
+      const { data: inserted, error: insertErr } = await adminClient
+        .from("integrations")
+        .insert({ client_id: clientId, provider: "whatsapp", status: "connecting", config: newConfig })
+        .select("id")
+        .single();
+
+      if (insertErr) {
+        console.error("DB insert error:", insertErr);
+        return jsonResponse({ error: "Erro ao salvar instância no banco de dados." }, 500);
+      }
+
+      // Set webhook (best effort)
+      fetch(`${managedUrl}/webhook/set/${instancePath}`, {
+        method: "POST",
+        headers: { apikey: managedKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webhook: {
+            enabled: true, url: webhookUrl, webhook_by_events: false,
+            events: ["QRCODE_UPDATED", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", "SEND_MESSAGE", "CONNECTION_UPDATE"],
+          },
+        }),
+      }).catch((e) => console.error("Webhook set failed:", e));
+
+      // Get QR code
+      const connectRes = await fetch(`${managedUrl}/instance/connect/${instancePath}`, {
+        headers: { apikey: managedKey },
+      });
+      const connectData = await readResponseBody(connectRes);
+      const qrCode = typeof connectData === "object" && connectData !== null
+        ? (connectData as any).base64 || null
+        : null;
+
+      return jsonResponse({
+        success: true,
+        instance_id: inserted?.id,
+        instance_name: instanceName,
+        friendly_name: friendlyName,
+        qr_code: qrCode,
+        status: "connecting",
+      });
+    }
+
     // ── list-instances: returns all WA instances for this client ──
     if (action === "list-instances") {
       const { data: integrations, error: listErr } = await adminClient
@@ -111,6 +192,8 @@ Deno.serve(async (req) => {
           id: row.id,
           provider: row.provider,
           instance_name: (row.config as any)?.instance_name || "",
+          friendly_name: (row.config as any)?.friendly_name || (row.config as any)?.instance_name || "",
+          managed: !!(row.config as any)?.managed,
           status: row.status || "disconnected",
           api_url: (row.config as any)?.api_url || "",
           has_api_key: !!(row.config as any)?.api_key,
