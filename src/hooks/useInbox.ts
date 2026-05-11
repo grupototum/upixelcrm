@@ -282,8 +282,11 @@ export function useInbox(onLeadCreated?: () => void) {
       const isOfficial = target.channel === "whatsapp_official";
       const isInstagram = target.channel === "instagram";
       const functionName = isInstagram ? "instagram-proxy" : "whatsapp-proxy";
-      const queryString = isInstagram ? "?action=send-message" : `?action=send-message${isOfficial ? "&type=official" : ""}`;
-      
+      const instanceName = target.metadata?.instance_name as string | undefined;
+      const queryString = isInstagram
+        ? "?action=send-message"
+        : `?action=send-message${isOfficial ? "&type=official" : ""}${instanceName ? `&instance_name=${encodeURIComponent(instanceName)}` : ""}`;
+
       const { error } = await supabase.functions.invoke(`${functionName}${queryString}`, {
         body: { phone, message: text },
       });
