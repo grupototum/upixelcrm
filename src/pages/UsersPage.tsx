@@ -118,23 +118,27 @@ export default function UsersPage() {
   const fetchData = async () => {
     setLoading(true);
     
-    // Default queries
-    const profilesQuery = supabase.from("profiles").select("*").order("created_at", { ascending: false });
-    
+    // Filtro CRÍTICO server-side: não-master só pode listar profiles do próprio tenant.
+    // Antes filtrávamos client-side, o que vazava dados de TODOS os tenants no payload de rede.
+    let profilesQuery = supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    if (!isMaster) {
+      if (currentTenantId) {
+        profilesQuery = profilesQuery.eq("tenant_id", currentTenantId);
+      } else if (user?.organization_id) {
+        profilesQuery = profilesQuery.eq("organization_id", user.organization_id);
+      } else {
+        // Sem tenant nem organization no contexto: só pode ver o próprio profile.
+        profilesQuery = profilesQuery.eq("id", user?.id ?? "");
+      }
+    }
+
     const [profilesRes, orgsRes] = await Promise.all([
       profilesQuery,
       isMaster ? supabase.from("organizations").select("*").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
     ]);
 
-    let profilesList = (profilesRes.data || []) as ProfileRow[];
+    const profilesList = (profilesRes.data || []) as ProfileRow[];
     const orgsList = (orgsRes.data || []) as OrgRow[];
-
-    // If not master, filter profiles by tenant_id (primary) or organization_id (fallback)
-    if (!isMaster && currentTenantId) {
-      profilesList = profilesList.filter(p => p.tenant_id === currentTenantId || p.id === user?.id);
-    } else if (!isMaster && user?.organization_id) {
-      profilesList = profilesList.filter(p => p.organization_id === user.organization_id || p.id === user.id);
-    }
 
     const orgMap = new Map(orgsList.map(o => [o.id, o.name]));
     for (const p of profilesList) {

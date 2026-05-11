@@ -145,13 +145,15 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Erro ao salvar instância no banco de dados." }, 500);
       }
 
-      // Set webhook (best effort)
+      // Set webhook (best effort). URL inclui integration_id para roteamento determinístico
+      // — evita colisões cross-tenant quando dois tenants compartilham instance_name.
+      const taggedWebhookUrl = `${webhookUrl}?integration_id=${inserted?.id ?? ""}`;
       fetch(`${managedUrl}/webhook/set/${instancePath}`, {
         method: "POST",
         headers: { apikey: managedKey, "Content-Type": "application/json" },
         body: JSON.stringify({
           webhook: {
-            enabled: true, url: webhookUrl, webhook_by_events: false,
+            enabled: true, url: taggedWebhookUrl, webhook_by_events: false,
             events: ["QRCODE_UPDATED", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", "SEND_MESSAGE", "CONNECTION_UPDATE"],
           },
         }),
@@ -327,7 +329,12 @@ Deno.serve(async (req) => {
       if (action === "delete-instance") {
         return jsonResponse({ success: true }); // nothing to delete
       }
-      return jsonResponse({ error: "WhatsApp not configured" }, 400);
+      return jsonResponse({
+        error: instanceNameParam
+          ? `Instância "${instanceNameParam}" não encontrada. Verifique se ela foi excluída ou se o nome está correto em Configurações > WhatsApp.`
+          : "WhatsApp não configurado. Conecte uma instância em Configurações > WhatsApp antes de enviar mensagens.",
+        code: instanceNameParam ? "INSTANCE_NOT_FOUND" : "NOT_CONFIGURED",
+      }, 400);
     }
 
     const rawConfig = integration.config as {
@@ -347,7 +354,8 @@ Deno.serve(async (req) => {
     const config = { ...rawConfig, api_url: normalizedUrl };
     // URL-safe instance name (for paths only; JSON bodies must use raw config.instance_name)
     const instancePath = encodeURIComponent(config.instance_name || "");
-    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
+    // URL do webhook com integration_id para roteamento determinístico cross-tenant.
+    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook?integration_id=${integration.id}`;
 
     // Helper: update this specific integration row
     const updateIntegration = (fields: Record<string, unknown>) =>
@@ -612,15 +620,44 @@ Deno.serve(async (req) => {
       const cleanPhone = phone.replace(/\D/g, "");
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
-      const res = await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
-        method: "POST",
-        headers: { apikey: config.api_key, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          number: formattedPhone,
-          text: message,
-        }),
-      });
-      const data = await res.json();
+      let res: Response;
+      try {
+        res = await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
+          method: "POST",
+          headers: { apikey: config.api_key, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            number: formattedPhone,
+            text: message,
+          }),
+        });
+      } catch (fetchErr) {
+        return jsonResponse({
+          error: `Não foi possível alcançar o servidor WhatsApp (${config.instance_name}). Verifique se a Evolution API está online.`,
+          code: "EVOLUTION_UNREACHABLE",
+          detail: getErrorMessage(fetchErr),
+          instance: config.instance_name,
+        }, 502);
+      }
+      const data = await readResponseBody(res);
+
+      if (!res.ok) {
+        const rawMsg = (data && typeof data === "object")
+          ? ((data as any).response?.message ?? (data as any).message ?? (data as any).error)
+          : data;
+        const evolutionMsg = Array.isArray(rawMsg) ? rawMsg.join("; ") : (rawMsg ? String(rawMsg) : `HTTP ${res.status}`);
+        const friendly = res.status === 404
+          ? `Instância "${config.instance_name}" não encontrada no servidor WhatsApp. Reconecte em Configurações > WhatsApp.`
+          : res.status === 401 || res.status === 403
+            ? `API Key inválida para a instância "${config.instance_name}". Atualize em Configurações > WhatsApp.`
+            : `WhatsApp rejeitou o envio: ${evolutionMsg}`;
+        return jsonResponse({
+          error: friendly,
+          code: "EVOLUTION_ERROR",
+          evolution_status: res.status,
+          evolution_body: data,
+          instance: config.instance_name,
+        }, 502);
+      }
 
       let convId: string | null = null;
       const channel = type === "official" ? "whatsapp_official" : "whatsapp";
@@ -712,12 +749,41 @@ Deno.serve(async (req) => {
       };
       if (mimetype) payload.mimetype = mimetype;
 
-      const res = await fetch(`${config.api_url}/message/${endpoint}/${instancePath}`, {
-        method: "POST",
-        headers: { apikey: config.api_key, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
+      let res: Response;
+      try {
+        res = await fetch(`${config.api_url}/message/${endpoint}/${instancePath}`, {
+          method: "POST",
+          headers: { apikey: config.api_key, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch (fetchErr) {
+        return jsonResponse({
+          error: `Não foi possível alcançar o servidor WhatsApp (${config.instance_name}). Verifique se a Evolution API está online.`,
+          code: "EVOLUTION_UNREACHABLE",
+          detail: getErrorMessage(fetchErr),
+          instance: config.instance_name,
+        }, 502);
+      }
+      const data = await readResponseBody(res);
+
+      if (!res.ok) {
+        const rawMsg = (data && typeof data === "object")
+          ? ((data as any).response?.message ?? (data as any).message ?? (data as any).error)
+          : data;
+        const evolutionMsg = Array.isArray(rawMsg) ? rawMsg.join("; ") : (rawMsg ? String(rawMsg) : `HTTP ${res.status}`);
+        const friendly = res.status === 404
+          ? `Instância "${config.instance_name}" não encontrada no servidor WhatsApp. Reconecte em Configurações > WhatsApp.`
+          : res.status === 401 || res.status === 403
+            ? `API Key inválida para a instância "${config.instance_name}". Atualize em Configurações > WhatsApp.`
+            : `WhatsApp rejeitou o envio de mídia: ${evolutionMsg}`;
+        return jsonResponse({
+          error: friendly,
+          code: "EVOLUTION_ERROR",
+          evolution_status: res.status,
+          evolution_body: data,
+          instance: config.instance_name,
+        }, 502);
+      }
 
       let convId: string | null = null;
       const mediaChannel = type === "official" ? "whatsapp_official" : "whatsapp";

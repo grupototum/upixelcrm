@@ -40,13 +40,32 @@ const tooltipStyle = {
 };
 
 export default function ReportsPage() {
-  const { leads, tasks, columns, currentPipelineId, loading } = useAppState();
+  const { leads, tasks, columns, loading } = useAppState();
   const [period, setPeriod] = useState("all");
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
 
-  const pipelineColumns = useMemo(() => 
-    columns.filter(c => c.pipeline_id === currentPipelineId).sort((a, b) => a.order - b.order)
-  , [columns, currentPipelineId]);
+  // Agrega globalmente: agrupa colunas por nome (em PT-BR estágios como "Qualificação" / "Fechamento"
+  // se repetem em pipelines diferentes). Cada "estágio" no funil consolida todos os pipelines.
+  const stageOrder = useMemo(() => {
+    const sorted = [...columns].sort((a, b) => a.order - b.order);
+    const seen = new Map<string, { name: string; color: string | null; order: number; ids: string[] }>();
+    sorted.forEach((c) => {
+      const key = (c.name ?? "").trim().toLowerCase();
+      if (!key) return;
+      if (!seen.has(key)) {
+        seen.set(key, { name: c.name, color: c.color ?? null, order: c.order, ids: [c.id] });
+      } else {
+        seen.get(key)!.ids.push(c.id);
+      }
+    });
+    return Array.from(seen.values()).sort((a, b) => a.order - b.order);
+  }, [columns]);
+
+  const stageIdToIndex = useMemo(() => {
+    const map = new Map<string, number>();
+    stageOrder.forEach((stage, i) => stage.ids.forEach((id) => map.set(id, i)));
+    return map;
+  }, [stageOrder]);
 
   const filteredLeads = useMemo(() => {
     if (period === "custom") {
@@ -84,20 +103,21 @@ export default function ReportsPage() {
     return tasks.filter(t => new Date(t.created_at) >= limitDate);
   }, [period, customRange, tasks]);
 
-  const leadsThatReachedColumn = (colIndex: number) => {
-    return filteredLeads.filter(l => {
-      const lColIndex = pipelineColumns.findIndex(c => c.id === l.column_id);
-      return lColIndex >= colIndex;
+  const leadsThatReachedStage = (stageIndex: number) => {
+    return filteredLeads.filter((l) => {
+      if (!l.column_id) return false;
+      const idx = stageIdToIndex.get(l.column_id);
+      return idx !== undefined && idx >= stageIndex;
     }).length;
   };
 
   const conversionData = useMemo(() =>
-    pipelineColumns.map((col, i) => {
-      const count = leadsThatReachedColumn(i);
-      const prevCount = i === 0 ? filteredLeads.length : leadsThatReachedColumn(i - 1);
+    stageOrder.map((stage, i) => {
+      const count = leadsThatReachedStage(i);
+      const prevCount = i === 0 ? filteredLeads.length : leadsThatReachedStage(i - 1);
       const rate = prevCount > 0 ? Math.round((count / prevCount) * 100) : (count > 0 ? 100 : 0);
-      return { name: col.name, count, rate, color: col.color || "hsl(var(--primary))" };
-    }), [filteredLeads, pipelineColumns]
+      return { name: stage.name, count, rate, color: stage.color || "hsl(var(--primary))" };
+    }), [filteredLeads, stageOrder, stageIdToIndex]
   );
 
   const leadsByPeriod = useMemo(() => {
@@ -125,11 +145,11 @@ export default function ReportsPage() {
   }, [filteredLeads]);
 
   const funnelData = useMemo(() =>
-    pipelineColumns.map((col, i) => ({
-      name: col.name,
-      value: leadsThatReachedColumn(i),
-      fill: col.color || "hsl(var(--primary))",
-    })), [filteredLeads, pipelineColumns]
+    stageOrder.map((stage, i) => ({
+      name: stage.name,
+      value: leadsThatReachedStage(i),
+      fill: stage.color || "hsl(var(--primary))",
+    })), [filteredLeads, stageOrder, stageIdToIndex]
   );
 
   const totalValue = useMemo(
@@ -146,10 +166,10 @@ export default function ReportsPage() {
   }, [overdueCount, filteredTasks]);
 
   const conversionRate = useMemo(() => {
-    if (pipelineColumns.length === 0) return "0";
-    const wonCount = leadsThatReachedColumn(pipelineColumns.length - 1);
+    if (stageOrder.length === 0) return "0";
+    const wonCount = leadsThatReachedStage(stageOrder.length - 1);
     return filteredLeads.length > 0 ? ((wonCount / filteredLeads.length) * 100).toFixed(1) : "0";
-  }, [filteredLeads, pipelineColumns]);
+  }, [filteredLeads, stageOrder, stageIdToIndex]);
 
   if (loading) {
     return (
@@ -202,7 +222,7 @@ export default function ReportsPage() {
                   "Email": l.email ?? "",
                   "Empresa": l.company ?? "",
                   "Origem": l.origin ?? "",
-                  "Etapa": pipelineColumns.find((c) => c.id === l.column_id)?.name ?? "",
+                  "Etapa": columns.find((c) => c.id === l.column_id)?.name ?? "",
                   "Criado em": new Date(l.created_at).toLocaleDateString("pt-BR"),
                 })),
                 `relatorio-leads-${new Date().toISOString().slice(0, 10)}.csv`
@@ -220,24 +240,18 @@ export default function ReportsPage() {
           <KPICard
             label="Taxa de Conversão"
             value={`${conversionRate}%`}
-            change="+3.2%"
-            positive
             icon={Target}
             accent="primary"
           />
           <KPICard
             label="Leads Totais"
             value={String(filteredLeads.length)}
-            change="+12%"
-            positive
             icon={Users}
             accent="success"
           />
           <KPICard
             label="Ticket Médio"
             value={`R$ ${avgTicket.toLocaleString("pt-BR")}`}
-            change="-2.1%"
-            positive={false}
             icon={DollarSign}
             accent="accent"
           />
@@ -262,9 +276,6 @@ export default function ReportsPage() {
             </TabsTrigger>
             <TabsTrigger value="origin" className="text-xs gap-1.5">
               <PieChartIcon className="h-3 w-3" /> Por Origem
-            </TabsTrigger>
-            <TabsTrigger value="advanced" className="text-xs gap-1.5">
-              <Zap className="h-3 w-3" /> Avançado <ComingSoonBadge />
             </TabsTrigger>
           </TabsList>
 
@@ -423,31 +434,6 @@ export default function ReportsPage() {
             </div>
           </TabsContent>
 
-          {/* ─── Avançado (Em breve) ─── */}
-          <TabsContent value="advanced" className="mt-5">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <ComingSoonCard
-                icon={DollarSign}
-                title="ROI por Campanha"
-                description="Analise o retorno sobre investimento de cada campanha com métricas detalhadas de custo por lead e receita gerada."
-              />
-              <ComingSoonCard
-                icon={Zap}
-                title="Custos de IA"
-                description="Acompanhe o consumo de tokens, transcrições e respostas automáticas geradas pelos agentes de IA."
-              />
-              <ComingSoonCard
-                icon={TrendingUp}
-                title="Comparativos Avançados"
-                description="Compare períodos, equipes e canais lado a lado para identificar tendências e oportunidades."
-              />
-              <ComingSoonCard
-                icon={Users}
-                title="Performance por Operador"
-                description="Visualize métricas individuais de tempo de resposta, conversão e volume de atendimentos."
-              />
-            </div>
-          </TabsContent>
         </Tabs>
       </div>
     </AppLayout>
@@ -458,7 +444,7 @@ export default function ReportsPage() {
 function KPICard({
   label, value, change, positive, icon: Icon, accent,
 }: {
-  label: string; value: string; change: string; positive: boolean; icon: typeof Target; accent: string;
+  label: string; value: string; change?: string; positive?: boolean; icon: typeof Target; accent: string;
 }) {
   const colorMap: Record<string, string> = {
     primary: "text-primary",
@@ -483,10 +469,14 @@ function KPICard({
         </div>
       </div>
       <p className="text-3xl font-extrabold text-foreground tracking-tight">{value}</p>
-      <p className={`text-xs flex items-center gap-1 mt-1.5 ${positive ? "text-success" : "text-destructive"}`}>
-        {positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-        {change}
-      </p>
+      {change ? (
+        <p className={`text-xs flex items-center gap-1 mt-1.5 ${positive ? "text-success" : "text-destructive"}`}>
+          {positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+          {change}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground mt-1.5">—</p>
+      )}
     </div>
   );
 }

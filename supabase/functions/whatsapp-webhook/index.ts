@@ -654,8 +654,14 @@ async function upsertConversationAndMessage(
   return convId;
 }
 
+type IntegrationRow = {
+  id: string;
+  client_id: string;
+  config: Record<string, unknown> | null;
+};
+
 // ─── Handle Evolution API (Baileys) webhook ───
-async function handleEvolutionWebhook(body: any, adminClient: any) {
+async function handleEvolutionWebhook(body: any, adminClient: any, integrationIdFromUrl: string | null) {
   const instanceName = body.instance;
   const messageData = body.data;
 
@@ -664,11 +670,37 @@ async function handleEvolutionWebhook(body: any, adminClient: any) {
   const remoteJid = messageData.key?.remoteJid || "";
   if (remoteJid.endsWith("@g.us")) return { ok: true, skipped: "group_message" };
 
-  // Find integration by instance name — also accept non-connected (configured) instances
-  const { data: integrations } = await adminClient.from("integrations").select("id, client_id, config")
-    .eq("provider", "whatsapp").limit(200);
+  // Roteamento determinístico por integration_id (query string da URL do webhook).
+  // Evita colisões cross-tenant quando dois tenants compartilham o mesmo instance_name.
+  // Fallback para lookup por instance_name mantém compatibilidade com webhooks legados.
+  let match: IntegrationRow | null = null;
 
-  const match = (integrations || []).find((i: any) => (i.config as any)?.instance_name === instanceName);
+  if (integrationIdFromUrl) {
+    const { data } = await adminClient.from("integrations")
+      .select("id, client_id, config")
+      .eq("id", integrationIdFromUrl)
+      .eq("provider", "whatsapp")
+      .maybeSingle();
+    if (data) {
+      const cfgInstance = (data.config as Record<string, unknown> | null)?.instance_name as string | undefined;
+      // Anti-spoofing: se o instance_name no body diverge do config, descarta.
+      if (cfgInstance && instanceName && cfgInstance !== instanceName) {
+        console.warn(`Mismatch: integration_id=${integrationIdFromUrl} has instance "${cfgInstance}" but webhook reports "${instanceName}". Dropping.`);
+        return { ok: true, skipped: "instance_mismatch" };
+      }
+      match = data as IntegrationRow;
+    }
+  }
+
+  if (!match) {
+    const { data: integrations } = await adminClient.from("integrations").select("id, client_id, config")
+      .eq("provider", "whatsapp").limit(200);
+    match = ((integrations || []) as IntegrationRow[]).find((i) => {
+      const name = (i.config as Record<string, unknown> | null)?.instance_name;
+      return name === instanceName;
+    }) ?? null;
+  }
+
   if (!match) {
     console.log("No matching integration for instance:", instanceName);
     return { ok: true, skipped: "no_match" };
@@ -855,6 +887,11 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log("Webhook received");
 
+    // Extrai integration_id da query string. Quando presente, garante roteamento
+    // determinístico mesmo se dois tenants compartilharem o mesmo instance_name.
+    const url = new URL(req.url);
+    const integrationIdFromUrl = url.searchParams.get("integration_id");
+
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Detect format: Meta Official API has "object": "whatsapp_business_account"
@@ -867,10 +904,10 @@ Deno.serve(async (req) => {
 
     // Evolution API format
     const event = body.event;
-    
+
     // Handle message events
     if (event === "messages.upsert") {
-      const result = await handleEvolutionWebhook(body, adminClient);
+      const result = await handleEvolutionWebhook(body, adminClient, integrationIdFromUrl);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -885,9 +922,14 @@ Deno.serve(async (req) => {
         if (state === "open") newStatus = "connected";
         else if (state === "connecting") newStatus = "connecting";
 
-        await adminClient.from("integrations").update({ status: newStatus })
-          .eq("provider", "whatsapp") // FIX-05: Permite atualização de desconectados
-          .filter("config->>instance_name", "eq", instanceName);
+        // Roteamento por integration_id quando disponível (não atualiza cross-tenant).
+        const baseUpdate = adminClient.from("integrations").update({ status: newStatus })
+          .eq("provider", "whatsapp");
+        if (integrationIdFromUrl) {
+          await baseUpdate.eq("id", integrationIdFromUrl);
+        } else {
+          await baseUpdate.filter("config->>instance_name", "eq", instanceName);
+        }
           
         console.log(`Connection update for ${instanceName}: ${state} -> ${newStatus}`);
       }

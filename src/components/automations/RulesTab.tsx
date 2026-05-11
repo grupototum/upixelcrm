@@ -82,7 +82,7 @@ export function RulesTab() {
           />
         </div>
         <Badge variant="outline" className="text-[10px] text-muted-foreground px-2 py-0.5 border-[hsl(var(--border-strong))]">
-          {filtered.length} automação{filtered.length !== 1 ? "ões" : ""}
+          {filtered.length} {filtered.length === 1 ? "automação" : "automações"}
         </Badge>
       </div>
 
@@ -139,7 +139,7 @@ export function RulesTab() {
                     <p className="text-[10px] font-bold text-success uppercase tracking-wider mb-2 flex items-center gap-1">
                       <Target className="h-3 w-3" /> Gatilho
                     </p>
-                    <p className="text-[11px] font-medium text-foreground">{triggerLabels[auto.trigger.type]}</p>
+                    <p className="text-[11px] font-medium text-foreground">{triggerLabels[auto.trigger.type] ?? (auto.trigger.type ? auto.trigger.type.replace(/_/g, " ") : "Sem gatilho")}</p>
                     {auto.trigger.type === "time_in_column" && auto.trigger.config?.hours && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         {String(auto.trigger.config.hours)}h na coluna
@@ -156,7 +156,7 @@ export function RulesTab() {
                         auto.actions.map((a, i) => (
                           <p key={i} className="text-[11px] font-medium text-foreground flex items-center gap-1.5">
                             <span className="h-1 w-1 rounded-full bg-primary shrink-0" />
-                            {actionLabels[a.type]}
+                            {actionLabels[a.type] ?? (a.type ? a.type.replace(/_/g, " ") : "Ação")}
                             {a.comingSoon && <ComingSoonBadge />}
                           </p>
                         ))
