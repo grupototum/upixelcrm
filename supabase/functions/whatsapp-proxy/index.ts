@@ -294,16 +294,31 @@ Deno.serve(async (req) => {
     }
 
     // ── Lookup integration for all remaining actions ──
-    // When instance_name param given, select that specific row; otherwise first row of this provider
+    // When instance_name param given, select that specific row; otherwise prefer connected instance
     const instanceQuery = adminClient
       .from("integrations")
       .select("*")
       .eq("client_id", clientId)
       .eq("provider", provider);
 
-    const { data: integration } = instanceNameParam
-      ? await instanceQuery.filter("config->>instance_name", "eq", instanceNameParam).maybeSingle()
-      : await instanceQuery.order("created_at", { ascending: true }).limit(1).maybeSingle();
+    let integration: Record<string, any> | null = null;
+    if (instanceNameParam) {
+      const { data } = await instanceQuery.filter("config->>instance_name", "eq", instanceNameParam).maybeSingle();
+      integration = data;
+    } else {
+      // Prefer connected/configured instances (most recently updated); fall back to any
+      const { data: connected } = await instanceQuery
+        .in("status", ["connected", "configured"])
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (connected) {
+        integration = connected;
+      } else {
+        const { data: fallback } = await instanceQuery.order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        integration = fallback;
+      }
+    }
 
     if (!integration?.config) {
       if (action === "status") {
