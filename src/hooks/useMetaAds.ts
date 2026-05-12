@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
+import { extractEdgeError } from "@/lib/edge-error";
 
 export interface MetaAdsCreds {
   access_token: string;
@@ -78,12 +79,16 @@ export function useMetaAds() {
       const { data, error } = await supabase.functions.invoke("meta-ads?action=save-credentials", {
         body: creds,
       });
-      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      if (error) {
+        const detail = await extractEdgeError(error, "Falha ao salvar credenciais Meta Ads");
+        throw new Error(detail);
+      }
+      if (data?.error) throw new Error(data.error);
       toast.success(`Meta Ads conectado — ${data.account_name}`);
       await refetchStatus();
       return true;
     } catch (err: any) {
-      toast.error(`Erro: ${err.message}`);
+      toast.error(`Erro: ${err.message}`, { duration: 8000 });
       return false;
     } finally {
       setConnecting(false);
@@ -110,12 +115,16 @@ export function useMetaAds() {
         toast.error("Token Meta Ads expirado — reconecte em Integrações → Meta Ads", { duration: 8000 });
         return 0;
       }
-      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      if (error) {
+        const detail = await extractEdgeError(error, "Falha na sincronização Meta Ads");
+        throw new Error(detail);
+      }
+      if (data?.error) throw new Error(data.error);
       toast.success(`${data.synced} campanhas sincronizadas`);
       await refetchCampaigns();
       return data.synced as number;
     } catch (err: any) {
-      toast.error(`Erro na sincronização: ${err.message}`);
+      toast.error(`Erro na sincronização: ${err.message}`, { duration: 8000 });
       return 0;
     } finally {
       setSyncing(false);
