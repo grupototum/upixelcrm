@@ -42,8 +42,11 @@ Deno.serve(async (req) => {
         .eq("provider", "google_ads")
         .maybeSingle();
       const cfg = data?.config as { developer_token?: string; customer_id?: string } | null;
+      // Developer token: prefere shared via env (recomendado pro modo gerenciado),
+      // fallback pro per-tenant (caso o cliente tenha seu próprio MCC).
+      const developerToken = cfg?.developer_token ?? Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN") ?? null;
       return {
-        developerToken: cfg?.developer_token ?? null,
+        developerToken,
         customerId: cfg?.customer_id ?? null,
         status: data?.status ?? "disconnected",
       };
@@ -90,15 +93,98 @@ Deno.serve(async (req) => {
       return gIntegration.access_token;
     };
 
+    // ── list-customers ────────────────────────────────────────────
+    // Lista as Google Ads customer IDs que o usuário OAuth tem acesso.
+    // Usado pra povoar dropdown de "qual conta conectar?" antes do save-credentials.
+    if (action === "list-customers") {
+      const accessToken = await getGoogleToken();
+      if (!accessToken) {
+        return json({
+          error: "Conecte o Google OAuth com scope adwords primeiro (Integrações > Google).",
+          code: "NO_GOOGLE_OAUTH",
+        }, 400);
+      }
+
+      // developer_token: shared via env var (preferred) OU enviado pelo client (fallback).
+      const body = await req.json().catch(() => ({}));
+      const developerToken = (body.developer_token as string | undefined)
+        ?? Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN");
+      if (!developerToken) {
+        return json({
+          error: "Developer Token do Google Ads não configurado. Adicione GOOGLE_ADS_DEVELOPER_TOKEN no Supabase ou informe manualmente.",
+          code: "NO_DEVELOPER_TOKEN",
+        }, 400);
+      }
+
+      // 1) Lista resources name dos customers acessíveis (formato: "customers/1234567890")
+      const listRes = await fetch(`${GOOGLE_ADS_API}/customers:listAccessibleCustomers`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": developerToken,
+        },
+      });
+      const listData = await listRes.json();
+      if (!listRes.ok || listData.error) {
+        return json({
+          error: `Google Ads API: ${listData.error?.message ?? `HTTP ${listRes.status}`}`,
+          details: listData,
+        }, 502);
+      }
+      const resourceNames: string[] = listData.resourceNames ?? [];
+      const customerIds = resourceNames.map((r: string) => r.replace("customers/", ""));
+
+      if (customerIds.length === 0) {
+        return json({
+          customers: [],
+          warning: "Nenhuma conta Google Ads vinculada a este usuário. Crie/vincule uma em ads.google.com.",
+        });
+      }
+
+      // 2) Pra cada customer ID, busca descriptiveName + currencyCode (best effort)
+      const customers = await Promise.all(customerIds.map(async (id: string) => {
+        try {
+          const cRes = await fetch(`${GOOGLE_ADS_API}/customers/${id}`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "developer-token": developerToken,
+            },
+          });
+          if (!cRes.ok) return { id, name: "", currency: "", manager: false };
+          const cData = await cRes.json();
+          return {
+            id,
+            name: cData.customer?.descriptiveName ?? "",
+            currency: cData.customer?.currencyCode ?? "",
+            manager: cData.customer?.manager === true,
+            test_account: cData.customer?.testAccount === true,
+          };
+        } catch {
+          return { id, name: "", currency: "", manager: false };
+        }
+      }));
+
+      return json({ customers, developer_token_source: body.developer_token ? "client" : "env" });
+    }
+
     // ── save-credentials ──────────────────────────────────────────
     if (action === "save-credentials") {
       const body = await req.json();
-      const { developer_token, customer_id } = body;
-      if (!developer_token || !customer_id) return json({ error: "developer_token e customer_id são obrigatórios" }, 400);
+      const { customer_id } = body;
+      // developer_token vem do body (modo manual avançado) OU do env (shared, modo automático)
+      const developer_token = (body.developer_token as string | undefined)
+        ?? Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN");
 
-      const normalId = customer_id.replace(/-/g, "");
+      if (!customer_id) return json({ error: "customer_id é obrigatório" }, 400);
+      if (!developer_token) {
+        return json({
+          error: "Developer Token não configurado. Adicione GOOGLE_ADS_DEVELOPER_TOKEN no Supabase ou informe manualmente.",
+          code: "NO_DEVELOPER_TOKEN",
+        }, 400);
+      }
 
-      // Validate: try to list accessible customers
+      const normalId = (customer_id as string).replace(/-/g, "");
+
+      // Validate: try to fetch this specific customer
       const accessToken = await getGoogleToken();
       if (!accessToken) return json({ error: "Conecte o Google OAuth primeiro (Integrações > Google)" }, 400);
 
@@ -117,7 +203,9 @@ Deno.serve(async (req) => {
           provider: "google_ads",
           status: "connected",
           config: {
-            developer_token,
+            // developer_token só vai pro DB se for per-tenant (informado manualmente).
+            // Quando vem do env, não persiste — fica sempre atualizado pelo Supabase secret.
+            ...(body.developer_token ? { developer_token: body.developer_token } : {}),
             customer_id: normalId,
             descriptive_name: testData.customer?.descriptiveName ?? null,
             currency_code: testData.customer?.currencyCode ?? null,

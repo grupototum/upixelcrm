@@ -5,6 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useMetaAds } from "@/hooks/useMetaAds";
+import { MetaAdsEmbeddedConnect } from "@/components/meta-ads/MetaAdsEmbeddedConnect";
+
+const META_ADS_EMBEDDED_AVAILABLE = !!(
+  import.meta.env.VITE_META_APP_ID && import.meta.env.VITE_META_ADS_CONFIG_ID
+);
 import {
   ArrowLeft, CheckCircle2, XCircle, RefreshCw, Unplug,
   TrendingUp, MousePointerClick, DollarSign, Users, Eye,
@@ -103,46 +108,66 @@ export default function MetaAdsPage() {
           </div>
         )}
 
-        {/* Connection form */}
+        {/* Connection — Embedded primeiro, manual como fallback */}
         {!isConnected && (
-          <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5 space-y-5">
-            <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-              <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                <p className="font-semibold">Como obter o Access Token</p>
-                <p>1. Acesse <span className="font-mono">business.facebook.com</span> → Configurações do negócio → Usuários do Sistema</p>
-                <p>2. Crie um Usuário do Sistema com permissão de <b>Administrador</b> na conta de anúncios</p>
-                <p>3. Gere um token com as permissões: <code>ads_read</code>, <code>leads_retrieval</code>, <code>pages_read_engagement</code></p>
-                <p>4. O Ad Account ID está em <span className="font-mono">facebook.com/adsmanager</span> → formato act_XXXXXXXX</p>
+          <>
+            {META_ADS_EMBEDDED_AVAILABLE && (
+              <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[9px] border-success/40 text-success">Recomendado</Badge>
+                  <h3 className="text-sm font-bold">Conexão em 1 clique</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Use sua conta Facebook pra escolher a conta de anúncio. Sem precisar criar System User Token nem copiar IDs.
+                </p>
+                <MetaAdsEmbeddedConnect onConnected={() => window.location.reload()} />
               </div>
-            </div>
+            )}
 
-            <div className="grid gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Access Token (System User)</Label>
-                <Input
-                  value={accessToken}
-                  onChange={e => setAccessToken(e.target.value)}
-                  placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  className="text-xs h-9 font-mono"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Ad Account ID</Label>
-                <Input
-                  value={adAccountId}
-                  onChange={e => setAdAccountId(e.target.value)}
-                  placeholder="act_123456789"
-                  className="text-xs h-9 font-mono"
-                />
-              </div>
-            </div>
+            <details className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5">
+              <summary className="cursor-pointer text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                Ou usar Access Token manual (avançado)
+              </summary>
+              <div className="space-y-5 pt-4">
+                <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                  <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                    <p className="font-semibold">Como obter o Access Token</p>
+                    <p>1. Acesse <span className="font-mono">business.facebook.com</span> → Configurações do negócio → Usuários do Sistema</p>
+                    <p>2. Crie um Usuário do Sistema com permissão de <b>Administrador</b> na conta de anúncios</p>
+                    <p>3. Gere um token com as permissões: <code>ads_read</code>, <code>leads_retrieval</code>, <code>pages_read_engagement</code></p>
+                    <p>4. O Ad Account ID está em <span className="font-mono">facebook.com/adsmanager</span> → formato act_XXXXXXXX</p>
+                  </div>
+                </div>
 
-            <Button className="w-full text-xs font-bold gap-2" onClick={handleConnect} disabled={connecting}>
-              {connecting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              {connecting ? "Conectando..." : "Conectar ao Meta Ads"}
-            </Button>
-          </div>
+                <div className="grid gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Access Token (System User)</Label>
+                    <Input
+                      value={accessToken}
+                      onChange={e => setAccessToken(e.target.value)}
+                      placeholder="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="text-xs h-9 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Ad Account ID</Label>
+                    <Input
+                      value={adAccountId}
+                      onChange={e => setAdAccountId(e.target.value)}
+                      placeholder="act_123456789"
+                      className="text-xs h-9 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <Button className="w-full text-xs font-bold gap-2" onClick={handleConnect} disabled={connecting}>
+                  {connecting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {connecting ? "Conectando..." : "Conectar ao Meta Ads"}
+                </Button>
+              </div>
+            </details>
+          </>
         )}
 
         {/* Webhook setup for Meta Lead Ads */}

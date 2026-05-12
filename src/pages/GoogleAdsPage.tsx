@@ -3,7 +3,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useGoogleAds } from "@/hooks/useGoogleAds";
+import { GoogleAdsAutoConnect } from "@/components/google-ads/GoogleAdsAutoConnect";
 import {
   ArrowLeft, CheckCircle2, XCircle, RefreshCw, Unplug,
   TrendingUp, MousePointerClick, DollarSign, Users, Info,
@@ -112,46 +114,69 @@ export default function GoogleAdsPage() {
           </div>
         )}
 
-        {/* Connection form */}
+        {/* Connection — auto-connect primeiro, manual como fallback */}
         {!isConnected && (
-          <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5 space-y-5">
-            <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-              <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                <p className="font-semibold">Como obter as credenciais</p>
-                <p>1. Acesse <span className="font-mono">console.cloud.google.com</span> → APIs → <b>Google Ads API</b> → Ativar</p>
-                <p>2. Em <span className="font-mono">ads.google.com/aw/apicenter</span> → solicite o <b>Developer Token</b></p>
-                <p>3. O <b>Customer ID</b> está em Conta de anúncios → Menu superior (formato: 123-456-7890)</p>
-                <p>4. O Google OAuth já deve estar conectado em Integrações → Google</p>
+          <>
+            <div className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[9px] border-success/40 text-success">Recomendado</Badge>
+                <h3 className="text-sm font-bold">Conexão automática</h3>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Lista todas as contas Google Ads que você tem acesso e deixa escolher qual conectar.
+                Sem precisar memorizar Customer ID.
+              </p>
+              <GoogleAdsAutoConnect
+                googleOAuthConnected={!!googleOAuthConnected}
+                onConnected={() => window.location.reload()}
+                onReconnectGoogle={() => navigate("/google?adwords=1")}
+              />
             </div>
 
-            <div className="grid gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Developer Token</Label>
-                <Input
-                  value={developerToken}
-                  onChange={e => setDeveloperToken(e.target.value)}
-                  placeholder="ABcDeFgHiJkLmNoPqRsTuVwXyZ1234"
-                  className="text-xs h-9 font-mono"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Customer ID (MCC ou conta principal)</Label>
-                <Input
-                  value={customerId}
-                  onChange={e => setCustomerId(e.target.value)}
-                  placeholder="1234567890"
-                  className="text-xs h-9 font-mono"
-                />
-              </div>
-            </div>
+            <details className="bg-card border border-[hsl(var(--border-strong))] rounded-xl p-5">
+              <summary className="cursor-pointer text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                Ou informar credenciais manualmente (avançado)
+              </summary>
+              <div className="space-y-5 pt-4">
+                <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                  <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                    <p className="font-semibold">Como obter as credenciais</p>
+                    <p>1. Acesse <span className="font-mono">console.cloud.google.com</span> → APIs → <b>Google Ads API</b> → Ativar</p>
+                    <p>2. Em <span className="font-mono">ads.google.com/aw/apicenter</span> → solicite o <b>Developer Token</b></p>
+                    <p>3. O <b>Customer ID</b> está em Conta de anúncios → Menu superior (formato: 123-456-7890)</p>
+                    <p>4. O Google OAuth já deve estar conectado em Integrações → Google</p>
+                  </div>
+                </div>
 
-            <Button className="w-full text-xs font-bold gap-2" onClick={handleConnect} disabled={connecting || !googleOAuthConnected}>
-              {connecting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              {connecting ? "Conectando..." : "Conectar ao Google Ads"}
-            </Button>
-          </div>
+                <div className="grid gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Developer Token (opcional se admin configurou shared)</Label>
+                    <Input
+                      value={developerToken}
+                      onChange={e => setDeveloperToken(e.target.value)}
+                      placeholder="ABcDeFgHiJkLmNoPqRsTuVwXyZ1234"
+                      className="text-xs h-9 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Customer ID (MCC ou conta principal)</Label>
+                    <Input
+                      value={customerId}
+                      onChange={e => setCustomerId(e.target.value)}
+                      placeholder="1234567890"
+                      className="text-xs h-9 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <Button className="w-full text-xs font-bold gap-2" onClick={handleConnect} disabled={connecting || !googleOAuthConnected}>
+                  {connecting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {connecting ? "Conectando..." : "Conectar ao Google Ads"}
+                </Button>
+              </div>
+            </details>
+          </>
         )}
 
         {/* Campaigns table */}
