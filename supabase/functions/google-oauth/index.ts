@@ -124,12 +124,17 @@ Deno.serve(async (req) => {
     // ──── auth-url ────
     if (action === "auth-url") {
       const body = await req.json();
+      // Scopes base (Gmail/Calendar/Drive) + opcionalmente adwords pra Google Ads.
+      // Frontend passa `include_ads: true` quando o usuário acessa o fluxo via
+      // Configurações → Google Ads (pra evitar consentir adwords sem motivo).
+      const includeAds = body.include_ads === true;
       const scopes = [
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/calendar.events",
         "https://www.googleapis.com/auth/drive.readonly",
+        ...(includeAds ? ["https://www.googleapis.com/auth/adwords"] : []),
       ];
       const params = new URLSearchParams({
         client_id: GOOGLE_CLIENT_ID,

@@ -109,6 +109,12 @@ export default function GooglePage() {
               Conecte sua conta Google para acessar Gmail, Calendar e Drive diretamente no uPixel.
               Seus dados ficam sincronizados em tempo real.
             </p>
+            {new URLSearchParams(window.location.search).get("adwords") === "1" && (
+              <div className="mb-6 max-w-md rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground/80">
+                <strong className="text-primary">Permissão extra solicitada:</strong> Google Ads.
+                A tela de autorização vai pedir acesso adicional à API de Anúncios além do Gmail/Calendar/Drive.
+              </div>
+            )}
             <Button
               className="gap-2 bg-primary hover:bg-[#e04400] text-primary-foreground"
               onClick={handleConnect}

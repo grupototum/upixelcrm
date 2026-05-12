@@ -257,3 +257,116 @@ pra escolher qual conectar.
 | Popup abre mas mostra "Funcionalidade indisponível" | App Review pra `instagram_manage_messages` não aprovada |
 | Conecta mas webhook não funciona | Configuration do webhook (Passo 2) não foi feita — siga ela uma vez |
 
+---
+
+# Parte 3 — Meta Ads (Facebook Ads)
+
+Mesmo App Meta + mesmas credenciais (`META_APP_ID`, `META_APP_SECRET`). Só muda
+o `config_id` (Facebook Login for Business com scopes de Ads).
+
+## Pré-requisito: App Review
+
+Permissões necessárias:
+- `ads_management`
+- `ads_read`
+- `business_management`
+
+Verifique em [App Review → Permissions](https://developers.facebook.com/apps/911162198384188/app-review/permissions/).
+
+## Passo 1 — Criar Configuration de Ads
+
+1. App Dashboard → **Facebook Login for Business** → **Configurations** → **Create**
+2. Nome: `uPixel Meta Ads Connection`
+3. Tipo: General
+4. Permissions: marca `ads_management`, `ads_read`, `business_management`,
+   `pages_show_list` (essa última pra correlacionar lead ads com Page)
+5. Copia o `config_id`
+
+## Passo 2 — Env var no Vercel
+
+| Nome | Valor | Environment |
+|---|---|---|
+| `VITE_META_ADS_CONFIG_ID` | (do Passo 1) | Production, Preview, Development |
+
+Redeploy.
+
+## Passo 3 — Testar
+
+1. [master.upixel.app/meta-ads](https://master.upixel.app/meta-ads)
+2. Card "Conexão em 1 clique" no topo
+3. Click → popup FB → escolhe conta de anúncio → conectado.
+
+Se você tem várias contas de anúncio (agência), aparece um seletor pra escolher
+qual conectar.
+
+---
+
+# Parte 4 — Google Ads
+
+Aqui o fluxo é diferente: Google usa OAuth direto e Developer Token separado.
+
+## Pré-requisito: Google Cloud + Google Ads API
+
+Vocês precisam (uma vez, como dono do app uPixel):
+
+1. **Google Cloud Project** com Google Ads API habilitada
+2. **OAuth Client ID** (Web Application) — gera em
+   [console.cloud.google.com → APIs → Credenciais](https://console.cloud.google.com/apis/credentials)
+   - Authorized redirect URI: `https://master.upixel.app/google` (e qualquer outro subdomínio de cliente)
+3. **Developer Token** do Google Ads (em
+   [ads.google.com/aw/apicenter](https://ads.google.com/aw/apicenter)) —
+   solicita aprovação se ainda não tiver
+
+## Passo 1 — Configurar Google Client no uPixel
+
+1. Vai em [`master.upixel.app/google`](https://master.upixel.app/google)
+2. Se for a primeira vez, vai pedir Google Client ID + Secret
+3. Cola os 2 valores → salva
+
+## Passo 2 — Adicionar Developer Token compartilhado (recomendado)
+
+Pra **não pedir Developer Token pra cada tenant**, configure ele a nível de app:
+
+1. [Supabase Edge Functions → Secrets](https://supabase.com/dashboard/project/xusdhzwfkzufupjwbebt/functions/secrets)
+2. Adiciona: `GOOGLE_ADS_DEVELOPER_TOKEN` = (seu Developer Token)
+3. Save
+
+> Sem esse secret, cada tenant precisa solicitar e informar seu próprio Developer
+> Token — o que é mais doloroso. Com esse secret, o uPixel atua como "Developer"
+> e os tenants só fazem OAuth.
+
+## Passo 3 — Testar
+
+1. [`master.upixel.app/google-ads`](https://master.upixel.app/google-ads)
+2. Se Google OAuth não tem scope `adwords`, mostra botão "Conectar Google com
+   permissão Ads" — click leva pra `/google?adwords=1` e re-faz OAuth com scope extra
+3. Após OAuth completo, click em **"Listar contas Google Ads"**
+4. Aparece seletor com todas as contas que o usuário tem acesso
+5. Click numa conta → conectado.
+
+## Tabela final de env vars
+
+Resumo de tudo que você precisa configurar:
+
+### Supabase Edge Functions Secrets (privados)
+
+| Nome | Pra que serve |
+|---|---|
+| `META_APP_ID` | Identifica seu app Meta |
+| `META_APP_SECRET` | Troca code → token (WhatsApp Cloud, Instagram, Meta Ads) |
+| `GOOGLE_CLIENT_ID` *(ou via DB)* | OAuth Google |
+| `GOOGLE_CLIENT_SECRET` *(ou via DB)* | OAuth Google |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | Developer Token compartilhado pra todos tenants (opcional) |
+
+### Vercel Environment Variables (públicas, frontend)
+
+| Nome | Pra que serve |
+|---|---|
+| `VITE_META_APP_ID` | Inicializa FB SDK (público) |
+| `VITE_META_WHATSAPP_CONFIG_ID` | Embedded Signup do WhatsApp |
+| `VITE_META_INSTAGRAM_CONFIG_ID` | Embedded Signup do Instagram |
+| `VITE_META_ADS_CONFIG_ID` | Embedded Signup do Meta Ads |
+
+Cada `VITE_*` que faltar **só** esconde o botão de "1 clique" daquela integração
+específica — o fluxo manual continua funcionando.
+

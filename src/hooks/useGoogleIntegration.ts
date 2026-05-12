@@ -95,10 +95,17 @@ export function useGoogleIntegration() {
     setStatus(s => ({ ...s, credentialsConfigured: true }));
   }, [invokeFunction]);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (opts?: { includeAds?: boolean }) => {
     try {
       const redirectUri = `${window.location.origin}/google`;
-      const data = await invokeFunction("auth-url", { redirect_uri: redirectUri });
+      // Lê ?adwords=1 da URL atual como fallback — assim GoogleAdsPage pode
+      // simplesmente navegar pra /google?adwords=1 sem precisar passar opts.
+      const params = new URLSearchParams(window.location.search);
+      const includeAds = opts?.includeAds ?? params.get("adwords") === "1";
+      const data = await invokeFunction("auth-url", {
+        redirect_uri: redirectUri,
+        ...(includeAds ? { include_ads: true } : {}),
+      });
       window.location.href = data.url;
     } catch (err: any) {
       toast.error(err.message);
