@@ -37,9 +37,9 @@ import LandingPage from "./pages/LandingPage";
 import LandingPageEN from "./pages/LandingPageEN";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
-import TermsOfServicePage from "./pages/TermsOfServicePage";
-import DataDeletionStatusPage from "./pages/DataDeletionStatusPage";
+// Privacy Policy / Terms / Data Deletion Status são servidos como HTML estático
+// pelo nginx (public/privacy-policy/index.html, etc.) — Meta crawler precisa
+// de HTML sem JS pra validar App Review.
 import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import { getTenantUrl } from "@/utils/tenant";
 import MetaAdsPage from "./pages/MetaAdsPage";
@@ -93,10 +93,8 @@ function AppRoutes() {
           {/* /login no domínio raiz não tem formulário próprio: manda pro tenant master,
               que é onde o usuário admin entra. Tenants de cliente acessam pelo próprio subdomínio. */}
           <Route path="/login" element={<RedirectToMasterLogin />} />
-          {/* Páginas legais — exigidas pela Meta App Review e LGPD */}
-          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms-of-service" element={<TermsOfServicePage />} />
-          <Route path="/data-deletion-status" element={<DataDeletionStatusPage />} />
+          {/* Páginas legais (/privacy-policy, /terms-of-service, /data-deletion-status)
+              são HTMLs estáticos servidos pelo nginx — não passam pelo React. */}
           <Route path="/en" element={<LandingPageEN />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<LandingPage />} />
