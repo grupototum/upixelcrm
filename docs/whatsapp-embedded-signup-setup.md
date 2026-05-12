@@ -1,4 +1,12 @@
-# Setup do Embedded Signup do WhatsApp Cloud API
+# Setup do Embedded Signup — WhatsApp + Instagram
+
+**Esse documento cobre os 2 fluxos.** Você precisa fazer os passos uma vez pra
+WhatsApp + uma vez pra Instagram. Eles compartilham o mesmo `META_APP_ID`,
+`META_APP_SECRET` e usam **Configuration IDs diferentes**.
+
+---
+
+# Parte 1 — WhatsApp Cloud API
 
 Este guia configura o "Continuar com Facebook" no uPixel — botão único que abre popup
 Meta, deixa o usuário escolher número, e conecta automaticamente (sem copiar tokens).
@@ -161,3 +169,91 @@ O frontend precisa do App ID e do Configuration ID pra abrir o popup. Esses dois
 
 A partir daqui mensagens recebidas no número conectado caem no Inbox automaticamente
 via `whatsapp-cloud-webhook` (já implementado em round anterior).
+
+---
+
+# Parte 2 — Instagram
+
+O fluxo é parecido com o do WhatsApp mas usa **Facebook Login for Business** com
+um `config_id` próprio do Instagram.
+
+## Pré-requisito: App Review aprovado pra Instagram
+
+A Meta exige estas permissões aprovadas:
+
+- `instagram_basic` (geralmente auto-aprovado)
+- `instagram_manage_messages`
+- `pages_show_list`
+- `pages_manage_metadata`
+- `business_management`
+
+**Como verificar:** mesma página do WhatsApp ([App Review → Permissions](https://developers.facebook.com/apps/911162198384188/app-review/permissions/)).
+
+> Pela screenshot da review do app, `Gerenciar mensagens e conteúdo no Instagram` já
+> aparece como caso de uso adicionado — bom sinal. Confirma se as permissões acima
+> estão em "Approved" (verde).
+
+## Pré-requisito do usuário final
+
+**Toda conta Instagram que for conectar precisa estar:**
+1. Em modo **Business** (não pessoal) — converte em Configurações → Conta → Mudar para Profissional
+2. **Vinculada a uma Página Facebook** — em business.facebook.com → Adicionar ativos → Instagram
+
+Se não estiver, o popup do FB não mostra a conta no seletor de Pages.
+
+## Passo 1 — Criar a Instagram Configuration
+
+1. No app dashboard, vai em **Facebook Login for Business** (no menu lateral)
+   → **Configurations**
+2. Clica em **"Create configuration"**
+3. Preenche:
+   - **Nome**: `uPixel Instagram Connection`
+   - **Tipo de configuração**: General (recomendado)
+   - **Permissions**: marca todas as 5 listadas acima no pré-requisito
+4. Salva e copia o **Configuration ID** (formato numérico)
+
+## Passo 2 — Configurar Webhook do Instagram
+
+1. No app dashboard, vai em **Instagram** (no menu lateral)
+   → **Webhooks** ou **Configuração**
+2. Callback URL: `https://xusdhzwfkzufupjwbebt.supabase.co/functions/v1/instagram-webhook`
+3. Verify Token: usa o mesmo que está em `integrations.config.webhook_verify_token`
+   (ou gera um novo e atualiza no banco)
+4. **Subscribe** aos campos: `messages`, `messaging_postbacks`, `messaging_seen`,
+   `comments`, `mentions`, `story_insights`
+
+> 💡 Esta configuração é **a nível de app**. A subscription por conta individual
+> (`POST /{ig_user_id}/subscribed_apps`) é feita automaticamente pelo
+> `instagram-exchange-token` quando o usuário conecta via Embedded Signup.
+
+## Passo 3 — Adicionar env var no Vercel
+
+| Nome | Valor | Environment |
+|---|---|---|
+| `VITE_META_INSTAGRAM_CONFIG_ID` | (do Passo 1) | Production, Preview, Development |
+
+(`META_APP_ID`, `META_APP_SECRET` e `VITE_META_APP_ID` já estão configurados pelo
+fluxo do WhatsApp — não precisa duplicar.)
+
+Redeploy do frontend depois de adicionar.
+
+## Passo 4 — Testar end-to-end
+
+1. Abre [master.upixel.app/instagram](https://master.upixel.app/instagram)
+2. Card "**Conexão em 1 clique**" aparece no topo
+3. Clica em **"Conectar Instagram via Facebook"**
+4. Popup FB abre → loga → escolhe Página (e Instagram vinculado)
+5. Popup fecha → uPixel mostra "Instagram conectado! @username"
+
+Se você gerencia múltiplas Páginas com Instagram, aparece uma tela intermediária
+pra escolher qual conectar.
+
+## Resolução de problemas
+
+| Sintoma | Causa |
+|---|---|
+| "Nenhuma Página Facebook conectada a uma conta Instagram Business" | A conta IG do usuário não é Business OU não está vinculada a uma Página FB |
+| Botão "Conectar Instagram via Facebook" não aparece | Falta `VITE_META_INSTAGRAM_CONFIG_ID` no Vercel — redeploy depois de adicionar |
+| Popup abre mas mostra "Funcionalidade indisponível" | App Review pra `instagram_manage_messages` não aprovada |
+| Conecta mas webhook não funciona | Configuration do webhook (Passo 2) não foi feita — siga ela uma vez |
+

@@ -3,36 +3,12 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, AlertCircle, Facebook } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureFbSdkLoaded, isMetaOrigin, type FBLoginResponse } from "@/lib/facebook-sdk";
 
 // As env vars são INJETADAS no build pelo Vite. Sem ambas, o caminho Embedded
 // fica oculto e o usuário cai no fluxo manual. Por isso o admin precisa setá-las.
 const META_APP_ID = import.meta.env.VITE_META_APP_ID as string | undefined;
 const META_CONFIG_ID = import.meta.env.VITE_META_WHATSAPP_CONFIG_ID as string | undefined;
-const GRAPH_API_VERSION = "v22.0";
-const SDK_SRC = `https://connect.facebook.net/en_US/sdk.js`;
-
-declare global {
-  interface Window {
-    FB?: {
-      init(opts: Record<string, unknown>): void;
-      login(
-        cb: (response: FBLoginResponse) => void,
-        opts: Record<string, unknown>,
-      ): void;
-      AppEvents?: { logPageView(): void };
-    };
-    fbAsyncInit?: () => void;
-  }
-}
-
-interface FBLoginResponse {
-  authResponse?: {
-    code?: string;
-    accessToken?: string;
-    userID?: string;
-  } | null;
-  status?: string;
-}
 
 interface SessionInfoMessage {
   type: "WA_EMBEDDED_SIGNUP";
@@ -45,54 +21,6 @@ interface SessionInfoMessage {
     error_message?: string;
     error_id?: string;
   };
-}
-
-let sdkLoadingPromise: Promise<void> | null = null;
-
-function ensureFbSdkLoaded(appId: string): Promise<void> {
-  if (sdkLoadingPromise) return sdkLoadingPromise;
-  sdkLoadingPromise = new Promise((resolve, reject) => {
-    if (typeof window === "undefined") {
-      reject(new Error("Window não disponível"));
-      return;
-    }
-    if (window.FB) {
-      resolve();
-      return;
-    }
-    const id = "facebook-jssdk";
-    if (document.getElementById(id)) {
-      // Script já está carregando; aguarda fbAsyncInit acionar
-      const interval = setInterval(() => {
-        if (window.FB) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 80);
-      setTimeout(() => {
-        clearInterval(interval);
-        if (!window.FB) reject(new Error("Timeout carregando Facebook SDK"));
-      }, 8000);
-      return;
-    }
-    window.fbAsyncInit = () => {
-      window.FB?.init({
-        appId,
-        cookie: true,
-        xfbml: false,
-        version: GRAPH_API_VERSION,
-      });
-      resolve();
-    };
-    const script = document.createElement("script");
-    script.id = id;
-    script.async = true;
-    script.defer = true;
-    script.src = SDK_SRC;
-    script.onerror = () => reject(new Error("Falha carregando Facebook SDK"));
-    document.body.appendChild(script);
-  });
-  return sdkLoadingPromise;
 }
 
 interface Props {
@@ -117,8 +45,7 @@ export function CloudEmbeddedSignup({ onConnected }: Props) {
   useEffect(() => {
     if (!configured) return;
     const handler = (event: MessageEvent) => {
-      // Aceita apenas mensagens da Meta
-      if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") return;
+      if (!isMetaOrigin(event.origin)) return;
       try {
         const payload: SessionInfoMessage = typeof event.data === "string"
           ? JSON.parse(event.data)
