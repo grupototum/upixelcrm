@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useAppState } from "@/contexts/AppContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
-  Plus, Zap, MessageSquare, Bot, Workflow, Clock,
+  Plus, Zap, MessageSquare, Bot, Workflow, Clock, Instagram,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
@@ -16,6 +16,7 @@ import { SequencesTab } from "@/components/automations/SequencesTab";
 import { BotsTab } from "@/components/automations/BotsTab";
 import { ComplexTab } from "@/components/automations/ComplexTab";
 import { TimeActionsTab } from "@/components/automations/TimeActionsTab";
+import { InstagramFunnelsTab } from "@/components/automations/InstagramFunnelsTab";
 import { toast } from "sonner";
 
 const tabLabels: Record<string, string> = {
@@ -113,6 +114,9 @@ export default function AutomationsPage() {
             <TabsTrigger value="bots" className="text-xs gap-1.5">
               <Bot className="h-3 w-3" /> Bots
             </TabsTrigger>
+            <TabsTrigger value="instagram" className="text-xs gap-1.5">
+              <Instagram className="h-3 w-3" /> Funis Instagram
+            </TabsTrigger>
             <TabsTrigger value="complex" className="text-xs gap-1.5">
               <Workflow className="h-3 w-3" /> Automações Complexas
             </TabsTrigger>
@@ -122,6 +126,7 @@ export default function AutomationsPage() {
           <TabsContent value="time_actions"><TimeActionsTab /></TabsContent>
           <TabsContent value="sequences"><SequencesTab /></TabsContent>
           <TabsContent value="bots"><BotsTab /></TabsContent>
+          <TabsContent value="instagram"><InstagramFunnelsTab /></TabsContent>
           <TabsContent value="complex"><ComplexTab /></TabsContent>
         </Tabs>
       </div>

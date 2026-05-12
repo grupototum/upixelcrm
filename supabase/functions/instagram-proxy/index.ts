@@ -242,6 +242,61 @@ Deno.serve(async (req) => {
       return jsonResponse(data, metaRes.status);
     }
 
+    // ── Private Reply: DM um usuário que comentou em um dos seus posts ──
+    // Meta Private Reply API — só funciona dentro de 7 dias do comentário e 1x por comment_id.
+    // Doc: https://developers.facebook.com/docs/messenger-platform/instagram/features/private-replies
+    if (action === "private-reply") {
+      const body = await req.json();
+      const { comment_id, message } = body;
+      if (!comment_id || !message) {
+        return jsonResponse({ error: "Missing comment_id or message" }, 400);
+      }
+      const metaRes = await fetch(`https://graph.facebook.com/v21.0/${config.ig_account_id}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: { comment_id },
+          message: { text: message },
+        }),
+      });
+      const data = await metaRes.json();
+      if (!metaRes.ok) {
+        console.error("Meta private-reply error:", data);
+        return jsonResponse({ error: "Falha ao enviar private reply.", details: data }, metaRes.status);
+      }
+      return jsonResponse(data);
+    }
+
+    // ── Comment Reply: responde publicamente ao próprio comentário (resposta em thread) ──
+    if (action === "comment-reply") {
+      const body = await req.json();
+      const { comment_id, message } = body;
+      if (!comment_id || !message) {
+        return jsonResponse({ error: "Missing comment_id or message" }, 400);
+      }
+      const metaRes = await fetch(`https://graph.facebook.com/v21.0/${comment_id}/replies?message=${encodeURIComponent(message)}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.access_token}` },
+      });
+      const data = await metaRes.json();
+      if (!metaRes.ok) {
+        console.error("Meta comment-reply error:", data);
+        return jsonResponse({ error: "Falha ao responder comentário.", details: data }, metaRes.status);
+      }
+      return jsonResponse(data);
+    }
+
+    // ── Get Comment Details (resolve texto e autor de comment_id quando o webhook não traz) ──
+    if (action === "get-comment") {
+      const url2 = new URL(req.url);
+      const commentId = url2.searchParams.get("comment_id");
+      if (!commentId) return jsonResponse({ error: "Missing comment_id" }, 400);
+      const metaRes = await fetch(`https://graph.facebook.com/v21.0/${commentId}?fields=text,from,media,parent_id&access_token=${config.access_token}`);
+      const data = await metaRes.json();
+      if (!metaRes.ok) return jsonResponse({ error: "Falha ao buscar comentário", details: data }, metaRes.status);
+      return jsonResponse(data);
+    }
+
     return jsonResponse({ error: "Unknown action" }, 400);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
