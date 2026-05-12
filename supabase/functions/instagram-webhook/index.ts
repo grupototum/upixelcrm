@@ -132,6 +132,211 @@ async function upsertConversationAndMessage(
   return convId;
 }
 
+// ─── Auto-reply: lógica dos 3 funis (comment, story_mention, mention) ───
+
+type AutoReplyRule = {
+  id: string;
+  client_id: string;
+  trigger_type: "comment" | "story_mention" | "mention";
+  keyword: string | null;
+  match_mode: "exact" | "contains" | "starts_with" | "any";
+  reply_type: "dm" | "public_comment_reply";
+  reply_text: string;
+  per_user_cooldown_hours: number;
+};
+
+function ruleMatchesText(rule: AutoReplyRule, text: string): boolean {
+  // match_mode='any' ou sem keyword: bate em qualquer texto
+  if (rule.match_mode === "any" || !rule.keyword) return true;
+  const t = (text ?? "").toLowerCase().trim();
+  const k = rule.keyword.toLowerCase().trim();
+  if (!t || !k) return false;
+  if (rule.match_mode === "exact") return t === k;
+  if (rule.match_mode === "starts_with") return t.startsWith(k);
+  return t.includes(k); // 'contains' default
+}
+
+async function shouldSkipDueToCooldown(adminClient: any, rule: AutoReplyRule, targetUserId: string): Promise<boolean> {
+  if (rule.per_user_cooldown_hours <= 0) return false; // 0 = ilimitado
+  const since = new Date(Date.now() - rule.per_user_cooldown_hours * 3600 * 1000).toISOString();
+  const { data } = await adminClient
+    .from("instagram_auto_reply_executions")
+    .select("id")
+    .eq("rule_id", rule.id)
+    .eq("target_user_id", targetUserId)
+    .gte("created_at", since)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
+async function logExecution(
+  adminClient: any, rule: AutoReplyRule, targetUserId: string,
+  payload: Record<string, unknown>, success: boolean, errorMessage?: string,
+) {
+  await adminClient.from("instagram_auto_reply_executions").insert({
+    client_id: rule.client_id,
+    rule_id: rule.id,
+    target_user_id: targetUserId,
+    trigger_payload: payload,
+    success,
+    error_message: errorMessage ?? null,
+  });
+}
+
+async function sendDmViaProxy(
+  igAccountId: string, accessToken: string, recipientIdOrCommentId: string,
+  message: string, viaCommentId: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const body = viaCommentId
+    ? { recipient: { comment_id: recipientIdOrCommentId }, message: { text: message } }
+    : { recipient: { id: recipientIdOrCommentId }, message: { text: message } };
+  const res = await fetch(`https://graph.facebook.com/v21.0/${igAccountId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    return { ok: false, error: `Meta API ${res.status}: ${errBody}` };
+  }
+  return { ok: true };
+}
+
+async function publicCommentReply(
+  accessToken: string, commentId: string, message: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const url = `https://graph.facebook.com/v21.0/${commentId}/replies?message=${encodeURIComponent(message)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    return { ok: false, error: `Meta API ${res.status}: ${errBody}` };
+  }
+  return { ok: true };
+}
+
+async function runRule(
+  adminClient: any, rule: AutoReplyRule, config: any,
+  targetUserId: string, commentId: string | null, payload: Record<string, unknown>,
+) {
+  if (await shouldSkipDueToCooldown(adminClient, rule, targetUserId)) {
+    console.log(`Rule ${rule.id} skipped for ${targetUserId} (cooldown)`);
+    return;
+  }
+  let result: { ok: boolean; error?: string };
+  if (rule.reply_type === "public_comment_reply") {
+    if (!commentId) {
+      await logExecution(adminClient, rule, targetUserId, payload, false, "comment_id ausente para public reply");
+      return;
+    }
+    result = await publicCommentReply(config.access_token, commentId, rule.reply_text);
+  } else {
+    // DM — se temos comment_id, usamos private reply (escopo de 7 dias);
+    // caso contrário usamos sender_id direto.
+    const useCommentId = !!commentId && rule.trigger_type === "comment";
+    result = await sendDmViaProxy(
+      config.ig_account_id, config.access_token,
+      useCommentId ? commentId! : targetUserId,
+      rule.reply_text, useCommentId,
+    );
+  }
+  await logExecution(adminClient, rule, targetUserId, payload, result.ok, result.error);
+}
+
+async function processChangesEvents(
+  adminClient: any, clientId: string, config: any, changes: any[],
+) {
+  // Carrega regras ativas do tenant uma vez.
+  const { data: rulesData } = await adminClient
+    .from("instagram_auto_replies")
+    .select("id, client_id, trigger_type, keyword, match_mode, reply_type, reply_text, per_user_cooldown_hours")
+    .eq("client_id", clientId)
+    .eq("active", true);
+  const rules = (rulesData ?? []) as AutoReplyRule[];
+  if (rules.length === 0) return;
+
+  for (const change of changes) {
+    const field = change.field;
+    const value = change.value || {};
+
+    if (field === "comments") {
+      // Webhook traz: comment_id, parent_id, media, text (em alguns casos), from
+      const commentId = value.id || value.comment_id;
+      const text = value.text || "";
+      const fromId = value.from?.id;
+      if (!commentId) continue;
+
+      // Se Meta não mandou o texto, vai buscar via Graph
+      let finalText = text;
+      if (!finalText) {
+        try {
+          const r = await fetch(`https://graph.facebook.com/v21.0/${commentId}?fields=text,from&access_token=${config.access_token}`);
+          if (r.ok) {
+            const d = await r.json();
+            finalText = d.text || "";
+          }
+        } catch { /* ignore */ }
+      }
+
+      for (const rule of rules) {
+        if (rule.trigger_type !== "comment") continue;
+        if (!ruleMatchesText(rule, finalText)) continue;
+        if (!fromId) continue;
+        await runRule(adminClient, rule, config, String(fromId), commentId, {
+          field, comment_id: commentId, text: finalText, from: fromId,
+        });
+      }
+    } else if (field === "mentions") {
+      // mentions = quando alguém @ a conta dentro de UM comentário/post
+      const commentId = value.comment_id || value.id;
+      const mediaId = value.media_id;
+      if (!commentId && !mediaId) continue;
+
+      // Resolve autor — mentions webhook só traz IDs
+      let fromId: string | null = null;
+      let text = "";
+      const lookupId = commentId || mediaId;
+      try {
+        const r = await fetch(`https://graph.facebook.com/v21.0/${lookupId}?fields=text,from&access_token=${config.access_token}`);
+        if (r.ok) {
+          const d = await r.json();
+          fromId = d.from?.id ?? null;
+          text = d.text || "";
+        }
+      } catch { /* ignore */ }
+      if (!fromId) continue;
+
+      for (const rule of rules) {
+        if (rule.trigger_type !== "mention") continue;
+        if (!ruleMatchesText(rule, text)) continue;
+        await runRule(adminClient, rule, config, fromId, commentId ?? null, {
+          field, comment_id: commentId, media_id: mediaId, from: fromId,
+        });
+      }
+    }
+    // outros fields ignorados (live_comments, ig_account, etc.)
+  }
+}
+
+async function processStoryMention(
+  adminClient: any, clientId: string, config: any,
+  senderId: string, payload: Record<string, unknown>,
+) {
+  const { data: rulesData } = await adminClient
+    .from("instagram_auto_replies")
+    .select("id, client_id, trigger_type, keyword, match_mode, reply_type, reply_text, per_user_cooldown_hours")
+    .eq("client_id", clientId)
+    .eq("trigger_type", "story_mention")
+    .eq("active", true);
+  const rules = (rulesData ?? []) as AutoReplyRule[];
+  for (const rule of rules) {
+    await runRule(adminClient, rule, config, senderId, null, payload);
+  }
+}
+
 // Format logic: Map IG account ID -> integration config
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -182,6 +387,15 @@ Deno.serve(async (req) => {
       const clientId = match.client_id;
       const config = match.config as any;
 
+      // Eventos de mudança (comments, mentions, etc.) — alimenta os funis 1 e 3.
+      if (Array.isArray(entry.changes) && entry.changes.length > 0) {
+        try {
+          await processChangesEvents(adminClient, clientId, config, entry.changes);
+        } catch (err) {
+          console.error("processChangesEvents error:", err);
+        }
+      }
+
       for (const messaging of entry.messaging || []) {
         if (!messaging.message) continue;
 
@@ -200,16 +414,33 @@ Deno.serve(async (req) => {
         const meta: any = {};
 
         const attach = messaging.message.attachments?.[0];
+        let isStoryMention = false;
         if (attach) {
-          msgType = attach.type; // image, video, audio, file
-          if (!["image","video","audio","file"].includes(msgType)) msgType = "file";
+          if (attach.type === "story_mention") {
+            isStoryMention = true;
+            msgType = "image"; // story mention vem com mídia da story; trata como imagem na timeline
+            meta.story_mention = true;
+          } else {
+            msgType = attach.type; // image, video, audio, file
+            if (!["image","video","audio","file"].includes(msgType)) msgType = "file";
+          }
           const url = attach.payload?.url;
           if (url) {
-            // Nativo do IG muitas vezes entrega URL pronta da CDN deles se valer o short-lived
-            // Baixamos a midia pra garantir que fique sempre disponivel
             const publicUrl = await downloadMetaMedia(adminClient, url, "application/octet-stream");
             content = publicUrl || url;
             meta.media_url = content;
+          }
+        }
+
+        // Funil 2: alguém mencionou a conta numa story dele → DM automática.
+        // Dispara apenas no INBOUND (não em echo da gente mandando).
+        if (isStoryMention && !isEcho && senderId) {
+          try {
+            await processStoryMention(adminClient, clientId, config, senderId, {
+              source: "story_mention", message_id: messaging.message.mid, sender_id: senderId,
+            });
+          } catch (err) {
+            console.error("processStoryMention error:", err);
           }
         }
 

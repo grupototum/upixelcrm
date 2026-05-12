@@ -9,7 +9,8 @@ import {
   Check, CheckCheck, Clock,
   File, Download, Maximize2, Activity, X,
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
-  Instagram, Merge, Trash2, AlertCircle
+  Instagram, Merge, Trash2, AlertCircle,
+  PanelRightClose, PanelRightOpen,
 } from "lucide-react";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
 import {
@@ -79,7 +80,17 @@ export default function InboxPage() { // force HMR reset
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [inboxTab, setInboxTab] = useState<string>("abertas");
   const [sending, setSending] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const saved = window.localStorage.getItem("upixel.inbox.showSidebar");
+    return saved === null ? true : saved === "1";
+  });
+
+  // Persiste preferência do painel lateral para não voltar todo reload.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("upixel.inbox.showSidebar", showSidebar ? "1" : "0");
+  }, [showSidebar]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   // New conversation modal
@@ -400,25 +411,37 @@ export default function InboxPage() { // force HMR reset
 
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))]">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="h-7 text-[10px] font-bold gap-1.5 hover:bg-green-500/10 hover:text-green-600 transition-colors rounded-lg"
                       onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "resolved")}
                     >
                       <CheckSquare className="h-3 w-3" /> Resolver
                     </Button>
                     <div className="w-px h-4 bg-border/50" />
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="h-7 text-[10px] font-bold gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg"
                       onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "snoozed")}
                     >
                       <Clock className="h-3 w-3" /> Adiar
                     </Button>
                   </div>
-                  <ConversationActions 
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={showSidebar ? "Recolher painel do lead" : "Mostrar painel do lead"}
+                    title={showSidebar ? "Recolher painel do lead" : "Mostrar painel do lead"}
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setShowSidebar(!showSidebar)}
+                  >
+                    {showSidebar
+                      ? <PanelRightClose className="h-4 w-4" />
+                      : <PanelRightOpen className="h-4 w-4" />}
+                  </Button>
+                  <ConversationActions
                     conversation={selectedLeadGroup} 
                     onRefresh={() => inbox.refresh()} 
                     onUpdateStatus={inbox.updateStatus}

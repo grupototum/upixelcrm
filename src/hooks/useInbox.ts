@@ -263,7 +263,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
     const target = targetConversationId
       ? leadGroup.source_conversations.find(sc => sc.id === targetConversationId)
-      : leadGroup.source_conversations.find(sc => sc.channel === "whatsapp" || sc.channel === "whatsapp_official" || sc.channel === "instagram");
+      : leadGroup.source_conversations.find(sc => ["whatsapp", "whatsapp_official", "whatsapp_cloud", "instagram"].includes(sc.channel));
 
     if (!target) {
       toast.error("Nenhuma conexão de mensageria encontrada para este lead.");
@@ -280,13 +280,25 @@ export function useInbox(onLeadCreated?: () => void) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const isOfficial = target.channel === "whatsapp_official";
-      const isInstagram = target.channel === "instagram";
-      const functionName = isInstagram ? "instagram-proxy" : "whatsapp-proxy";
+      const channel = target.channel;
       const instanceName = target.metadata?.instance_name as string | undefined;
-      const queryString = isInstagram
-        ? "?action=send-message"
-        : `?action=send-message${isOfficial ? "&type=official" : ""}${instanceName ? `&instance_name=${encodeURIComponent(instanceName)}` : ""}`;
+      const integrationId = target.metadata?.integration_id as string | undefined;
+
+      let functionName: string;
+      let queryString: string;
+
+      if (channel === "instagram") {
+        functionName = "instagram-proxy";
+        queryString = "?action=send-message";
+      } else if (channel === "whatsapp_cloud") {
+        functionName = "whatsapp-cloud-proxy";
+        queryString = `?action=send-message${integrationId ? `&integration_id=${integrationId}` : ""}`;
+      } else {
+        // whatsapp ou whatsapp_official → ainda via whatsapp-proxy (Evolution)
+        const isOfficial = channel === "whatsapp_official";
+        functionName = "whatsapp-proxy";
+        queryString = `?action=send-message${isOfficial ? "&type=official" : ""}${instanceName ? `&instance_name=${encodeURIComponent(instanceName)}` : ""}`;
+      }
 
       const { error } = await supabase.functions.invoke(`${functionName}${queryString}`, {
         body: { phone, message: text },
@@ -331,7 +343,21 @@ export function useInbox(onLeadCreated?: () => void) {
       const mediaType = detectMediaType(file);
 
       // 2. Send via appropriate proxy/channel
-      if (target.channel === "whatsapp" || target.channel === "whatsapp_official") {
+      if (target.channel === "whatsapp_cloud") {
+        const phone = target.metadata?.phone || leadGroup.lead_phone;
+        if (!phone) throw new Error("Número de telefone não encontrado para este contato.");
+        const integrationId = target.metadata?.integration_id as string | undefined;
+        const queryString = `?action=send-media${integrationId ? `&integration_id=${integrationId}` : ""}`;
+
+        const { error } = await supabase.functions.invoke(`whatsapp-cloud-proxy${queryString}`, {
+          body: { phone, mediaUrl: url, mediaType, fileName: file.name },
+        });
+
+        if (error) {
+          const detail = await extractEdgeError(error, "Falha ao enviar via WhatsApp Cloud.");
+          throw new Error(detail);
+        }
+      } else if (target.channel === "whatsapp" || target.channel === "whatsapp_official") {
         const phone = target.metadata?.phone || leadGroup.lead_phone;
         if (!phone) throw new Error("Número de telefone não encontrado para este contato.");
 
@@ -748,7 +774,10 @@ export function useInbox(onLeadCreated?: () => void) {
         body: { message_id: messageId, audio_url: msg.content },
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        const detail = await extractEdgeError(error, "Falha na transcrição");
+        throw new Error(detail);
+      }
 
       const transcript = data?.transcript;
       if (!transcript) throw new Error("Transcrição vazia");

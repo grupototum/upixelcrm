@@ -18,6 +18,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWhatsAppInstances, WaInstance } from "@/hooks/useWhatsAppInstances";
 import { QuickConnectWizard } from "@/components/whatsapp/QuickConnectWizard";
+import { CloudConnectModal } from "@/components/whatsapp/CloudConnectModal";
+import { CloudInstanceList } from "@/components/whatsapp/CloudInstanceList";
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 
@@ -493,6 +495,8 @@ export default function WhatsAppPage() {
   const navigate = useNavigate();
   const { instances, loading, refresh } = useWhatsAppInstances();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [cloudOpen, setCloudOpen] = useState(false);
+  const [cloudRefreshKey, setCloudRefreshKey] = useState(0);
   const [editModal, setEditModal] = useState<WaInstance | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [advancedType, setAdvancedType] = useState<"normal" | "official">("normal");
@@ -551,6 +555,9 @@ export default function WhatsAppPage() {
           <Button size="sm" variant="outline" className="text-xs gap-1" onClick={refresh} disabled={loading}>
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
           </Button>
+          <Button size="sm" variant="outline" className="text-xs gap-1 border-success/40 text-success hover:bg-success/5" onClick={() => setCloudOpen(true)}>
+            <Shield className="h-3.5 w-3.5" /> WhatsApp Oficial (Meta)
+          </Button>
           <Button size="sm" className="text-xs gap-1 bg-[#25D366] hover:bg-[#1da851] text-white" onClick={() => setWizardOpen(true)}>
             <Plus className="h-3.5 w-3.5" /> Conectar número
           </Button>
@@ -591,6 +598,9 @@ export default function WhatsAppPage() {
           </div>
         )}
 
+        {/* Lista de instâncias Cloud API (Meta direto) */}
+        <CloudInstanceList refreshKey={cloudRefreshKey} />
+
         {/* Advanced mode link */}
         <div className="text-center pt-4 border-t border-border">
           <button
@@ -607,6 +617,13 @@ export default function WhatsAppPage() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onComplete={refresh}
+      />
+
+      {/* Modal WhatsApp Cloud API (Meta direto) */}
+      <CloudConnectModal
+        open={cloudOpen}
+        onClose={() => setCloudOpen(false)}
+        onSaved={() => setCloudRefreshKey((k) => k + 1)}
       />
 
       {/* Edit modal */}
