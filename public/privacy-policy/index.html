@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de Privacidade — uPixel CRM</title>
+<meta name="description" content="Política de Privacidade do uPixel CRM. Conformidade com LGPD e práticas de uso de dados Meta (WhatsApp, Instagram, Ads).">
+<meta name="robots" content="index, follow">
+<style>
+:root { --orange:#ff4f00; --text:#201515; --bg:#fffefb; --muted:#666; --border:#eceae3; }
+* { box-sizing:border-box; margin:0; padding:0 }
+body { font-family:-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background:var(--bg); color:var(--text); line-height:1.65; padding:40px 16px; }
+.container { max-width:760px; margin:0 auto; }
+h1 { font-size:2rem; font-weight:700; letter-spacing:-0.02em; margin-bottom:4px; }
+.meta { font-size:.9rem; color:var(--muted); margin-bottom:32px; }
+h2 { font-size:1.25rem; font-weight:700; margin:32px 0 12px; }
+p, ul { margin-bottom:12px; font-size:.95rem; }
+ul { padding-left:24px; }
+li { margin:4px 0; }
+code { background:#f4f1ec; padding:1px 6px; border-radius:4px; font-size:.85em; }
+a { color:var(--orange); text-decoration:underline; }
+.brand { display:inline-block; margin-bottom:24px; }
+footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); font-size:.8rem; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+<a href="/" class="brand"><strong>uPixel CRM</strong></a>
+
+<h1>Política de Privacidade</h1>
+<p class="meta">Última atualização: 11 de maio de 2026</p>
+
+<h2>1. Quem somos</h2>
+<p>O uPixel CRM (<strong>upixel.app</strong>) é uma plataforma SaaS multi-tenant de gestão de relacionamento com clientes (CRM) e atendimento omnichannel operada pelo Grupo Totum. Os dados coletados são tratados em conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018) e com o GDPR para clientes europeus.</p>
+
+<h2>2. Quais dados coletamos</h2>
+<p>Coletamos as seguintes categorias de dados pessoais:</p>
+<ul>
+<li><strong>Dados de cadastro:</strong> nome, e-mail, telefone, empresa, subdomínio escolhido.</li>
+<li><strong>Dados de leads e contatos:</strong> dados que o usuário (cliente final) importa ou recebe via mensagens nos canais conectados — nome, telefone, e-mail, mensagens trocadas, mídia anexada.</li>
+<li><strong>Dados de integração Meta:</strong> tokens de acesso de longa duração, identificadores de WhatsApp Business Account, Instagram Business Account, Página Facebook e contas de anúncio que o usuário autoriza explicitamente.</li>
+<li><strong>Dados de uso:</strong> ações executadas no painel, logs de auditoria por 90 dias.</li>
+<li><strong>Dados técnicos:</strong> endereço IP, navegador, dispositivo, timestamp de acessos.</li>
+</ul>
+
+<h2>3. Como usamos os dados</h2>
+<ul>
+<li>Operar a plataforma uPixel CRM e seus canais de atendimento.</li>
+<li>Enviar e receber mensagens via WhatsApp Cloud API e Instagram Direct nas contas que o cliente autorizou.</li>
+<li>Sincronizar métricas de campanhas Meta Ads e Google Ads para análise de performance dentro do CRM.</li>
+<li>Identificar problemas técnicos e melhorar o produto.</li>
+<li>Cumprir obrigações legais e contratuais.</li>
+</ul>
+<p><strong>Não vendemos dados pessoais.</strong> Dados de leads dos clientes finais não são compartilhados entre tenants — cada conta tem isolamento completo via Row-Level Security no banco de dados.</p>
+
+<h2>4. Integrações com Meta (Facebook, WhatsApp, Instagram)</h2>
+<p>O uPixel se integra à Meta Platforms via OAuth (Facebook Login for Business) e WhatsApp Business Cloud API. Quando você autoriza essas integrações:</p>
+<ul>
+<li>O uPixel recebe e armazena um <strong>access token de longa duração</strong> emitido pela Meta, encriptado em repouso.</li>
+<li>Lemos mensagens recebidas via webhook e exibimos na sua caixa de entrada unificada.</li>
+<li>Enviamos mensagens, criamos templates e gerenciamos webhooks <strong>apenas em resposta a ações suas</strong> (clique em "Enviar", "Criar template", etc.).</li>
+<li>Sincronizamos métricas de campanhas Meta Ads <strong>somente em modo leitura</strong> — não criamos, editamos ou pausamos campanhas.</li>
+<li>Você pode revogar a autorização a qualquer momento em Configurações no painel uPixel ou diretamente no <a href="https://business.facebook.com" target="_blank" rel="noreferrer">Meta Business Suite</a>.</li>
+</ul>
+<p>O uso dos dados da Meta segue os <a href="https://developers.facebook.com/terms/" target="_blank" rel="noreferrer">Termos da Plataforma Meta</a>. Quando você revoga acesso, removemos os tokens em até 24 horas.</p>
+
+<h2>5. Onde os dados ficam armazenados</h2>
+<p>Banco de dados PostgreSQL hospedado pelo Supabase (infraestrutura AWS São Paulo — região sa-east-1). Mídia (imagens, áudio, vídeo) é armazenada no Supabase Storage com replicação automática. Logs e backups são mantidos por períodos definidos abaixo.</p>
+
+<h2>6. Retenção</h2>
+<ul>
+<li><strong>Dados de cadastro:</strong> enquanto a conta estiver ativa.</li>
+<li><strong>Mensagens e conversas:</strong> indefinido por padrão — o cliente pode configurar política de retenção (planos pagos).</li>
+<li><strong>Logs de auditoria:</strong> 90 dias.</li>
+<li><strong>Tokens de acesso Meta:</strong> renovados automaticamente; removidos em até 24h após revogação.</li>
+<li><strong>Backups:</strong> 30 dias rolling.</li>
+</ul>
+
+<h2>7. Seus direitos (LGPD)</h2>
+<p>Como titular dos dados pessoais, você tem direito a:</p>
+<ul>
+<li>Confirmar a existência de tratamento dos seus dados.</li>
+<li>Acessar e corrigir dados incorretos.</li>
+<li>Solicitar anonimização, bloqueio ou eliminação.</li>
+<li>Portabilidade dos dados.</li>
+<li>Revogação do consentimento.</li>
+<li>Informação sobre compartilhamentos com terceiros.</li>
+</ul>
+<p>Para exercer qualquer direito, envie e-mail para <a href="mailto:grupototumadm@gmail.com">grupototumadm@gmail.com</a> com sua identificação. Respondemos em até 15 dias úteis.</p>
+
+<h2>8. Exclusão de dados (Meta Data Deletion Request)</h2>
+<p>Caso você desinstale o app uPixel do seu Facebook ou solicite exclusão pelo Meta Business Suite, recebemos automaticamente uma requisição via webhook que apaga seus dados associados a integrações Meta em até 24 horas.</p>
+<p>URL do callback de exclusão: <code>https://upixel.app/functions/v1/data-deletion-callback</code></p>
+<p>Para confirmar o status de uma solicitação de exclusão, acesse: <a href="https://upixel.app/data-deletion-status">upixel.app/data-deletion-status</a></p>
+
+<h2>9. Segurança</h2>
+<ul>
+<li>Conexões HTTPS/TLS 1.2+ em todas as comunicações.</li>
+<li>Tokens de acesso encriptados em repouso.</li>
+<li>Row-Level Security no banco isolando dados por tenant.</li>
+<li>Audit log de todas as ações administrativas.</li>
+<li>Backup diário com retenção de 30 dias.</li>
+<li>2FA disponível para usuários (em desenvolvimento).</li>
+</ul>
+
+<h2>10. Cookies</h2>
+<p>Usamos cookies essenciais para autenticação (Supabase Auth) e armazenamento de preferências (tema, sidebar). Não usamos cookies de rastreamento de terceiros para publicidade. Cookies de análise são opt-in.</p>
+
+<h2>11. Alterações</h2>
+<p>Esta política pode ser atualizada para refletir mudanças no produto ou na legislação. Alterações materiais serão comunicadas por e-mail aos usuários ativos com 30 dias de antecedência.</p>
+
+<h2>12. Contato</h2>
+<p><strong>Encarregado de Proteção de Dados (DPO):</strong><br>
+E-mail: <a href="mailto:grupototumadm@gmail.com">grupototumadm@gmail.com</a><br>
+Endereço: Grupo Totum — Brasil</p>
+
+<footer>
+© 2026 uPixel CRM · <a href="/">Voltar para o site</a> · <a href="/terms-of-service">Termos de Serviço</a>
+</footer>
+</div>
+</body>
+</html>
