@@ -12,6 +12,11 @@ import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useInstagramIntegration } from "@/hooks/useInstagramIntegration";
+import { InstagramEmbeddedSignup } from "@/components/instagram/InstagramEmbeddedSignup";
+
+const META_EMBEDDED_AVAILABLE = !!(
+  import.meta.env.VITE_META_APP_ID && import.meta.env.VITE_META_INSTAGRAM_CONFIG_ID
+);
 
 type ConnectionStatus = "disconnected" | "connected" | "error";
 
@@ -90,6 +95,38 @@ export default function InstagramPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 max-w-2xl">
+          {/* Card primário — Embedded Signup via Facebook (1-clique) */}
+          {apiStatus !== "connected" && META_EMBEDDED_AVAILABLE && (
+            <div className="bg-card ghost-border rounded-xl shadow-card overflow-hidden">
+              <div className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#833AB4] via-[#E4405F] to-[#FCAF45] flex items-center justify-center">
+                      <Instagram className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">Conexão em 1 clique</h3>
+                      <p className="text-[11px] text-muted-foreground">Via Facebook Login for Business</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] border-success/40 text-success">Recomendado</Badge>
+                </div>
+
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Use sua conta Facebook pra escolher qual Página + conta Instagram conectar.
+                  O webhook é configurado automaticamente — você não precisa entrar no painel da Meta.
+                </p>
+
+                <InstagramEmbeddedSignup
+                  onConnected={() => {
+                    // Recarrega a integration após sucesso
+                    void instagramApi.fetchConfig();
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Card — API Oficial / Nativa */}
           <div className="bg-card ghost-border rounded-xl shadow-card overflow-hidden">
             <div className="p-6 space-y-4">
