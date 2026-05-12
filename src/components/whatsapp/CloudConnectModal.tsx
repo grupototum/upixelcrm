@@ -9,8 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Loader2, AlertCircle, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CloudEmbeddedSignup } from "./CloudEmbeddedSignup";
 
-type Step = "form" | "verifying" | "verified" | "saved";
+const META_EMBEDDED_AVAILABLE = !!(
+  import.meta.env.VITE_META_APP_ID && import.meta.env.VITE_META_WHATSAPP_CONFIG_ID
+);
+
+type Step = "choose" | "form" | "verifying" | "verified" | "saved";
 
 interface CloudConnectModalProps {
   open: boolean;
@@ -21,7 +26,9 @@ interface CloudConnectModalProps {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
 
 export function CloudConnectModal({ open, onClose, onSaved }: CloudConnectModalProps) {
-  const [step, setStep] = useState<Step>("form");
+  // Quando o Embedded Signup está configurado, abre na tela de escolha (Facebook OU manual).
+  // Senão vai direto pra manual.
+  const [step, setStep] = useState<Step>(META_EMBEDDED_AVAILABLE ? "choose" : "form");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [businessAccountId, setBusinessAccountId] = useState("");
   const [accessToken, setAccessToken] = useState("");
@@ -31,7 +38,7 @@ export function CloudConnectModal({ open, onClose, onSaved }: CloudConnectModalP
   const [savedInfo, setSavedInfo] = useState<{ webhook_url: string; webhook_verify_token: string } | null>(null);
 
   const reset = () => {
-    setStep("form");
+    setStep(META_EMBEDDED_AVAILABLE ? "choose" : "form");
     setPhoneNumberId("");
     setBusinessAccountId("");
     setAccessToken("");
@@ -124,6 +131,38 @@ export function CloudConnectModal({ open, onClose, onSaved }: CloudConnectModalP
               Integração direta com Meta — sem Evolution. Funciona 24/7, sem celular, suporta templates aprovados.
             </DialogDescription>
           </DialogHeader>
+        )}
+
+        {step === "choose" && (
+          <div className="space-y-5">
+            <div className="rounded-xl border border-success/30 bg-success/5 p-4 space-y-3">
+              <p className="text-xs font-bold text-success uppercase tracking-wider">
+                Recomendado
+              </p>
+              <p className="text-sm text-foreground/90 leading-relaxed">
+                Conecte em segundos via popup do Facebook. Não precisa copiar tokens nem configurar webhook manualmente.
+              </p>
+              <CloudEmbeddedSignup
+                onConnected={() => {
+                  onSaved?.();
+                  setTimeout(() => closeAndReset(), 1500);
+                }}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">ou</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            <button
+              onClick={() => setStep("form")}
+              className="w-full text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+            >
+              Inserir credenciais manualmente
+            </button>
+          </div>
         )}
 
         {step === "form" && (
@@ -271,6 +310,11 @@ export function CloudConnectModal({ open, onClose, onSaved }: CloudConnectModalP
         <DialogFooter>
           {step === "form" && (
             <>
+              {META_EMBEDDED_AVAILABLE && (
+                <Button variant="ghost" onClick={() => setStep("choose")} className="mr-auto">
+                  ← Usar Facebook
+                </Button>
+              )}
               <Button variant="outline" onClick={closeAndReset}>Cancelar</Button>
               <Button onClick={handleVerify} disabled={!phoneNumberId || !accessToken}>
                 Verificar credenciais
