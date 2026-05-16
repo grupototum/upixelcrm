@@ -17,6 +17,47 @@ import { corsHeaders } from "../_shared/cors.ts";
 const GRAPH_API_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
+// HMAC-SHA256 do raw body com META_APP_SECRET. Constant-time compare.
+// Meta envia header: X-Hub-Signature-256: sha256=<hex>
+async function verifyMetaSignature(rawBody: string, header: string | null, appSecret: string): Promise<boolean> {
+  if (!header) return false;
+  const expectedPrefix = "sha256=";
+  if (!header.startsWith(expectedPrefix)) return false;
+  const providedHex = header.slice(expectedPrefix.length).trim().toLowerCase();
+  if (providedHex.length !== 64) return false;
+
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(appSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
+  const expectedHex = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  if (expectedHex.length !== providedHex.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expectedHex.length; i++) {
+    diff |= expectedHex.charCodeAt(i) ^ providedHex.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+// Mapeia evento de status de template da Meta -> status local da tabela whatsapp_templates.
+function mapTemplateEventToStatus(event: string | undefined): "APPROVED" | "REJECTED" | "PENDING" | null {
+  switch ((event ?? "").toUpperCase()) {
+    case "APPROVED": return "APPROVED";
+    case "REJECTED":
+    case "FLAGGED":
+    case "PAUSED":
+    case "DISABLED":
+      return "REJECTED";
+    case "PENDING":
+    case "IN_APPEAL":
+      return "PENDING";
+    default: return null;
+  }
+}
+
 type CloudConfig = {
   phone_number_id: string;
   business_account_id: string;
@@ -200,7 +241,25 @@ Deno.serve(async (req) => {
 
   // ── POST eventos ──
   try {
-    const body = await req.json();
+    const appSecret = Deno.env.get("META_APP_SECRET");
+    if (!appSecret) {
+      console.error("META_APP_SECRET not set — refusing to process webhook");
+      return new Response(JSON.stringify({ error: "Server not configured" }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const rawBody = await req.text();
+    const sigHeader = req.headers.get("x-hub-signature-256");
+    const sigValid = await verifyMetaSignature(rawBody, sigHeader, appSecret);
+    if (!sigValid) {
+      console.warn("Invalid X-Hub-Signature-256", { hasHeader: !!sigHeader });
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = JSON.parse(rawBody);
     if (body.object !== "whatsapp_business_account") {
       return new Response(JSON.stringify({ ok: true, skipped: "not_whatsapp" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -213,6 +272,34 @@ Deno.serve(async (req) => {
       const wabaId = entry.id; // Business Account ID
 
       for (const change of (entry.changes ?? [])) {
+        // ── Template status update (APPROVED / REJECTED / FLAGGED / PAUSED) ──
+        if (change.field === "message_template_status_update") {
+          const v = change.value ?? {};
+          const tplName = v.message_template_name as string | undefined;
+          const mapped = mapTemplateEventToStatus(v.event as string | undefined);
+          if (tplName && mapped) {
+            const { data: rows } = await adminClient
+              .from("integrations").select("client_id")
+              .eq("provider", "whatsapp_cloud")
+              .eq("config->>business_account_id", wabaId)
+              .limit(50);
+            for (const row of (rows ?? [])) {
+              await adminClient.from("whatsapp_templates")
+                .update({ status: mapped, updated_at: new Date().toISOString() })
+                .eq("client_id", row.client_id).eq("name", tplName);
+            }
+          } else {
+            console.log("template_status_update unmapped", { tplName, event: v.event, reason: v.reason });
+          }
+          continue;
+        }
+
+        // ── Eventos de conta (não bloqueiam, mas registramos no log estruturado) ──
+        if (change.field === "account_update" || change.field === "account_alerts" || change.field === "account_review_update") {
+          console.log(`whatsapp_account_event field=${change.field} waba=${wabaId} value=`, change.value);
+          continue;
+        }
+
         if (change.field !== "messages") continue;
         const value = change.value ?? {};
         const phoneNumberId = value.metadata?.phone_number_id;
