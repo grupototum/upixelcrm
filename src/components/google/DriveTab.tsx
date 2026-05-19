@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { FileText, Image, Sheet, Presentation, FolderOpen, ExternalLink, Search, Loader2, FolderX, LayoutGrid, List, Filter, MoreVertical, Download, Trash2, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -94,7 +94,7 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
     window.open(link, "_blank");
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchDriveList();
@@ -104,9 +104,9 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchDriveList]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     return files.filter((f) => {

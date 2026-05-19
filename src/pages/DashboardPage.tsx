@@ -43,7 +43,7 @@ export default function DashboardPage() {
   const { data, isLoading, error, refetch } = useDashboardKpis();
 
   const stats = data?.stats;
-  const pipeline = data?.pipeline ?? [];
+  const pipeline = useMemo(() => data?.pipeline ?? [], [data?.pipeline]);
   const leadsByMonth = data?.leads_by_month ?? [];
   const leadsByOrigin = data?.leads_by_origin ?? [];
   const recentActivity = data?.recent_activity ?? [];

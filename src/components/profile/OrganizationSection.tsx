@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -43,7 +43,7 @@ export function OrganizationSection() {
   const [newOrgSubdomain, setNewOrgSubdomain] = useState("");
   const { tenant } = useTenant();
 
-  const fetchOrg = async () => {
+  const fetchOrg = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -77,11 +77,11 @@ export function OrganizationSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchOrg();
-  }, [user?.id]);
+  }, [fetchOrg]);
 
   const handleCreateOrg = async () => {
     if (!newOrgName.trim() || !user) return;

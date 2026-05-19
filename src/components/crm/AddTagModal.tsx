@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -21,7 +21,7 @@ export function AddTagModal({ open, onOpenChange, leadId }: AddTagModalProps) {
   const [loading, setLoading] = useState(false);
 
   const lead = leads.find(l => l.id === leadId);
-  const currentTags = lead?.tags || [];
+  const currentTags = useMemo(() => lead?.tags || [], [lead?.tags]);
 
   const handleAddTag = useCallback(async (tag: string) => {
     if (!tag.trim() || currentTags.includes(tag)) return;

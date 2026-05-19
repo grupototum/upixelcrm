@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,15 +21,11 @@ export function RAGIntegrationStatus() {
     { name: "RAG Search Function", description: "Edge function rag-search disponível", status: null },
   ]);
 
-  useEffect(() => {
-    runHealthChecks();
-  }, []);
-
   const updateCheck = (name: string, status: boolean) => {
     setChecks(prev => prev.map(c => c.name === name ? { ...c, status } : c));
   };
 
-  const runHealthChecks = async () => {
+  const runHealthChecks = useCallback(async () => {
     // 1. Supabase Connection
     try {
       const { error } = await supabase.auth.getSession();
@@ -95,7 +91,11 @@ export function RAGIntegrationStatus() {
     } catch {
       updateCheck("RAG Search Function", false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    runHealthChecks();
+  }, [runHealthChecks]);
 
   const loadedChecks = checks.filter(c => c.status !== null);
   const okCount = loadedChecks.filter(c => c.status === true).length;

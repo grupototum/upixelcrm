@@ -26,13 +26,16 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
 
   const selectedNode = selectedNodeId ? getNode(selectedNodeId) : null;
 
-  // Sync local data when node selection changes
+  // Sync local data ONLY when node selection changes (not on every data mutation).
+  // Including selectedNode in deps would overwrite the user's in-progress edits
+  // every time handleUpdate fires, since selectedNode is re-derived each render.
   useEffect(() => {
     if (selectedNode) {
       setLocalData(selectedNode.data || {});
     } else {
       setLocalData({});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeId]);
 
   if (!selectedNodeId || !selectedNode) {

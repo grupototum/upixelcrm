@@ -115,9 +115,9 @@ export default function UsersPage() {
   const isMaster = user?.role === "master";
   const currentTenantId = tenant?.id || user?.tenant_id || null;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    
+
     // Filtro CRÍTICO server-side: não-master só pode listar profiles do próprio tenant.
     // Antes filtrávamos client-side, o que vazava dados de TODOS os tenants no payload de rede.
     let profilesQuery = supabase.from("profiles").select("*").order("created_at", { ascending: false });
@@ -157,7 +157,7 @@ export default function UsersPage() {
     setProfiles(profilesList);
     setOrgs(orgsList);
     setLoading(false);
-  };
+  }, [isMaster, currentTenantId, user]);
 
   const fetchAuditLogs = useCallback(async () => {
     setAuditLoading(true);
@@ -188,7 +188,7 @@ export default function UsersPage() {
     } catch (_) { /* silent */ }
   };
 
-  useEffect(() => { fetchData(); }, [isMaster, user]);
+  useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { if (user) fetchAuditLogs(); }, [user, fetchAuditLogs]);
 
   const filteredProfiles = profiles.filter(p =>

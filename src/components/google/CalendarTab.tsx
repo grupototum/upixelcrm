@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar as CalendarIcon, Clock, MapPin, Users, Video, Loader2, CalendarX, Search, RefreshCw, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
     window.open(link, "_blank");
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchCalendarList();
@@ -84,9 +84,9 @@ export function CalendarTab({ fetchCalendarList }: CalendarTabProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchCalendarList]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const filteredEvents = useMemo(() => {
     return events.filter(evt => {

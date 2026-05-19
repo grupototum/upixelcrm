@@ -314,7 +314,7 @@ export function useInbox(onLeadCreated?: () => void) {
     } catch (err: any) {
       toast.error(`Erro ao enviar: ${err.message}`);
     }
-  }, [conversations, projectId, loadMessages, loadConversations]);
+  }, [conversations, loadMessages, loadConversations]);
 
   // Send message with media (unified - WhatsApp, Instagram, or fallback for other channels)
   const sendWhatsAppMedia = useCallback(async (leadId: string, file: File, targetConversationId?: string) => {
@@ -426,7 +426,7 @@ export function useInbox(onLeadCreated?: () => void) {
       toast.error(`Erro ao enviar mídia: ${err.message}`);
       throw err;
     }
-  }, [conversations, projectId, loadMessages, loadConversations]);
+  }, [conversations, loadMessages, loadConversations]);
 
   // Send email via Gmail
   const sendEmail = useCallback(async (leadId: string, text: string, targetConversationId?: string) => {
@@ -479,7 +479,7 @@ export function useInbox(onLeadCreated?: () => void) {
     } catch (err: any) {
       toast.error(`Erro ao enviar e-mail: ${err.message}`);
     }
-  }, [conversations, projectId, loadMessages, loadConversations]);
+  }, [conversations, loadMessages, loadConversations]);
 
   // Unified send
   const sendMessage = useCallback(async (text: string, targetConversationId?: string, isPrivate: boolean = false) => {

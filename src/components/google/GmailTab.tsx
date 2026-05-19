@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import DOMPurify from "dompurify";
 import { Mail, Star, Paperclip, Send, Search, RefreshCw, Loader2, Inbox, Archive, Trash2, Filter, ChevronRight, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +71,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchGmailList();
@@ -81,9 +81,9 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchGmailList]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const getBody = (payload: any): string => {
     if (!payload) return "";
