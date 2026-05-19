@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { downloadCSV } from "@/lib/export";
 import { DateRange } from "react-day-picker";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -103,13 +103,13 @@ export default function ReportsPage() {
     return tasks.filter(t => new Date(t.created_at) >= limitDate);
   }, [period, customRange, tasks]);
 
-  const leadsThatReachedStage = (stageIndex: number) => {
+  const leadsThatReachedStage = useCallback((stageIndex: number) => {
     return filteredLeads.filter((l) => {
       if (!l.column_id) return false;
       const idx = stageIdToIndex.get(l.column_id);
       return idx !== undefined && idx >= stageIndex;
     }).length;
-  };
+  }, [filteredLeads, stageIdToIndex]);
 
   const conversionData = useMemo(() =>
     stageOrder.map((stage, i) => {
@@ -117,7 +117,7 @@ export default function ReportsPage() {
       const prevCount = i === 0 ? filteredLeads.length : leadsThatReachedStage(i - 1);
       const rate = prevCount > 0 ? Math.round((count / prevCount) * 100) : (count > 0 ? 100 : 0);
       return { name: stage.name, count, rate, color: stage.color || "hsl(var(--primary))" };
-    }), [filteredLeads, stageOrder, stageIdToIndex]
+    }), [filteredLeads, stageOrder, leadsThatReachedStage]
   );
 
   const leadsByPeriod = useMemo(() => {
@@ -149,7 +149,7 @@ export default function ReportsPage() {
       name: stage.name,
       value: leadsThatReachedStage(i),
       fill: stage.color || "hsl(var(--primary))",
-    })), [filteredLeads, stageOrder, stageIdToIndex]
+    })), [stageOrder, leadsThatReachedStage]
   );
 
   const totalValue = useMemo(
@@ -169,7 +169,7 @@ export default function ReportsPage() {
     if (stageOrder.length === 0) return "0";
     const wonCount = leadsThatReachedStage(stageOrder.length - 1);
     return filteredLeads.length > 0 ? ((wonCount / filteredLeads.length) * 100).toFixed(1) : "0";
-  }, [filteredLeads, stageOrder, stageIdToIndex]);
+  }, [filteredLeads, stageOrder, leadsThatReachedStage]);
 
   if (loading) {
     return (

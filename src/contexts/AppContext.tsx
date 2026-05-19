@@ -1,12 +1,21 @@
 import { logger } from "@/lib/logger";
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
 import type { Node, Edge } from "reactflow";
 import { toast } from "sonner";
+
+// Maps AppContext basic-rule trigger types → complex automation visual-builder trigger types.
+// Module-scoped: stable across renders, no need to memoize or list in hook deps.
+const complexTriggerMap: Record<string, string[]> = {
+  stage_changed: ["status_change"],
+  card_entered:  ["status_change"],
+  new_lead:      ["new_lead"],
+  tag_added:     ["tag_added"],
+};
 
 interface AppState {
   leads: Lead[];
@@ -92,8 +101,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Em master view, tenant.id é a string "master" (sentinela, não UUID).
   // Para inserts em colunas tenant_id (UUID), só inclui se for UUID válido.
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const tenantIdForInsert = tenant?.id && UUID_RE.test(tenant.id) ? { tenant_id: tenant.id } : {};
+  // Memoizado por tenant?.id para manter referência estável entre renders —
+  // permite incluir nas deps de useCallback sem causar re-render infinito.
+  const tenantIdForInsert = useMemo(() => {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return tenant?.id && UUID_RE.test(tenant.id) ? { tenant_id: tenant.id } : {};
+  }, [tenant?.id]);
 
   const executeAutomationsRef = useRef<((leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => Promise<void>) | null>(null);
 
@@ -407,7 +420,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     return newLead;
-  }, [addTimelineEvent, user?.client_id]);
+  }, [addTimelineEvent, user?.client_id, tenant?.id, tenantIdForInsert]);
+
 
   const deleteLead = useCallback(async (id: string) => {
     const { error } = await supabase.from("leads").delete().eq("id", id);
@@ -494,7 +508,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       toast.success("Funil criado com sucesso");
     }
-  }, [user?.client_id]);
+  }, [user?.client_id, tenant?.id, tenantIdForInsert]);
 
   const updatePipeline = useCallback(async (id: string, data: Partial<Pipeline>) => {
     const { error } = await supabase.from("pipelines").update(data).eq("id", id);
@@ -544,7 +558,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (error) { logger.error(error); toast.error("Erro ao criar coluna: " + error.message); return; }
     if (row) setColumns((prev) => [...prev, mapColumn(row)]);
     toast.success("Coluna criada");
-  }, [columns, currentPipelineId, tenant?.id, user?.client_id]);
+  }, [columns, currentPipelineId, tenant?.id, tenantIdForInsert, user?.client_id]);
 
   const updateColumn = useCallback(async (id: string, data: Partial<PipelineColumn>) => {
     const { error } = await supabase.from("pipeline_columns").update(data).eq("id", id);
@@ -588,7 +602,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return newAuto.id;
     }
     return null;
-  }, [tenant?.id, user?.client_id]);
+  }, [tenant?.id, tenantIdForInsert, user?.client_id]);
 
   const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
@@ -675,7 +689,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (error) { logger.error(error); toast.error("Erro ao criar automação"); return; }
     if (row) setAutomations(prev => [mapAutomationRule(row), ...prev]);
     toast.success("Automação criada!");
-  }, [currentPipelineId, user?.client_id, tenant?.id]);
+  }, [currentPipelineId, user?.client_id, tenant?.id, tenantIdForInsert]);
 
   const updateBasicAutomation = useCallback(async (id: string, data: Partial<Automation>) => {
     const updateData: any = {};
@@ -733,14 +747,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         logger.warn("Unhandled action type:", action.type);
     }
   }, [leads, updateLead, addTask, moveLead]);
-
-  // Maps AppContext basic-rule trigger types → complex automation visual-builder trigger types
-  const complexTriggerMap: Record<string, string[]> = {
-    stage_changed: ["status_change"],
-    card_entered:  ["status_change"],
-    new_lead:      ["new_lead"],
-    tag_added:     ["tag_added"],
-  };
 
   const executeAutomations = useCallback(async (leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => {
     // 1. Run basic automation rules (existing behaviour)

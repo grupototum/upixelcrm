@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -269,21 +269,21 @@ export function QuickConnectWizard({
   });
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const stopPolling = () => {
+  const stopPolling = useCallback(() => {
     if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
-  };
+  }, []);
 
-  const resetWizard = () => {
+  const resetWizard = useCallback(() => {
     stopPolling();
     setStep("name");
     setCreating(false);
     setData({ friendlyName: "", instanceName: "", qrCode: null, connectedNumber: "" });
-  };
+  }, [stopPolling]);
 
   useEffect(() => {
     if (!open) resetWizard();
     return () => stopPolling();
-  }, [open]);
+  }, [open, resetWizard, stopPolling]);
 
   const startPolling = (instanceName: string) => {
     stopPolling();

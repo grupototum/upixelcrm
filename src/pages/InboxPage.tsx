@@ -136,13 +136,16 @@ export default function InboxPage() { // force HMR reset
     [inbox.conversations, inbox.selectedLeadId]
   );
 
-  // Sempre que o lead muda, reseta e define a primeira conversa como ativa
+  // Reseta a conversa ativa SÓ quando muda o lead selecionado (não a cada mensagem nova).
+  // Incluir selectedLeadGroup nas deps faria o effect rodar a cada update de conversations,
+  // pulando a conversa ativa de volta para a primeira sempre que chega uma mensagem.
   useEffect(() => {
     if (selectedLeadGroup && selectedLeadGroup.source_conversations.length > 0) {
       setActiveConversationId(selectedLeadGroup.source_conversations[0].id);
     } else {
       setActiveConversationId(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeadGroup?.lead_id]);
 
   // Auto-scroll to bottom
