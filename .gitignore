@@ -45,3 +45,6 @@ debug-*.mjs
 Teste Importação/
 Teste_Importacao/
 
+# Notas operacionais locais (prompts, roadmaps, SQL templates com IDs reais de clientes)
+API Meta/
+
