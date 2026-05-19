@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { downloadCSV } from "@/lib/export";
 import { DateRange } from "react-day-picker";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -41,8 +42,54 @@ const tooltipStyle = {
 
 export default function ReportsPage() {
   const { leads, tasks, columns, loading } = useAppState();
-  const [period, setPeriod] = useState("all");
-  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Period + customRange + activeTab persistidos na URL — sobrevivem a reload,
+  // botão voltar do browser, e troca de aba interna sem perder filtro aplicado.
+  const period = searchParams.get("period") ?? "all";
+  const activeTab = searchParams.get("tab") ?? "conversion";
+  const fromParam = searchParams.get("from");
+  const toParam = searchParams.get("to");
+
+  const customRange: DateRange | undefined = useMemo(() => {
+    if (!fromParam) return undefined;
+    const from = new Date(fromParam);
+    if (Number.isNaN(from.getTime())) return undefined;
+    if (toParam) {
+      const to = new Date(toParam);
+      return Number.isNaN(to.getTime()) ? { from } : { from, to };
+    }
+    return { from };
+  }, [fromParam, toParam]);
+
+  const setPeriod = (next: string) => {
+    if (next === "all") searchParams.delete("period");
+    else searchParams.set("period", next);
+    // Custom range só faz sentido com period=custom
+    if (next !== "custom") {
+      searchParams.delete("from");
+      searchParams.delete("to");
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
+
+  const setCustomRange = (range: DateRange | undefined) => {
+    if (!range?.from) {
+      searchParams.delete("from");
+      searchParams.delete("to");
+    } else {
+      searchParams.set("from", range.from.toISOString().slice(0, 10));
+      if (range.to) searchParams.set("to", range.to.toISOString().slice(0, 10));
+      else searchParams.delete("to");
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
+
+  const setActiveTab = (tab: string) => {
+    if (tab === "conversion") searchParams.delete("tab");
+    else searchParams.set("tab", tab);
+    setSearchParams(searchParams, { replace: true });
+  };
 
   // Agrega globalmente: agrupa colunas por nome (em PT-BR estágios como "Qualificação" / "Fechamento"
   // se repetem em pipelines diferentes). Cada "estágio" no funil consolida todos os pipelines.
@@ -266,7 +313,7 @@ export default function ReportsPage() {
         </div>
 
         {/* ─── Tabs ─── */}
-        <Tabs defaultValue="conversion">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-secondary">
             <TabsTrigger value="conversion" className="text-xs gap-1.5">
               <BarChart3 className="h-3 w-3" /> Conversão por Etapa
