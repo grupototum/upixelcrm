@@ -41,3 +41,7 @@ supabase/.temp/
 .env.local
 debug-*.mjs
 
+# Local test fixtures (planilhas com dados reais de cliente — nunca commitar)
+Teste Importação/
+Teste_Importacao/
+

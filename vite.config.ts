@@ -41,6 +41,7 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("date-fns") || id.includes("react-day-picker")) return "vendor-dates";
           if (id.includes("react-hook-form") || id.includes("zod") || id.includes("@hookform")) return "vendor-forms";
           if (id.includes("@dnd-kit")) return "vendor-dnd";
+          if (id.includes("@e965/xlsx") || /\/xlsx[/-]/.test(id)) return "vendor-xlsx";
           return "vendor";
         },
       },
