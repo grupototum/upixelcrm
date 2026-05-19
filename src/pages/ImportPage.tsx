@@ -111,59 +111,106 @@ export default function ImportPage() {
   const [newFieldName, setNewFieldName] = useState("");
   const [newFieldType, setNewFieldType] = useState<CustomFieldType>("text");
   const [newFieldHeader, setNewFieldHeader] = useState<string>("");
+  const [newFieldOptions, setNewFieldOptions] = useState<Array<{ label: string; value: string }>>([]);
+  const [typeWasSuggested, setTypeWasSuggested] = useState(false);
   const [creatingField, setCreatingField] = useState(false);
 
   const availablePipelines = pipelines;
   const pipelineColumns = columns.filter((c) => c.pipeline_id === pipelineId);
 
-  const readFile = useCallback((file: File) => {
-    if (!file.name.endsWith(".csv") && file.type !== "text/csv") {
-      toast.error("Apenas arquivos .csv são aceitos.");
+  const applyParsed = useCallback((parsed: CsvData, file: File) => {
+    if (parsed.headers.length === 0) {
+      toast.error("Arquivo vazio ou inválido.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const parsed = parseCSV(text);
-      if (parsed.headers.length === 0) {
-        toast.error("Arquivo CSV vazio ou inválido.");
-        return;
-      }
-      setCsvData(parsed);
-      setFileName(file.name);
-      // Auto-map: try to match CSV headers to system fields by name
-      const autoMap: Record<string, string> = {};
-      const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s|_/g, "");
-      const aliases: Record<string, string[]> = {
-        name: ["nome", "name", "contato", "cliente"],
-        phone: ["telefone", "phone", "tel", "celular", "fone", "whatsapp"],
-        email: ["email", "e-mail", "mail", "emailcontato"],
-        company: ["empresa", "company", "negocio", "business"],
-        city: ["cidade", "city", "municipio"],
-        position: ["cargo", "position", "funcao", "role"],
-        origin: ["origem", "origin", "fonte", "source"],
-        tags: ["tags", "etiquetas", "labels"],
-      };
-      for (const field of systemFields) {
-        const fieldAliases = aliases[field.key] || [field.key];
-        const match = parsed.headers.find((h) =>
-          fieldAliases.some((a) => normalize(h).includes(normalize(a)))
-        );
-        if (match) autoMap[field.key] = match;
-      }
-      setMapping(autoMap);
-      // Auto-select first pipeline/column
-      if (availablePipelines.length > 0 && !pipelineId) {
-        const firstPipeline = availablePipelines[0];
-        setPipelineId(firstPipeline.id);
-        const firstCol = columns.filter((c) => c.pipeline_id === firstPipeline.id).sort((a, b) => a.order - b.order)[0];
-        if (firstCol) setColumn(firstCol.id);
-      }
-      setStep(2);
-      toast.success(`${parsed.rows.length} registros carregados de "${file.name}".`);
+    setCsvData(parsed);
+    setFileName(file.name);
+    // Auto-map: try to match headers to system fields by name
+    const autoMap: Record<string, string> = {};
+    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s|_|\(|\)|-/g, "");
+    const aliases: Record<string, string[]> = {
+      name: ["nome", "name", "contato", "cliente", "razaosocial"],
+      phone: ["telefone", "phone", "tel", "celular", "fone", "whatsapp", "telcomercial"],
+      email: ["email", "e-mail", "mail", "emailcontato"],
+      company: ["empresa", "company", "negocio", "business", "nomefantasia"],
+      city: ["cidade", "city", "municipio"],
+      position: ["cargo", "position", "funcao", "role"],
+      origin: ["origem", "origin", "fonte", "source"],
+      tags: ["tags", "etiquetas", "labels"],
     };
-    reader.readAsText(file, "UTF-8");
+    for (const field of systemFields) {
+      const fieldAliases = aliases[field.key] || [field.key];
+      const match = parsed.headers.find((h) =>
+        fieldAliases.some((a) => normalize(h).includes(normalize(a)))
+      );
+      if (match) autoMap[field.key] = match;
+    }
+    setMapping(autoMap);
+    // Auto-select first pipeline/column
+    if (availablePipelines.length > 0 && !pipelineId) {
+      const firstPipeline = availablePipelines[0];
+      setPipelineId(firstPipeline.id);
+      const firstCol = columns.filter((c) => c.pipeline_id === firstPipeline.id).sort((a, b) => a.order - b.order)[0];
+      if (firstCol) setColumn(firstCol.id);
+    }
+    setStep(2);
+    toast.success(`${parsed.rows.length} registros carregados de "${file.name}".`);
   }, [availablePipelines, columns, pipelineId]);
+
+  const readFile = useCallback((file: File) => {
+    const name = file.name.toLowerCase();
+    const isCsv = name.endsWith(".csv") || file.type === "text/csv";
+    const isXlsx = name.endsWith(".xlsx") || name.endsWith(".xls");
+
+    if (!isCsv && !isXlsx) {
+      toast.error("Apenas arquivos .csv, .xlsx ou .xls são aceitos.");
+      return;
+    }
+
+    if (isCsv) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        applyParsed(parseCSV(text), file);
+      };
+      reader.readAsText(file, "UTF-8");
+      return;
+    }
+
+    // .xlsx / .xls — dynamic import keeps SheetJS out of the initial bundle
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const buf = e.target?.result as ArrayBuffer;
+        const XLSX = await import("@e965/xlsx");
+        const wb = XLSX.read(buf, { type: "array" });
+        const firstSheetName = wb.SheetNames[0];
+        if (!firstSheetName) {
+          toast.error("Planilha sem abas.");
+          return;
+        }
+        const sheet = wb.Sheets[firstSheetName];
+        const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: false }) as string[][];
+        // Drop fully empty leading rows (some spreadsheets have title rows)
+        const nonEmpty = matrix.filter((r) => r.some((c) => String(c ?? "").trim() !== ""));
+        if (nonEmpty.length === 0) {
+          toast.error("Planilha vazia.");
+          return;
+        }
+        const [headerRow, ...dataRows] = nonEmpty;
+        const headers = headerRow.map((h) => String(h ?? "").trim());
+        const rows = dataRows.map((r) => {
+          const padded = headers.map((_, i) => String(r[i] ?? "").trim());
+          return padded;
+        });
+        applyParsed({ headers, rows }, file);
+      } catch (err) {
+        console.error("xlsx parse error", err);
+        toast.error("Falha ao ler o arquivo Excel. Verifique se está corrompido.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }, [applyParsed]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -191,10 +238,62 @@ export default function ImportPage() {
     setColumn(firstCol?.id ?? "");
   };
 
+  // Suggests a field_type by sampling up to 20 non-empty values from the column.
+  // Returns the type plus pre-populated options when select is suggested.
+  const suggestFieldType = (
+    csvHeader: string,
+  ): { type: CustomFieldType; options: Array<{ label: string; value: string }> } => {
+    const empty = { type: "text" as CustomFieldType, options: [] };
+    if (!csvData) return empty;
+    const idx = csvData.headers.indexOf(csvHeader);
+    if (idx < 0) return empty;
+
+    const headerNorm = csvHeader.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    if (/(data|nascimento|vencimento|aniversari)/.test(headerNorm)) return { type: "date", options: [] };
+    if (/(link|url|site|website)/.test(headerNorm)) return { type: "link", options: [] };
+    if (/(preco|valor|faturamento|receita|salari|renda|ticket|investimento|orcamento)/.test(headerNorm)) {
+      return { type: "number", options: [] };
+    }
+    if (/(observa|descric|notas|coment)/.test(headerNorm)) return { type: "textarea", options: [] };
+
+    const samples = csvData.rows
+      .map((r) => (r[idx] ?? "").trim())
+      .filter((v) => v !== "")
+      .slice(0, 20);
+    if (samples.length === 0) return empty;
+
+    // Numeric detection: all values parse as numbers (after BR locale normalize)
+    const numericish = samples.every((v) => {
+      const n = Number(v.replace(/\./g, "").replace(",", "."));
+      return !Number.isNaN(n);
+    });
+    if (numericish) return { type: "number", options: [] };
+
+    // Low-cardinality → select
+    const distinct = Array.from(new Set(samples));
+    if (samples.length >= 5 && distinct.length <= 8) {
+      return {
+        type: "select",
+        options: distinct.map((v) => ({ label: v, value: v })),
+      };
+    }
+
+    return empty;
+  };
+
   const openCreateFieldFor = (csvHeader?: string) => {
     setNewFieldName(csvHeader ?? "");
     setNewFieldHeader(csvHeader ?? "");
-    setNewFieldType("text");
+    if (csvHeader) {
+      const { type, options } = suggestFieldType(csvHeader);
+      setNewFieldType(type);
+      setNewFieldOptions(options);
+      setTypeWasSuggested(type !== "text" || options.length > 0);
+    } else {
+      setNewFieldType("text");
+      setNewFieldOptions([]);
+      setTypeWasSuggested(false);
+    }
     setShowCreateField(true);
   };
 
@@ -208,11 +307,11 @@ export default function ImportPage() {
       name: newFieldName.trim(),
       field_type: newFieldType,
       is_required: false,
-      options: [],
+      options: newFieldType === "select" || newFieldType === "multi_select" ? newFieldOptions : [],
     });
     setCreatingField(false);
     if (created) {
-      const slug = (created as any).slug as string;
+      const slug = (created as { slug?: string }).slug;
       if (newFieldHeader && slug) {
         setMapping((prev) => ({ ...prev, [`cf:${slug}`]: newFieldHeader }));
       }
@@ -221,6 +320,8 @@ export default function ImportPage() {
       setShowCreateField(false);
       setNewFieldName("");
       setNewFieldHeader("");
+      setNewFieldOptions([]);
+      setTypeWasSuggested(false);
     }
   };
 
@@ -411,7 +512,7 @@ export default function ImportPage() {
   const selectedColumn = columns.find((c) => c.id === column);
 
   return (
-    <AppLayout title="Importação de Leads" subtitle="Importe sua base de contatos via CSV">
+    <AppLayout title="Importação de Leads" subtitle="Importe sua base de contatos via CSV ou Excel">
       <div className="p-6 animate-fade-in max-w-3xl mx-auto">
         {/* Stepper */}
         <div className="flex items-center gap-1 mb-8">
@@ -439,10 +540,17 @@ export default function ImportPage() {
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
           >
-            <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleInputChange} />
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="hidden"
+              onChange={handleInputChange}
+            />
             <Upload className={`h-12 w-12 mx-auto mb-4 transition-colors ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
-            <h3 className="text-sm font-semibold text-foreground mb-1">Arraste seu arquivo CSV aqui</h3>
-            <p className="text-xs text-muted-foreground mb-4">ou clique para selecionar um arquivo</p>
+            <h3 className="text-sm font-semibold text-foreground mb-1">Arraste seu arquivo aqui</h3>
+            <p className="text-xs text-muted-foreground mb-1">ou clique para selecionar um arquivo</p>
+            <p className="text-[10px] text-muted-foreground mb-4">Aceita .csv, .xlsx e .xls</p>
             <Button variant="outline" size="sm" className="text-xs">Selecionar Arquivo</Button>
           </div>
         )}
@@ -507,7 +615,7 @@ export default function ImportPage() {
           <div className="bg-card ghost-border rounded-xl p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground">Mapeamento de Colunas</h3>
-              <p className="text-[11px] text-muted-foreground">Associe as colunas do CSV aos campos do sistema</p>
+              <p className="text-[11px] text-muted-foreground">Associe as colunas da planilha aos campos do sistema</p>
             </div>
 
             <div className="space-y-3">
@@ -554,7 +662,7 @@ export default function ImportPage() {
 
               {customFieldDefs.length === 0 ? (
                 <p className="text-[11px] text-muted-foreground italic py-2">
-                  Nenhum campo personalizado. Crie um para mapear colunas extras do CSV (ex: CPF, Renda, Origem do Anúncio).
+                  Nenhum campo personalizado. Crie um para mapear colunas extras da planilha (ex: CPF, Renda, Origem do Anúncio).
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -590,7 +698,7 @@ export default function ImportPage() {
                 return (
                   <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
                     <p className="text-[11px] text-muted-foreground mb-2">
-                      Colunas do CSV não mapeadas ({unmapped.length}). Crie campos personalizados para incluí-las:
+                      Colunas da planilha não mapeadas ({unmapped.length}). Crie campos personalizados para incluí-las:
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {unmapped.map((h) => (
@@ -714,7 +822,13 @@ export default function ImportPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Tipo</Label>
-                <Select value={newFieldType} onValueChange={(v) => setNewFieldType(v as CustomFieldType)}>
+                <Select
+                  value={newFieldType}
+                  onValueChange={(v) => {
+                    setNewFieldType(v as CustomFieldType);
+                    setTypeWasSuggested(false);
+                  }}
+                >
                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="text">Texto</SelectItem>
@@ -724,13 +838,34 @@ export default function ImportPage() {
                     <SelectItem value="datetime">Data e hora</SelectItem>
                     <SelectItem value="checkbox">Checkbox (sim/não)</SelectItem>
                     <SelectItem value="link">Link</SelectItem>
+                    <SelectItem value="select">Lista (seleção única)</SelectItem>
                     <SelectItem value="multi_select">Múltipla escolha (separadas por ;)</SelectItem>
                   </SelectContent>
                 </Select>
+                {typeWasSuggested && (
+                  <p className="text-[10px] text-primary flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Tipo sugerido com base nos valores da planilha. Ajuste se necessário.
+                  </p>
+                )}
               </div>
+              {newFieldType === "select" && newFieldOptions.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] text-muted-foreground">
+                    Opções detectadas ({newFieldOptions.length})
+                  </Label>
+                  <div className="flex flex-wrap gap-1">
+                    {newFieldOptions.map((opt) => (
+                      <Badge key={opt.value} variant="outline" className="text-[10px]">
+                        {opt.label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               {csvData && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Vincular à coluna do CSV (opcional)</Label>
+                  <Label className="text-xs">Vincular à coluna da planilha (opcional)</Label>
                   <Select value={newFieldHeader || "__none"} onValueChange={(v) => setNewFieldHeader(v === "__none" ? "" : v)}>
                     <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma coluna" /></SelectTrigger>
                     <SelectContent>
