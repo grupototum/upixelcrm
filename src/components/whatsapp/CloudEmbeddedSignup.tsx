@@ -25,9 +25,15 @@ interface SessionInfoMessage {
 
 interface Props {
   onConnected?: () => void;
+  /**
+   * Coexistence mode: o mesmo número usado simultaneamente no app WhatsApp
+   * Business + Cloud API. Adiciona featureType: whatsapp_business_app_onboarding
+   * nos extras do FB.login e marca a integration com coexistence_mode: true.
+   */
+  coexistenceMode?: boolean;
 }
 
-export function CloudEmbeddedSignup({ onConnected }: Props) {
+export function CloudEmbeddedSignup({ onConnected, coexistenceMode = false }: Props) {
   const configured = !!(META_APP_ID && META_CONFIG_ID);
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<"idle" | "loading_sdk" | "popup" | "exchanging" | "success">("idle");
@@ -120,7 +126,7 @@ export function CloudEmbeddedSignup({ onConnected }: Props) {
           try {
             const { data, error } = await supabase.functions.invoke(
               "whatsapp-cloud-exchange-token",
-              { body: { code, phone_number_id, waba_id } },
+              { body: { code, phone_number_id, waba_id, coexistence_mode: coexistenceMode } },
             );
             if (error) throw new Error(error.message);
             if (!data?.success) throw new Error(data?.error ?? "Falha desconhecida");
@@ -149,6 +155,9 @@ export function CloudEmbeddedSignup({ onConnected }: Props) {
         extras: {
           feature: "whatsapp_embedded_signup",
           sessionInfoVersion: 3,
+          // Coexistence: o mesmo número usado no app WhatsApp Business + Cloud API.
+          // Meta exige esse featureType pra liberar o fluxo coexistence no Embedded Signup.
+          ...(coexistenceMode ? { featureType: "whatsapp_business_app_onboarding" } : {}),
         },
       },
     );
