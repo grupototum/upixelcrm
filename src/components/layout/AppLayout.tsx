@@ -4,7 +4,8 @@ import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationPopover } from "./NotificationPopover";
 import { SettingsPopover } from "./SettingsPopover";
-import { Button } from "@/components/ui/button";
+import { CommandPalette } from "./CommandPalette";
+import { CommandPaletteTrigger } from "./CommandPaletteTrigger";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -16,6 +17,7 @@ interface AppLayoutProps {
 export function AppLayout({ children, title, subtitle, actions }: AppLayoutProps) {
   return (
     <SidebarProvider>
+      <CommandPalette />
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
@@ -30,6 +32,7 @@ export function AppLayout({ children, title, subtitle, actions }: AppLayoutProps
               )}
             </div>
             <div className="flex items-center gap-2">
+              <CommandPaletteTrigger />
               {actions}
               <NotificationPopover />
               <SettingsPopover />
