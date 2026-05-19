@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
-  BarChart3, Plug, Upload, Users, HelpCircle, LogOut, Database,
-  Bot, Settings, ChevronRight,
+  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -48,13 +47,14 @@ type NavGroup = {
  *   v2: 5 links diretos + 3 grupos = 8 itens visuais, 1 clique pros críticos
  */
 
-// Links diretos — os 5 atalhos mais usados no dia-a-dia.
+// Links diretos — os 6 atalhos mais usados no dia-a-dia.
 const directLinks: NavLeaf[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Pipeline", url: "/crm", icon: Kanban },
   { title: "Integrações", url: "/integrations", icon: Plug },
+  { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
 // Grupos secundários — itens usados com menos frequência, agrupados por domínio.
@@ -79,17 +79,10 @@ const navGroups: NavGroup[] = [
       { title: "Biblioteca", url: "/alexandria/rag", icon: BookOpen },
     ],
   },
-  {
-    id: "config",
-    title: "Configurações",
-    icon: Settings,
-    items: [
-      { title: "Usuários", url: "/users", icon: Users },
-      { title: "Importação", url: "/import", icon: Upload },
-      { title: "Banco de Dados", url: "/database", icon: Database, masterOnly: true },
-    ],
-  },
 ];
+
+// Os 3 itens admin (Usuários, Importação, Banco) agora vivem como tabs dentro
+// de /settings — acessíveis via "Configurações" no link direto acima.
 
 function isLeafActive(url: string, pathname: string): boolean {
   if (url === "/") return pathname === "/";

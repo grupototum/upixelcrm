@@ -41,13 +41,14 @@ export function SettingsPopover() {
         </div>
         <Separator className="bg-border/20" />
         <div className="p-2 space-y-1">
-          <SettingsItem icon={User} label="Meu Perfil" href="/profile" />
-          <SettingsItem icon={Shield} label="Segurança" href="/security" />
+          <SettingsItem icon={Settings} label="Configurações" href="/settings" />
+          <SettingsItem icon={User} label="Meu Perfil" href="/settings/profile" />
+          <SettingsItem icon={Shield} label="Segurança" href="/settings/security" />
         </div>
         <Separator className="bg-border/20" />
         <div className="p-2 space-y-1">
           <SettingsItem icon={Plug} label="Integrações" href="/integrations" />
-          <SettingsItem icon={Users} label="Usuários" href="/users" />
+          <SettingsItem icon={Users} label="Equipe e usuários" href="/users" />
           <SettingsItem icon={HelpCircle} label="Central de Ajuda" href="/help" />
         </div>
         <Separator className="bg-border/20" />
