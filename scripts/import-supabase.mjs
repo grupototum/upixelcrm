@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable */
 /**
  * Importa os dados exportados para o projeto Supabase NOVO.
  *

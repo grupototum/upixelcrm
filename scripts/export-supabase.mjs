@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable */
 /**
  * Exporta todos os dados do projeto Supabase antigo para arquivos JSON locais.
  *
