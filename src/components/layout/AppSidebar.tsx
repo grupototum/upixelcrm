@@ -8,6 +8,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
@@ -115,6 +116,14 @@ export function AppSidebar() {
   const { canAccessModule } = usePermissions();
 
   const isMaster = user?.role === "master";
+  const { inboxCount, tasksCount } = useUnreadCounts();
+
+  // Atualiza os badges dos links diretos com counts vivos.
+  const linksWithBadges: NavLeaf[] = directLinks.map((link) => {
+    if (link.url === "/inbox") return { ...link, badge: inboxCount };
+    if (link.url === "/tasks") return { ...link, badge: tasksCount };
+    return link;
+  });
 
   // Acordeão: apenas 1 grupo aberto por vez. Auto-abre o grupo que contém a rota ativa.
   const initialOpenGroup =
@@ -185,8 +194,8 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {/* Links diretos — top 5 atalhos */}
-              {directLinks.map(renderDirectLink)}
+              {/* Links diretos — top 6 atalhos (com badges live de unread) */}
+              {linksWithBadges.map(renderDirectLink)}
 
               {/* Separador sutil entre links diretos e grupos */}
               {!collapsed && (

@@ -98,8 +98,10 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
             </div>
           </div>
 
-          {/* UTM / Atribuição opcional */}
-          <details className="space-y-2 group">
+          {/* UTM / Atribuição opcional — aberto por default pra surfaceá-los.
+              Usuário ainda pode colapsar com 1 clique, mas os campos ficam
+              visíveis na primeira passagem em vez de escondidos. */}
+          <details className="space-y-2 group" open>
             <summary className="cursor-pointer text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1 hover:text-foreground transition-colors">
               📊 Rastreamento (UTM/Anúncios) — opcional
             </summary>
