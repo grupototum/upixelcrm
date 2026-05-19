@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const isDev = import.meta.env.DEV;
 
 function sendError(args: any[]) {
@@ -5,9 +7,7 @@ function sendError(args: any[]) {
     const message = args
       .map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a)))
       .join(" ");
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      supabase.from("error_logs").insert({ message }).then(() => {});
-    });
+    supabase.from("error_logs").insert({ message }).then(() => {});
   } catch { /* noop */ }
 }
 
