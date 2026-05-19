@@ -108,6 +108,7 @@ async function findOrCreateLead(
 async function upsertConversationAndMessage(
   adminClient: any, clientId: string, phone: string, senderName: string,
   content: string, msgType: string, meta: Record<string, unknown>, integrationId: string,
+  direction: "inbound" | "outbound" = "inbound",
 ) {
   const channel = "whatsapp_cloud";
   const { data: existingConv } = await adminClient
@@ -127,18 +128,23 @@ async function upsertConversationAndMessage(
   let convId: string;
   if (existingConv) {
     convId = existingConv.id;
-    await adminClient.from("conversations").update({
+    // Outbound echo do app do cliente NÃO incrementa unread_count
+    // (não é uma mensagem nova esperando resposta).
+    const update: Record<string, unknown> = {
       last_message: displayText,
       last_message_at: new Date().toISOString(),
-      unread_count: (existingConv.unread_count ?? 0) + 1,
       status: "open",
-    }).eq("id", convId);
+    };
+    if (direction === "inbound") {
+      update.unread_count = (existingConv.unread_count ?? 0) + 1;
+    }
+    await adminClient.from("conversations").update(update).eq("id", convId);
   } else {
     const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName);
     const { data: newConv } = await adminClient.from("conversations").insert({
       client_id: clientId, lead_id: leadId, channel, status: "open",
       last_message: displayText, last_message_at: new Date().toISOString(),
-      unread_count: 1,
+      unread_count: direction === "inbound" ? 1 : 0,
       metadata: { phone, integration_id: integrationId, lead_name: senderName },
     }).select("id").single();
     if (!newConv) return null;
@@ -147,7 +153,7 @@ async function upsertConversationAndMessage(
 
   await adminClient.from("messages").insert({
     client_id: clientId, conversation_id: convId, content, type: msgType,
-    direction: "inbound", sender_name: senderName,
+    direction, sender_name: senderName,
     metadata: { channel, ...meta },
   });
 
@@ -310,6 +316,58 @@ Deno.serve(async (req) => {
 
           await upsertConversationAndMessage(
             adminClient, clientId, from, senderName, content, msgType, meta, integrationId,
+          );
+        }
+
+        // ── Coexistence: SMB Message Echoes ──
+        // Quando o usuário envia uma mensagem pelo APP WhatsApp Business no celular,
+        // a Meta replica o evento no webhook como smb_message_echoes (mesmo formato
+        // do messages[] mas representa uma mensagem OUTBOUND vinda do app, não do API).
+        // Marcamos como outbound + source=smb_app pra UI distinguir no inbox.
+        for (const echo of (value.smb_message_echoes ?? [])) {
+          const to = echo.to ?? echo.recipient_id ?? echo.from; // depende da versão
+          if (!to) continue;
+          const senderName = (integration.config as CloudConfig).display_name ?? "WhatsApp Business";
+          let msgType = "text";
+          let content = "";
+          const meta: Record<string, unknown> = {
+            meta_message_id: echo.id,
+            integration_id: integrationId,
+            source: "smb_app",
+            coexistence: true,
+            timestamp: echo.timestamp,
+          };
+
+          if (echo.type === "text") {
+            content = echo.text?.body ?? "";
+          } else if (echo.type === "image" || echo.type === "audio" || echo.type === "video" || echo.type === "document") {
+            msgType = echo.type === "document" ? "file" : echo.type;
+            const mediaPayload = echo[echo.type];
+            const mediaId = mediaPayload?.id;
+            const mime = mediaPayload?.mime_type ?? "";
+            if (mediaId) {
+              const publicUrl = await downloadAndStoreMedia(adminClient, accessToken, mediaId, mime);
+              content = publicUrl ?? "";
+              meta.media_url = publicUrl;
+              meta.mime_type = mime;
+            }
+            if (mediaPayload?.caption) meta.caption = mediaPayload.caption;
+          } else {
+            content = `[Mensagem do app — tipo ${echo.type}]`;
+          }
+
+          // Dedup por meta_message_id: se já gravamos esse echo (Meta às vezes
+          // reenvia), pula. Conversation match por phone destinatário.
+          const { data: existingMsg } = await adminClient
+            .from("messages")
+            .select("id")
+            .eq("metadata->>meta_message_id", echo.id)
+            .maybeSingle();
+          if (existingMsg) continue;
+
+          await upsertConversationAndMessage(
+            adminClient, clientId, to, senderName, content, msgType, meta, integrationId,
+            "outbound",
           );
         }
 

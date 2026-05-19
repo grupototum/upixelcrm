@@ -66,11 +66,12 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { code, phone_number_id, waba_id, display_name } = body as {
+    const { code, phone_number_id, waba_id, display_name, coexistence_mode } = body as {
       code?: string;
       phone_number_id?: string;
       waba_id?: string;
       display_name?: string;
+      coexistence_mode?: boolean;
     };
 
     if (!code || !phone_number_id || !waba_id) {
@@ -161,6 +162,12 @@ Deno.serve(async (req) => {
       webhook_verify_token: crypto.randomUUID(),
       embedded_signup: true,
       webhook_auto_registered: webhookRegistered,
+      // Coexistence Mode: mesmo número usado simultaneamente no app WhatsApp
+      // Business + Cloud API. Mensagens enviadas pelo app voltam como
+      // smb_message_echoes no webhook. Limitações: sem OBA badge, devices
+      // vinculados restritos (Windows/WearOS), WhatsApp Web do cliente para.
+      coexistence_mode: !!coexistence_mode,
+      signup_method: coexistence_mode ? "coexistence" : "embedded_signup",
     };
 
     // Se já existe integration pro mesmo phone_number_id no tenant, atualiza.

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Loader2, AlertCircle, ExternalLink, Copy } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ExternalLink, Copy, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CloudEmbeddedSignup } from "./CloudEmbeddedSignup";
@@ -135,14 +135,54 @@ export function CloudConnectModal({ open, onClose, onSaved }: CloudConnectModalP
 
         {step === "choose" && (
           <div className="space-y-5">
+            {/* Card 1: Cloud API tradicional (sem app no celular) */}
             <div className="rounded-xl border border-success/30 bg-success/5 p-4 space-y-3">
-              <p className="text-xs font-bold text-success uppercase tracking-wider">
-                Recomendado
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-success uppercase tracking-wider">
+                  Recomendado
+                </p>
+                <span className="text-[9px] text-muted-foreground">sem celular</span>
+              </div>
               <p className="text-sm text-foreground/90 leading-relaxed">
-                Conecte em segundos via popup do Facebook. Não precisa copiar tokens nem configurar webhook manualmente.
+                <strong>WhatsApp Cloud API.</strong> Conecte em segundos via popup do Facebook.
+                Funciona 24/7, sem precisar de celular conectado. Suporta templates aprovados,
+                envio em alto volume, mensagens automatizadas.
               </p>
               <CloudEmbeddedSignup
+                onConnected={() => {
+                  onSaved?.();
+                  setTimeout(() => closeAndReset(), 1500);
+                }}
+              />
+            </div>
+
+            {/* Card 2: Coexistence (Cloud API + app WhatsApp Business no celular) */}
+            <div className="rounded-xl border border-[#1877F2]/30 bg-[#1877F2]/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-[#1877F2] uppercase tracking-wider flex items-center gap-1.5">
+                  <Smartphone className="h-3 w-3" /> Coexistence
+                </p>
+                <span className="text-[9px] text-muted-foreground">novo</span>
+              </div>
+              <p className="text-sm text-foreground/90 leading-relaxed">
+                <strong>Mesmo número no app + Cloud API.</strong> Continue atendendo pelo
+                WhatsApp Business no celular E receba/envie pelo uPixel ao mesmo tempo.
+                Mensagens novas aparecem nos dois lugares.
+              </p>
+              <details className="text-[10px] text-muted-foreground leading-relaxed">
+                <summary className="cursor-pointer hover:text-foreground transition-colors">
+                  Limitações Meta
+                </summary>
+                <ul className="mt-2 space-y-0.5 pl-4 list-disc">
+                  <li>WhatsApp Web do cliente para de funcionar</li>
+                  <li>Histórico anterior fica só no celular (não migra)</li>
+                  <li>Sem badge azul (OBA) — só perfil verificado</li>
+                  <li>App precisa ser aberto a cada 13 dias</li>
+                  <li>Versão mínima do app: WhatsApp Business 2.24.17+</li>
+                </ul>
+              </details>
+              <CloudEmbeddedSignup
+                coexistenceMode
                 onConnected={() => {
                   onSaved?.();
                   setTimeout(() => closeAndReset(), 1500);
