@@ -1,16 +1,19 @@
 import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { MessageCircle, Instagram, Facebook, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, ArrowLeft, Shield, Loader2, Megaphone, TrendingUp } from "lucide-react";
+import { MessageCircle, Instagram, Facebook, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, Megaphone, TrendingUp, LayoutGrid, MessagesSquare, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Switch } from "@/components/ui/switch";
-import { useState, useEffect } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect, useMemo } from "react";
 import { ApiSettingsModal } from "@/components/integrations/ApiSettingsModal";
 import { WebhookSettingsModal } from "@/components/integrations/WebhookSettingsModal";
 import { toast } from "sonner";
+
+type CategoryId = "all" | "messaging" | "ads" | "workspace" | "developer";
 
 interface Integration {
   id: string;
@@ -19,8 +22,9 @@ interface Integration {
   icon: any;
   color: string;
   status: string;
-  category: "channel" | "developer" | "email";
+  category: CategoryId;
   configRoute?: string;
+  tag?: string;
 }
 
 interface IntegrationCardProps {
@@ -32,24 +36,52 @@ interface IntegrationCardProps {
 }
 
 const integrations: Integration[] = [
-  { id: "whatsapp", name: "WhatsApp", description: "Conecte seu WhatsApp via API Oficial (Meta) ou QR Code (Lite) para atendimento omnichannel.", icon: MessageCircle, color: "text-success", status: "disconnected", category: "channel", configRoute: "/whatsapp" },
-  { id: "instagram", name: "Instagram Direct", description: "Receba e responda mensagens do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "disconnected", category: "channel", configRoute: "/instagram" },
-  { id: "facebook_page", name: "Facebook Messenger", description: "Conecte páginas do Facebook para receber DMs do Messenger no inbox.", icon: Facebook, color: "text-[#1877F2]", status: "disconnected", category: "channel", configRoute: "/facebook-page" },
-  { id: "google", name: "Google", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "disconnected", category: "channel", configRoute: "/google" },
-  { id: "meta_ads", name: "Meta Ads", description: "Facebook & Instagram Ads — importe campanhas, métricas reais e capture leads de formulários automaticamente.", icon: Megaphone, color: "text-blue-600", status: "disconnected", category: "channel", configRoute: "/meta-ads" },
-  { id: "google_ads", name: "Google Ads", description: "Importe campanhas e métricas reais do Google Ads para o painel de campanhas.", icon: TrendingUp, color: "text-orange-500", status: "disconnected", category: "channel", configRoute: "/google-ads" },
+  // Mensageria
+  { id: "whatsapp", name: "WhatsApp", description: "API Oficial (Cloud), QR Code (Lite) ou Coexistence — escolha o modo que se encaixa.", icon: MessageCircle, color: "text-success", status: "disconnected", category: "messaging", configRoute: "/whatsapp", tag: "3 modos" },
+  { id: "instagram", name: "Instagram Direct", description: "Receba e responda DMs do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "disconnected", category: "messaging", configRoute: "/instagram" },
+  { id: "facebook_page", name: "Facebook Messenger", description: "Conecte páginas do Facebook para receber DMs do Messenger no inbox.", icon: Facebook, color: "text-[#1877F2]", status: "disconnected", category: "messaging", configRoute: "/facebook-page" },
+  // Anúncios
+  { id: "meta_ads", name: "Meta Ads", description: "Facebook & Instagram Ads — campanhas, métricas reais e captura de leads de formulários.", icon: Megaphone, color: "text-blue-600", status: "disconnected", category: "ads", configRoute: "/meta-ads" },
+  { id: "google_ads", name: "Google Ads", description: "Importe campanhas e métricas reais do Google Ads.", icon: TrendingUp, color: "text-orange-500", status: "disconnected", category: "ads", configRoute: "/google-ads" },
+  // Workspace
+  { id: "google", name: "Google Workspace", description: "Gmail, Calendar e Drive integrados ao uPixel.", icon: Globe, color: "text-blue-500", status: "disconnected", category: "workspace", configRoute: "/google" },
+  // Dev / APIs
   { id: "webhook", name: "Webhooks", description: "Receba leads e eventos via webhooks customizados em tempo real.", icon: Webhook, status: "disconnected", color: "text-accent", category: "developer" },
   { id: "api", name: "API uPixel", description: "Acesse a API REST do uPixel para integrações personalizadas.", icon: Code, status: "disconnected", color: "text-primary", category: "developer" },
-  { id: "smtp", name: "E-mail (SMTP)", description: "Configure envio de e-mails transacionais e notificações pelo sistema.", icon: Mail, status: "coming_soon", color: "text-muted-foreground", category: "email" },
+  { id: "smtp", name: "E-mail (SMTP)", description: "Configure envio de e-mails transacionais e notificações pelo sistema.", icon: Mail, status: "coming_soon", color: "text-muted-foreground", category: "developer" },
+];
+
+const CATEGORIES: Array<{ id: CategoryId; label: string; icon: any }> = [
+  { id: "all", label: "Todas", icon: LayoutGrid },
+  { id: "messaging", label: "Mensageria", icon: MessagesSquare },
+  { id: "ads", label: "Anúncios", icon: Megaphone },
+  { id: "workspace", label: "Workspace", icon: Globe },
+  { id: "developer", label: "Dev & APIs", icon: Wrench },
 ];
 
 export default function IntegrationsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [realStatuses, setRealStatuses] = useState<Record<string, string>>({});
   const [apiModalOpen, setApiModalOpen] = useState(false);
   const [webhookModalOpen, setWebhookModalOpen] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
+
+  // Categoria ativa controlada por URL (?category=messaging|ads|workspace|developer|all)
+  const activeCategory: CategoryId = useMemo(() => {
+    const raw = searchParams.get("category") as CategoryId | null;
+    return raw && CATEGORIES.some((c) => c.id === raw) ? raw : "all";
+  }, [searchParams]);
+
+  const setCategory = (cat: CategoryId) => {
+    if (cat === "all") {
+      searchParams.delete("category");
+    } else {
+      searchParams.set("category", cat);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
 
   useEffect(() => {
     async function fetchStatuses() {
@@ -110,10 +142,12 @@ export default function IntegrationsPage() {
     status: (int.id === "whatsapp" ? realStatuses["whatsapp_unified"] : realStatuses[int.id]) || int.status
   }));
 
-  const channels = integrationsWithStatus.filter(i => i.category === "channel");
-  const devTools = integrationsWithStatus.filter(i => i.category !== "channel");
+  // Filter by active category tab
+  const visible = activeCategory === "all"
+    ? integrationsWithStatus
+    : integrationsWithStatus.filter((i) => i.category === activeCategory);
 
-  // Count active unique integrations
+  // Count active unique integrations (global, não filtra por categoria)
   const activeCount = integrationsWithStatus.filter(i => i.status === "connected").length;
 
   const B = Badge as any;
@@ -127,45 +161,43 @@ export default function IntegrationsPage() {
         </B>
       }
     >
-      <div className="p-6 space-y-8 animate-fade-in">
-        {/* Canais */}
-        <div>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Canais de comunicação</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading ? (
-              Array(3).fill(0).map((_, i) => <div key={i} className="h-44 bg-card ghost-border rounded-xl animate-pulse" />)
-            ) : (
-              channels.map((int) => (
-                <IntegrationCard
-                  key={int.id}
-                  integration={int}
-                  active={int.status === "connected" || int.status === "configured"}
-                  onToggle={(v) => handleToggle(int.id, v)}
-                  onConfigure={() => handleConfigure(int.id)}
-                />
-              ))
-            )}
-          </div>
-        </div>
+      <div className="p-6 space-y-6 animate-fade-in">
+        {/* Tab navigation por categoria */}
+        <Tabs value={activeCategory} onValueChange={(v) => setCategory(v as CategoryId)}>
+          <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
+            {CATEGORIES.map((cat) => {
+              const count = cat.id === "all"
+                ? integrationsWithStatus.length
+                : integrationsWithStatus.filter((i) => i.category === cat.id).length;
+              return (
+                <TabsTrigger key={cat.id} value={cat.id} className="gap-1.5 text-xs">
+                  <cat.icon className="h-3.5 w-3.5" />
+                  {cat.label}
+                  <span className="ml-1 text-[9px] text-muted-foreground">{count}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
 
-        {/* Developer & Email */}
-        <div>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Ferramentas e APIs</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading ? (
-              Array(2).fill(0).map((_, i) => <div key={i} className="h-44 bg-card ghost-border rounded-xl animate-pulse" />)
-            ) : (
-              devTools.map((int) => (
-                <IntegrationCard
-                  key={int.id}
-                  integration={int}
-                  active={int.status === "connected" || int.status === "configured"}
-                  onToggle={(v) => handleToggle(int.id, v)}
-                  onConfigure={() => handleConfigure(int.id)}
-                />
-              ))
-            )}
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {loading ? (
+            Array(6).fill(0).map((_, i) => <div key={i} className="h-44 bg-card ghost-border rounded-xl animate-pulse" />)
+          ) : visible.length === 0 ? (
+            <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
+              Nenhuma integração nesta categoria.
+            </div>
+          ) : (
+            visible.map((int) => (
+              <IntegrationCard
+                key={int.id}
+                integration={int}
+                active={int.status === "connected" || int.status === "configured"}
+                onToggle={(v) => handleToggle(int.id, v)}
+                onConfigure={() => handleConfigure(int.id)}
+              />
+            ))
+          )}
         </div>
       </div>
 
@@ -185,6 +217,7 @@ function StatusBadge({ status, active }: { status: string; active?: boolean }) {
 
 function IntegrationCard({ integration: int, active, onToggle, onConfigure }: IntegrationCardProps) {
   const isAvailable = int.status !== "coming_soon";
+  const B = Badge as any;
 
   return (
     <div className={`bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col ${active && isAvailable ? 'hover:border-[hsl(var(--border-strong))] ring-1 ring-primary/10' : 'hover:border-[#ff4f00]/30'}`}>
@@ -195,26 +228,41 @@ function IntegrationCard({ integration: int, active, onToggle, onConfigure }: In
         <StatusBadge status={int.status} active={active} />
       </div>
 
-      <h3 className="text-sm font-semibold text-foreground mb-1">{int.name}</h3>
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-sm font-semibold text-foreground">{int.name}</h3>
+        {int.tag && (
+          <B variant="outline" className="text-[9px] px-1.5 py-0 border-primary/30 text-primary">{int.tag}</B>
+        )}
+      </div>
       <p className="text-xs text-muted-foreground mb-4 flex-1">{int.description}</p>
 
-      <div className="flex items-center justify-between">
-        {isAvailable ? (
-          <>
+      {isAvailable ? (
+        active ? (
+          // Conectado/Configurado: mostra toggle + Gerenciar
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Switch checked={active} onCheckedChange={onToggle} className="scale-90" />
-              <span className={`text-xs ${active ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{active ? "Ativo" : "Inativo"}</span>
+              <span className="text-xs text-primary font-medium">Ativo</span>
             </div>
             <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary hover:bg-primary/5 rounded-lg" onClick={onConfigure}>
               Gerenciar <ExternalLink className="h-3 w-3" />
             </Button>
-          </>
+          </div>
         ) : (
-          <Button variant="outline" size="sm" className="text-xs w-full rounded-lg" disabled>
-            Em breve
+          // Desconectado: CTA primário "Conectar →"
+          <Button
+            size="sm"
+            className="text-xs w-full rounded-lg gap-1.5 bg-primary hover:bg-[#e04400] text-white"
+            onClick={onConfigure}
+          >
+            Conectar <ExternalLink className="h-3 w-3" />
           </Button>
-        )}
-      </div>
+        )
+      ) : (
+        <Button variant="outline" size="sm" className="text-xs w-full rounded-lg" disabled>
+          Em breve
+        </Button>
+      )}
     </div>
   );
 }
