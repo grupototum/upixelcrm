@@ -106,6 +106,8 @@ Deno.serve(async (req) => {
 
       const body = await req.json().catch(() => ({}));
       const friendlyName = (body.name || "").trim().slice(0, 30) || "WhatsApp";
+      // ASCII-only slug for Evolution instance name: NFD decompose, strip non-ASCII (accents/emojis), then non-alphanumeric.
+      // eslint-disable-next-line no-control-regex
       const slug = friendlyName.toLowerCase().normalize("NFD").replace(/[^\x00-\x7F]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "wa";
       const suffix = Math.random().toString(36).slice(2, 6);
       const instanceName = `c${clientId.slice(0, 8)}-${slug}-${suffix}`;
