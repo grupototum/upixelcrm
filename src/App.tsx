@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -8,45 +9,58 @@ import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+
+// Eager: telas de entrada (raiz, login, dashboard) e fallbacks — evita flash de loading.
 import DashboardPage from "./pages/DashboardPage";
-import InboxPage from "./pages/InboxPage";
-import CRMPage from "./pages/CRMPage";
-import TasksPage from "./pages/TasksPage";
-import AutomationsPage from "./pages/AutomationsPage";
-import IntelligencePage from "./pages/IntelligencePage";
-import CampaignsPage from "./pages/CampaignsPage";
-import ReportsPage from "./pages/ReportsPage";
-import IntegrationsPage from "./pages/IntegrationsPage";
-import ImportPage from "./pages/ImportPage";
-import DuplicatesPage from "./pages/DuplicatesPage";
-import UsersPage from "./pages/UsersPage";
-import LeadProfilePage from "./pages/LeadProfilePage";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
-import AutomationBuilderPage from "./pages/AutomationBuilderPage";
-import BotBuilderPage from "./pages/BotBuilderPage";
-import AutomationRunsPage from "./pages/AutomationRunsPage";
-import GooglePage from "./pages/GooglePage";
-import WhatsAppBroadcastPage from "./pages/WhatsAppBroadcastPage";
-import WhatsAppPage from "./pages/WhatsAppPage";
-import InstagramPage from "./pages/InstagramPage";
-import ProfilePage from "./pages/ProfilePage";
-import SecurityPage from "./pages/SecurityPage";
-import ContactsPage from "./pages/ContactsPage";
 import LandingPage from "./pages/LandingPage";
 import LandingPageEN from "./pages/LandingPageEN";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
+
+// Lazy: páginas internas — code-split por rota.
+const InboxPage = lazy(() => import("./pages/InboxPage"));
+const CRMPage = lazy(() => import("./pages/CRMPage"));
+const TasksPage = lazy(() => import("./pages/TasksPage"));
+const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
+const IntelligencePage = lazy(() => import("./pages/IntelligencePage"));
+const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
+const ImportPage = lazy(() => import("./pages/ImportPage"));
+const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
+const UsersPage = lazy(() => import("./pages/UsersPage"));
+const LeadProfilePage = lazy(() => import("./pages/LeadProfilePage"));
+const AutomationBuilderPage = lazy(() => import("./pages/AutomationBuilderPage"));
+const BotBuilderPage = lazy(() => import("./pages/BotBuilderPage"));
+const AutomationRunsPage = lazy(() => import("./pages/AutomationRunsPage"));
+const GooglePage = lazy(() => import("./pages/GooglePage"));
+const WhatsAppBroadcastPage = lazy(() => import("./pages/WhatsAppBroadcastPage"));
+const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
+const InstagramPage = lazy(() => import("./pages/InstagramPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const SecurityPage = lazy(() => import("./pages/SecurityPage"));
+const ContactsPage = lazy(() => import("./pages/ContactsPage"));
+const RagDocumentsPage = lazy(() => import("./pages/alexandria/RagDocuments"));
+const MetaAdsPage = lazy(() => import("./pages/MetaAdsPage"));
+const GoogleAdsPage = lazy(() => import("./pages/GoogleAdsPage"));
+const DatabaseBackupPage = lazy(() => import("./pages/DatabaseBackupPage"));
+
 // Privacy Policy / Terms / Data Deletion Status são servidos como HTML estático
 // pelo nginx (public/privacy-policy/index.html, etc.) — Meta crawler precisa
 // de HTML sem JS pra validar App Review.
-import RagDocumentsPage from "./pages/alexandria/RagDocuments";
 import { getTenantUrl } from "@/utils/tenant";
-import MetaAdsPage from "./pages/MetaAdsPage";
-import GoogleAdsPage from "./pages/GoogleAdsPage";
-import DatabaseBackupPage from "./pages/DatabaseBackupPage";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 import { useAutomationWorker } from "./hooks/useAutomationWorker";
+
+function RouteFallback() {
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-background">
+      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -113,6 +127,7 @@ function AppRoutes() {
             <Sonner />
             <AutomationWorkerRunner />
             <BrowserRouter>
+              <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
@@ -144,6 +159,7 @@ function AppRoutes() {
                 <Route path="/database" element={<ProtectedRoute><DatabaseBackupPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
               <PwaInstallPrompt />
             </BrowserRouter>
           </TooltipProvider>
