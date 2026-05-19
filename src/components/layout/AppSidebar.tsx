@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
-  BarChart3, Globe, Plug, Upload, Users, HelpCircle, LogOut, Handshake, Copy, Database,
-  Headphones, Bot, PlugZap, Settings, ChevronRight,
+  BarChart3, Plug, Upload, Users, HelpCircle, LogOut, Database,
+  Bot, Settings, ChevronRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -13,6 +13,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import upixelLight from "@/assets/upixel_light.png";
 import upixelDark from "@/assets/upixel_dark.png";
@@ -24,6 +25,8 @@ type NavLeaf = {
   url: string;
   icon: LucideIcon;
   masterOnly?: boolean;
+  /** Optional badge count (e.g. unread inbox). null/undefined = no badge. */
+  badge?: number | null;
 };
 
 type NavGroup = {
@@ -33,29 +36,29 @@ type NavGroup = {
   items: NavLeaf[];
 };
 
-// Top-level link (sem grupo)
-const dashboardLink: NavLeaf = { title: "Dashboard", url: "/", icon: LayoutDashboard };
+/**
+ * Sidebar architecture (v2 — UX redesign):
+ *
+ * Os 5 itens MAIS usados ficam como links diretos no topo (1 clique pra chegar).
+ * Os 3 grupos restantes (Marketing, IA & Automações, Configurações) ficam como
+ * submenus colapsáveis abaixo. Cmd+K (próxima etapa) cobre o resto.
+ *
+ * Comparação:
+ *   v1: 6 grupos + Dashboard = 17 itens visuais, 2 cliques pra qualquer canto
+ *   v2: 5 links diretos + 3 grupos = 8 itens visuais, 1 clique pros críticos
+ */
 
+// Links diretos — os 5 atalhos mais usados no dia-a-dia.
+const directLinks: NavLeaf[] = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Inbox", url: "/inbox", icon: MessageSquare },
+  { title: "Tarefas", url: "/tasks", icon: CheckSquare },
+  { title: "Pipeline", url: "/crm", icon: Kanban },
+  { title: "Integrações", url: "/integrations", icon: Plug },
+];
+
+// Grupos secundários — itens usados com menos frequência, agrupados por domínio.
 const navGroups: NavGroup[] = [
-  {
-    id: "atendimento",
-    title: "Atendimento",
-    icon: Headphones,
-    items: [
-      { title: "Inbox", url: "/inbox", icon: MessageSquare },
-      { title: "Tarefas", url: "/tasks", icon: CheckSquare },
-    ],
-  },
-  {
-    id: "crm",
-    title: "CRM",
-    icon: Kanban,
-    items: [
-      { title: "Pipeline", url: "/crm", icon: Kanban },
-      { title: "Contatos", url: "/contacts", icon: Handshake },
-      { title: "Duplicatas", url: "/duplicates", icon: Copy },
-    ],
-  },
   {
     id: "marketing",
     title: "Marketing",
@@ -68,21 +71,12 @@ const navGroups: NavGroup[] = [
   },
   {
     id: "ia",
-    title: "Automação & IA",
+    title: "Automações & IA",
     icon: Bot,
     items: [
       { title: "Automações", url: "/automations", icon: Zap },
       { title: "Inteligência", url: "/intelligence", icon: Brain },
       { title: "Biblioteca", url: "/alexandria/rag", icon: BookOpen },
-    ],
-  },
-  {
-    id: "conexoes",
-    title: "Conexões",
-    icon: PlugZap,
-    items: [
-      { title: "Integrações", url: "/integrations", icon: Plug },
-      { title: "Google", url: "/google", icon: Globe },
     ],
   },
   {
@@ -104,6 +98,18 @@ function isLeafActive(url: string, pathname: string): boolean {
 
 function groupContainsActive(group: NavGroup, pathname: string): boolean {
   return group.items.some((item) => isLeafActive(item.url, pathname));
+}
+
+function BadgeIndicator({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <Badge
+      variant="default"
+      className="ml-auto h-4 min-w-[16px] px-1 text-[9px] font-bold bg-primary text-primary-foreground"
+    >
+      {count > 99 ? "99+" : count}
+    </Badge>
+  );
 }
 
 export function AppSidebar() {
@@ -140,9 +146,36 @@ export function AppSidebar() {
   const logo = theme === "dark" ? upixelDark : upixelLight;
   const iconLogo = theme === "dark" ? upixelIconDark : upixelIconLight;
 
-  // Filtro de permissão aplicado em cada item dentro do grupo.
+  // Filtro de permissão aplicado em cada item.
   const canSeeItem = (item: NavLeaf) =>
     canAccessModule(item.url) && (!item.masterOnly || isMaster);
+
+  const renderDirectLink = (link: NavLeaf) => {
+    if (!canSeeItem(link)) return null;
+    const active = isLeafActive(link.url, location.pathname);
+    return (
+      <SidebarMenuItem key={link.url}>
+        <SidebarMenuButton asChild isActive={active} tooltip={link.title}>
+          <Link
+            to={link.url}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ${
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
+            }`}
+          >
+            <link.icon className="h-[18px] w-[18px] shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1">{link.title}</span>
+                {link.badge != null && link.badge > 0 && <BadgeIndicator count={link.badge} />}
+              </>
+            )}
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -159,26 +192,15 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {/* Dashboard — link solto no topo */}
-              {canSeeItem(dashboardLink) && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isLeafActive(dashboardLink.url, location.pathname)} tooltip={dashboardLink.title}>
-                    <Link
-                      to={dashboardLink.url}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ${
-                        isLeafActive(dashboardLink.url, location.pathname)
-                          ? "bg-primary text-primary-foreground"
-                          : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
-                      }`}
-                    >
-                      <dashboardLink.icon className="h-[18px] w-[18px] shrink-0" />
-                      {!collapsed && <span>{dashboardLink.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+              {/* Links diretos — top 5 atalhos */}
+              {directLinks.map(renderDirectLink)}
+
+              {/* Separador sutil entre links diretos e grupos */}
+              {!collapsed && (
+                <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
               )}
 
-              {/* Grupos expansíveis */}
+              {/* Grupos secundários */}
               {navGroups.map((group) => {
                 const visibleItems = group.items.filter(canSeeItem);
                 if (visibleItems.length === 0) return null;
