@@ -174,8 +174,9 @@ export function CommandPalette() {
       nav("nav:google", "Google Workspace", "/google", Globe, ["gmail", "calendar", "drive"]),
 
       // ── Settings / Admin ──
-      nav("nav:profile", "Meu Perfil", "/profile", User, ["account", "conta", "user"]),
-      nav("nav:security", "Segurança", "/security", Shield, ["password", "senha", "2fa"]),
+      nav("nav:settings", "Configurações", "/settings", Settings, ["settings", "config", "ajustes"]),
+      nav("nav:profile", "Meu Perfil", "/settings/profile", User, ["account", "conta", "user"]),
+      nav("nav:security", "Segurança", "/settings/security", Shield, ["password", "senha", "2fa"]),
       nav("nav:users", "Equipe e usuários", "/users", Users, ["team", "users", "equipe", "papeis"]),
       nav("nav:import", "Importação de leads", "/import", Upload, ["csv", "import", "planilha", "xlsx"]),
       ...(isMaster
