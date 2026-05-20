@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { extractEdgeError } from "@/lib/edge-error";
+import { resolveClientId } from "@/lib/tenant-utils";
 
 export interface LeadConversation {
   lead_id: string;
@@ -53,8 +54,8 @@ export function useInbox(onLeadCreated?: () => void) {
   const { user } = useAuth();
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-  // user.client_id is the correct tenant scope for conversations
-  const clientId = user?.client_id ?? tenant?.id;
+  // Tenant scope: prefer tenant.id (UUID válido); cai para user.client_id em master-view sem tenant
+  const clientId = resolveClientId(tenant?.id, user?.client_id);
 
   // Load conversations grouped by lead
   const loadConversations = useCallback(async () => {

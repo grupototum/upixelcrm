@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
-import { isValidUuid } from "@/lib/tenant-utils";
+import { isValidUuid, resolveClientId } from "@/lib/tenant-utils";
 
 export type TemplateCategory = "template" | "quick_reply";
 
@@ -25,7 +25,7 @@ export function useCannedResponses() {
 
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const clientId = user?.client_id ?? tenant?.id;
+  const clientId = resolveClientId(tenant?.id, user?.client_id);
 
   const fetchResponses = useCallback(async () => {
     if (!clientId || !isValidUuid(clientId)) {

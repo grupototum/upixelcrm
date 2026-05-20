@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { CustomFieldDefinition, CustomFieldType } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolveClientId } from "@/lib/tenant-utils";
 
 function slugify(text: string): string {
   return text
@@ -20,7 +21,7 @@ export function useCustomFields() {
 
   const { tenant } = useTenant();
   const { user } = useAuth();
-  const clientId = user?.client_id ?? tenant?.id;
+  const clientId = resolveClientId(tenant?.id, user?.client_id);
 
   const fetchDefinitions = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }

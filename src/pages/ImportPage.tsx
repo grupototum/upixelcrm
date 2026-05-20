@@ -20,6 +20,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import type { CustomFieldType } from "@/types";
 import { CSVPreview } from "@/components/import/CSVPreview";
+import { resolveClientId } from "@/lib/tenant-utils";
 
 const systemFields = [
   { key: "name", label: "Nome", required: true },
@@ -351,7 +352,7 @@ export default function ImportPage({
 
   const handleImport = async () => {
     if (!csvData || !column) return;
-    const clientId = user?.client_id ?? tenant?.id;
+    const clientId = resolveClientId(tenant?.id, user?.client_id);
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
     setImporting(true);

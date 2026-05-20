@@ -28,3 +28,29 @@ export function isValidUuid(value: string | null | undefined): value is string {
 export function tenantIdField(tenantId: string | null | undefined): Record<string, string> {
   return isValidUuid(tenantId) ? { tenant_id: tenantId } : {};
 }
+
+/**
+ * Resolve o client_id correto pra usar em queries e inserts.
+ *
+ * Prioriza `tenant.id` quando for UUID válido — esse é o tenant que o user
+ * está vendo no momento (em subdomain "totum.upixel.app" ou em impersonation
+ * de master via picker). Cai para `user.client_id` quando não tem tenant válido
+ * (típico em rotas pré-login ou em master view do subdomínio raiz).
+ *
+ * BUG histórico (anteriormente `user?.client_id ?? tenant?.id`): users master
+ * têm `user.client_id === user.id` (o próprio profile id), o que NÃO é um tenant.
+ * Esse fallback prematuro fazia o master criar registros com client_id apontando
+ * pro próprio profile — registros ficavam órfãos (invisíveis ao tenant correto).
+ *
+ * Use SEMPRE este helper em vez de `user?.client_id ?? tenant?.id`.
+ */
+export function resolveClientId(
+  tenantId: string | null | undefined,
+  userClientId: string | null | undefined,
+): string | null {
+  if (isValidUuid(tenantId)) return tenantId;
+  if (isValidUuid(userClientId)) return userClientId;
+  // Fallback para strings não-UUID legadas (ex: "demo1", "c1") — preserva
+  // compat com tenants antigos que ainda não foram migrados para UUID.
+  return userClientId ?? tenantId ?? null;
+}

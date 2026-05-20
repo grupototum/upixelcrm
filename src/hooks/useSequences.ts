@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
-import { isValidUuid } from "@/lib/tenant-utils";
+import { isValidUuid, resolveClientId } from "@/lib/tenant-utils";
 
 export type SequenceChannel = "whatsapp" | "email";
 export type SequenceStepType = "text" | "audio" | "file";
@@ -42,7 +42,7 @@ export function useSequences() {
 
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const clientId = user?.client_id ?? tenant?.id;
+  const clientId = resolveClientId(tenant?.id, user?.client_id);
 
   const fetchSequences = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }
