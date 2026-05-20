@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
-import { Plus, Search, X, ChevronDown, LayoutGrid } from "lucide-react";
+import { Plus, Search, X, ChevronDown, LayoutGrid, Upload } from "lucide-react";
+import { ImportLeadsDialog } from "@/components/import/ImportLeadsDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -80,6 +81,9 @@ export default function CRMPage() {
   const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
   const [editingPipelineId, setEditingPipelineId] = useState<string | null>(null);
   const [editingPipelineName, setEditingPipelineName] = useState("");
+  // Importação contextualizada — quando aberta sem columnId, o usuário escolhe.
+  // Quando aberta com columnId (via menu da coluna), o destino fica travado.
+  const [importDialog, setImportDialog] = useState<{ open: boolean; columnId?: string }>({ open: false });
 
   const currentPipeline = useMemo(() =>
     pipelines.find(p => p.id === currentPipelineId) || pipelines[0]
@@ -368,9 +372,41 @@ export default function CRMPage() {
             hiddenColumnIds={hiddenColumnIds}
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
-          <Button size="sm" className="text-xs gap-1.5 h-8 rounded-lg bg-primary hover:bg-[#e04400] text-primary-foreground" onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}>
-            <Plus className="h-3.5 w-3.5" /> Novo Lead
-          </Button>
+          {/* Split button: criar lead manual OU importar lista */}
+          <div className="flex items-center">
+            <Button
+              size="sm"
+              className="text-xs gap-1.5 h-8 rounded-l-lg rounded-r-none bg-primary hover:bg-[#e04400] text-primary-foreground border-r border-primary-foreground/20"
+              onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}
+            >
+              <Plus className="h-3.5 w-3.5" /> Novo Lead
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className="text-xs h-8 rounded-l-none rounded-r-lg bg-primary hover:bg-[#e04400] text-primary-foreground px-1.5"
+                  aria-label="Mais opções de criação"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  className="text-xs gap-2"
+                  onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}
+                >
+                  <Plus className="h-3 w-3" /> Criar lead manualmente
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-xs gap-2"
+                  onClick={() => setImportDialog({ open: true })}
+                >
+                  <Upload className="h-3 w-3" /> Importar lista (CSV/Excel)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       }
     >
@@ -400,6 +436,7 @@ export default function CRMPage() {
                     setConfigColumnTab(tab || "general");
                   }}
                   onMoveLead={moveLead}
+                  onImportLeads={(colId) => setImportDialog({ open: true, columnId: colId })}
                 />
               );
             })}
@@ -549,6 +586,25 @@ export default function CRMPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de importação — usado pelo "Novo Lead" (importar lista) e pelo
+          menu de 3 pontinhos da coluna. Quando columnId está presente, o destino
+          fica travado (não pode trocar). */}
+      <ImportLeadsDialog
+        open={importDialog.open}
+        onOpenChange={(open) => setImportDialog((prev) => ({ ...prev, open }))}
+        pipelineId={pipelineId}
+        columnId={importDialog.columnId}
+        lockTarget={!!importDialog.columnId}
+        title={importDialog.columnId
+          ? `Importar leads para "${columns.find(c => c.id === importDialog.columnId)?.name ?? "coluna"}"`
+          : "Importar leads"
+        }
+        subtitle={importDialog.columnId
+          ? "Os leads importados vão direto para essa etapa específica."
+          : "Selecione o pipeline e a etapa de destino no próximo passo."
+        }
+      />
     </AppLayout>
   );
 }
