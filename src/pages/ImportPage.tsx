@@ -40,6 +40,8 @@ interface CsvData {
 interface ImportResult {
   inserted: number;
   skipped: number;
+  skippedNoName: number;
+  skippedDuplicate: number;
   errors: number;
 }
 
@@ -369,9 +371,24 @@ export default function ImportPage({
 
     const activeDefs = (freshDefs as any[] | null) ?? customFieldDefs;
 
+    // Normaliza telefone BR para comparação: tira não-dígitos, remove código do país (55)
+    // se presente, remove dígito 9 prefixo do celular se houver — garante que números no
+    // formato "+55 11 9 8765-4321" e "11 8765-4321" (formato antigo) ainda colidam.
+    // Retorna DDD + número (10 dígitos), evitando colisões entre DDDs diferentes
+    // que o slice(-8) anterior gerava (bug: 1187654321 e 3187654321 viravam o mesmo).
+    const normalizePhoneBR = (raw: string): string => {
+      let digits = raw.replace(/\D/g, "");
+      if (digits.length === 13 && digits.startsWith("55")) digits = digits.slice(2);
+      if (digits.length === 12 && digits.startsWith("55")) digits = digits.slice(2);
+      if (digits.length === 11 && digits[2] === "9") {
+        digits = digits.slice(0, 2) + digits.slice(3);
+      }
+      return digits.slice(-10);
+    };
+
     // Busca todos os telefones existentes direto do banco (paginado, evita usar
     // o estado local que pode estar incompleto quando há mais de 1000 leads).
-    const existingPhoneSuffixes = new Set<string>();
+    const existingPhoneKeys = new Set<string>();
     try {
       const PAGE = 1000;
       for (let page = 0; page < 60; page++) {
@@ -388,7 +405,7 @@ export default function ImportPage({
         if (!data || data.length === 0) break;
         for (const r of data) {
           const ph = (r as any).phone as string | null;
-          if (ph) existingPhoneSuffixes.add(ph.replace(/\D/g, "").slice(-8));
+          if (ph) existingPhoneKeys.add(normalizePhoneBR(ph));
         }
         if (data.length < PAGE) break;
       }
@@ -396,7 +413,7 @@ export default function ImportPage({
       console.warn("Falha ao carregar telefones existentes para dedup:", err);
       // Fallback: usa só o que está em estado local
       leads.filter((l) => l.phone).forEach((l) =>
-        existingPhoneSuffixes.add(l.phone!.replace(/\D/g, "").slice(-8))
+        existingPhoneKeys.add(normalizePhoneBR(l.phone!))
       );
     }
 
@@ -408,17 +425,18 @@ export default function ImportPage({
     };
 
     const leadsToInsert: Record<string, any>[] = [];
-    let skipped = 0;
+    let skippedNoName = 0;
+    let skippedDuplicate = 0;
 
     for (const row of csvData.rows) {
       const name = getValue(row, "name");
-      if (!name) { skipped++; continue; }
+      if (!name) { skippedNoName++; continue; }
 
       const phone = getValue(row, "phone");
       if (phone) {
-        const suffix = phone.replace(/\D/g, "").slice(-8);
-        if (existingPhoneSuffixes.has(suffix)) { skipped++; continue; }
-        existingPhoneSuffixes.add(suffix);
+        const key = normalizePhoneBR(phone);
+        if (existingPhoneKeys.has(key)) { skippedDuplicate++; continue; }
+        existingPhoneKeys.add(key);
       }
 
       const tagsRaw = getValue(row, "tags");
@@ -470,7 +488,9 @@ export default function ImportPage({
 
       setImportResult({
         inserted: inserted,
-        skipped,
+        skipped: skippedNoName + skippedDuplicate,
+        skippedNoName,
+        skippedDuplicate,
         errors,
       });
 
@@ -515,7 +535,8 @@ export default function ImportPage({
 
     if (inserted > 0) await refreshData();
 
-    setImportResult({ inserted, skipped, errors });
+    const skipped = skippedNoName + skippedDuplicate;
+    setImportResult({ inserted, skipped, skippedNoName, skippedDuplicate, errors });
 
     // Exibe feedback detalhado
     if (errors > 0) {
@@ -825,10 +846,24 @@ export default function ImportPage({
             </div>
 
             {importResult.skipped > 0 && (
-              <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                <SkipForward className="h-3.5 w-3.5" />
-                {importResult.skipped} lead(s) ignorado(s) por duplicata de telefone ou nome ausente.
-              </p>
+              <div className="text-xs text-muted-foreground flex flex-col items-center gap-1">
+                <p className="flex items-center gap-1">
+                  <SkipForward className="h-3.5 w-3.5" />
+                  {importResult.skipped} lead(s) ignorado(s):
+                </p>
+                <ul className="list-disc pl-5 text-left">
+                  {importResult.skippedDuplicate > 0 && (
+                    <li>
+                      <strong>{importResult.skippedDuplicate}</strong> com telefone já existente na base
+                    </li>
+                  )}
+                  {importResult.skippedNoName > 0 && (
+                    <li>
+                      <strong>{importResult.skippedNoName}</strong> sem nome (campo "Nome" não mapeado ou vazio na planilha)
+                    </li>
+                  )}
+                </ul>
+              </div>
             )}
 
             <div className="flex justify-center gap-3 pt-2">
