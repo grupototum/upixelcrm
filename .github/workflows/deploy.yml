@@ -72,7 +72,7 @@ jobs:
           echo "$VPS_SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
           SSH="ssh -i /tmp/deploy_key \
-            -p ${VPS_SSH_PORT:-2222} \
+            -p ${VPS_SSH_PORT:-22} \
             -o StrictHostKeyChecking=no \
             -o ConnectTimeout=90 \
             -o ServerAliveInterval=15 \

@@ -57,10 +57,44 @@ echo "      OK ($(du -sh "$DIST_PRIMARY" | cut -f1))"
 # Usa rsync em vez de mv para preservar o inode do diretório.
 # O nginx-totum monta exatamente /var/www/upixelcrm/dist — trocar o inode via mv
 # faz o container apontar para o diretório antigo (vazio), quebrando o site.
+#
+# CRÍTICO: rsync falhando silenciosamente quebra o site (index.html novo,
+# assets antigos). Aqui rodamos sem `set -e`-bypass para que um erro
+# (permission denied, espaço em disco, etc) ABORTE o deploy explicitamente.
+# Se este passo falhar, fazemos rollback automático do index.html via inputs
+# do extract dir e retornamos exit code não-zero — o GitHub Actions vai
+# marcar o deploy como failed em vez de "verde com bug em produção".
 echo ""
 echo "[3/5] Atualizando dist fallback ($DIST_FALLBACK)..."
 mkdir -p "$DIST_FALLBACK"
-rsync -a --delete "$EXTRACT_DIR/dist/" "$DIST_FALLBACK/"
+
+# Pre-flight: confirma que conseguimos escrever em assets/ antes de rodar rsync.
+# Se assets/ existe e é de outro user (ex: root), rsync falha. Detectar cedo.
+if [ -d "$DIST_FALLBACK/assets" ] && [ ! -w "$DIST_FALLBACK/assets" ]; then
+  CURRENT_OWNER=$(stat -c '%U:%G' "$DIST_FALLBACK/assets" 2>/dev/null || echo "desconhecido")
+  echo "      ❌ ERRO: $DIST_FALLBACK/assets/ não é gravável pelo usuário atual."
+  echo "         Owner atual: $CURRENT_OWNER. Usuário: $(whoami)."
+  echo "         Rode UMA VEZ na VPS:"
+  echo "           sudo chown -R $(whoami):$(whoami) $DIST_FALLBACK"
+  echo "           sudo chmod -R u+w $DIST_FALLBACK"
+  echo "         Sem isso, o rsync falharia silenciosamente e o site iria pra"
+  echo "         tela branca (index.html novo apontando para JS que não existem)."
+  exit 1
+fi
+
+# Bloco do rsync com captura de exit code — sem deixar passar batido.
+if ! rsync -a --delete "$EXTRACT_DIR/dist/" "$DIST_FALLBACK/"; then
+  RSYNC_EXIT=$?
+  echo "      ❌ ERRO: rsync exit code $RSYNC_EXIT. Atomic rollback do index.html..."
+  # Se o index.html novo já foi escrito mas os assets falharam, o site
+  # quebra. Tentamos manter o index.html ANTIGO pra preservar o site.
+  if [ -f "$DIST_FALLBACK/index.html.previous" ]; then
+    mv "$DIST_FALLBACK/index.html.previous" "$DIST_FALLBACK/index.html"
+    echo "         index.html revertido para versão anterior."
+  fi
+  exit "$RSYNC_EXIT"
+fi
+
 find "$DIST_FALLBACK" -type d -exec chmod 755 {} + 2>/dev/null
 find "$DIST_FALLBACK" -type f -exec chmod 644 {} + 2>/dev/null
 echo "      OK ($(du -sh "$DIST_FALLBACK" | cut -f1))"
