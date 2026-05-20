@@ -1,7 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
+import { toast } from "sonner";
+
+// Após 30 min sem qualquer interação (mousemove/keydown/click/touch/scroll),
+// força logout — protege sessões esquecidas em máquinas compartilhadas.
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 export interface AuthOrganization {
   id: string;
@@ -74,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { tenant, organization: currentOrg } = useTenant();
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blockListenerRef = useRef<{ unsubscribe?: () => void } | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -107,6 +114,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── Idle timeout — força logout após 30 min sem atividade. ────────────────
+  // Resetado por qualquer interação (mouse/keyboard/touch/scroll). Quando o
+  // user é null, o handler não faz nada (não precisa armar timer).
+  useEffect(() => {
+    if (!user) return;
+
+    const armTimer = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(async () => {
+        toast.warning("Sua sessão expirou por inatividade. Faça login novamente.", { duration: 8000 });
+        await supabase.auth.signOut();
+        setUser(null);
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const events: Array<keyof WindowEventMap> = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
+    let throttled = false;
+    const onActivity = () => {
+      if (throttled) return;
+      throttled = true;
+      armTimer();
+      setTimeout(() => { throttled = false; }, 1000);
+    };
+
+    events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
+    armTimer();
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, onActivity));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [user]);
+
+  // ── Realtime block listener — admin bloquia user → logout imediato. ───────
+  // Sem isso, user bloqueado permanece logado até troca de aba ou refresh.
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`auth-block-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        (payload) => {
+          const next = payload.new as { is_blocked?: boolean; approval_status?: string };
+          if (next.is_blocked || next.approval_status === "rejected") {
+            toast.error("Acesso revogado pelo administrador.", { duration: 8000 });
+            void supabase.auth.signOut().then(() => setUser(null));
+          }
+        },
+      )
+      .subscribe();
+
+    blockListenerRef.current = channel;
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const login = async (
     email: string,
