@@ -1,0 +1,15 @@
+# Proxy reverso para Supabase Edge Functions.
+# Mantém a URL "bonita" upixel.app/functions/v1/* — necessário pra:
+#   - Meta Data Deletion Callback (registrado como upixel.app/functions/v1/...)
+#   - Webhooks Meta/Instagram/WhatsApp Cloud que usam o subdomínio próprio
+# Status 200 = transparent proxy (headers e body passam direto).
+/functions/v1/*  https://xusdhzwfkzufupjwbebt.supabase.co/functions/v1/:splat  200
+
+# Páginas legais — HTML estático, servidos diretos sem fallback SPA
+/privacy-policy            /privacy-policy/index.html              200
+/privacy-policy/*          /privacy-policy/:splat                  200
+/data-deletion-status      /data-deletion-status/index.html        200
+/data-deletion-status/*    /data-deletion-status/:splat            200
+
+# SPA fallback — toda rota não-arquivo serve index.html
+/*    /index.html   200
