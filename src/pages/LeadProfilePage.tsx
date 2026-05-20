@@ -189,6 +189,7 @@ export default function LeadProfilePage() {
     <AppLayout
       title=""
       subtitle=""
+      breadcrumbLabel={lead.name}
       actions={
         <div className="flex items-center gap-2">
           <Button 
