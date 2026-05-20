@@ -593,7 +593,7 @@ export default function CRMPage() {
       <ImportLeadsDialog
         open={importDialog.open}
         onOpenChange={(open) => setImportDialog((prev) => ({ ...prev, open }))}
-        pipelineId={pipelineId}
+        pipelineId={currentPipelineId}
         columnId={importDialog.columnId}
         lockTarget={!!importDialog.columnId}
         title={importDialog.columnId
