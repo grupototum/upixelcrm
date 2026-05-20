@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { MoreHorizontal, Settings, ArrowRight, Download, Zap, Plus } from "lucide-react";
+import { MoreHorizontal, Settings, ArrowRight, Download, Upload, Zap, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -26,9 +26,11 @@ interface KanbanColumnProps {
   onAddLead: (columnId: string) => void;
   onConfigColumn: (column: PipelineColumn, tab?: string) => void;
   onMoveLead?: (leadId: string, toColumnId: string) => void;
+  /** Abrir importação contextualizada nesta coluna (CSV/Excel direto pra cá). */
+  onImportLeads?: (columnId: string) => void;
 }
 
-export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead }: KanbanColumnProps) {
+export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id, data: { type: "column" } });
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
@@ -114,6 +116,11 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
             <DropdownMenuItem className="text-xs gap-2" onClick={() => setTransferOpen(true)}>
               <ArrowRight className="h-3 w-3" /> Transferir leads
             </DropdownMenuItem>
+            {onImportLeads && (
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => onImportLeads(column.id)}>
+                <Upload className="h-3 w-3" /> Importar para esta etapa
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="text-xs gap-2" onClick={handleExportCSV}>
               <Download className="h-3 w-3" /> Exportar CSV
             </DropdownMenuItem>

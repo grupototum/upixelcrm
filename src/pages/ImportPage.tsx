@@ -89,7 +89,26 @@ function parseCSV(text: string): CsvData {
   return { headers, rows };
 }
 
-export default function ImportPage() {
+interface ImportPageProps {
+  /** Quando true, não renderiza o AppLayout (modo embedded — usado dentro de modal/Dialog). */
+  embedded?: boolean;
+  /** Pré-seleciona o pipeline alvo. */
+  initialPipelineId?: string;
+  /** Pré-seleciona a coluna alvo. Se combinado com initialPipelineId, pula a tela de seleção. */
+  initialColumnId?: string;
+  /** Quando true + ambos initials acima, desabilita os selectors (usuário não pode trocar). */
+  lockTarget?: boolean;
+  /** Callback invocado após a importação terminar com sucesso (qualquer leads inserted > 0). */
+  onComplete?: (result: ImportResult) => void;
+}
+
+export default function ImportPage({
+  embedded = false,
+  initialPipelineId,
+  initialColumnId,
+  lockTarget = false,
+  onComplete,
+}: ImportPageProps = {}) {
   const { pipelines, columns, leads, refreshData } = useAppState();
   const { user } = useAuth();
   const { tenant } = useTenant();
@@ -98,8 +117,8 @@ export default function ImportPage() {
   const [step, setStep] = useState(1);
   const [csvData, setCsvData] = useState<CsvData | null>(null);
   const [fileName, setFileName] = useState("");
-  const [pipelineId, setPipelineId] = useState("");
-  const [column, setColumn] = useState("");
+  const [pipelineId, setPipelineId] = useState(initialPipelineId ?? "");
+  const [column, setColumn] = useState(initialColumnId ?? "");
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [dragOver, setDragOver] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -153,9 +172,12 @@ export default function ImportPage() {
       const firstCol = columns.filter((c) => c.pipeline_id === firstPipeline.id).sort((a, b) => a.order - b.order)[0];
       if (firstCol) setColumn(firstCol.id);
     }
-    setStep(2);
+    // Quando o alvo (pipeline + coluna) já veio pré-definido, pula a tela 2 e vai
+    // direto pro mapeamento — o usuário já decidiu onde os leads vão.
+    const hasPreselectedTarget = !!(initialPipelineId && initialColumnId);
+    setStep(hasPreselectedTarget ? 3 : 2);
     toast.success(`${parsed.rows.length} registros carregados de "${file.name}".`);
-  }, [availablePipelines, columns, pipelineId]);
+  }, [availablePipelines, columns, pipelineId, initialPipelineId, initialColumnId]);
 
   const readFile = useCallback((file: File) => {
     const name = file.name.toLowerCase();
@@ -505,15 +527,18 @@ export default function ImportPage() {
 
     setImporting(false);
     setStep(4);
+
+    if (inserted > 0 && onComplete) {
+      onComplete({ inserted, skipped, errors });
+    }
   };
 
   const stepLabels = ["Upload", "Pipeline", "Mapeamento", "Confirmar"];
   const selectedPipeline = pipelines.find((p) => p.id === pipelineId);
   const selectedColumn = columns.find((c) => c.id === column);
 
-  return (
-    <AppLayout title="Importação de Leads" subtitle="Importe sua base de contatos via CSV ou Excel">
-      <div className="p-6 animate-fade-in max-w-3xl mx-auto">
+  const body = (
+      <div className={`animate-fade-in ${embedded ? "max-w-3xl mx-auto" : "p-6 max-w-3xl mx-auto"}`}>
         {/* Stepper */}
         <div className="flex items-center gap-1 mb-8">
           {stepLabels.map((s, i) => (
@@ -572,7 +597,11 @@ export default function ImportPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Pipeline</Label>
-                <Select value={pipelineId} onValueChange={handlePipelineChange}>
+                <Select
+                  value={pipelineId}
+                  onValueChange={handlePipelineChange}
+                  disabled={lockTarget}
+                >
                   <SelectTrigger><SelectValue placeholder="Selecione o pipeline" /></SelectTrigger>
                   <SelectContent>
                     {availablePipelines.map((p) => (
@@ -583,7 +612,11 @@ export default function ImportPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Etapa Inicial</Label>
-                <Select value={column} onValueChange={setColumn} disabled={!pipelineId}>
+                <Select
+                  value={column}
+                  onValueChange={setColumn}
+                  disabled={!pipelineId || lockTarget}
+                >
                   <SelectTrigger><SelectValue placeholder="Selecione a etapa" /></SelectTrigger>
                   <SelectContent>
                     {pipelineColumns
@@ -595,6 +628,11 @@ export default function ImportPage() {
                 </Select>
               </div>
             </div>
+            {lockTarget && (
+              <p className="text-[10px] text-muted-foreground italic">
+                Pipeline e etapa pré-definidos pelo contexto. Para mudar, abra a importação pelo menu principal.
+              </p>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" size="sm" className="text-xs" onClick={clearFile}>Voltar</Button>
@@ -892,6 +930,12 @@ export default function ImportPage() {
           </DialogContent>
         </Dialog>
       </div>
+  );
+
+  if (embedded) return body;
+  return (
+    <AppLayout title="Importação de Leads" subtitle="Importe sua base de contatos via CSV ou Excel">
+      <div className="p-6">{body}</div>
     </AppLayout>
   );
 }
