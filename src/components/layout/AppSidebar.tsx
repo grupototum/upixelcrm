@@ -53,7 +53,7 @@ const directLinks: NavLeaf[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
-  { title: "Pipeline", url: "/crm", icon: Kanban },
+  { title: "Funil de Vendas", url: "/crm", icon: Kanban },
   { title: "Integrações", url: "/integrations", icon: Plug },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];

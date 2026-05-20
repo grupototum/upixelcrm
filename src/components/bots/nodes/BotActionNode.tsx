@@ -3,7 +3,7 @@ import { Tag, ArrowRightLeft, UserCheck, XCircle } from 'lucide-react';
 
 const actionMeta: Record<string, { label: string; Icon: React.FC<{ className?: string }>; color: string }> = {
   tag:          { label: 'Adicionar Tag',     Icon: Tag,           color: '#10b981' },
-  move_stage:   { label: 'Mover no Pipeline', Icon: ArrowRightLeft, color: '#8b5cf6' },
+  move_stage:   { label: 'Mover no Funil', Icon: ArrowRightLeft, color: '#8b5cf6' },
   assign_agent: { label: 'Atribuir Agente',   Icon: UserCheck,     color: '#3b82f6' },
   end:          { label: 'Encerrar Bot',      Icon: XCircle,       color: '#64748b' },
 };
