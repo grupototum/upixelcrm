@@ -30,18 +30,31 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: (id) => {
           if (!id.includes("node_modules")) return undefined;
-          if (id.includes("react-dom") || id.includes("scheduler") || /node_modules\/react\//.test(id)) return "vendor-react";
-          if (id.includes("react-router") || id.includes("@remix-run/router")) return "vendor-router";
-          if (id.includes("@supabase")) return "vendor-supabase";
-          if (id.includes("@tanstack/react-query")) return "vendor-query";
-          if (id.includes("@radix-ui")) return "vendor-radix";
+
+          // Heavy + lazy-loadable libraries — code-split aggressively.
+          // These are only used by specific routes (Reports, Automations, Import)
+          // and don't share React-using surface with the rest of the bundle.
           if (id.includes("recharts") || id.includes("d3-")) return "vendor-charts";
           if (id.includes("reactflow") || id.includes("@reactflow")) return "vendor-reactflow";
-          if (id.includes("lucide-react")) return "vendor-icons";
-          if (id.includes("date-fns") || id.includes("react-day-picker")) return "vendor-dates";
-          if (id.includes("react-hook-form") || id.includes("zod") || id.includes("@hookform")) return "vendor-forms";
-          if (id.includes("@dnd-kit")) return "vendor-dnd";
           if (id.includes("@e965/xlsx") || /\/xlsx[/-]/.test(id)) return "vendor-xlsx";
+
+          // Standalone helpers (no React dep, no transitive React).
+          if (id.includes("@supabase")) return "vendor-supabase";
+
+          // EVERYTHING ELSE — React + ecosystem — goes into a SINGLE chunk.
+          //
+          // Why not split Radix/router/forms/icons from React: when Rollup
+          // splits chunks that depend on React's namespace import
+          // (`import * as React from "react"`), the resulting ES modules can
+          // load in an order where Radix tries to call `React.forwardRef`
+          // before React's module body has finished evaluating. Browsers
+          // observed: "Cannot read properties of undefined (reading
+          // 'forwardRef')" inside vendor-radix at startup.
+          //
+          // Keeping React + Radix + Router + Forms + Icons + Dates + DnD +
+          // Query in one chunk avoids the cross-chunk import race entirely.
+          // Caching cost is real but small — these libs only change when we
+          // bump deps, and they ship together anyway.
           return "vendor";
         },
       },
