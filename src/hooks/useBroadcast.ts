@@ -100,8 +100,8 @@ export function useBroadcast() {
         .select("config")
         .eq("provider", "client_credits")
         .eq("client_id", profile.client_id)
-        .single();
-      if (error && error.code !== "PGRST116") { logger.error("Error fetching credits:", error); return 0; }
+        .maybeSingle();
+      if (error) { logger.error("Error fetching credits:", error); return 0; }
       return (data?.config as any)?.balance || 0;
     },
   });

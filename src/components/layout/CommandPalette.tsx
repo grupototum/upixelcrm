@@ -150,7 +150,7 @@ export function CommandPalette() {
       nav("nav:dashboard", "Dashboard", "/", LayoutDashboard, ["home", "início", "inicio"]),
       nav("nav:inbox", "Inbox", "/inbox", MessageSquare, ["mensagens", "chat", "conversas"]),
       nav("nav:tasks", "Tarefas", "/tasks", CheckSquare, ["task", "todo"]),
-      nav("nav:crm", "Pipeline (Kanban)", "/crm", Kanban, ["funil", "kanban", "crm"]),
+      nav("nav:crm", "Funil de Vendas", "/crm", Kanban, ["funil", "kanban", "crm", "pipeline"]),
       nav("nav:contacts", "Contatos", "/contacts", Handshake, ["leads", "contatos", "address"]),
       nav("nav:duplicates", "Detecção de duplicatas", "/duplicates", Copy, ["duplicates", "dedup"]),
 

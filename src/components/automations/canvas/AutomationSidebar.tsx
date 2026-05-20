@@ -133,7 +133,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="add_tag">Adicionar Tag</SelectItem>
-                <SelectItem value="change_status">Mudar Estágio de Pipeline</SelectItem>
+                <SelectItem value="change_status">Mudar Estágio de Funil</SelectItem>
                 <SelectItem value="assign_user">Transferir Atendente</SelectItem>
                 <SelectItem value="leave_note">Adicionar Nota</SelectItem>
               </SelectContent>

@@ -210,7 +210,7 @@ function ConfigPanel({ nodeId, onDelete }: { nodeId: string | null; onDelete: ()
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="tag" className="text-xs">Adicionar Tag</SelectItem>
-                  <SelectItem value="move_stage" className="text-xs">Mover no Pipeline</SelectItem>
+                  <SelectItem value="move_stage" className="text-xs">Mover no Funil</SelectItem>
                   <SelectItem value="assign_agent" className="text-xs">Atribuir Agente</SelectItem>
                   <SelectItem value="end" className="text-xs">Encerrar Bot</SelectItem>
                 </SelectContent>

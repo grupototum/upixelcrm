@@ -57,19 +57,27 @@ export function useMetaAds() {
   });
 
   // ── Cached campaigns from DB ───────────────────────────────────
+  // ad_campaigns ainda não existe em prod — query falha com 404 e retorna [].
+  // Quando a tabela for criada, o cache começa a popular automaticamente.
   const { data: campaigns = [], refetch: refetchCampaigns, isLoading: loadingCampaigns } = useQuery({
     queryKey: ["ad-campaigns-meta", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      const { data } = await (supabase.from("ad_campaigns") as any)
-        .select("*")
-        .eq("client_id", clientId)
-        .eq("platform", "meta")
-        .order("spend", { ascending: false });
-      return (data ?? []) as AdCampaign[];
+      try {
+        const { data, error } = await (supabase.from("ad_campaigns") as any)
+          .select("*")
+          .eq("client_id", clientId)
+          .eq("platform", "meta")
+          .order("spend", { ascending: false });
+        if (error) return [];
+        return (data ?? []) as AdCampaign[];
+      } catch {
+        return [];
+      }
     },
     enabled: !!clientId,
     staleTime: 5 * 60_000,
+    retry: false,
   });
 
   // ── Connect (save credentials) ────────────────────────────────
