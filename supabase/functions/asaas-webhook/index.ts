@@ -2,9 +2,34 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
+// Token pré-compartilhado configurado em Asaas → Configurações → Webhooks.
+// Asaas envia esse valor no header `asaas-access-token` em todos os POST.
+// Sem isso, qualquer um pode forjar evento PAYMENT_RECEIVED e creditar conta.
+const ASAAS_WEBHOOK_TOKEN = Deno.env.get("ASAAS_WEBHOOK_TOKEN") ?? "";
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // ── Validação do token Asaas ──────────────────────────────────────────────
+  // Se o secret não está configurado, recusa TODOS os requests pra evitar
+  // aceitar webhooks sem proteção.
+  if (!ASAAS_WEBHOOK_TOKEN) {
+    console.error("[asaas-webhook] ASAAS_WEBHOOK_TOKEN not set — refusing");
+    return new Response("Forbidden", { status: 403, headers: corsHeaders });
+  }
+  const receivedToken = req.headers.get("asaas-access-token") ?? "";
+  if (!timingSafeEqual(receivedToken, ASAAS_WEBHOOK_TOKEN)) {
+    console.warn("[asaas-webhook] Invalid asaas-access-token");
+    return new Response("Forbidden", { status: 403, headers: corsHeaders });
   }
 
   try {

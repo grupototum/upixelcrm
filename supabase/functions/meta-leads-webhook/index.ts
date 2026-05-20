@@ -13,11 +13,36 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const META_API = "https://graph.facebook.com/v20.0";
+const META_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
+
+// Valida X-Hub-Signature-256: HMAC-SHA256(app_secret, raw_body) em hex.
+// Meta envia em todos POST. Sem isso, qualquer um que conheça a URL pode
+// criar leads falsos atribuídos a qualquer tenant (vazamento + spam).
+async function verifyMetaSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
+  if (!META_APP_SECRET || !signatureHeader?.startsWith("sha256=")) return false;
+  const expected = signatureHeader.slice("sha256=".length);
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(META_APP_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
+  const computed = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
 
 Deno.serve(async (req) => {
   // Meta verification handshake (GET)
@@ -50,8 +75,16 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
+  // ── Validar HMAC X-Hub-Signature-256 ANTES de processar ──
+  const rawBody = await req.text();
+  const sigOk = await verifyMetaSignature(rawBody, req.headers.get("x-hub-signature-256"));
+  if (!sigOk) {
+    console.warn("[meta-leads-webhook] Invalid X-Hub-Signature-256 — rejecting");
+    return new Response("Forbidden", { status: 403, headers: corsHeaders });
+  }
+
   try {
-    const body = await req.json();
+    const body = JSON.parse(rawBody);
 
     // Meta sends an array of entry objects
     for (const entry of body.entry ?? []) {

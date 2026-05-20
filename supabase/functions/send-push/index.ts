@@ -70,6 +70,44 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ── Autenticação obrigatória: caller deve ser um user válido. ─────────────
+  // Sem isso, qualquer um com a URL pode enviar push pra qualquer user/client.
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const userClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: { user: authUser }, error: authErr } = await userClient.auth.getUser();
+  if (authErr || !authUser) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Profile do caller — define em qual tenant ele pode disparar push.
+  const { data: callerProfile } = await userClient
+    .from("profiles")
+    .select("client_id, role")
+    .eq("id", authUser.id)
+    .single();
+  if (!callerProfile) {
+    return new Response(JSON.stringify({ error: "Profile not found" }), {
+      status: 404,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const callerClientId = callerProfile.client_id;
+  const isMaster = callerProfile.role === "master";
+
   try {
     const body = await req.json() as PushPayload;
     const { title, body: msgBody, target_user_id, target_client_id, ...rest } = body;
@@ -77,6 +115,16 @@ Deno.serve(async (req) => {
     if (!title || !msgBody) {
       return new Response(JSON.stringify({ error: "title and body are required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Ownership check ──
+    // Caller só pode mandar push pra users/client do mesmo tenant.
+    // Master é exceção (pode mandar pra qualquer tenant — usado pra admin alerts).
+    if (target_client_id && target_client_id !== callerClientId && !isMaster) {
+      return new Response(JSON.stringify({ error: "Forbidden: target_client_id does not match caller tenant" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -90,6 +138,18 @@ Deno.serve(async (req) => {
     let query = adminClient.from("push_subscriptions").select("*");
 
     if (target_user_id) {
+      // Quando alvo é user específico, valida que ele pertence ao mesmo client_id.
+      const { data: target } = await adminClient
+        .from("profiles")
+        .select("client_id")
+        .eq("id", target_user_id)
+        .single();
+      if (target && target.client_id !== callerClientId && !isMaster) {
+        return new Response(JSON.stringify({ error: "Forbidden: target user not in caller tenant" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       query = query.eq("user_id", target_user_id);
     } else if (target_client_id) {
       query = query.eq("client_id", target_client_id);
