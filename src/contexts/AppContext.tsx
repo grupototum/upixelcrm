@@ -47,6 +47,7 @@ interface AppState {
   addColumn: (name: string, color: string) => Promise<void>;
   updateColumn: (id: string, data: Partial<PipelineColumn>) => Promise<void>;
   deleteColumn: (id: string) => Promise<void>;
+  reorderColumns: (orderedIds: string[]) => Promise<void>;
 
   addTimelineEvent: (event: Omit<TimelineEvent, "id" | "created_at">) => Promise<void>;
 
@@ -581,6 +582,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Coluna removida");
   }, []);
 
+  /**
+   * Reordena colunas do funil ativo. Recebe lista de IDs na nova ordem.
+   * Atomic: faz N updates sequenciais (N = ~5 colunas). Otimista no estado local
+   * primeiro; em caso de erro, recarrega do banco pra restaurar consistência.
+   */
+  const reorderColumns = useCallback(async (orderedIds: string[]) => {
+    // Optimistic: aplica ordem nova no estado local imediatamente
+    const newOrder = new Map(orderedIds.map((id, idx) => [id, idx]));
+    setColumns((prev) =>
+      prev.map((c) => newOrder.has(c.id) ? { ...c, order: newOrder.get(c.id)! } : c)
+    );
+
+    // Persiste: 1 UPDATE por coluna. Pra >20 colunas considerar batch RPC.
+    const updates = orderedIds.map((id, idx) =>
+      supabase.from("pipeline_columns").update({ order: idx }).eq("id", id),
+    );
+    const results = await Promise.all(updates);
+    const failed = results.find((r) => r.error);
+    if (failed) {
+      logger.error("Erro ao reordenar colunas:", failed.error);
+      toast.error("Erro ao salvar nova ordem. Recarregando...");
+      // Força refetch pra restaurar estado consistente
+      const { data } = await supabase.from("pipeline_columns").select("*").order("order");
+      if (data) setColumns(data.map(mapColumn));
+      return;
+    }
+  }, []);
+
   const createAutomation = useCallback(async (name: string): Promise<string | null> => {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) {
@@ -820,7 +849,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPipeline: setCurrentPipelineId, addPipeline, updatePipeline, deletePipeline,
       addLead, updateLead, deleteLead, moveLead, moveLeadToPipeline,
       addTask, updateTask, deleteTask, toggleTaskStatus,
-      addColumn, updateColumn, deleteColumn, addTimelineEvent,
+      addColumn, updateColumn, deleteColumn, reorderColumns, addTimelineEvent,
       createAutomation, updateAutomationNodes, deleteAutomation, toggleComplexAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
       addGlobalTag, deleteGlobalTag,
