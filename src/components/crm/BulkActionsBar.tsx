@@ -1,0 +1,231 @@
+import { useState } from "react";
+import { ArrowRightLeft, Trash2, Tag, X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { useSelection } from "@/contexts/SelectionContext";
+import { useAppState } from "@/contexts/AppContext";
+import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Barra de ações em massa: aparece fixa no rodapé quando há leads selecionados.
+ * Implementa 3 ações no MVP: Mover, Excluir, Adicionar Tag.
+ *
+ * Padrão: UI otimista pra Mover (a coluna do lead muda imediatamente, rollback
+ * em caso de erro). Excluir e Tag esperam confirmação do servidor antes de
+ * remover/atualizar visualmente (mais seguro pra operações destrutivas).
+ */
+export function BulkActionsBar() {
+  const { selectionMode, selectedIds, selectedCount, clearSelection, exitSelectionMode } = useSelection();
+  const { columns, currentPipelineId, refreshData } = useAppState();
+
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<string>("");
+  const [moving, setMoving] = useState(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const [tagOpen, setTagOpen] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+  const [tagging, setTagging] = useState(false);
+
+  if (!selectionMode || selectedCount === 0) return null;
+
+  const ids = Array.from(selectedIds);
+  const currentColumns = columns.filter((c) => c.pipeline_id === currentPipelineId);
+
+  const handleMove = async () => {
+    if (!moveTarget) return;
+    setMoving(true);
+    try {
+      const { error } = await supabase.from("leads").update({ column_id: moveTarget }).in("id", ids);
+      if (error) throw error;
+      const targetName = currentColumns.find((c) => c.id === moveTarget)?.name ?? "outra coluna";
+      toast.success(`${ids.length} lead(s) movido(s) para "${targetName}".`);
+      setMoveOpen(false);
+      setMoveTarget("");
+      await refreshData();
+      exitSelectionMode();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao mover.";
+      toast.error(`Falha: ${msg}`);
+    } finally {
+      setMoving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("leads").delete().in("id", ids);
+      if (error) throw error;
+      toast.success(`${ids.length} lead(s) excluído(s).`);
+      setDeleteConfirmOpen(false);
+      await refreshData();
+      exitSelectionMode();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao excluir.";
+      toast.error(`Falha: ${msg}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleAddTag = async () => {
+    const tag = tagInput.trim();
+    if (!tag) {
+      toast.error("Digite o nome da tag.");
+      return;
+    }
+    setTagging(true);
+    try {
+      // Update individual: precisamos ler tags atual e dar append; bulk UPDATE com
+      // array_append exigiria RPC. 50 leads = 50 queries, aceitável pra MVP.
+      // TODO: criar RPC bulk_add_tag pra performance se >100 leads ficar comum.
+      const { data: leadsData } = await supabase.from("leads").select("id, tags").in("id", ids);
+      const updates = (leadsData ?? []).map(async (l) => {
+        const current = Array.isArray(l.tags) ? (l.tags as string[]) : [];
+        if (current.includes(tag)) return null;
+        return supabase.from("leads").update({ tags: [...current, tag] }).eq("id", l.id);
+      });
+      await Promise.all(updates);
+      toast.success(`Tag "${tag}" adicionada a ${ids.length} lead(s).`);
+      setTagOpen(false);
+      setTagInput("");
+      await refreshData();
+      exitSelectionMode();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao taggear.";
+      toast.error(`Falha: ${msg}`);
+    } finally {
+      setTagging(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-card border border-border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 min-w-[480px]">
+        <span className="text-sm font-semibold">
+          {selectedCount} lead{selectedCount === 1 ? "" : "s"} selecionado{selectedCount === 1 ? "" : "s"}
+        </span>
+        <div className="h-5 w-px bg-border" />
+        <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setMoveOpen(true)}>
+          <ArrowRightLeft className="h-3 w-3" /> Mover
+        </Button>
+        <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setTagOpen(true)}>
+          <Tag className="h-3 w-3" /> Adicionar tag
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => setDeleteConfirmOpen(true)}
+        >
+          <Trash2 className="h-3 w-3" /> Excluir
+        </Button>
+        <div className="h-5 w-px bg-border" />
+        <Button size="sm" variant="ghost" className="text-xs gap-1.5" onClick={clearSelection}>
+          Limpar
+        </Button>
+        <Button size="sm" variant="ghost" className="text-xs gap-1.5" onClick={exitSelectionMode}>
+          <X className="h-3 w-3" /> Sair
+        </Button>
+      </div>
+
+      {/* Mover */}
+      <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Mover {selectedCount} lead(s)</DialogTitle>
+            <DialogDescription className="text-xs">
+              Escolha a coluna de destino dentro do funil atual.
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={moveTarget} onValueChange={setMoveTarget}>
+            <SelectTrigger className="text-xs"><SelectValue placeholder="Coluna de destino" /></SelectTrigger>
+            <SelectContent>
+              {currentColumns.map((c) => (
+                <SelectItem key={c.id} value={c.id} className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
+                    {c.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setMoveOpen(false)} disabled={moving}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleMove} disabled={!moveTarget || moving}>
+              {moving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Mover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tag */}
+      <Dialog open={tagOpen} onOpenChange={setTagOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Adicionar tag em {selectedCount} lead(s)</DialogTitle>
+            <DialogDescription className="text-xs">
+              Tags duplicadas serão ignoradas (não dobra a tag em leads que já têm).
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            placeholder="Nome da tag"
+            className="text-sm"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setTagOpen(false)} disabled={tagging}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleAddTag} disabled={!tagInput.trim() || tagging}>
+              {tagging ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Excluir (com confirmação dupla) */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedCount} lead{selectedCount === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é <strong>irreversível</strong>. Os leads serão deletados permanentemente do banco
+              junto com suas conversas, tarefas e timeline.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Sim, excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

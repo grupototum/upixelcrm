@@ -1,15 +1,22 @@
-import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Building, Phone, Mail, User, Tag, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useSelection } from "@/contexts/SelectionContext";
 import type { Lead } from "@/types";
 
 export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
   const navigate = useNavigate();
+  const { selectionMode, isSelected, toggleLead } = useSelection();
+  const selected = isSelected(lead.id);
+
+  // Em modo de seleção, desativa DnD: o card vira clique-pra-selecionar.
+  // Passamos disabled:true pro useSortable — isso já neutraliza listeners + attributes.
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: { type: "lead", lead },
+    disabled: selectionMode,
   });
 
   const style = {
@@ -18,12 +25,36 @@ export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () =>
     opacity: isDragging ? 0.4 : 1,
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (selectionMode) {
+      e.stopPropagation();
+      toggleLead(lead.id);
+      return;
+    }
+    onClick();
+  };
+
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...(selectionMode ? {} : attributes)} {...(selectionMode ? {} : listeners)}>
       <div
-        onClick={onClick}
-        className="bg-card ghost-border rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-[hsl(var(--border-strong))] hover:shadow-sm transition-all group"
+        onClick={handleCardClick}
+        className={`bg-card ghost-border rounded-xl p-3 hover:shadow-sm transition-all group ${
+          selectionMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
+        } ${selected ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "hover:border-[hsl(var(--border-strong))]"}`}
       >
+        {selectionMode && (
+          <div className="flex items-center mb-2">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => toggleLead(lead.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4"
+            />
+            <span className="text-[10px] text-muted-foreground ml-2">
+              {selected ? "Selecionado" : "Clique pra selecionar"}
+            </span>
+          </div>
+        )}
         <div className="flex items-start justify-between mb-1.5">
           <h4 className="text-sm font-medium text-foreground truncate flex-1">{lead.name}</h4>
           <div className="shrink-0 flex items-center gap-1.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
