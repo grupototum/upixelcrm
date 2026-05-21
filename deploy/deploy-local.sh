@@ -31,9 +31,12 @@ echo "🚀 Enviando para $SSH_HOST..."
 scp -O -i "$SSH_KEY" -o ConnectTimeout=30 "$TARBALL" "$SSH_HOST:/tmp/"
 
 echo "🛠  Rodando deploy.sh remoto..."
+# Nota: tar warnings 'LIBARCHIVE.xattr' são silenciados via 2>/dev/null (cosméticos do macOS).
+# Não usamos grep -v aqui porque ele retorna exit 1 quando nada passa pelo filtro
+# (que é o caso normal) → quebrava o && bash deploy.sh seguinte.
 ssh -i "$SSH_KEY" "$SSH_HOST" "rm -rf /tmp/upixel-extract && \
   mkdir -p /tmp/upixel-extract && \
-  tar -xzf /tmp/upixel-deploy.tar.gz -C /tmp/upixel-extract 2>&1 | grep -v 'LIBARCHIVE.xattr' && \
+  tar -xzf /tmp/upixel-deploy.tar.gz -C /tmp/upixel-extract 2>/dev/null && \
   bash /tmp/upixel-extract/deploy/deploy.sh /tmp/upixel-extract"
 
 echo ""
