@@ -140,13 +140,34 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await userClient
       .from("profiles")
-      .select("client_id, tenant_id")
+      .select("client_id, tenant_id, role")
       .eq("id", user.id)
       .single();
     if (!profile) return json({ error: "Profile not found" }, 404);
 
-    const clientId = (profile as { client_id: string }).client_id;
-    const tenantId = (profile as { tenant_id?: string | null }).tenant_id ?? null;
+    // resolveClientId server-side (mesma lógica do whatsapp-proxy): masters têm
+    // profile.client_id = próprio profile.id (não é tenant). Prefere tenant_id válido.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
+
+    const profileRow = profile as { client_id?: string | null; tenant_id?: string | null };
+    const reqBody = await req.clone().json().catch(() => ({} as Record<string, unknown>));
+    const bodyTenantId = (reqBody as { tenant_id?: string }).tenant_id;
+
+    let tenantId: string | null = null;
+    if (isUuid(bodyTenantId)) tenantId = bodyTenantId;
+    if (!tenantId && isUuid(profileRow.tenant_id)) tenantId = profileRow.tenant_id;
+    if (!tenantId && isUuid(profileRow.client_id)) {
+      // Confirma que client_id é tenant real
+      const { data: t } = await userClient.from("tenants").select("id").eq("id", profileRow.client_id).maybeSingle();
+      if (t) tenantId = profileRow.client_id;
+    }
+    if (!tenantId) {
+      return json({
+        error: "tenant_id requerido. Master deve mandar tenant_id no body.",
+      }, 400);
+    }
+    const clientId = tenantId;
 
     const appId = Deno.env.get("META_APP_ID");
     const appSecret = Deno.env.get("META_APP_SECRET");

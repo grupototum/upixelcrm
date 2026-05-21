@@ -57,9 +57,30 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) return jsonResponse({ error: "Unauthorized" }, 401);
 
-    const { data: profile } = await userClient.from("profiles").select("client_id").eq("id", user.id).single();
+    const { data: profile } = await userClient
+      .from("profiles")
+      .select("client_id, tenant_id, role")
+      .eq("id", user.id)
+      .single();
     if (!profile) return jsonResponse({ error: "Profile not found" }, 404);
-    const clientId = profile.client_id;
+
+    // resolveClientId server-side (mesma lógica do whatsapp-proxy).
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
+    const profileRow = profile as { client_id?: string | null; tenant_id?: string | null };
+    const reqBody = await req.clone().json().catch(() => ({} as Record<string, unknown>));
+    const bodyTenantId = (reqBody as { tenant_id?: string }).tenant_id;
+    let tenantId: string | null = null;
+    if (isUuid(bodyTenantId)) tenantId = bodyTenantId;
+    if (!tenantId && isUuid(profileRow.tenant_id)) tenantId = profileRow.tenant_id;
+    if (!tenantId && isUuid(profileRow.client_id)) {
+      const { data: t } = await userClient.from("tenants").select("id").eq("id", profileRow.client_id).maybeSingle();
+      if (t) tenantId = profileRow.client_id;
+    }
+    if (!tenantId) {
+      return jsonResponse({ error: "tenant_id requerido. Master deve mandar tenant_id no body." }, 400);
+    }
+    const clientId = tenantId;
 
     const appId = Deno.env.get("META_APP_ID");
     const appSecret = Deno.env.get("META_APP_SECRET");
@@ -238,6 +259,7 @@ Deno.serve(async (req) => {
         .from("integrations")
         .insert({
           client_id: clientId,
+          tenant_id: tenantId,
           provider: "instagram",
           status: "connected",
           config: newConfig,
