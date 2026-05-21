@@ -273,7 +273,19 @@ export default function LeadProfilePage() {
           <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => setShowNewTask(true)}>
             <Plus className="h-3 w-3" /> Criar tarefa
           </Button>
-          <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => navigate("/inbox")}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs gap-1.5 h-8"
+            onClick={() => {
+              // Abre o Inbox JÁ COM o lead selecionado. Se não houver conversa,
+              // o Inbox detecta lead_id sem conversa e abre o modal "Nova conversa"
+              // pré-preenchido com o phone do lead.
+              const params = new URLSearchParams({ lead_id: lead.id });
+              if (lead.phone) params.set("phone", lead.phone);
+              navigate(`/inbox?${params.toString()}`);
+            }}
+          >
             <MessageSquare className="h-3 w-3" /> Enviar mensagem
           </Button>
           <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8" onClick={() => setShowTagModal(true)}>

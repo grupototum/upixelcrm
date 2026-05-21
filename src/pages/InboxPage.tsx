@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Search, Phone, MoreVertical,
@@ -72,6 +72,7 @@ const channelIcons: Record<string, typeof MessageCircle> = {
 
 export default function InboxPage() { // force HMR reset
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead } = useAppState();
   const inbox = useInbox(refreshData);
 
@@ -152,6 +153,39 @@ export default function InboxPage() { // force HMR reset
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [inbox.messages]);
+
+  // Deep-link: ?lead_id=X[&phone=Y] vindo de LeadProfilePage > "Enviar mensagem".
+  // 1. Seleciona o lead se já tem conversa.
+  // 2. Se não tem conversa, abre o modal "Nova conversa" pré-preenchido com phone.
+  // Limpa os params depois pra navegação interna não re-disparar o efeito.
+  const deepLinkProcessedRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkProcessedRef.current) return;
+    const leadIdParam = searchParams.get("lead_id");
+    if (!leadIdParam) return;
+    // Aguarda conversations carregar antes de decidir (se não, vai sempre cair no else)
+    if (inbox.loading) return;
+
+    deepLinkProcessedRef.current = true;
+    const phoneParam = searchParams.get("phone") ?? "";
+    const hasConversation = inbox.conversations.some((c) => c.lead_id === leadIdParam);
+
+    if (hasConversation) {
+      inbox.selectLead(leadIdParam);
+    } else {
+      // Sem conversa pra esse lead — abre modal "Nova conversa" preenchido
+      setNewLeadId(leadIdParam);
+      setNewPhone(phoneParam);
+      setNewChannel("whatsapp");
+      setNewConvOpen(true);
+    }
+
+    // Limpa params da URL pra não disparar de novo em re-render
+    const next = new URLSearchParams(searchParams);
+    next.delete("lead_id");
+    next.delete("phone");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, inbox.loading, inbox.conversations, inbox.selectLead, setSearchParams]);
 
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "";
