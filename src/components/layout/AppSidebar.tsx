@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
-  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight,
+  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -80,6 +80,11 @@ const navGroups: NavGroup[] = [
       { title: "Biblioteca", url: "/alexandria/rag", icon: BookOpen },
     ],
   },
+];
+
+// Itens visíveis SOMENTE pra role=master (filtrados via masterOnly flag).
+const masterLinks: NavLeaf[] = [
+  { title: "Integrações (Master)", url: "/master/integrations", icon: ShieldCheck, masterOnly: true },
 ];
 
 // Os 3 itens admin (Usuários, Importação, Banco) agora vivem como tabs dentro
@@ -288,6 +293,16 @@ export function AppSidebar() {
                   </Collapsible>
                 );
               })}
+
+              {/* Links exclusivos de master — separador + render */}
+              {isMaster && (
+                <>
+                  {!collapsed && (
+                    <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
+                  )}
+                  {masterLinks.map(renderDirectLink)}
+                </>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
