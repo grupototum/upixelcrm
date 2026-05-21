@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,7 @@ function StatusBadge({ status }: { status: string }) {
     connecting:   { label: "Conectando…",  cls: "border-yellow-500/40 text-yellow-600",            dot: "bg-yellow-500 animate-pulse" },
     connected:    { label: "Conectado",     cls: "border-success/40 text-success",                  dot: "bg-success animate-pulse" },
     configured:   { label: "Configurado",   cls: "border-primary/40 text-primary",                  dot: "bg-primary" },
+    paused:       { label: "Pausado",       cls: "border-muted-foreground/40 text-muted-foreground", dot: "bg-muted-foreground" },
     error:        { label: "Erro",          cls: "border-destructive/40 text-destructive",           dot: "bg-destructive" },
   };
   const cfg = map[status] ?? map.disconnected;
@@ -207,6 +209,25 @@ function InstanceCard({
     }
   };
 
+  // Toggle ativar/desativar: alterna integrations.status entre 'connected' e 'paused'.
+  // O webhook ignora mensagens quando status='paused' (preserva credenciais).
+  const handleToggle = async () => {
+    if (status !== "connected" && status !== "paused") return;
+    const newStatus = status === "connected" ? "paused" : "connected";
+    const previous = status;
+    setStatus(newStatus);
+    const { error } = await supabase
+      .from("integrations")
+      .update({ status: newStatus })
+      .eq("id", instance.id);
+    if (error) {
+      setStatus(previous);
+      toast.error(`Erro ao alterar status: ${error.message}`);
+      return;
+    }
+    toast.success(newStatus === "connected" ? "Instância ativada." : "Instância pausada.");
+  };
+
   const handleDelete = async () => {
     setDeleteDialogOpen(false);
     setDeleting(true);
@@ -245,7 +266,16 @@ function InstanceCard({
                 </p>
               </div>
             </div>
-            <StatusBadge status={status} />
+            <div className="flex items-center gap-2 shrink-0">
+              {(status === "connected" || status === "paused") && (
+                <Switch
+                  checked={status === "connected"}
+                  onCheckedChange={handleToggle}
+                  aria-label={status === "connected" ? "Pausar" : "Ativar"}
+                />
+              )}
+              <StatusBadge status={status} />
+            </div>
           </div>
 
           {/* Connected number */}

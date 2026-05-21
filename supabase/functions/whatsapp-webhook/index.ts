@@ -657,6 +657,7 @@ async function upsertConversationAndMessage(
 type IntegrationRow = {
   id: string;
   client_id: string;
+  status: string | null;
   config: Record<string, unknown> | null;
 };
 
@@ -677,7 +678,7 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
 
   if (integrationIdFromUrl) {
     const { data } = await adminClient.from("integrations")
-      .select("id, client_id, config")
+      .select("id, client_id, status, config")
       .eq("id", integrationIdFromUrl)
       .eq("provider", "whatsapp")
       .maybeSingle();
@@ -693,7 +694,7 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   }
 
   if (!match) {
-    const { data: integrations } = await adminClient.from("integrations").select("id, client_id, config")
+    const { data: integrations } = await adminClient.from("integrations").select("id, client_id, status, config")
       .eq("provider", "whatsapp").limit(200);
     match = ((integrations || []) as IntegrationRow[]).find((i) => {
       const name = (i.config as Record<string, unknown> | null)?.instance_name;
@@ -704,6 +705,13 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   if (!match) {
     console.log("No matching integration for instance:", instanceName);
     return { ok: true, skipped: "no_match" };
+  }
+
+  // Honor toggle ativar/desativar: ignora mensagens silenciosamente quando pausado.
+  // Preserva credenciais e history — só pausa processamento de novas mensagens.
+  if (match.status === "paused") {
+    console.log(`Instance ${instanceName} paused — dropping incoming message.`);
+    return { ok: true, skipped: "paused" };
   }
 
   const clientId = match.client_id;
@@ -774,12 +782,18 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
       const phoneNumberId = value.metadata?.phone_number_id;
 
       // Find integration by phone_number_id
-      const { data: integrations } = await adminClient.from("integrations").select("id, client_id, config, access_token")
+      const { data: integrations } = await adminClient.from("integrations").select("id, client_id, status, config, access_token")
         .eq("provider", "whatsapp_official").limit(200);
 
       const match = (integrations || []).find((i: any) => (i.config as any)?.phone_number_id === phoneNumberId);
       if (!match) {
         console.log("No matching official integration for phone_number_id:", phoneNumberId);
+        continue;
+      }
+
+      // Honor toggle ativar/desativar
+      if (match.status === "paused") {
+        console.log(`Official instance ${phoneNumberId} paused — dropping incoming message.`);
         continue;
       }
 
