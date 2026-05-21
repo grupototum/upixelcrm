@@ -2,7 +2,9 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
-import { Plus, Search, X, ChevronDown, LayoutGrid, Upload } from "lucide-react";
+import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
+import { BulkActionsBar } from "@/components/crm/BulkActionsBar";
+import { Plus, Search, X, ChevronDown, LayoutGrid, Upload, CheckSquare } from "lucide-react";
 import { ImportLeadsDialog } from "@/components/import/ImportLeadsDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +57,70 @@ import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopove
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Wrapper externo só pra providar o SelectionContext. A page real é CRMPageInner.
+// Mantém escopo do provider restrito ao CRM (sai do CRM = clearSelection automático).
 export default function CRMPage() {
+  return (
+    <SelectionProvider>
+      <CRMPageInner />
+      <BulkActionsBar />
+    </SelectionProvider>
+  );
+}
+
+/**
+ * Botão "Selecionar" no header — ativa o modo de seleção múltipla.
+ * Quando ativo, exibe checkbox + opção de selecionar todos os leads visíveis (respeita filtros).
+ * Vive dentro do SelectionProvider, então usa useSelection() direto.
+ */
+function SelectionToggleButton({ visibleLeads }: { visibleLeads: Lead[] }) {
+  const { selectionMode, toggleSelectionMode, selectAll, selectedCount } = useSelection();
+  const allVisibleIds = visibleLeads.map((l) => l.id);
+
+  if (!selectionMode) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-xs gap-1.5 h-8"
+        onClick={toggleSelectionMode}
+        title="Selecionar múltiplos leads para ações em massa"
+      >
+        <CheckSquare className="h-3.5 w-3.5" /> Selecionar
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-xs gap-1.5 h-8"
+        onClick={() => selectAll(allVisibleIds)}
+        disabled={allVisibleIds.length === 0}
+        title={`Selecionar ${allVisibleIds.length} leads visíveis (respeita filtros)`}
+      >
+        <CheckSquare className="h-3.5 w-3.5" /> Todos visíveis ({allVisibleIds.length})
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-xs gap-1.5 h-8 text-muted-foreground"
+        onClick={toggleSelectionMode}
+      >
+        <X className="h-3.5 w-3.5" /> Cancelar
+      </Button>
+      {selectedCount > 0 && (
+        <span className="text-xs font-bold text-primary">
+          {selectedCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function CRMPageInner() {
   const navigate = useNavigate();
   const {
     leads, pipelines, columns, currentPipelineId, leadCountByPipeline,
@@ -372,6 +437,7 @@ export default function CRMPage() {
             hiddenColumnIds={hiddenColumnIds}
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
+          <SelectionToggleButton visibleLeads={filteredLeads} />
           {/* Split button: criar lead manual OU importar lista */}
           <div className="flex items-center">
             <Button

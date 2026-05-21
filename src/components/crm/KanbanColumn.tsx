@@ -1,13 +1,15 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MoreHorizontal, Settings, ArrowRight, Download, Upload, Zap, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SortableLeadCard } from "./SortableLeadCard";
+import { useSelection } from "@/contexts/SelectionContext";
 import { toast } from "sonner";
 import type { Lead, PipelineColumn } from "@/types";
 
@@ -34,6 +36,17 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
   const { setNodeRef, isOver } = useDroppable({ id: column.id, data: { type: "column" } });
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
+
+  const { selectionMode, isSelected, selectMany, deselectMany } = useSelection();
+  const leadIds = useMemo(() => leads.map((l) => l.id), [leads]);
+  const selectedInColumn = useMemo(() => leadIds.filter((id) => isSelected(id)).length, [leadIds, isSelected]);
+  const allSelected = leads.length > 0 && selectedInColumn === leads.length;
+  const someSelected = selectedInColumn > 0 && !allSelected;
+
+  const toggleColumnSelection = () => {
+    if (allSelected) deselectMany(leadIds);
+    else selectMany(leadIds);
+  };
 
   // FIX-23: Virtualization with @tanstack/react-virtual.
   // We need both @dnd-kit's droppable ref AND react-virtual's scroll element ref
@@ -97,10 +110,18 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
     <div className="flex flex-col w-72 shrink-0">
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
+          {selectionMode && leads.length > 0 && (
+            <Checkbox
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              onCheckedChange={toggleColumnSelection}
+              aria-label={`Selecionar todos os ${leads.length} leads de ${column.name}`}
+              className="h-4 w-4"
+            />
+          )}
           <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.color }} />
           <h3 className="text-sm font-semibold text-foreground">{column.name}</h3>
           <span className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">
-            {leads.length}
+            {selectionMode && selectedInColumn > 0 ? `${selectedInColumn}/${leads.length}` : leads.length}
           </span>
         </div>
         <DropdownMenu>
