@@ -77,17 +77,50 @@ export function useBroadcast() {
 
   const clientId = tenant?.id ?? user?.client_id;
 
-  const { data: templates = [] } = useQuery({
-    queryKey: ["whatsapp-templates"],
+  const { data: templates = [], refetch: refetchTemplates } = useQuery({
+    queryKey: ["whatsapp-templates", clientId],
     queryFn: async () => {
-      const { data, error } = await (supabase.from("integrations") as any)
-        .select("*")
-        .eq("provider", "whatsapp_template")
-        .order("created_at", { ascending: false });
+      if (!clientId) return [];
+      // Lê do cache local (whatsapp_templates table). Pra atualizar com Meta,
+      // o user clica "Sincronizar" → syncTemplatesWithMeta() abaixo.
+      const { data, error } = await supabase
+        .from("whatsapp_templates")
+        .select("id, name, category, content, status")
+        .eq("client_id", clientId)
+        .order("updated_at", { ascending: false });
       if (error) { logger.error("Error fetching templates:", error); return []; }
-      return (data || []) as Template[];
+      return (data ?? []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        category: t.category as Template["category"],
+        content: t.content,
+        status: t.status as Template["status"],
+      })) as Template[];
     },
+    enabled: !!clientId,
   });
+
+  /**
+   * Puxa templates da Meta Graph API e atualiza o cache local.
+   * Chamado quando user clica "Sincronizar com Meta" na TemplateManager.
+   */
+  const syncTemplatesWithMeta = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke("whatsapp-templates?action=list");
+    if (error) {
+      const msg = (error as { message?: string })?.message ?? "Erro de rede";
+      toast.error(`Falha ao sincronizar: ${msg}`);
+      return { ok: false };
+    }
+    if (data?.error) {
+      toast.error(`Falha ao sincronizar: ${data.error}`);
+      return { ok: false };
+    }
+    const count = (data?.count as number) ?? 0;
+    toast.success(`${count} template(s) sincronizado(s) com Meta.`);
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
+    await refetchTemplates();
+    return { ok: true, count };
+  }, [queryClient, refetchTemplates]);
 
   const { data: creditsData, isLoading: loadingCredits } = useQuery({
     queryKey: ["client-credits"],
@@ -115,17 +148,31 @@ export function useBroadcast() {
     return count * (META_RATES[category] || 1);
   }, [isInside24h]);
 
+  /**
+   * Cria um template novo submetendo pra aprovação na Meta Graph API.
+   * Aceita o shape simplificado (name, category, content como string) e
+   * converte pra estrutura Meta (components com BODY). Header/Footer/Buttons
+   * podem ser adicionados depois — MVP só BODY.
+   */
   const createTemplate = async (template: Omit<Template, "id" | "status">) => {
-    const { data: { user: u } } = await supabase.auth.getUser();
-    const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", u?.id).single();
-    if (!profile) throw new Error("Client not found");
-    const { data, error } = await (supabase.from("integrations") as any).insert({
-      ...template,
-      client_id: profile.client_id,
-      status: "PENDING",
-    }).select().single();
-    if (error) throw error;
+    const components = [{ type: "BODY" as const, text: template.content }];
+    const { data, error } = await supabase.functions.invoke("whatsapp-templates?action=create", {
+      body: {
+        name: template.name,
+        category: template.category,
+        language: "pt_BR",
+        components,
+      },
+    });
+    if (error) {
+      const msg = (error as { message?: string })?.message ?? "Erro de rede";
+      throw new Error(msg);
+    }
+    if (data?.error) {
+      throw new Error(data.error as string);
+    }
     queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
+    await refetchTemplates();
     return data;
   };
 
@@ -321,5 +368,6 @@ export function useBroadcast() {
     sendBroadcast,
     sendBroadcastToLeads,
     createTemplate,
+    syncTemplatesWithMeta,
   };
 }

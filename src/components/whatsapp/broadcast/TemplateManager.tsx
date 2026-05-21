@@ -6,9 +6,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Search, Plus, MoreHorizontal, History, 
-  CheckCircle2, Clock, AlertCircle, Trash2, Edit 
+import {
+  Search, Plus, MoreHorizontal, History,
+  CheckCircle2, Clock, AlertCircle, Trash2, Edit, RefreshCw, Loader2
 } from "lucide-react";
 import { useBroadcast, Template } from "@/hooks/useBroadcast";
 import { TemplateCreateModal } from "./TemplateCreateModal";
@@ -20,27 +20,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function TemplateManager() {
-  const { templates, loading } = useBroadcast();
+  const { templates, syncTemplatesWithMeta } = useBroadcast();
   const [searchTerm, setSearchTerm] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try { await syncTemplatesWithMeta(); }
+    finally { setSyncing(false); }
+  };
 
   const filteredTemplates = templates.filter(t => 
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const statusIcons: Record<Template["status"], any> = {
+  const statusIcons: Record<string, typeof Clock> = {
     APPROVED: CheckCircle2,
     PENDING: Clock,
     REJECTED: AlertCircle,
     DRAFT: Edit,
+    PAUSED: Clock,
+    IN_APPEAL: Clock,
+    PENDING_DELETION: Trash2,
   };
 
-  const statusColors: Record<Template["status"], string> = {
+  const statusColors: Record<string, string> = {
     APPROVED: "bg-success/10 text-success border-success/20",
     PENDING: "bg-warning/10 text-warning border-warning/20",
     REJECTED: "bg-destructive/10 text-destructive border-destructive/20",
     DRAFT: "bg-muted/10 text-muted-foreground border-muted-foreground/20",
+    PAUSED: "bg-muted/10 text-muted-foreground border-muted-foreground/20",
+    IN_APPEAL: "bg-warning/10 text-warning border-warning/20",
+    PENDING_DELETION: "bg-destructive/10 text-destructive border-destructive/20",
   };
 
   return (
@@ -60,7 +73,17 @@ export function TemplateManager() {
               className="pl-9 w-64 rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white transition-all text-xs"
             />
           </div>
-          <Button 
+          <Button
+            onClick={handleSync}
+            disabled={syncing}
+            variant="outline"
+            className="rounded-xl h-10 font-bold text-xs gap-2"
+            title="Busca status atualizado dos templates direto da Meta Graph API"
+          >
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Sincronizar com Meta
+          </Button>
+          <Button
             onClick={() => setCreateOpen(true)}
             className="rounded-xl h-10 bg-primary hover:bg-[#e04400] font-bold text-xs gap-2 shadow-lg shadow-primary/20"
           >
