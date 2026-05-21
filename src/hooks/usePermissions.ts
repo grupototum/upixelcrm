@@ -65,14 +65,19 @@ export function usePermissions() {
 
     const hasPermission = (permission: string): boolean => {
       if (!role) return false;
-      if (role === "master") return true;
+      // Master e admin têm full power. RLS limita admin ao próprio tenant.
+      // 'supervisor' é alias legacy de admin — promovido aqui pra compat.
+      if (role === "master" || role === "admin" || role === "supervisor") return true;
       const allowed = PERMISSION_MATRIX[permission];
-      return allowed ? allowed.includes(role) : false;
+      if (!allowed) return false;
+      // gerente herda permissões de supervisor enquanto não tem matriz própria
+      if (role === "gerente") return allowed.includes("supervisor");
+      return allowed.includes(role);
     };
 
     const canAccessModule = (path: string): boolean => {
       if (!role) return false;
-      if (role === "master") return true;
+      if (role === "master" || role === "admin" || role === "supervisor") return true;
       const basePath = "/" + (path.split("/").filter(Boolean)[0] || "");
       const permission = MODULE_PERMISSIONS[basePath] || MODULE_PERMISSIONS[path];
       if (!permission) return true;
