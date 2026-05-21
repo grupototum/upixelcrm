@@ -57,11 +57,11 @@ export function useUnreadCounts() {
     }
   }, [clientId]);
 
-  // Initial fetch + periodic refresh (60s)
+  // Initial fetch — realtime cobre updates incrementais (polling de 60s era
+  // redundante + custoso: cada poll fazia 2 COUNTs no DB e o realtime já
+  // dispara um fetchCounts a cada INSERT/UPDATE em conversations/tasks).
   useEffect(() => {
     fetchCounts();
-    const interval = setInterval(fetchCounts, 60_000);
-    return () => clearInterval(interval);
   }, [fetchCounts]);
 
   // Realtime subscriptions — atualiza badges imediatamente quando algo muda.
