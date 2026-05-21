@@ -1,8 +1,9 @@
 import { useState, useRef, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { MoreHorizontal, Settings, ArrowRight, Download, Upload, Zap, Plus } from "lucide-react";
+import { MoreHorizontal, Settings, ArrowRight, Download, Upload, Zap, Plus, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -33,11 +34,22 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: column.id, data: { type: "column" } });
+  // useDroppable pra leads entrarem na coluna (mantido).
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id, data: { type: "column", columnId: column.id } });
+
+  // useSortable pra reordenar a própria coluna horizontalmente.
+  // Sentinela `column:${id}` evita conflito com sortable de leads (que usa só o id puro).
+  // Drag dela só ativa via handle (GripHorizontal), pra clique no header continuar
+  // abrindo o menu e config sem disparar drag.
+  const sortable = useSortable({
+    id: `column:${column.id}`,
+    data: { type: "column-reorder", columnId: column.id },
+  });
+  const { selectionMode, isSelected, selectMany, deselectMany } = useSelection();
+
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
 
-  const { selectionMode, isSelected, selectMany, deselectMany } = useSelection();
   const leadIds = useMemo(() => leads.map((l) => l.id), [leads]);
   const selectedInColumn = useMemo(() => leadIds.filter((id) => isSelected(id)).length, [leadIds, isSelected]);
   const allSelected = leads.length > 0 && selectedInColumn === leads.length;
@@ -48,14 +60,17 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
     else selectMany(leadIds);
   };
 
+  // Estilo do sortable da coluna (transform/transition vindos do dnd-kit)
+  const columnStyle = {
+    transform: CSS.Transform.toString(sortable.transform),
+    transition: sortable.transition,
+    opacity: sortable.isDragging ? 0.5 : 1,
+  };
+
   // FIX-23: Virtualization with @tanstack/react-virtual.
   // We need both @dnd-kit's droppable ref AND react-virtual's scroll element ref
-  // on the same DOM node. We achieve this with a combined callback ref.
+  // on the same DOM node. Inline callback ref agora (era um helper `setRefs`).
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const setRefs = (node: HTMLDivElement | null) => {
-    setNodeRef(node); // @dnd-kit droppable
-    scrollContainerRef.current = node; // react-virtual scroll container
-  };
 
   const shouldVirtualize = leads.length > VIRTUALIZATION_THRESHOLD;
 
@@ -107,9 +122,25 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
   const otherColumns = (allColumns || []).filter((c) => c.id !== column.id);
 
   return (
-    <div className="flex flex-col w-72 shrink-0">
-      <div className="flex items-center justify-between mb-3 px-1">
-        <div className="flex items-center gap-2">
+    <div
+      ref={sortable.setNodeRef}
+      style={columnStyle}
+      {...sortable.attributes}
+      className="flex flex-col w-72 shrink-0"
+    >
+      <div className="flex items-center justify-between mb-3 px-1 group">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Drag handle do header — só essa região inicia o drag da coluna. */}
+          {!selectionMode && (
+            <button
+              {...sortable.listeners}
+              className="opacity-30 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground -ml-1"
+              aria-label={`Arrastar coluna ${column.name}`}
+              title="Arrastar para reordenar"
+            >
+              <GripHorizontal className="h-3.5 w-3.5" />
+            </button>
+          )}
           {selectionMode && leads.length > 0 && (
             <Checkbox
               checked={allSelected ? true : someSelected ? "indeterminate" : false}
@@ -118,9 +149,9 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
               className="h-4 w-4"
             />
           )}
-          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.color }} />
-          <h3 className="text-sm font-semibold text-foreground">{column.name}</h3>
-          <span className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">
+          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+          <h3 className="text-sm font-semibold text-foreground truncate">{column.name}</h3>
+          <span className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full shrink-0">
             {selectionMode && selectedInColumn > 0 ? `${selectedInColumn}/${leads.length}` : leads.length}
           </span>
         </div>
@@ -153,7 +184,10 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
       </div>
 
       <div
-        ref={setRefs}
+        ref={(node) => {
+          setDroppableRef(node);
+          scrollContainerRef.current = node;
+        }}
         className={`overflow-y-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
         style={{ height: "calc(100vh - 220px)" }}
       >

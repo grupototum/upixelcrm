@@ -45,6 +45,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { Lead, PipelineColumn } from "@/types";
 
 import { KanbanColumn } from "@/components/crm/KanbanColumn";
@@ -124,7 +125,7 @@ function CRMPageInner() {
   const navigate = useNavigate();
   const {
     leads, pipelines, columns, currentPipelineId, leadCountByPipeline,
-    setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn,
+    setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn, reorderColumns,
     addLead, updateLead, deleteLead, moveLead
   } = useAppState();
 
@@ -256,6 +257,9 @@ function CRMPageInner() {
     const { active, over } = event;
     if (!over) return;
 
+    // Drag de COLUNA: ignora handleDragOver (reordenação só finaliza no handleDragEnd)
+    if (active.data.current?.type === "column-reorder") return;
+
     const activeLeadId = active.id as string;
     const overId = over.id as string;
 
@@ -271,8 +275,25 @@ function CRMPageInner() {
     moveLead(activeLeadId, targetColumnId);
   }
 
-  function handleDragEnd(_event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     setActiveDragLead(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    // Drag de COLUNA: persiste nova ordem se posição mudou
+    if (active.data.current?.type === "column-reorder" && over.data.current?.type === "column-reorder") {
+      const activeColumnId = active.data.current.columnId as string;
+      const overColumnId = over.data.current.columnId as string;
+      if (activeColumnId === overColumnId) return;
+
+      const currentOrder = pipelineColumns.map((c) => c.id);
+      const oldIdx = currentOrder.indexOf(activeColumnId);
+      const newIdx = currentOrder.indexOf(overColumnId);
+      if (oldIdx === -1 || newIdx === -1) return;
+
+      const reordered = arrayMove(currentOrder, oldIdx, newIdx);
+      await reorderColumns(reordered);
+    }
   }
 
   function handleAddLead(columnId: string) {
@@ -487,7 +508,13 @@ function CRMPageInner() {
           onDragEnd={handleDragEnd}
         >
           <div className="flex h-[calc(100vh-4rem)] overflow-x-auto p-6 gap-5 animate-fade-in hide-scrollbar">
-            {pipelineColumns.filter((col) => !hiddenColumnIds.includes(col.id)).map((col) => {
+            {/* SortableContext de colunas — horizontal. Items recebem o id sentinela
+                `column:${id}` pra não conflitar com sortable de leads que usa id puro. */}
+            <SortableContext
+              items={pipelineColumns.filter((col) => !hiddenColumnIds.includes(col.id)).map((col) => `column:${col.id}`)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {pipelineColumns.filter((col) => !hiddenColumnIds.includes(col.id)).map((col) => {
               const colLeads = filteredLeads.filter((l) => l.column_id === col.id);
               return (
                 <KanbanColumn
@@ -506,8 +533,9 @@ function CRMPageInner() {
                 />
               );
             })}
+            </SortableContext>
             <div className="shrink-0">
-              <button 
+              <button
                 onClick={() => setShowNewColumn(true)}
                 className="w-48 h-12 rounded-xl border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-1.5 font-medium"
               >
