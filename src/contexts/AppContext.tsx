@@ -241,7 +241,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // setLoading(false) já é chamado dentro do try após FASE 1.
       // Garantimos aqui caso ocorra erro antes.
     }
-  }, [currentPipelineId, tenant?.id, user?.client_id, isMasterView]);
+    // currentPipelineId NÃO entra nas deps: o fetchAll filtra por client_id/tenant,
+    // não por pipeline. Re-buscar tudo a cada troca de funil é desperdício
+    // (era o que causava re-fetchs constantes ao trocar entre funis).
+    // O auto-switch initial usa isFirstLoad (currentPipelineId vazio) e roda 1x.
+  }, [tenant?.id, user?.client_id, isMasterView]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
