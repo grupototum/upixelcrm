@@ -74,7 +74,11 @@ Deno.serve(async (req) => {
     }
 
     const userId = user.id;
-    const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", userId).single();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("client_id, tenant_id, role")
+      .eq("id", userId)
+      .single();
     if (!profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), {
         status: 404,
@@ -82,7 +86,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    const clientId = profile.client_id;
+    // resolveClientId server-side: prefer tenant_id (UUID válido) sobre client_id.
+    // Users master têm profile.client_id = profile.id (não é tenant) — cair pra esse
+    // valor cria registros órfãos invisíveis ao tenant correto. Pra masters operando
+    // como admins de tenant específico, eles precisam mandar `tenant_id` no body.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
+
+    let tenantId: string | null = null;
+    // 1. Tenant explícito no body (master operando num tenant)
+    const bodyForTenant = req.method === "POST"
+      ? await req.clone().json().catch(() => ({}))
+      : {};
+    if (isUuid(bodyForTenant?.tenant_id)) {
+      tenantId = bodyForTenant.tenant_id;
+    }
+    // 2. profile.tenant_id (caminho normal de admin/gerente/vendedor/atendente)
+    if (!tenantId && isUuid(profile.tenant_id)) {
+      tenantId = profile.tenant_id;
+    }
+    // 3. profile.client_id se for UUID de tenant válido (legacy compat)
+    if (!tenantId && isUuid(profile.client_id)) {
+      // verifica se é um tenant real (não profile órfão)
+      const { data: t } = await supabase.from("tenants").select("id").eq("id", profile.client_id).maybeSingle();
+      if (t) tenantId = profile.client_id;
+    }
+
+    if (!tenantId) {
+      return new Response(JSON.stringify({
+        error: "tenant_id requerido. Para masters, envie tenant_id no body. Para admins/gerentes/etc, o profile precisa ter tenant_id setado.",
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // clientId mantido pra compat com queries existentes — usa o mesmo valor do tenantId.
+    // Insert em integrations seta AMBOS pra garantir isolamento (causa raiz dos órfãos).
+    const clientId = tenantId;
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -138,7 +179,7 @@ Deno.serve(async (req) => {
 
       const { data: inserted, error: insertErr } = await adminClient
         .from("integrations")
-        .insert({ client_id: clientId, provider: "whatsapp", status: "connecting", config: newConfig })
+        .insert({ client_id: clientId, tenant_id: tenantId, provider: "whatsapp", status: "connecting", config: newConfig })
         .select("id")
         .single();
 
@@ -258,6 +299,7 @@ Deno.serve(async (req) => {
       } else {
         await adminClient.from("integrations").insert({
           client_id: clientId,
+          tenant_id: tenantId,
           provider,
           status: "configured",
           config: newConfig,
