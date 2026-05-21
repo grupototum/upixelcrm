@@ -21,7 +21,10 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: "supervisor" | "atendente" | "vendedor" | "master";
+  // Hierarquia: master (cross-tenant) > admin (full power no tenant) > supervisor
+  // > gerente > vendedor > atendente. 'supervisor' é alias legacy de 'admin' — mantido
+  // pra compat com dados existentes (substituído gradualmente).
+  role: "master" | "admin" | "supervisor" | "gerente" | "vendedor" | "atendente";
   avatar?: string;
   is_blocked?: boolean;
   approval_status?: "pending" | "approved" | "rejected";
