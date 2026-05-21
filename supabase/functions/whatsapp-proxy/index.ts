@@ -661,6 +661,14 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Honor toggle: bloqueia envio quando instância pausada (status='paused')
+      if (integration?.status === "paused") {
+        return jsonResponse({
+          error: `Instância "${config.instance_name}" está pausada. Ative em Configurações > WhatsApp antes de enviar.`,
+          code: "INSTANCE_PAUSED",
+        }, 409);
+      }
+
       const cleanPhone = phone.replace(/\D/g, "");
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
@@ -778,6 +786,14 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // Honor toggle: bloqueia envio quando instância pausada
+      if (integration?.status === "paused") {
+        return jsonResponse({
+          error: `Instância "${config.instance_name}" está pausada. Ative em Configurações > WhatsApp antes de enviar.`,
+          code: "INSTANCE_PAUSED",
+        }, 409);
       }
 
       const cleanPhone = phone.replace(/\D/g, "");

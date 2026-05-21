@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Shield, Trash2, RefreshCw, Phone, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -55,6 +56,24 @@ export function CloudInstanceList({ refreshKey }: { refreshKey?: number }) {
     }
   };
 
+  // Toggle ativar/desativar: alterna status entre 'connected' e 'paused'.
+  // O webhook ignora mensagens quando status='paused' (preserva credenciais,
+  // só pausa o processamento — pra desconectar de verdade, usar "Remover").
+  const toggleInstance = async (id: string, currentStatus: string, name: string) => {
+    const newStatus = currentStatus === "connected" ? "paused" : "connected";
+    setInstances((prev) => prev.map((i) => i.id === id ? { ...i, status: newStatus } : i));
+    const { error } = await supabase
+      .from("integrations")
+      .update({ status: newStatus })
+      .eq("id", id);
+    if (error) {
+      setInstances((prev) => prev.map((i) => i.id === id ? { ...i, status: currentStatus } : i));
+      toast.error(`Erro ao alterar status: ${error.message}`);
+      return;
+    }
+    toast.success(`"${name}" ${newStatus === "connected" ? "ativada" : "pausada"}.`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
@@ -87,9 +106,20 @@ export function CloudInstanceList({ refreshKey }: { refreshKey?: number }) {
                 <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-bold truncate">{display}</p>
-                    <Badge variant="outline" className="text-[9px] gap-1 border-success/40 text-success">
-                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                      {inst.status === "connected" ? "Conectado" : inst.status}
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] gap-1 ${
+                        inst.status === "connected"
+                          ? "border-success/40 text-success"
+                          : "border-muted-foreground/40 text-muted-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          inst.status === "connected" ? "bg-success animate-pulse" : "bg-muted-foreground"
+                        }`}
+                      />
+                      {inst.status === "connected" ? "Conectado" : inst.status === "paused" ? "Pausado" : inst.status}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -100,7 +130,17 @@ export function CloudInstanceList({ refreshKey }: { refreshKey?: number }) {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-border flex justify-end">
+              <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={inst.status === "connected"}
+                    onCheckedChange={() => toggleInstance(inst.id, inst.status, display)}
+                    aria-label={inst.status === "connected" ? "Pausar instância" : "Ativar instância"}
+                  />
+                  <span className="text-[11px] text-muted-foreground">
+                    {inst.status === "connected" ? "Ativo" : "Pausado"}
+                  </span>
+                </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive">
