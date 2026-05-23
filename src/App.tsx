@@ -37,6 +37,8 @@ const BotBuilderPage = lazy(() => import("./pages/BotBuilderPage"));
 const AutomationRunsPage = lazy(() => import("./pages/AutomationRunsPage"));
 const GooglePage = lazy(() => import("./pages/GooglePage"));
 const WhatsAppBroadcastPage = lazy(() => import("./pages/WhatsAppBroadcastPage"));
+const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
+const WhatsAppTemplatesPage = lazy(() => import("./pages/WhatsAppTemplatesPage"));
 const InstagramPage = lazy(() => import("./pages/InstagramPage"));
 const FacebookPagePage = lazy(() => import("./pages/FacebookPagePage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -146,10 +148,12 @@ function AppRoutes() {
                 <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><ReportsPage /></ProtectedRoute>} />
                 <Route path="/integrations" element={<ProtectedRoute requiredPermission="settings.view"><IntegrationsPage /></ProtectedRoute>} />
                 <Route path="/google" element={<ProtectedRoute><GooglePage /></ProtectedRoute>} />
-                {/* /whatsapp e /whatsapp/templates foram inlineados em /integrations.
-                    Mantemos redirect pra evitar links externos quebrarem. */}
-                <Route path="/whatsapp" element={<Navigate to="/integrations" replace />} />
-                <Route path="/whatsapp/templates" element={<Navigate to="/integrations" replace />} />
+                {/* WhatsApp tem 3 entradas — todas usam os MESMOS componentes
+                    (WhatsAppManagement / TemplateManager). /integrations renderiza
+                    inline via WhatsAppIntegrationPanel; /whatsapp e /whatsapp/templates
+                    são wrappers standalone. */}
+                <Route path="/whatsapp" element={<ProtectedRoute><WhatsAppPage /></ProtectedRoute>} />
+                <Route path="/whatsapp/templates" element={<ProtectedRoute><WhatsAppTemplatesPage /></ProtectedRoute>} />
                 <Route path="/instagram" element={<ProtectedRoute><InstagramPage /></ProtectedRoute>} />
                 <Route path="/facebook-page" element={<ProtectedRoute><FacebookPagePage /></ProtectedRoute>} />
                 <Route path="/whatsapp/broadcast" element={<ProtectedRoute><WhatsAppBroadcastPage /></ProtectedRoute>} />

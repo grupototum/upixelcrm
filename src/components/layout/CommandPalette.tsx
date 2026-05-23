@@ -166,7 +166,7 @@ export function CommandPalette() {
 
       // ── Integrações & canais ──
       nav("nav:integrations", "Integrações (todas)", "/integrations", Plug, ["channels", "providers"]),
-      nav("nav:whatsapp", "WhatsApp", "/integrations", MessageCircle, ["wpp", "chat", "lite", "cloud", "templates", "hsm"]),
+      nav("nav:whatsapp", "WhatsApp", "/whatsapp", MessageCircle, ["wpp", "chat", "lite", "cloud", "templates", "hsm"]),
       nav("nav:facebook-page", "Facebook Messenger", "/facebook-page", Facebook, ["fb", "messenger", "page"]),
       nav("nav:instagram", "Instagram Direct", "/instagram", Instagram, ["ig", "direct", "dm"]),
       nav("nav:meta-ads", "Meta Ads", "/meta-ads", Megaphone, ["fb ads", "anuncios", "facebook ads"]),
