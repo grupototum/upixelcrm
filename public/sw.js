@@ -1,6 +1,24 @@
-// IMPORTANTE: bump esse versão a cada deploy de produção pra forçar limpeza
-// do cache antigo no install — evita 404 em chunks lazy de versões anteriores.
-const CACHE_NAME = 'upixel-v2';
+// Convenção de versionamento do cache do Service Worker:
+//
+//   upixel-vMAJOR.MINOR
+//
+//   MAJOR (v1.x → v2.x): bump quando muda a ESTRATÉGIA de cache do SW
+//     (ex.: cache-first → network-first, novo handler de rotas, mudança
+//      no PRECACHE_URLS). Forçar purge de tudo é necessário.
+//
+//   MINOR (v1.0 → v1.1): bump a cada deploy de produção onde só os assets
+//     mudaram (chunks com hashes novos). Garante que o browser purga o
+//     cache da versão anterior no install — evita 404 em chunks lazy de
+//     versões antigas que o cache ainda servia.
+//
+// Histórico:
+//   v1.0 — versão inicial, cache-first em JS/CSS (gerou bug de 404 após deploy)
+//   v1.1 — estratégia mudou para network-first em JS/CSS + fallback offline
+//          em imagens/fonts; deploy 2026-05-23.
+//
+// Bump em TODO `npm run ship` que altera assets. Se esquecer, browsers
+// com SW antigo continuam servindo chunks velhos por mais 1 deploy.
+const CACHE_NAME = 'upixel-v1.1';
 
 const PRECACHE_URLS = [
   '/',
