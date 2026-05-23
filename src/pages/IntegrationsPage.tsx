@@ -102,10 +102,12 @@ export default function IntegrationsPage() {
           statusMap[i.provider] = i.status;
         });
         
-        // WhatsApp special handling: if any of the two are connected, the unified card is "connected"
-        if (statusMap["whatsapp"] === "connected" || statusMap["whatsapp_official"] === "connected") {
+        // WhatsApp unified card cobre 3 providers: whatsapp (Baileys), whatsapp_official (legacy)
+        // e whatsapp_cloud (Meta Cloud API atual). Se qualquer um conectar, o card mostra ativo.
+        const waProviders = ["whatsapp", "whatsapp_official", "whatsapp_cloud"] as const;
+        if (waProviders.some(p => statusMap[p] === "connected")) {
           statusMap["whatsapp_unified"] = "connected";
-        } else if (statusMap["whatsapp"] === "configured" || statusMap["whatsapp_official"] === "configured") {
+        } else if (waProviders.some(p => statusMap[p] === "configured")) {
           statusMap["whatsapp_unified"] = "configured";
         } else {
           statusMap["whatsapp_unified"] = "disconnected";
