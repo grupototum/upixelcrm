@@ -340,14 +340,14 @@ export function useInbox(onLeadCreated?: () => void) {
       if (channel === "instagram") {
         functionName = "instagram-proxy";
         queryString = "?action=send-message";
-      } else if (channel === "whatsapp_cloud") {
+      } else if (channel === "whatsapp_cloud" || channel === "whatsapp_official") {
+        // whatsapp_official é label legacy do cloud — backend é o mesmo.
         functionName = "whatsapp-cloud-proxy";
         queryString = `?action=send-message${integrationId ? `&integration_id=${integrationId}` : ""}`;
       } else {
-        // whatsapp ou whatsapp_official → ainda via whatsapp-proxy (Evolution)
-        const isOfficial = channel === "whatsapp_official";
+        // whatsapp Baileys (Evolution) — só se o tenant tiver essa integration.
         functionName = "whatsapp-proxy";
-        queryString = `?action=send-message${isOfficial ? "&type=official" : ""}${instanceName ? `&instance_name=${encodeURIComponent(instanceName)}` : ""}`;
+        queryString = `?action=send-message${instanceName ? `&instance_name=${encodeURIComponent(instanceName)}` : ""}`;
       }
 
       const { error } = await invokeEdge(`${functionName}${queryString}`, {
@@ -401,7 +401,8 @@ export function useInbox(onLeadCreated?: () => void) {
       const mediaType = detectMediaType(file);
 
       // 2. Send via appropriate proxy/channel
-      if (target.channel === "whatsapp_cloud") {
+      if (target.channel === "whatsapp_cloud" || target.channel === "whatsapp_official") {
+        // whatsapp_official é label legacy do cloud — backend é o mesmo.
         const phone = target.metadata?.phone || leadGroup.lead_phone;
         if (!phone) throw new Error("Número de telefone não encontrado para este contato.");
         const integrationId = target.metadata?.integration_id as string | undefined;
@@ -415,14 +416,11 @@ export function useInbox(onLeadCreated?: () => void) {
           const detail = await extractEdgeError(error, "Falha ao enviar via WhatsApp Cloud.");
           throw new Error(detail);
         }
-      } else if (target.channel === "whatsapp" || target.channel === "whatsapp_official") {
+      } else if (target.channel === "whatsapp") {
         const phone = target.metadata?.phone || leadGroup.lead_phone;
         if (!phone) throw new Error("Número de telefone não encontrado para este contato.");
 
-        const isOfficial = target.channel === "whatsapp_official";
-        const queryString = `?action=send-media${isOfficial ? "&type=official" : ""}`;
-
-        const { error } = await invokeEdge(`whatsapp-proxy${queryString}`, {
+        const { error } = await invokeEdge("whatsapp-proxy?action=send-media", {
           body: {
             phone,
             mediaUrl: url,
@@ -476,15 +474,15 @@ export function useInbox(onLeadCreated?: () => void) {
         }).eq("id", target.id);
       }
 
-      await loadMessages(leadId);
-      await loadConversations();
+      // Realtime entrega o INSERT da mensagem persistida (pelo proxy ou direto)
+      // e o dedup por id evita duplicata na UI — não recarregamos manualmente.
       toast.success("Mídia enviada!");
     } catch (err: any) {
       logger.error("sendWhatsAppMedia error:", err);
       toast.error(`Erro ao enviar mídia: ${err.message}`);
       throw err;
     }
-  }, [conversations, loadMessages, loadConversations]);
+  }, [conversations]);
 
   // Send email via Gmail
   const sendEmail = useCallback(async (leadId: string, text: string, targetConversationId?: string) => {
@@ -564,11 +562,15 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    if (target.channel === "whatsapp" || target.channel === "whatsapp_official" || target.channel === "instagram") {
+    const waChannels = ["whatsapp", "whatsapp_official", "whatsapp_cloud", "instagram"];
+    if (waChannels.includes(target.channel)) {
       await sendWhatsAppMessage(selectedLeadId, text, target.id);
     } else if (target.channel === "email") {
       await sendEmail(selectedLeadId, text, target.id);
     } else {
+      // Webchat e outros canais sem proxy: persiste direto.
+      // Realtime entrega o INSERT e o dedup por id evita duplicata na UI,
+      // então não chamamos loadMessages aqui.
       await supabase.from("messages").insert({
         conversation_id: target.id,
         content: text,
@@ -580,10 +582,8 @@ export function useInbox(onLeadCreated?: () => void) {
         last_message: text,
         last_message_at: new Date().toISOString(),
       }).eq("id", target.id);
-      await loadMessages(selectedLeadId);
-      await loadConversations();
     }
-  }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail, loadMessages, loadConversations]);
+  }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail]);
 
   // Update conversation status
   const updateStatus = useCallback(async (leadId: string, status: string) => {
