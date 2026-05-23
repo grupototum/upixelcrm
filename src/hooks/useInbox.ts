@@ -43,6 +43,31 @@ export interface Message {
   content_type: string;
 }
 
+// Normaliza fone BR para forma canônica DDD+8 (sem o "9" extra do celular),
+// alinhada ao wa_id que Meta retorna. Mantém E.164 com prefixo 55.
+function canonicalBrPhone(raw?: string | null): string {
+  if (!raw) return "";
+  const digits = String(raw).replace(/\D/g, "");
+  if (digits.length === 13 && digits.startsWith("55")) {
+    // 55 + DDD(2) + 9 + 8 → remove o 9
+    return digits.slice(0, 4) + digits.slice(5);
+  }
+  if (digits.length === 11 && !digits.startsWith("55")) {
+    // DDD(2) + 9 + 8 → remove o 9, adiciona 55
+    return "55" + digits.slice(0, 2) + digits.slice(3);
+  }
+  if (digits.length === 10 && !digits.startsWith("55")) {
+    return "55" + digits;
+  }
+  return digits;
+}
+
+function sortByCreatedAt(list: Message[]): Message[] {
+  return [...list].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+}
+
 export function useInbox(onLeadCreated?: () => void) {
   const [conversations, setConversations] = useState<LeadConversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -277,6 +302,29 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
+    // Optimistic UI: insere a mensagem localmente antes do invoke.
+    // O realtime callback substitui pelo registro real (mesmo conv + mesmo conteúdo)
+    // assim que o webhook/persistOutbound do proxy gravar no banco.
+    const optimisticId = `optimistic-${
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2)
+    }`;
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      conversation_id: target.id,
+      content: text,
+      type: "text",
+      direction: "outbound",
+      sender_name: "Você",
+      metadata: { optimistic: true, pending: true },
+      created_at: new Date().toISOString(),
+      channel: target.channel,
+      is_private: false,
+      content_type: "text",
+    };
+    setMessages(prev => sortByCreatedAt([...prev, optimisticMsg]));
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
@@ -310,12 +358,20 @@ export function useInbox(onLeadCreated?: () => void) {
         throw new Error(detail);
       }
 
-      await loadMessages(leadId);
-      await loadConversations();
+      // Sucesso: realtime entregará a msg real e substituirá a otimista.
+      // loadConversations dispara via realtime UPDATE em conversations.
     } catch (err: any) {
+      // Marca a otimista como falhada para feedback visual.
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === optimisticId
+            ? { ...m, metadata: { ...m.metadata, pending: false, failed: true } }
+            : m
+        )
+      );
       toast.error(`Erro ao enviar: ${err.message}`);
     }
-  }, [conversations, loadMessages, loadConversations]);
+  }, [conversations]);
 
   // Send message with media (unified - WhatsApp, Instagram, or fallback for other channels)
   const sendWhatsAppMedia = useCallback(async (leadId: string, file: File, targetConversationId?: string) => {
@@ -609,9 +665,13 @@ export function useInbox(onLeadCreated?: () => void) {
   const findOrCreateLead = useCallback(async (
     phone?: string, email?: string, name?: string
   ): Promise<string | null> => {
-    if (phone) {
-      const normalized = phone.replace(/\D/g, "");
-      const phoneSuffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
+    // Normaliza para forma canônica antes de buscar e inserir, evitando
+    // leads duplicados quando o mesmo número vem em formatos diferentes
+    // (ex.: webhook Meta como wa_id "553391294114" vs cadastro como "+55 33 99129-4114").
+    const canonicalPhone = canonicalBrPhone(phone);
+
+    if (canonicalPhone) {
+      const phoneSuffix = canonicalPhone.length >= 8 ? canonicalPhone.slice(-8) : canonicalPhone;
       const { data: duplicates } = await supabase
         .from("leads").select("id")
         .eq("client_id", clientId)
@@ -640,7 +700,7 @@ export function useInbox(onLeadCreated?: () => void) {
       .from("leads").insert({
         client_id: clientId,
         name: leadName,
-        phone: phone || null,
+        phone: canonicalPhone || null,
         email: email || null,
         column_id: firstCol.id,
         tags: ["auto-criado"],
@@ -713,14 +773,37 @@ export function useInbox(onLeadCreated?: () => void) {
             }
           }
 
-          setMessages(prev => [...prev, {
+          const incomingMsg: Message = {
             ...newMsg,
             content: resolvedContent,
             channel: conv.channel,
             metadata: meta,
             is_private: meta?.is_private || false,
             content_type: meta?.content_type || "text",
-          }]);
+          };
+
+          setMessages(prev => {
+            // Dedup: realtime pode reentregar; loadMessages pode coincidir com push.
+            if (prev.some(m => m.id === incomingMsg.id)) return prev;
+
+            // Outbound: substitui otimista correspondente (mesma conv + mesmo texto).
+            if (incomingMsg.direction === "outbound") {
+              const idx = prev.findIndex(m =>
+                typeof m.id === "string" &&
+                m.id.startsWith("optimistic-") &&
+                m.conversation_id === incomingMsg.conversation_id &&
+                m.content === incomingMsg.content &&
+                (m.metadata as any)?.pending
+              );
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = incomingMsg;
+                return sortByCreatedAt(next);
+              }
+            }
+
+            return sortByCreatedAt([...prev, incomingMsg]);
+          });
         }
 
         if (newMsg.direction === "inbound" && conv && !conv.lead_id) {
