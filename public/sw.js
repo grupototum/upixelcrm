@@ -1,4 +1,6 @@
-const CACHE_NAME = 'upixel-v1';
+// IMPORTANTE: bump esse versão a cada deploy de produção pra forçar limpeza
+// do cache antigo no install — evita 404 em chunks lazy de versões anteriores.
+const CACHE_NAME = 'upixel-v2';
 
 const PRECACHE_URLS = [
   '/',
@@ -52,13 +54,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (request.url.match(/\.(js|css|png|jpg|jpeg|svg|webp|woff2?|ttf)$/)) {
+  // JS/CSS: network-first com hashes únicos. Cache-first quebrava após deploy
+  // porque chunks antigos (que ainda referenciavam hashes inexistentes) eram
+  // servidos do cache, e novos chunks com hashes diferentes davam 404 quando
+  // o HTML novo pedia. Network-first garante que o que está no server é o
+  // que o browser usa; cache vira só fallback offline para imagens/fonts.
+  if (request.url.match(/\.(js|css)$/)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((c) => c ?? new Response('', { status: 504 })))
+    );
+    return;
+  }
+
+  // Imagens/fonts/etc: cache-first ainda faz sentido (são mais estáveis e
+  // raramente quebram entre deploys).
+  if (request.url.match(/\.(png|jpg|jpeg|svg|webp|woff2?|ttf|ico)$/)) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
         return fetch(request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         }).catch(() => new Response('', { status: 408 }));
       })
