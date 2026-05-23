@@ -31,6 +31,7 @@ interface IntegrationCardProps {
   key?: string | number;
   integration: any;
   active: boolean;
+  hasIntegration: boolean;
   onToggle: (v: boolean) => void;
   onConfigure: () => void;
 }
@@ -64,6 +65,9 @@ export default function IntegrationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [realStatuses, setRealStatuses] = useState<Record<string, string>>({});
+  // Providers que já existem como linha em `integrations` (independente do status).
+  // Usado pra decidir se o card mostra toggle Ativar (já configurado antes) ou "Conectar" (1ª vez).
+  const [existingProviders, setExistingProviders] = useState<Set<string>>(new Set());
   const [apiModalOpen, setApiModalOpen] = useState(false);
   const [webhookModalOpen, setWebhookModalOpen] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -98,9 +102,12 @@ export default function IntegrationsPage() {
           .eq("client_id", profile.client_id);
 
         const statusMap: Record<string, string> = {};
+        const existing = new Set<string>();
         ints?.forEach(i => {
           statusMap[i.provider] = i.status;
+          existing.add(i.provider);
         });
+        setExistingProviders(existing);
         
         // WhatsApp unified card cobre 3 providers: whatsapp (Baileys), whatsapp_official (legacy)
         // e whatsapp_cloud (Meta Cloud API atual). Se qualquer um conectar, o card mostra ativo.
@@ -124,10 +131,52 @@ export default function IntegrationsPage() {
     fetchStatuses();
   }, []);
 
-  const handleToggle = (id: string, value: boolean) => {
-    // For now, toggling from this page is mainly restricted to configuration redirect
-    // but we can add logic to enable/disable via API if needed
-    toast.info("Acesse as configurações para ativar/desativar esta integração.");
+  const handleToggle = async (id: string, value: boolean) => {
+    // Mapeia o id do card unificado pros providers reais no banco
+    const providersByCard: Record<string, string[]> = {
+      whatsapp: ["whatsapp", "whatsapp_official", "whatsapp_cloud"],
+      instagram: ["instagram"],
+      facebook_page: ["facebook_page"],
+      meta_ads: ["meta_ads"],
+      google_ads: ["google_ads"],
+      google: ["google"],
+    };
+    const providers = providersByCard[id];
+    if (!providers) {
+      toast.info("Acesse as configurações para ativar/desativar esta integração.");
+      return;
+    }
+
+    try {
+      const newStatus = value ? "connected" : "disconnected";
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).single();
+      if (!profile?.client_id) return;
+
+      // Só atualiza linhas que já existem (conectadas) — não cria registro novo.
+      const { error } = await supabase
+        .from("integrations")
+        .update({ status: newStatus })
+        .eq("client_id", profile.client_id)
+        .in("provider", providers);
+
+      if (error) throw error;
+
+      // Atualiza UI: recalcula status unificado
+      const updated = { ...realStatuses };
+      providers.forEach(p => {
+        if (updated[p] === "connected" || updated[p] === "disconnected") updated[p] = newStatus;
+      });
+      if (id === "whatsapp") {
+        updated["whatsapp_unified"] = newStatus;
+      }
+      setRealStatuses(updated);
+      toast.success(value ? "Integração ativada." : "Integração desativada.");
+    } catch (err: any) {
+      logger.error("Toggle integration failed:", err);
+      toast.error(`Falha ao alternar status: ${err.message ?? "erro desconhecido"}`);
+    }
   };
 
   const handleConfigure = (id: string) => {
@@ -190,15 +239,23 @@ export default function IntegrationsPage() {
               Nenhuma integração nesta categoria.
             </div>
           ) : (
-            visible.map((int) => (
-              <IntegrationCard
-                key={int.id}
-                integration={int}
-                active={int.status === "connected" || int.status === "configured"}
-                onToggle={(v) => handleToggle(int.id, v)}
-                onConfigure={() => handleConfigure(int.id)}
-              />
-            ))
+            visible.map((int) => {
+              // Card "whatsapp" cobre 3 providers — basta um existir no DB.
+              const providersForCard = int.id === "whatsapp"
+                ? ["whatsapp", "whatsapp_official", "whatsapp_cloud"]
+                : [int.id];
+              const hasIntegration = providersForCard.some(p => existingProviders.has(p));
+              return (
+                <IntegrationCard
+                  key={int.id}
+                  integration={int}
+                  active={int.status === "connected" || int.status === "configured"}
+                  hasIntegration={hasIntegration}
+                  onToggle={(v) => handleToggle(int.id, v)}
+                  onConfigure={() => handleConfigure(int.id)}
+                />
+              );
+            })
           )}
         </div>
       </div>
@@ -217,7 +274,7 @@ function StatusBadge({ status, active }: { status: string; active?: boolean }) {
   return <B variant="outline" className="text-[10px] gap-1 text-muted-foreground opacity-60"><XCircle className="h-2.5 w-2.5" /> Inativo</B>;
 }
 
-function IntegrationCard({ integration: int, active, onToggle, onConfigure }: IntegrationCardProps) {
+function IntegrationCard({ integration: int, active, hasIntegration, onToggle, onConfigure }: IntegrationCardProps) {
   const isAvailable = int.status !== "coming_soon";
   const B = Badge as any;
 
@@ -239,19 +296,21 @@ function IntegrationCard({ integration: int, active, onToggle, onConfigure }: In
       <p className="text-xs text-muted-foreground mb-4 flex-1">{int.description}</p>
 
       {isAvailable ? (
-        active ? (
-          // Conectado/Configurado: mostra toggle + Gerenciar
+        active || hasIntegration ? (
+          // Já configurada (ativa OU pausada): mostra toggle Ativar/Desativar + Gerenciar.
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Switch checked={active} onCheckedChange={onToggle} className="scale-90" />
-              <span className="text-xs text-primary font-medium">Ativo</span>
+              <span className={`text-xs font-medium ${active ? "text-primary" : "text-muted-foreground"}`}>
+                {active ? "Ativo" : "Inativo"}
+              </span>
             </div>
             <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary hover:bg-primary/5 rounded-lg" onClick={onConfigure}>
               Gerenciar <ExternalLink className="h-3 w-3" />
             </Button>
           </div>
         ) : (
-          // Desconectado: CTA primário "Conectar →"
+          // Nunca configurada: CTA primário "Conectar →"
           <Button
             size="sm"
             className="text-xs w-full rounded-lg gap-1.5 bg-primary hover:bg-[#e04400] text-white"
