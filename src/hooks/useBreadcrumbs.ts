@@ -57,7 +57,7 @@ export function useBreadcrumbs(dynamicLabel?: string): BreadcrumbItem[] {
   // /whatsapp/broadcast
   if (path === "/whatsapp/broadcast") {
     return [
-      { label: "WhatsApp", to: "/whatsapp" },
+      { label: "Integrações", to: "/integrations" },
       { label: "Disparo em Massa" },
     ];
   }
@@ -110,13 +110,8 @@ export function useBreadcrumbs(dynamicLabel?: string): BreadcrumbItem[] {
     ];
   }
 
-  // /whatsapp
-  if (path === "/whatsapp") {
-    return [
-      { label: "Integrações", to: "/integrations" },
-      { label: "WhatsApp" },
-    ];
-  }
+  // /whatsapp e /whatsapp/templates redirecionam pra /integrations.
+  // O painel inline gerencia números + templates como abas.
 
   // /instagram
   if (path === "/instagram") {

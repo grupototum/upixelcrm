@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
   Settings, Phone, Wifi, WifiOff, Plus, Trash2, RefreshCw,
@@ -15,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useWhatsAppInstances, WaInstance } from "@/hooks/useWhatsAppInstances";
 import { QuickConnectWizard } from "@/components/whatsapp/QuickConnectWizard";
@@ -521,8 +519,12 @@ function InstanceEditModal({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function WhatsAppPage() {
-  const navigate = useNavigate();
+interface WhatsAppManagementProps {
+  /** Quando true, esconde botão "Voltar" (ex.: embedded em /integrations). */
+  embedded?: boolean;
+}
+
+export function WhatsAppManagement({ embedded = false }: WhatsAppManagementProps = {}) {
   const { instances, loading, refresh } = useWhatsAppInstances();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [cloudOpen, setCloudOpen] = useState(false);
@@ -562,26 +564,27 @@ export default function WhatsAppPage() {
   // Empty state
   if (!loading && instances.length === 0) {
     return (
-      <AppLayout title="WhatsApp" subtitle="Conecte seus números">
+      <div className="space-y-4">
         <EmptyState onConnect={() => setWizardOpen(true)} />
         <QuickConnectWizard
           open={wizardOpen}
           onClose={() => setWizardOpen(false)}
           onComplete={refresh}
         />
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout
-      title="WhatsApp"
-      subtitle={loading ? "Carregando…" : `${connectedCount > 0 ? `${connectedCount} conectado${connectedCount > 1 ? "s" : ""}` : "Nenhum conectado"} · ${instances.length} número${instances.length !== 1 ? "s" : ""}`}
-      actions={
+    <div className={embedded ? "space-y-6" : "p-6 animate-fade-in space-y-6"}>
+      {/* Toolbar de ações */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs text-muted-foreground">
+          {loading
+            ? "Carregando…"
+            : `${connectedCount > 0 ? `${connectedCount} conectado${connectedCount > 1 ? "s" : ""}` : "Nenhum conectado"} · ${instances.length} número${instances.length !== 1 ? "s" : ""}`}
+        </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" className="text-xs gap-1 text-muted-foreground" onClick={() => navigate(-1)}>
-            Voltar
-          </Button>
           <Button size="sm" variant="outline" className="text-xs gap-1" onClick={refresh} disabled={loading}>
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
           </Button>
@@ -592,10 +595,9 @@ export default function WhatsAppPage() {
             <Plus className="h-3.5 w-3.5" /> Adicionar WhatsApp Web
           </Button>
         </div>
-      }
-    >
-      <div className="p-6 animate-fade-in space-y-6">
+      </div>
 
+      <div className="space-y-6">
         {/* Summary */}
         <div className="flex items-center gap-3 flex-wrap">
           <Badge
@@ -702,6 +704,6 @@ export default function WhatsAppPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </div>
   );
 }
