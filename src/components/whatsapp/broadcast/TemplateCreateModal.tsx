@@ -70,11 +70,11 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nome do Modelo</Label>
-                <Input 
-                  placeholder="ex: confirmacao_pedido" 
+                <Input
+                  placeholder="ex: confirmacao_pedido"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white transition-all text-xs"
+                  className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white dark:focus:bg-zinc-900 transition-all text-xs"
                 />
               </div>
               <div className="space-y-2">
