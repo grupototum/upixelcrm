@@ -70,7 +70,7 @@ export function TemplateManager() {
               placeholder="Pesquisar modelos..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-64 rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white transition-all text-xs"
+              className="pl-9 w-64 rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white dark:focus:bg-zinc-900 transition-all text-xs"
             />
           </div>
           <Button
