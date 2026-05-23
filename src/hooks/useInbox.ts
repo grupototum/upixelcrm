@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { extractEdgeError } from "@/lib/edge-error";
+import { invokeEdge } from "@/lib/edge-invoke";
 import { resolveClientId } from "@/lib/tenant-utils";
 
 export interface LeadConversation {
@@ -349,7 +350,7 @@ export function useInbox(onLeadCreated?: () => void) {
         queryString = `?action=send-message${isOfficial ? "&type=official" : ""}${instanceName ? `&instance_name=${encodeURIComponent(instanceName)}` : ""}`;
       }
 
-      const { error } = await supabase.functions.invoke(`${functionName}${queryString}`, {
+      const { error } = await invokeEdge(`${functionName}${queryString}`, {
         body: { phone, message: text },
       });
 
@@ -406,7 +407,7 @@ export function useInbox(onLeadCreated?: () => void) {
         const integrationId = target.metadata?.integration_id as string | undefined;
         const queryString = `?action=send-media${integrationId ? `&integration_id=${integrationId}` : ""}`;
 
-        const { error } = await supabase.functions.invoke(`whatsapp-cloud-proxy${queryString}`, {
+        const { error } = await invokeEdge(`whatsapp-cloud-proxy${queryString}`, {
           body: { phone, mediaUrl: url, mediaType, fileName: file.name },
         });
 
@@ -421,7 +422,7 @@ export function useInbox(onLeadCreated?: () => void) {
         const isOfficial = target.channel === "whatsapp_official";
         const queryString = `?action=send-media${isOfficial ? "&type=official" : ""}`;
 
-        const { error } = await supabase.functions.invoke(`whatsapp-proxy${queryString}`, {
+        const { error } = await invokeEdge(`whatsapp-proxy${queryString}`, {
           body: {
             phone,
             mediaUrl: url,
@@ -437,7 +438,7 @@ export function useInbox(onLeadCreated?: () => void) {
         }
       } else if (target.channel === "instagram") {
         const phone = target.metadata?.phone || leadGroup.lead_phone || "";
-        const { error } = await supabase.functions.invoke("instagram-proxy?action=send-media", {
+        const { error } = await invokeEdge("instagram-proxy?action=send-media", {
           body: {
             phone,
             mediaUrl: url,
@@ -509,7 +510,7 @@ export function useInbox(onLeadCreated?: () => void) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const { error } = await supabase.functions.invoke('google-oauth?action=gmail-send', {
+      const { error } = await invokeEdge('google-oauth?action=gmail-send', {
         body: { to: email, subject: "Re: Conversa uPixel", body: text },
       });
 
@@ -854,7 +855,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
       if (!msg?.content) throw new Error("Áudio não encontrado");
 
-      const { data, error } = await supabase.functions.invoke("ai-chat?action=transcribe", {
+      const { data, error } = await invokeEdge("ai-chat?action=transcribe", {
         body: { message_id: messageId, audio_url: msg.content },
       });
 
