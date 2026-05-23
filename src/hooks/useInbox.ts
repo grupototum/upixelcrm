@@ -787,13 +787,16 @@ export function useInbox(onLeadCreated?: () => void) {
             // Dedup: realtime pode reentregar; loadMessages pode coincidir com push.
             if (prev.some(m => m.id === incomingMsg.id)) return prev;
 
-            // Outbound: substitui otimista correspondente (mesma conv + mesmo texto).
+            // Outbound: substitui otimista correspondente. Match por content+pending
+            // SEM exigir conversation_id igual — o proxy pode persistir a msg numa
+            // conv diferente (ex.: whatsapp_official na UI vira whatsapp_cloud no DB)
+            // e ambas pertencem ao mesmo lead, então a UI exibe as duas.
             if (incomingMsg.direction === "outbound") {
               const idx = prev.findIndex(m =>
                 typeof m.id === "string" &&
                 m.id.startsWith("optimistic-") &&
-                m.conversation_id === incomingMsg.conversation_id &&
                 m.content === incomingMsg.content &&
+                m.direction === "outbound" &&
                 (m.metadata as any)?.pending
               );
               if (idx >= 0) {
