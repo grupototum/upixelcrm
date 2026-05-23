@@ -212,7 +212,14 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    setMessages((data || []).map(m => {
+    const seenIds = new Set<string>();
+    const dedupedRows = (data || []).filter(m => {
+      if (seenIds.has(m.id)) return false;
+      seenIds.add(m.id);
+      return true;
+    });
+    console.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
+    setMessages(dedupedRows.map(m => {
       const meta = (m.metadata || {}) as Record<string, any>;
       // For media messages, resolve the best available URL
       let resolvedContent = m.content;
@@ -784,8 +791,18 @@ export function useInbox(onLeadCreated?: () => void) {
           };
 
           setMessages(prev => {
-            // Dedup: realtime pode reentregar; loadMessages pode coincidir com push.
-            if (prev.some(m => m.id === incomingMsg.id)) return prev;
+            // Dedup robusto: também detecta caso prev já tenha qualquer msg
+            // com mesmo meta_message_id (wamid) — proteção extra se um INSERT
+            // for entregue 2x pelo realtime ou se loadMessages rodar em paralelo.
+            const incomingWamid = (incomingMsg.metadata as any)?.meta_message_id;
+            if (prev.some(m => m.id === incomingMsg.id)) {
+              console.debug("[useInbox] realtime dedup by id", incomingMsg.id);
+              return prev;
+            }
+            if (incomingWamid && prev.some(m => (m.metadata as any)?.meta_message_id === incomingWamid)) {
+              console.debug("[useInbox] realtime dedup by wamid", incomingWamid);
+              return prev;
+            }
 
             // Outbound: substitui otimista correspondente. Match por content+pending
             // SEM exigir conversation_id igual — o proxy pode persistir a msg numa
@@ -800,10 +817,12 @@ export function useInbox(onLeadCreated?: () => void) {
                 (m.metadata as any)?.pending
               );
               if (idx >= 0) {
+                console.debug("[useInbox] substituting optimistic", { from: prev[idx].id, to: incomingMsg.id });
                 const next = [...prev];
                 next[idx] = incomingMsg;
                 return sortByCreatedAt(next);
               }
+              console.debug("[useInbox] no optimistic match — appending", { content: incomingMsg.content, prevPending: prev.filter(m => (m.metadata as any)?.pending).map(m => ({ id: m.id, content: m.content })) });
             }
 
             return sortByCreatedAt([...prev, incomingMsg]);
