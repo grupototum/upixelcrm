@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      console.error("[whatsapp-cloud-proxy] 401: missing or malformed Authorization header");
+      return jsonResponse({ error: "Unauthorized: missing_header", reason: "missing_header" }, 401);
     }
 
     const userClient = createClient(
@@ -60,7 +61,17 @@ Deno.serve(async (req) => {
     );
 
     const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (userError || !user) {
+      console.error("[whatsapp-cloud-proxy] 401: getUser failed", {
+        userError: userError?.message,
+        hasUser: !!user,
+      });
+      return jsonResponse({
+        error: "Unauthorized: invalid_jwt",
+        reason: "invalid_jwt",
+        details: userError?.message ?? "no user",
+      }, 401);
+    }
 
     const { data: profile } = await userClient
       .from("profiles")
