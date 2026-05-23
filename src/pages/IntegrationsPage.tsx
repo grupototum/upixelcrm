@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect, useMemo } from "react";
 import { ApiSettingsModal } from "@/components/integrations/ApiSettingsModal";
 import { WebhookSettingsModal } from "@/components/integrations/WebhookSettingsModal";
+import { WhatsAppIntegrationPanel } from "@/components/whatsapp/WhatsAppIntegrationPanel";
 import { toast } from "sonner";
 
 type CategoryId = "all" | "messaging" | "ads" | "workspace" | "developer";
@@ -32,13 +33,16 @@ interface IntegrationCardProps {
   integration: any;
   active: boolean;
   hasIntegration: boolean;
+  /** Quando true, o botão Gerenciar vira "Recolher" (toggle do painel inline). */
+  expanded?: boolean;
   onToggle: (v: boolean) => void;
   onConfigure: () => void;
 }
 
 const integrations: Integration[] = [
   // Mensageria
-  { id: "whatsapp", name: "WhatsApp", description: "API Oficial (Cloud), QR Code (Lite) ou Coexistence — escolha o modo que se encaixa.", icon: MessageCircle, color: "text-success", status: "disconnected", category: "messaging", configRoute: "/whatsapp", tag: "3 modos" },
+  // WhatsApp não tem configRoute: expande inline (Números + Templates) via handleConfigure.
+  { id: "whatsapp", name: "WhatsApp", description: "API Oficial (Cloud), QR Code (Lite) ou Coexistence — escolha o modo que se encaixa.", icon: MessageCircle, color: "text-success", status: "disconnected", category: "messaging", tag: "3 modos" },
   { id: "instagram", name: "Instagram Direct", description: "Receba e responda DMs do Instagram diretamente no inbox.", icon: Instagram, color: "text-pink-500", status: "disconnected", category: "messaging", configRoute: "/instagram" },
   { id: "facebook_page", name: "Facebook Messenger", description: "Conecte páginas do Facebook para receber DMs do Messenger no inbox.", icon: Facebook, color: "text-[#1877F2]", status: "disconnected", category: "messaging", configRoute: "/facebook-page" },
   // Anúncios
@@ -68,6 +72,8 @@ export default function IntegrationsPage() {
   // Providers que já existem como linha em `integrations` (independente do status).
   // Usado pra decidir se o card mostra toggle Ativar (já configurado antes) ou "Conectar" (1ª vez).
   const [existingProviders, setExistingProviders] = useState<Set<string>>(new Set());
+  // Id do card expandido inline (atualmente só "whatsapp" usa esse mecanismo).
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [apiModalOpen, setApiModalOpen] = useState(false);
   const [webhookModalOpen, setWebhookModalOpen] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -182,7 +188,10 @@ export default function IntegrationsPage() {
   const handleConfigure = (id: string) => {
     if (id === "api") setApiModalOpen(true);
     else if (id === "webhook") setWebhookModalOpen(true);
-    else {
+    else if (id === "whatsapp") {
+      // WhatsApp expande inline (Números + Templates em abas) em vez de navegar
+      setExpandedCardId(prev => prev === "whatsapp" ? null : "whatsapp");
+    } else {
       const int = integrations.find(i => i.id === id);
       if (int?.configRoute) navigate(int.configRoute);
     }
@@ -245,15 +254,22 @@ export default function IntegrationsPage() {
                 ? ["whatsapp", "whatsapp_official", "whatsapp_cloud"]
                 : [int.id];
               const hasIntegration = providersForCard.some(p => existingProviders.has(p));
+              const isExpanded = expandedCardId === int.id;
               return (
-                <IntegrationCard
-                  key={int.id}
-                  integration={int}
-                  active={int.status === "connected" || int.status === "configured"}
-                  hasIntegration={hasIntegration}
-                  onToggle={(v) => handleToggle(int.id, v)}
-                  onConfigure={() => handleConfigure(int.id)}
-                />
+                <>
+                  <IntegrationCard
+                    key={int.id}
+                    integration={int}
+                    active={int.status === "connected" || int.status === "configured"}
+                    hasIntegration={hasIntegration}
+                    expanded={isExpanded}
+                    onToggle={(v) => handleToggle(int.id, v)}
+                    onConfigure={() => handleConfigure(int.id)}
+                  />
+                  {isExpanded && int.id === "whatsapp" && (
+                    <WhatsAppIntegrationPanel key={`${int.id}-panel`} />
+                  )}
+                </>
               );
             })
           )}
@@ -274,7 +290,7 @@ function StatusBadge({ status, active }: { status: string; active?: boolean }) {
   return <B variant="outline" className="text-[10px] gap-1 text-muted-foreground opacity-60"><XCircle className="h-2.5 w-2.5" /> Inativo</B>;
 }
 
-function IntegrationCard({ integration: int, active, hasIntegration, onToggle, onConfigure }: IntegrationCardProps) {
+function IntegrationCard({ integration: int, active, hasIntegration, expanded, onToggle, onConfigure }: IntegrationCardProps) {
   const isAvailable = int.status !== "coming_soon";
   const B = Badge as any;
 
@@ -306,7 +322,7 @@ function IntegrationCard({ integration: int, active, hasIntegration, onToggle, o
               </span>
             </div>
             <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary hover:bg-primary/5 rounded-lg" onClick={onConfigure}>
-              Gerenciar <ExternalLink className="h-3 w-3" />
+              {expanded ? "Recolher" : "Gerenciar"} <ExternalLink className="h-3 w-3" />
             </Button>
           </div>
         ) : (
