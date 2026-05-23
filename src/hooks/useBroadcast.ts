@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { invokeEdge } from "@/lib/edge-invoke";
+import { extractEdgeError } from "@/lib/edge-error";
 
 export type BroadcastRoute = "free" | "official";
 
@@ -105,10 +107,15 @@ export function useBroadcast() {
    * Chamado quando user clica "Sincronizar com Meta" na TemplateManager.
    */
   const syncTemplatesWithMeta = useCallback(async () => {
-    const { data, error } = await supabase.functions.invoke("whatsapp-templates?action=list");
+    // tenant_id no body é obrigatório quando o master opera num subdomínio
+    // (profile.tenant_id aponta pro tenant Master, mas a integration vive no
+    // tenant ativo do subdomínio — useTenant().tenant.id).
+    const { data, error } = await invokeEdge("whatsapp-templates?action=list", {
+      body: { tenant_id: clientId },
+    });
     if (error) {
-      const msg = (error as { message?: string })?.message ?? "Erro de rede";
-      toast.error(`Falha ao sincronizar: ${msg}`);
+      const detail = await extractEdgeError(error, "Erro de rede");
+      toast.error(`Falha ao sincronizar: ${detail}`);
       return { ok: false };
     }
     if (data?.error) {
@@ -120,7 +127,7 @@ export function useBroadcast() {
     queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
     await refetchTemplates();
     return { ok: true, count };
-  }, [queryClient, refetchTemplates]);
+  }, [queryClient, refetchTemplates, clientId]);
 
   const { data: creditsData, isLoading: loadingCredits } = useQuery({
     queryKey: ["client-credits"],
@@ -156,8 +163,9 @@ export function useBroadcast() {
    */
   const createTemplate = async (template: Omit<Template, "id" | "status">) => {
     const components = [{ type: "BODY" as const, text: template.content }];
-    const { data, error } = await supabase.functions.invoke("whatsapp-templates?action=create", {
+    const { data, error } = await invokeEdge("whatsapp-templates?action=create", {
       body: {
+        tenant_id: clientId,
         name: template.name,
         category: template.category,
         language: "pt_BR",
@@ -165,8 +173,8 @@ export function useBroadcast() {
       },
     });
     if (error) {
-      const msg = (error as { message?: string })?.message ?? "Erro de rede";
-      throw new Error(msg);
+      const detail = await extractEdgeError(error, "Erro ao criar template");
+      throw new Error(detail);
     }
     if (data?.error) {
       throw new Error(data.error as string);

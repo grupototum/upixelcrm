@@ -589,7 +589,7 @@ export default function WhatsAppPage() {
             <Shield className="h-3.5 w-3.5" /> WhatsApp Oficial (Meta)
           </Button>
           <Button size="sm" className="text-xs gap-1 bg-[#25D366] hover:bg-[#1da851] text-white" onClick={() => setWizardOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> Conectar número
+            <Plus className="h-3.5 w-3.5" /> Adicionar WhatsApp Web
           </Button>
         </div>
       }
