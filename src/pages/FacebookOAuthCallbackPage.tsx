@@ -4,8 +4,8 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const FB_OAUTH_STATE_KEY = "fb_oauth_state";
-export const FB_OAUTH_CODE_KEY = "fb_oauth_code";
 export const FB_OAUTH_PAGES_KEY = "fb_oauth_pages";
+export const FB_OAUTH_USER_TOKEN_KEY = "fb_oauth_user_token";
 export const FB_OAUTH_REDIRECT_URI_KEY = "fb_oauth_redirect_uri";
 
 export default function FacebookOAuthCallbackPage() {
@@ -53,12 +53,17 @@ export default function FacebookOAuthCallbackPage() {
         if (data?.error) throw new Error(data.error);
 
         const pages = (data?.pages ?? []) as Array<{ id: string; name: string; category?: string | null }>;
+        const userToken = data?.user_token as string | undefined;
         if (pages.length === 0) {
           setError("Nenhuma página Facebook encontrada nesta conta.");
           return;
         }
+        if (!userToken) {
+          setError("Edge function não devolveu user_token. Refaça o deploy.");
+          return;
+        }
 
-        sessionStorage.setItem(FB_OAUTH_CODE_KEY, code);
+        sessionStorage.setItem(FB_OAUTH_USER_TOKEN_KEY, userToken);
         sessionStorage.setItem(FB_OAUTH_PAGES_KEY, JSON.stringify(pages));
         sessionStorage.removeItem(FB_OAUTH_STATE_KEY);
         navigate("/facebook-page?fb_callback=1", { replace: true });
