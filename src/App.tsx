@@ -41,6 +41,7 @@ const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const WhatsAppTemplatesPage = lazy(() => import("./pages/WhatsAppTemplatesPage"));
 const InstagramPage = lazy(() => import("./pages/InstagramPage"));
 const FacebookPagePage = lazy(() => import("./pages/FacebookPagePage"));
+const FacebookOAuthCallbackPage = lazy(() => import("./pages/FacebookOAuthCallbackPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
@@ -156,6 +157,7 @@ function AppRoutes() {
                 <Route path="/whatsapp/templates" element={<ProtectedRoute><WhatsAppTemplatesPage /></ProtectedRoute>} />
                 <Route path="/instagram" element={<ProtectedRoute><InstagramPage /></ProtectedRoute>} />
                 <Route path="/facebook-page" element={<ProtectedRoute><FacebookPagePage /></ProtectedRoute>} />
+                <Route path="/auth/facebook/callback" element={<ProtectedRoute><FacebookOAuthCallbackPage /></ProtectedRoute>} />
                 <Route path="/whatsapp/broadcast" element={<ProtectedRoute><WhatsAppBroadcastPage /></ProtectedRoute>} />
                 <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
                 <Route path="/duplicates" element={<ProtectedRoute><DuplicatesPage /></ProtectedRoute>} />
