@@ -1,16 +1,24 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Facebook, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureFbSdkLoaded, type FBLoginResponse } from "@/lib/facebook-sdk";
+import {
+  FB_OAUTH_STATE_KEY,
+  FB_OAUTH_CODE_KEY,
+  FB_OAUTH_PAGES_KEY,
+  FB_OAUTH_REDIRECT_URI_KEY,
+} from "@/pages/FacebookOAuthCallbackPage";
 
 const META_APP_ID = import.meta.env.VITE_META_APP_ID as string | undefined;
-const META_FB_PAGE_CONFIG_ID = import.meta.env.VITE_META_FB_PAGE_CONFIG_ID as string | undefined;
 
 const REQUIRED_SCOPES =
   "pages_messaging,pages_manage_metadata,pages_show_list,pages_read_engagement";
+
+const FB_GRAPH_VERSION = "v22.0";
+const FB_OAUTH_DIALOG = `https://www.facebook.com/${FB_GRAPH_VERSION}/dialog/oauth`;
+const CALLBACK_PATH = "/auth/facebook/callback";
 
 interface PageOption {
   id: string;
@@ -28,8 +36,6 @@ interface SavedIntegration {
 
 type Phase =
   | "idle"
-  | "popup"
-  | "listing"
   | "choose_pages"
   | "saving"
   | "success";
@@ -38,57 +44,48 @@ interface Props {
   onConnected?: () => void;
 }
 
+function buildRedirectUri(): string {
+  return `${window.location.origin}${CALLBACK_PATH}`;
+}
+
 export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
-  const configured = !!(META_APP_ID && META_FB_PAGE_CONFIG_ID);
+  const configured = !!META_APP_ID;
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [pendingRedirectUri, setPendingRedirectUri] = useState<string | null>(null);
   const [pageOptions, setPageOptions] = useState<PageOption[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [savedIntegrations, setSavedIntegrations] = useState<SavedIntegration[]>([]);
-  const [sdkReady, setSdkReady] = useState(false);
-  const watchdogRef = useRef<number | null>(null);
 
-  // Pre-carrega o SDK no mount: garante que o click handler chame FB.login()
-  // sincronamente, preservando o user-gesture e evitando que o browser bloqueie
-  // o popup (causa raiz do "Aguardando autorização…" infinito).
+  // Detecta retorno do callback OAuth: lê code + pages do sessionStorage e
+  // pula direto para a seleção de páginas.
   useEffect(() => {
-    if (!configured || !META_APP_ID) return;
-    let cancelled = false;
-    ensureFbSdkLoaded(META_APP_ID)
-      .then(() => { if (!cancelled) setSdkReady(true); })
-      .catch((err) => {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "erro";
-        console.error("[FacebookPageEmbeddedSignup] SDK preload falhou:", err);
-        setError(`Falha ao carregar Facebook SDK: ${msg}`);
-      });
-    return () => { cancelled = true; };
-  }, [configured]);
-
-  useEffect(() => {
-    return () => {
-      if (watchdogRef.current) window.clearTimeout(watchdogRef.current);
-    };
+    const code = sessionStorage.getItem(FB_OAUTH_CODE_KEY);
+    const pagesRaw = sessionStorage.getItem(FB_OAUTH_PAGES_KEY);
+    const redirectUri = sessionStorage.getItem(FB_OAUTH_REDIRECT_URI_KEY);
+    if (!code || !pagesRaw || !redirectUri) return;
+    try {
+      const pages = JSON.parse(pagesRaw) as PageOption[];
+      if (!Array.isArray(pages) || pages.length === 0) return;
+      setPendingCode(code);
+      setPendingRedirectUri(redirectUri);
+      setPageOptions(pages);
+      setSelected(new Set(pages.map((p) => p.id)));
+      setPhase("choose_pages");
+    } catch {
+      sessionStorage.removeItem(FB_OAUTH_CODE_KEY);
+      sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
+      sessionStorage.removeItem(FB_OAUTH_REDIRECT_URI_KEY);
+    }
   }, []);
 
-  const callList = useCallback(async (code: string) => {
-    setPhase("listing");
-    const { data, error: invokeError } = await supabase.functions.invoke(
-      "facebook-page-embedded-signup?action=list",
-      { body: { code } },
-    );
-    if (invokeError) throw new Error(invokeError.message);
-    if (data?.error) throw new Error(data.error);
-    return (data?.pages ?? []) as PageOption[];
-  }, []);
-
-  const callFinish = useCallback(async (code: string, pageIds: string[]) => {
+  const callFinish = useCallback(async (code: string, redirectUri: string, pageIds: string[]) => {
     setPhase("saving");
     const { data, error: invokeError } = await supabase.functions.invoke(
       "facebook-page-embedded-signup?action=finish",
-      { body: { code, selected_page_ids: pageIds } },
+      { body: { code, redirect_uri: redirectUri, selected_page_ids: pageIds } },
     );
     if (invokeError) throw new Error(invokeError.message);
     if (data?.error) throw new Error(data.error);
@@ -96,99 +93,47 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
   }, []);
 
   const handleLaunch = useCallback(() => {
-    if (!configured || !META_APP_ID || !META_FB_PAGE_CONFIG_ID) {
-      toast.error("Embedded Signup do Facebook Page não configurado.");
-      return;
-    }
-    if (!sdkReady || !window.FB) {
-      // SDK ainda carregando — não usamos await aqui pra não perder o user
-      // gesture do click (popup bloqueado). Avisa e deixa o usuário tentar de novo.
-      setError("Facebook SDK ainda está carregando. Tente novamente em alguns segundos.");
+    if (!configured || !META_APP_ID) {
+      toast.error("Conexão com Facebook Page não configurada (faltam env vars).");
       return;
     }
     setError(null);
-    setPendingCode(null);
-    setPageOptions([]);
-    setSelected(new Set());
-    setSavedIntegrations([]);
     setLoading(true);
-    setPhase("popup");
 
-    // Watchdog: se a callback não disparar em 3 min, libera o botão.
-    if (watchdogRef.current) window.clearTimeout(watchdogRef.current);
-    watchdogRef.current = window.setTimeout(() => {
-      console.warn("[FacebookPageEmbeddedSignup] FB.login callback timed out");
-      setError(
-        "Não recebemos resposta do Facebook. Verifique se o popup foi bloqueado ou se cookies de terceiros estão habilitados.",
-      );
-      setPhase("idle");
-      setLoading(false);
-    }, 180_000);
+    // CSRF state aleatório — comparado pelo callback page contra o sessionStorage.
+    const state = crypto.randomUUID();
+    const redirectUri = buildRedirectUri();
+    sessionStorage.setItem(FB_OAUTH_STATE_KEY, state);
+    sessionStorage.setItem(FB_OAUTH_REDIRECT_URI_KEY, redirectUri);
+    // Limpa qualquer callback antigo pendente
+    sessionStorage.removeItem(FB_OAUTH_CODE_KEY);
+    sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
 
-    const clearWatchdog = () => {
-      if (watchdogRef.current) {
-        window.clearTimeout(watchdogRef.current);
-        watchdogRef.current = null;
-      }
-    };
+    const url = new URL(FB_OAUTH_DIALOG);
+    url.searchParams.set("client_id", META_APP_ID);
+    url.searchParams.set("redirect_uri", redirectUri);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("scope", REQUIRED_SCOPES);
+    url.searchParams.set("state", state);
 
-    window.FB.login(
-      async (response: FBLoginResponse) => {
-        clearWatchdog();
-        const code = response.authResponse?.code;
-        if (!code) {
-          setPhase("idle");
-          setLoading(false);
-          if (response.status !== "unknown") {
-            setError("Conexão cancelada antes de finalizar.");
-          } else {
-            setError(
-              "Facebook retornou status \"unknown\". Habilite cookies de terceiros para facebook.com e tente novamente.",
-            );
-          }
-          return;
-        }
-        try {
-          const pages = await callList(code);
-          if (pages.length === 0) {
-            setError("Nenhuma página Facebook encontrada nesta conta.");
-            setPhase("idle");
-            setLoading(false);
-            return;
-          }
-          setPendingCode(code);
-          setPageOptions(pages);
-          // Default: select all
-          setSelected(new Set(pages.map((p) => p.id)));
-          setPhase("choose_pages");
-          setLoading(false);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "Falha ao listar páginas.";
-          setError(msg);
-          setPhase("idle");
-          setLoading(false);
-        }
-      },
-      {
-        config_id: META_FB_PAGE_CONFIG_ID,
-        response_type: "code",
-        override_default_response_type: true,
-        scope: REQUIRED_SCOPES,
-      },
-    );
-  }, [configured, sdkReady, callList]);
+    // Full-page redirect (não usa popup → funciona em qualquer browser).
+    window.location.href = url.toString();
+  }, [configured]);
 
   const handleConfirm = useCallback(async () => {
-    if (!pendingCode) return;
+    if (!pendingCode || !pendingRedirectUri) return;
     if (selected.size === 0) {
       toast.error("Selecione ao menos uma página.");
       return;
     }
     setLoading(true);
     try {
-      const integrations = await callFinish(pendingCode, Array.from(selected));
+      const integrations = await callFinish(pendingCode, pendingRedirectUri, Array.from(selected));
       setSavedIntegrations(integrations);
       setPhase("success");
+      sessionStorage.removeItem(FB_OAUTH_CODE_KEY);
+      sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
+      sessionStorage.removeItem(FB_OAUTH_REDIRECT_URI_KEY);
       toast.success(`${integrations.length} página(s) conectada(s)!`);
       onConnected?.();
     } catch (err) {
@@ -198,7 +143,7 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [pendingCode, selected, callFinish, onConnected]);
+  }, [pendingCode, pendingRedirectUri, selected, callFinish, onConnected]);
 
   const toggleSelected = (pageId: string) => {
     setSelected((prev) => {
@@ -215,8 +160,7 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
         <p className="font-semibold text-foreground mb-1">Conexão automática indisponível</p>
         <p className="leading-relaxed">
           O administrador do uPixel precisa configurar{" "}
-          <code className="text-foreground">VITE_META_APP_ID</code> e{" "}
-          <code className="text-foreground">VITE_META_FB_PAGE_CONFIG_ID</code>.
+          <code className="text-foreground">VITE_META_APP_ID</code>.
         </p>
       </div>
     );
@@ -295,7 +239,11 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
               setPhase("idle");
               setPageOptions([]);
               setPendingCode(null);
+              setPendingRedirectUri(null);
               setSelected(new Set());
+              sessionStorage.removeItem(FB_OAUTH_CODE_KEY);
+              sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
+              sessionStorage.removeItem(FB_OAUTH_REDIRECT_URI_KEY);
             }}
             disabled={loading}
           >
@@ -322,14 +270,12 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     <div className="space-y-2">
       <Button
         onClick={handleLaunch}
-        disabled={loading || !sdkReady}
+        disabled={loading}
         className="w-full bg-[#1877F2] hover:bg-[#1565d8] text-white gap-2 h-11 text-sm font-semibold"
       >
-        {phase === "popup" && <><Loader2 className="h-4 w-4 animate-spin" /> Aguardando autorização…</>}
-        {phase === "listing" && <><Loader2 className="h-4 w-4 animate-spin" /> Buscando suas páginas…</>}
-        {phase === "saving" && <><Loader2 className="h-4 w-4 animate-spin" /> Conectando ao uPixel…</>}
-        {phase === "idle" && !sdkReady && <><Loader2 className="h-4 w-4 animate-spin" /> Carregando Facebook…</>}
-        {phase === "idle" && sdkReady && <><Facebook className="h-4 w-4" /> Conectar Facebook Page</>}
+        {loading
+          ? <><Loader2 className="h-4 w-4 animate-spin" /> Redirecionando para o Facebook…</>
+          : <><Facebook className="h-4 w-4" /> Conectar Facebook Page</>}
       </Button>
       <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
         Você precisa ser <strong>administrador</strong> das páginas que vai conectar.
