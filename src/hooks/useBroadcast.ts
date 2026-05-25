@@ -77,7 +77,9 @@ export function useBroadcast() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<{ sent: number; total: number } | null>(null);
 
-  const clientId = tenant?.id ?? user?.client_id;
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const rawTenantId = tenant?.id;
+  const clientId = (rawTenantId && UUID_RE.test(rawTenantId)) ? rawTenantId : user?.client_id;
 
   const { data: templates = [], refetch: refetchTemplates } = useQuery({
     queryKey: ["whatsapp-templates", clientId],

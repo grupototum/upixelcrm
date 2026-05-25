@@ -36,6 +36,10 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
+    if (!/^[a-z0-9_]+$/.test(formData.name)) {
+      toast.error("Nome do modelo: apenas letras minúsculas, números e underscores (ex: meu_template_1)");
+      return;
+    }
 
     setLoading(true);
     try {
