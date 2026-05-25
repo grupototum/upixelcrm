@@ -187,30 +187,38 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { code, selected_page_ids, redirect_uri } = body as {
+    const { code, selected_page_ids, redirect_uri, user_token } = body as {
       code?: string;
       selected_page_ids?: string[];
       redirect_uri?: string;
+      user_token?: string;
     };
-    if (!code) return json({ error: "Missing code from OAuth flow" }, 400);
 
-    // ─── 1) Exchange code → short-lived user token
-    const exch = await exchangeCodeForUserToken(code, appId, appSecret, redirect_uri);
-    if (!exch.ok) {
-      const metaErr = (exch.data as { error?: { message?: string } })?.error?.message ?? `HTTP ${exch.status}`;
-      return json({
-        error: `Falha ao trocar código por token: ${metaErr}`,
-        code: "TOKEN_EXCHANGE_FAILED",
-        details: exch.data,
-      }, 502);
+    // Códigos OAuth são single-use: `list` troca o code por user_token (long-lived)
+    // e devolve ao cliente. `finish` recebe esse user_token de volta — não troca
+    // o code novamente (já foi consumido pela Meta).
+    let longToken: string | undefined = user_token;
+
+    if (!longToken) {
+      if (!code) return json({ error: "Missing code or user_token" }, 400);
+
+      const exch = await exchangeCodeForUserToken(code, appId, appSecret, redirect_uri);
+      if (!exch.ok) {
+        const metaErr = (exch.data as { error?: { message?: string } })?.error?.message ?? `HTTP ${exch.status}`;
+        return json({
+          error: `Falha ao trocar código por token: ${metaErr}`,
+          code: "TOKEN_EXCHANGE_FAILED",
+          details: exch.data,
+        }, 502);
+      }
+      const shortToken = (exch.data as { access_token?: string })?.access_token;
+      if (!shortToken) return json({ error: "No access_token in Meta response", details: exch.data }, 502);
+
+      // Long-lived user token (~60d) — usado tanto pra list quanto pra finish
+      longToken = await exchangeForLongLivedToken(shortToken, appId, appSecret);
     }
-    const shortToken = (exch.data as { access_token?: string })?.access_token;
-    if (!shortToken) return json({ error: "No access_token in Meta response", details: exch.data }, 502);
 
-    // 2) Long-lived user token (~60d)
-    const longToken = await exchangeForLongLivedToken(shortToken, appId, appSecret);
-
-    // 3) List pages
+    // List pages com o token (curto ou longo)
     const pages = await listUserPages(longToken);
     if (pages.length === 0) {
       return json({
@@ -219,13 +227,13 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // ─── LIST ─── Return pages so UI can show selection. NEVER include
-    // page tokens here — they only leave the server when saved to integrations.
+    // ─── LIST ─── Devolve as páginas + user_token (cliente devolve no finish).
+    // O token é do próprio usuário autenticado nesta sessão, transitando em HTTPS
+    // dentro do escopo do tenant — equivalente a guardá-lo em sessionStorage.
     if (action === "list") {
       return json({
         pages: pages.map((p) => ({ id: p.id, name: p.name, category: p.category ?? null })),
-        // signed code so client can re-submit safely
-        // (alternative: cache the user_token in a server-side oauth_session row)
+        user_token: longToken,
       });
     }
 
