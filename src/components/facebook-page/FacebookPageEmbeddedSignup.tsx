@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Facebook, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
@@ -28,7 +28,6 @@ interface SavedIntegration {
 
 type Phase =
   | "idle"
-  | "loading_sdk"
   | "popup"
   | "listing"
   | "choose_pages"
@@ -48,6 +47,31 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
   const [pageOptions, setPageOptions] = useState<PageOption[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [savedIntegrations, setSavedIntegrations] = useState<SavedIntegration[]>([]);
+  const [sdkReady, setSdkReady] = useState(false);
+  const watchdogRef = useRef<number | null>(null);
+
+  // Pre-carrega o SDK no mount: garante que o click handler chame FB.login()
+  // sincronamente, preservando o user-gesture e evitando que o browser bloqueie
+  // o popup (causa raiz do "Aguardando autorização…" infinito).
+  useEffect(() => {
+    if (!configured || !META_APP_ID) return;
+    let cancelled = false;
+    ensureFbSdkLoaded(META_APP_ID)
+      .then(() => { if (!cancelled) setSdkReady(true); })
+      .catch((err) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "erro";
+        console.error("[FacebookPageEmbeddedSignup] SDK preload falhou:", err);
+        setError(`Falha ao carregar Facebook SDK: ${msg}`);
+      });
+    return () => { cancelled = true; };
+  }, [configured]);
+
+  useEffect(() => {
+    return () => {
+      if (watchdogRef.current) window.clearTimeout(watchdogRef.current);
+    };
+  }, []);
 
   const callList = useCallback(async (code: string) => {
     setPhase("listing");
@@ -71,9 +95,15 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     return (data?.integrations ?? []) as SavedIntegration[];
   }, []);
 
-  const handleLaunch = useCallback(async () => {
+  const handleLaunch = useCallback(() => {
     if (!configured || !META_APP_ID || !META_FB_PAGE_CONFIG_ID) {
       toast.error("Embedded Signup do Facebook Page não configurado.");
+      return;
+    }
+    if (!sdkReady || !window.FB) {
+      // SDK ainda carregando — não usamos await aqui pra não perder o user
+      // gesture do click (popup bloqueado). Avisa e deixa o usuário tentar de novo.
+      setError("Facebook SDK ainda está carregando. Tente novamente em alguns segundos.");
       return;
     }
     setError(null);
@@ -82,28 +112,39 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     setSelected(new Set());
     setSavedIntegrations([]);
     setLoading(true);
-    setPhase("loading_sdk");
-
-    try {
-      await ensureFbSdkLoaded(META_APP_ID);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "erro";
-      setError(`Falha ao carregar Facebook SDK: ${msg}`);
-      setPhase("idle");
-      setLoading(false);
-      return;
-    }
-
     setPhase("popup");
 
-    window.FB!.login(
+    // Watchdog: se a callback não disparar em 3 min, libera o botão.
+    if (watchdogRef.current) window.clearTimeout(watchdogRef.current);
+    watchdogRef.current = window.setTimeout(() => {
+      console.warn("[FacebookPageEmbeddedSignup] FB.login callback timed out");
+      setError(
+        "Não recebemos resposta do Facebook. Verifique se o popup foi bloqueado ou se cookies de terceiros estão habilitados.",
+      );
+      setPhase("idle");
+      setLoading(false);
+    }, 180_000);
+
+    const clearWatchdog = () => {
+      if (watchdogRef.current) {
+        window.clearTimeout(watchdogRef.current);
+        watchdogRef.current = null;
+      }
+    };
+
+    window.FB.login(
       async (response: FBLoginResponse) => {
+        clearWatchdog();
         const code = response.authResponse?.code;
         if (!code) {
           setPhase("idle");
           setLoading(false);
           if (response.status !== "unknown") {
             setError("Conexão cancelada antes de finalizar.");
+          } else {
+            setError(
+              "Facebook retornou status \"unknown\". Habilite cookies de terceiros para facebook.com e tente novamente.",
+            );
           }
           return;
         }
@@ -135,7 +176,7 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
         scope: REQUIRED_SCOPES,
       },
     );
-  }, [configured, callList]);
+  }, [configured, sdkReady, callList]);
 
   const handleConfirm = useCallback(async () => {
     if (!pendingCode) return;
@@ -281,14 +322,14 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     <div className="space-y-2">
       <Button
         onClick={handleLaunch}
-        disabled={loading}
+        disabled={loading || !sdkReady}
         className="w-full bg-[#1877F2] hover:bg-[#1565d8] text-white gap-2 h-11 text-sm font-semibold"
       >
-        {phase === "loading_sdk" && <><Loader2 className="h-4 w-4 animate-spin" /> Carregando Facebook…</>}
         {phase === "popup" && <><Loader2 className="h-4 w-4 animate-spin" /> Aguardando autorização…</>}
         {phase === "listing" && <><Loader2 className="h-4 w-4 animate-spin" /> Buscando suas páginas…</>}
         {phase === "saving" && <><Loader2 className="h-4 w-4 animate-spin" /> Conectando ao uPixel…</>}
-        {phase === "idle" && <><Facebook className="h-4 w-4" /> Conectar Facebook Page</>}
+        {phase === "idle" && !sdkReady && <><Loader2 className="h-4 w-4 animate-spin" /> Carregando Facebook…</>}
+        {phase === "idle" && sdkReady && <><Facebook className="h-4 w-4" /> Conectar Facebook Page</>}
       </Button>
       <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
         Você precisa ser <strong>administrador</strong> das páginas que vai conectar.
