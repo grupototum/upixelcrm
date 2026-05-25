@@ -46,11 +46,19 @@ interface PageEntry {
   category?: string;
 }
 
-async function exchangeCodeForUserToken(code: string, appId: string, appSecret: string) {
+async function exchangeCodeForUserToken(
+  code: string,
+  appId: string,
+  appSecret: string,
+  redirectUri?: string,
+) {
   const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
   url.searchParams.set("client_id", appId);
   url.searchParams.set("client_secret", appSecret);
   url.searchParams.set("code", code);
+  // Standard OAuth redirect flow requer redirect_uri idêntico ao usado no dialog.
+  // Facebook Login for Business (config_id flow) ignora esse param.
+  if (redirectUri) url.searchParams.set("redirect_uri", redirectUri);
   const res = await fetch(url.toString());
   return { ok: res.ok, status: res.status, data: await readBody(res) };
 }
@@ -179,14 +187,15 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { code, selected_page_ids } = body as {
+    const { code, selected_page_ids, redirect_uri } = body as {
       code?: string;
       selected_page_ids?: string[];
+      redirect_uri?: string;
     };
-    if (!code) return json({ error: "Missing code from Embedded Signup popup" }, 400);
+    if (!code) return json({ error: "Missing code from OAuth flow" }, 400);
 
     // ─── 1) Exchange code → short-lived user token
-    const exch = await exchangeCodeForUserToken(code, appId, appSecret);
+    const exch = await exchangeCodeForUserToken(code, appId, appSecret, redirect_uri);
     if (!exch.ok) {
       const metaErr = (exch.data as { error?: { message?: string } })?.error?.message ?? `HTTP ${exch.status}`;
       return json({
