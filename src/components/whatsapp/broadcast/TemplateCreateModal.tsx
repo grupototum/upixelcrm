@@ -74,7 +74,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                   placeholder="ex: confirmacao_pedido"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white dark:focus:bg-zinc-900 transition-all text-xs"
+                  className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] transition-all text-xs"
                 />
               </div>
               <div className="space-y-2">
@@ -104,7 +104,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                 placeholder="Olá {{1}}, seu pedido {{2}} foi recebido!"
                 value={formData.content}
                 onChange={(e) => setFormData({...formData, content: e.target.value})}
-                className="min-h-[120px] rounded-card bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white dark:focus:bg-zinc-900 transition-all text-sm resize-none"
+                className="min-h-[120px] rounded-card bg-muted/30 border-[hsl(var(--border-strong))] transition-all text-sm resize-none"
               />
             </div>
 
@@ -116,7 +116,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
                 placeholder="Digite o ID do fluxo no Typebot..."
                 value={formData.typebotFlowId}
                 onChange={(e) => setFormData({...formData, typebotFlowId: e.target.value})}
-                className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] focus:bg-white dark:focus:bg-zinc-900 transition-all text-xs"
+                className="rounded-xl bg-muted/30 border-[hsl(var(--border-strong))] transition-all text-xs"
               />
               <p className="text-[9px] text-muted-foreground">Este fluxo será acionado automaticamente quando o cliente responder a esta mensagem.</p>
             </div>
