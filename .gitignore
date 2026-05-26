@@ -32,6 +32,9 @@ migration-dump/
 .env
 .env.migration
 
+# ship:all — hashes locais das edge functions (não compartilhar entre devs)
+.ship-state.json
+
 # Agent Skills e configs locais do AI Assistant
 .agents/
 supabase/.temp/
