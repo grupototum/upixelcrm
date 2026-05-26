@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// ship:all — deploy unificado: git pull → edge functions modificadas → frontend.
-// Usado via `npm run ship:all`. Detecta quais functions mudaram desde o último
-// ship usando hash de conteúdo (sha256 do dir + _shared) e só deploya o que
-// mudou. Frontend continua sempre indo via `npm run ship` (build + deploy).
+// ship:all — deploy unificado e otimizado.
 //
-// Ordem importa: edge functions ANTES do frontend, porque o cliente novo
-// pode chamar APIs que o backend antigo não conhece (já mordemos esse bug).
+// - Detecta edge functions modificadas via hash sha256 do dir + _shared/
+// - Detecta se o FRONTEND mudou via hash de src/, public/, index.html, vite.config.ts, package.json
+// - Edge functions deployadas em PARALELO (5 simultâneas) pra reduzir tempo
+// - Skip do build/deploy do frontend se nada do frontend mudou desde o último ship
+// - Edge functions vão SEMPRE antes do frontend (forward compat)
 
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import {
   existsSync, readFileSync, writeFileSync,
   statSync, readdirSync,
@@ -18,6 +18,18 @@ import path from "node:path";
 const FUNCTIONS_DIR = "supabase/functions";
 const SHARED_DIRNAME = "_shared";
 const STATE_FILE = ".ship-state.json";
+const PARALLEL_LIMIT = 5;
+
+// Dirs/arquivos do frontend que disparam rebuild quando mudam
+const FRONTEND_PATHS = [
+  "src",
+  "public",
+  "index.html",
+  "vite.config.ts",
+  "tailwind.config.ts",
+  "tsconfig.json",
+  "package.json",
+];
 
 const c = {
   reset: "\x1b[0m", bold: "\x1b[1m",
@@ -35,15 +47,21 @@ function gitOut(cmd) {
   return execSync(cmd, { encoding: "utf-8" }).trim();
 }
 
-function hashDir(dir) {
+function hashPath(p) {
+  // Aceita arquivo OU diretório
+  if (!existsSync(p)) return "";
+  const stat = statSync(p);
+  if (stat.isFile()) {
+    return createHash("sha256").update(readFileSync(p)).digest("hex");
+  }
   const files = [];
   (function walk(d) {
     for (const f of readdirSync(d)) {
-      const p = path.join(d, f);
-      if (statSync(p).isDirectory()) walk(p);
-      else files.push(p);
+      const fp = path.join(d, f);
+      if (statSync(fp).isDirectory()) walk(fp);
+      else files.push(fp);
     }
-  })(dir);
+  })(p);
   files.sort();
   const h = createHash("sha256");
   for (const f of files) {
@@ -67,106 +85,152 @@ function listFunctions() {
 }
 
 function loadState() {
-  if (!existsSync(STATE_FILE)) return { functions: {} };
-  try { return JSON.parse(readFileSync(STATE_FILE, "utf-8")); }
-  catch { return { functions: {} }; }
+  if (!existsSync(STATE_FILE)) return { functions: {}, frontend: "" };
+  try {
+    const s = JSON.parse(readFileSync(STATE_FILE, "utf-8"));
+    return { functions: {}, frontend: "", ...s };
+  } catch { return { functions: {}, frontend: "" }; }
 }
 
 function saveState(state) {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + "\n");
 }
 
+function deployFunctionAsync(fn) {
+  return new Promise((resolve) => {
+    const proc = spawn("supabase", ["functions", "deploy", fn, "--use-api"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+    proc.stdout.on("data", () => { /* descarta output verboso */ });
+    proc.on("close", (code) => {
+      if (code === 0) {
+        log(`   ✓ ${fn}`, "green");
+        resolve({ fn, ok: true });
+      } else {
+        log(`   ✗ ${fn}`, "red");
+        resolve({ fn, ok: false, error: stderr.trim().split("\n").slice(-3).join(" | ") });
+      }
+    });
+  });
+}
+
+async function deployInParallel(fns) {
+  const results = [];
+  let i = 0;
+  async function worker() {
+    while (i < fns.length) {
+      const idx = i++;
+      const r = await deployFunctionAsync(fns[idx]);
+      results.push(r);
+    }
+  }
+  await Promise.all(Array.from({ length: PARALLEL_LIMIT }, worker));
+  return results;
+}
+
 // ──────────────────────────────────────────────────────────────
 // MAIN
 // ──────────────────────────────────────────────────────────────
 
-log("\n🚀 uPixel CRM — ship:all\n", "bold");
+(async () => {
+  log("\n🚀 uPixel CRM — ship:all\n", "bold");
 
-// 0) supabase CLI
-try { execSync("supabase --version", { stdio: "pipe" }); }
-catch {
-  log("❌ supabase CLI não encontrado.", "red");
-  log("   Instale: brew install supabase/tap/supabase", "dim");
-  process.exit(1);
-}
-
-// 1) Working tree limpo
-const dirty = gitOut("git status --porcelain");
-if (dirty) {
-  log("❌ Working tree não está limpo:", "red");
-  log(dirty, "yellow");
-  log("\n   Commit ou stash antes de rodar ship:all.", "dim");
-  process.exit(1);
-}
-
-// 2) Pull
-try { run("git pull --ff-only origin main"); }
-catch {
-  log("\n❌ git pull falhou. Resolva manualmente e rode de novo.", "red");
-  process.exit(1);
-}
-
-// 3) Detecta functions modificadas
-const sharedDir = path.join(FUNCTIONS_DIR, SHARED_DIRNAME);
-const sharedHash = existsSync(sharedDir) ? hashDir(sharedDir) : "";
-const state = loadState();
-const allFns = listFunctions();
-const changed = [];
-const newHashes = {};
-
-for (const fn of allFns) {
-  const h = createHash("sha256");
-  h.update(hashDir(path.join(FUNCTIONS_DIR, fn)));
-  h.update(sharedHash);
-  const digest = h.digest("hex");
-  newHashes[fn] = digest;
-  if (state.functions[fn] !== digest) changed.push(fn);
-}
-
-log("\n📋 Edge functions modificadas desde o último ship:", "bold");
-if (changed.length === 0) {
-  log("   (nenhuma)", "dim");
-} else {
-  for (const fn of changed) log(`   • ${fn}`);
-}
-
-// 4) Edge functions PRIMEIRO (forward compat)
-const fnErrors = [];
-for (const fn of changed) {
-  try {
-    run(`supabase functions deploy ${fn} --use-api`);
-  } catch (err) {
-    fnErrors.push({ fn, msg: err.message });
-    log(`❌ falhou: ${fn}`, "red");
+  try { execSync("supabase --version", { stdio: "pipe" }); }
+  catch {
+    log("❌ supabase CLI não encontrado. brew install supabase/tap/supabase", "red");
+    process.exit(1);
   }
-}
 
-if (fnErrors.length > 0) {
-  log(`\n❌ ${fnErrors.length} edge function(s) falharam. Abortando antes do frontend.`, "red");
-  log("   Edge functions que falharam ficam com hash não atualizado e serão tentadas no próximo ship.", "dim");
-  process.exit(1);
-}
+  const dirty = gitOut("git status --porcelain");
+  if (dirty) {
+    log("❌ Working tree não está limpo:", "red");
+    log(dirty, "yellow");
+    process.exit(1);
+  }
 
-// 5) Frontend (reusa npm run ship que já existe)
-try {
-  run("npm run ship");
-} catch {
-  log("\n❌ Frontend falhou no build/deploy.", "red");
-  log("   Edge functions já foram deployadas. Resolva e rode `npm run deploy` manualmente.", "dim");
-  process.exit(1);
-}
+  try { run("git pull --ff-only origin main"); }
+  catch { log("\n❌ git pull falhou.", "red"); process.exit(1); }
 
-// 6) Salva estado
-state.functions = newHashes;
-state.lastShipAt = new Date().toISOString();
-state.lastShipCommit = gitOut("git rev-parse HEAD");
-saveState(state);
+  // Detecta functions modificadas
+  const sharedDir = path.join(FUNCTIONS_DIR, SHARED_DIRNAME);
+  const sharedHash = existsSync(sharedDir) ? hashPath(sharedDir) : "";
+  const state = loadState();
+  const allFns = listFunctions();
+  const changedFns = [];
+  const newFnHashes = {};
 
-// 7) Resumo
-const line = "═".repeat(52);
-log(`\n${line}`, "green");
-log("✅ Ship completo!", "bold");
-log(`   Frontend:       deployado`, "green");
-log(`   Edge functions: ${changed.length} ${changed.length === 1 ? "deployada" : "deployadas"}${changed.length ? " (" + changed.join(", ") + ")" : ""}`, "green");
-log(`   Commit:         ${state.lastShipCommit.slice(0, 7)}`, "green");
-log(`${line}\n`, "green");
+  for (const fn of allFns) {
+    const h = createHash("sha256");
+    h.update(hashPath(path.join(FUNCTIONS_DIR, fn)));
+    h.update(sharedHash);
+    const digest = h.digest("hex");
+    newFnHashes[fn] = digest;
+    if (state.functions[fn] !== digest) changedFns.push(fn);
+  }
+
+  // Detecta mudanças no frontend
+  const frontendHasher = createHash("sha256");
+  for (const p of FRONTEND_PATHS) frontendHasher.update(hashPath(p));
+  const newFrontendHash = frontendHasher.digest("hex");
+  const frontendChanged = state.frontend !== newFrontendHash;
+
+  log("\n📋 Plano de deploy:", "bold");
+  log(`   Edge functions: ${changedFns.length} ${changedFns.length === 1 ? "modificada" : "modificadas"}`);
+  if (changedFns.length > 0 && changedFns.length <= 8) {
+    for (const fn of changedFns) log(`      • ${fn}`, "dim");
+  }
+  log(`   Frontend:       ${frontendChanged ? "modificado" : "não modificado (pula build)"}`);
+
+  if (changedFns.length === 0 && !frontendChanged) {
+    log("\n✓ Nada a deployar. Tudo já está em produção.\n", "green");
+    return;
+  }
+
+  // Deploy paralelo de edge functions
+  if (changedFns.length > 0) {
+    log(`\n⚙️  Deployando ${changedFns.length} edge function(s) em paralelo (limite ${PARALLEL_LIMIT})…`, "cyan");
+    const results = await deployInParallel(changedFns);
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length > 0) {
+      log(`\n❌ ${failed.length} edge function(s) falharam:`, "red");
+      for (const f of failed) log(`   • ${f.fn}: ${f.error}`, "red");
+      log("\n   As que passaram já estão em produção. Resolva e rode ship:all de novo.", "dim");
+      // Atualiza hashes das que passaram pra evitar reenvio
+      const okFns = new Set(results.filter((r) => r.ok).map((r) => r.fn));
+      for (const fn of okFns) state.functions[fn] = newFnHashes[fn];
+      saveState(state);
+      process.exit(1);
+    }
+  }
+
+  // Frontend
+  if (frontendChanged) {
+    try { run("npm run ship"); }
+    catch {
+      log("\n❌ Frontend falhou. Edge functions já deployadas.", "red");
+      // Salva hashes das edge functions ok
+      Object.assign(state.functions, newFnHashes);
+      saveState(state);
+      process.exit(1);
+    }
+  } else {
+    log("\n⏭️  Frontend não mudou desde o último ship — skip do build (economiza ~5min).", "yellow");
+  }
+
+  // Salva estado
+  state.functions = newFnHashes;
+  state.frontend = newFrontendHash;
+  state.lastShipAt = new Date().toISOString();
+  state.lastShipCommit = gitOut("git rev-parse HEAD");
+  saveState(state);
+
+  const line = "═".repeat(52);
+  log(`\n${line}`, "green");
+  log("✅ Ship completo!", "bold");
+  log(`   Edge functions: ${changedFns.length} deployada${changedFns.length === 1 ? "" : "s"}`, "green");
+  log(`   Frontend:       ${frontendChanged ? "deployado" : "skipped (sem mudanças)"}`, "green");
+  log(`   Commit:         ${state.lastShipCommit.slice(0, 7)}`, "green");
+  log(`${line}\n`, "green");
+})();
