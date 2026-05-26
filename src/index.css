@@ -5,6 +5,13 @@
 @tailwind utilities;
 
 @layer base {
+  /* Reduz a base do sistema em 20%: 16px → 12.8px.
+     Todas as utilities `rem` do Tailwind (padding, margin, gap, font-size,
+     ícones via h-/w-) escalam proporcionalmente. */
+  html {
+    font-size: 80%;
+  }
+
   :root {
     /* ═══════════════════════════════════════════
        LIGHT MODE — Zapier Design System
