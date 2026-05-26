@@ -5,11 +5,11 @@
 @tailwind utilities;
 
 @layer base {
-  /* Reduz a base do sistema em 20%: 16px → 12.8px.
+  /* Reduz a base do sistema: 16px → 10.88px (-32% acumulado: -20% + -15%).
      Todas as utilities `rem` do Tailwind (padding, margin, gap, font-size,
      ícones via h-/w-) escalam proporcionalmente. */
   html {
-    font-size: 80%;
+    font-size: 68%;
   }
 
   :root {

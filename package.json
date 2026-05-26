@@ -15,7 +15,8 @@
     "deploy": "bash deploy/deploy-local.sh",
     "ship": "node scripts/bump-sw-cache.mjs --patch && npm run build && npm run deploy",
     "ship:minor": "node scripts/bump-sw-cache.mjs --minor && npm run build && npm run deploy",
-    "ship:major": "node scripts/bump-sw-cache.mjs --major && npm run build && npm run deploy"
+    "ship:major": "node scripts/bump-sw-cache.mjs --major && npm run build && npm run deploy",
+    "ship:all": "node scripts/ship-all.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
