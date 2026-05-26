@@ -261,6 +261,7 @@ Deno.serve(async (req) => {
         subscribed: boolean;
         subscribe_error?: string;
       }> = [];
+      const errors: Array<{ page_id: string; page_name: string; op: string; error: string }> = [];
 
       for (const page of toSave) {
         // Match existing integration on (client_id, provider, page_id)
@@ -298,10 +299,15 @@ Deno.serve(async (req) => {
 
         let integrationId: string;
         if (existing) {
-          await adminClient
+          const { error: updErr } = await adminClient
             .from("integrations")
             .update({ ...integrationRow, updated_at: new Date().toISOString() })
             .eq("id", existing.id);
+          if (updErr) {
+            console.error("[facebook-page-embedded-signup] update error:", page.id, updErr);
+            errors.push({ page_id: page.id, page_name: page.name, op: "update", error: updErr.message });
+            continue;
+          }
           integrationId = existing.id as string;
         } else {
           const { data: newInt, error: insErr } = await adminClient
@@ -310,7 +316,13 @@ Deno.serve(async (req) => {
             .select("id")
             .single();
           if (insErr || !newInt) {
-            console.error("[facebook-page-embedded-signup] insert error:", insErr);
+            console.error("[facebook-page-embedded-signup] insert error:", page.id, insErr);
+            errors.push({
+              page_id: page.id,
+              page_name: page.name,
+              op: "insert",
+              error: insErr?.message ?? "no row returned",
+            });
             continue;
           }
           integrationId = newInt.id as string;
@@ -326,10 +338,21 @@ Deno.serve(async (req) => {
         });
       }
 
+      if (saved.length === 0 && errors.length > 0) {
+        const firstErr = errors[0];
+        return json({
+          error: `Falha ao salvar páginas: [${firstErr.op}] ${firstErr.error}`,
+          errors,
+          debug: { tenantId, clientId, attempted: toSave.length },
+        }, 500);
+      }
+
       return json({
-        success: true,
-        message: `${saved.length} página(s) conectada(s)`,
+        success: saved.length > 0,
+        message: `${saved.length} página(s) conectada(s)${errors.length > 0 ? `, ${errors.length} com erro` : ""}`,
         integrations: saved,
+        errors,
+        debug: { tenantId, clientId, attempted: toSave.length },
       });
     }
 
