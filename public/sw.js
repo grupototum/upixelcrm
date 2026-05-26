@@ -9,7 +9,7 @@
 //
 // Browser purga caches antigos no install do novo SW, evitando 404 em
 // chunks lazy de versões anteriores após cada deploy.
-const CACHE_NAME = 'upixel-v1.1.1';
+const CACHE_NAME = 'upixel-v1.1.9';
 
 const PRECACHE_URLS = [
   '/',
