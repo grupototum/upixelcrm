@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/contexts/TenantContext";
 
 export const FB_OAUTH_STATE_KEY = "fb_oauth_state";
 export const FB_OAUTH_PAGES_KEY = "fb_oauth_pages";
@@ -11,6 +12,7 @@ export const FB_OAUTH_REDIRECT_URI_KEY = "fb_oauth_redirect_uri";
 export default function FacebookOAuthCallbackPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { tenant } = useTenant();
   const [error, setError] = useState<string | null>(null);
   const ran = useRef(false);
 
@@ -47,7 +49,13 @@ export default function FacebookOAuthCallbackPage() {
       try {
         const { data, error: invokeError } = await supabase.functions.invoke(
           "facebook-page-embedded-signup?action=list",
-          { body: { code, redirect_uri: redirectUri } },
+          {
+            body: {
+              code,
+              redirect_uri: redirectUri,
+              ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+            },
+          },
         );
         if (invokeError) throw new Error(invokeError.message);
         if (data?.error) throw new Error(data.error);
@@ -72,7 +80,7 @@ export default function FacebookOAuthCallbackPage() {
         setError(msg);
       }
     })();
-  }, [params, navigate]);
+  }, [params, navigate, tenant?.id]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
