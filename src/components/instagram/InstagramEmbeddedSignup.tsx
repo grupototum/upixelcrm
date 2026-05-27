@@ -4,6 +4,7 @@ import { Instagram, CheckCircle2, Loader2, AlertCircle, Facebook } from "lucide-
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureFbSdkLoaded, type FBLoginResponse } from "@/lib/facebook-sdk";
+import { useTenant } from "@/contexts/TenantContext";
 
 const META_APP_ID = import.meta.env.VITE_META_APP_ID as string | undefined;
 const META_IG_CONFIG_ID = import.meta.env.VITE_META_INSTAGRAM_CONFIG_ID as string | undefined;
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function InstagramEmbeddedSignup({ onConnected }: Props) {
+  const { tenant } = useTenant();
   const configured = !!(META_APP_ID && META_IG_CONFIG_ID);
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<
@@ -47,6 +49,7 @@ export function InstagramEmbeddedSignup({ onConnected }: Props) {
           {
             body: {
               code,
+              ...(tenant?.id ? { tenant_id: tenant.id } : {}),
               ...(pageId ? { page_id: pageId } : {}),
               ...(igUserId ? { ig_user_id: igUserId } : {}),
             },
@@ -80,7 +83,7 @@ export function InstagramEmbeddedSignup({ onConnected }: Props) {
         setLoading(false);
       }
     },
-    [onConnected],
+    [onConnected, tenant?.id],
   );
 
   const handleLaunch = useCallback(async () => {

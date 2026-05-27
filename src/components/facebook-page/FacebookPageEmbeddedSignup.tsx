@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Facebook, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/contexts/TenantContext";
 import {
   FB_OAUTH_STATE_KEY,
   FB_OAUTH_USER_TOKEN_KEY,
@@ -49,6 +50,7 @@ function buildRedirectUri(): string {
 }
 
 export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
+  const { tenant } = useTenant();
   const configured = !!META_APP_ID;
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -82,12 +84,18 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     setPhase("saving");
     const { data, error: invokeError } = await supabase.functions.invoke(
       "facebook-page-embedded-signup?action=finish",
-      { body: { user_token: userToken, selected_page_ids: pageIds } },
+      {
+        body: {
+          user_token: userToken,
+          selected_page_ids: pageIds,
+          ...(tenant?.id ? { tenant_id: tenant.id } : {}),
+        },
+      },
     );
     if (invokeError) throw new Error(invokeError.message);
     if (data?.error) throw new Error(data.error);
     return (data?.integrations ?? []) as SavedIntegration[];
-  }, []);
+  }, [tenant?.id]);
 
   const handleLaunch = useCallback(() => {
     if (!configured || !META_APP_ID) {
