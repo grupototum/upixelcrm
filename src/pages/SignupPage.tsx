@@ -4,41 +4,78 @@ import { getTenantUrl } from "@/utils/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle2, Building2, Globe, Mail, Lock, User } from "lucide-react";
+import { AlertCircle, CheckCircle2, Building2, Globe, Mail, Lock, User, ShieldCheck } from "lucide-react";
 
 const SUBDOMAIN_REGEX = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 const ROOT_DOMAIN = import.meta.env.VITE_ROOT_DOMAIN ?? "upixel.app";
+const GATE_SESSION_KEY = "upixel.signup.gate";
 
-type Step = "form" | "success";
+type Step = "gate" | "form" | "success";
 
 export default function SignupPage() {
-  const [step, setStep] = useState<Step>("form");
+  const [step, setStep] = useState<Step>(() =>
+    sessionStorage.getItem(GATE_SESSION_KEY) === "1" ? "form" : "gate"
+  );
 
-  // Campos do form
+  // Gate
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateError, setGateError]       = useState("");
+  const [gateLoading, setGateLoading]   = useState(false);
+
+  // Form
   const [companyName, setCompanyName] = useState("");
-  const [subdomain, setSubdomain] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [subdomain, setSubdomain]     = useState("");
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
+  const [name, setName]               = useState("");
 
   // Feedback
-  const [subdomainStatus, setSubdomainStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [subdomainStatus, setSubdomainStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "invalid"
+  >("idle");
+  const [error, setError]                 = useState("");
+  const [loading, setLoading]             = useState(false);
   const [createdSubdomain, setCreatedSubdomain] = useState("");
 
+  /* ── Gate ── */
+  const handleGateSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!gatePassword.trim()) return;
+    setGateLoading(true);
+    setGateError("");
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "check-signup-gate",
+        { body: { password: gatePassword } }
+      );
+
+      if (fnError || !data?.ok) {
+        setGateError("Senha incorreta.");
+        setGatePassword("");
+        return;
+      }
+
+      sessionStorage.setItem(GATE_SESSION_KEY, "1");
+      setStep("form");
+    } catch {
+      setGateError("Erro de conexão. Tente novamente.");
+    } finally {
+      setGateLoading(false);
+    }
+  };
+
+  /* ── Subdomain check ── */
   useEffect(() => {
     if (!subdomain) { setSubdomainStatus("idle"); return; }
     if (!SUBDOMAIN_REGEX.test(subdomain)) { setSubdomainStatus("invalid"); return; }
 
     setSubdomainStatus("checking");
     const timer = setTimeout(async () => {
-      // Verificar em tenants E organizations
       const [{ data: tenantMatch }, { data: orgMatch }] = await Promise.all([
         supabase.from("tenants").select("id").eq("subdomain", subdomain).maybeSingle(),
         supabase.from("organizations").select("id").eq("subdomain", subdomain).maybeSingle(),
       ]);
-
       setSubdomainStatus(tenantMatch || orgMatch ? "taken" : "available");
     }, 500);
 
@@ -56,6 +93,7 @@ export default function SignupPage() {
     password.length >= 6 &&
     subdomainStatus === "available";
 
+  /* ── Signup ── */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
@@ -64,10 +102,9 @@ export default function SignupPage() {
     setLoading(true);
 
     let tenantId: string | null = null;
-    let orgId: string | null = null;
+    let orgId: string | null    = null;
 
     try {
-      // 1. Criar tenant (entidade-pai)
       const { data: tenantData, error: tenantError } = await supabase
         .from("tenants")
         .insert({ name: companyName.trim(), subdomain: `t-${subdomain}` })
@@ -75,89 +112,68 @@ export default function SignupPage() {
         .single();
 
       if (tenantError || !tenantData) {
-        setError(tenantError?.message ?? "Erro ao reservar subdomínio. Tente novamente.");
+        setError(tenantError?.message ?? "Erro ao reservar subdomínio.");
         setLoading(false);
         return;
       }
       tenantId = tenantData.id;
 
-      // 2. Criar organization com o subdomain público
-      const { data: orgData, error: orgError } = await supabase.from("organizations")
+      const { data: orgData, error: orgError } = await supabase
+        .from("organizations")
         .insert({
           name: companyName.trim(),
           slug: subdomain,
-          subdomain: subdomain,
+          subdomain,
           tenant_id: tenantId,
         })
         .select("id")
         .single();
 
       if (orgError || !orgData) {
-        // Rollback tenant
         await supabase.from("tenants").delete().eq("id", tenantId);
-        setError(orgError?.message ?? "Erro ao criar organização. Tente novamente.");
+        setError(orgError?.message ?? "Erro ao criar organização.");
         setLoading(false);
         return;
       }
       orgId = orgData.id;
 
-      // 3. Criar conta de usuário (handle_new_user seta tenant_id via meta)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
-          data: {
-            name: name.trim(),
-            tenant_id: tenantId,
-            role: "supervisor",
-          },
+          data: { name: name.trim(), tenant_id: tenantId, role: "supervisor" },
         },
       });
 
       if (authError || !authData.user) {
         await supabase.from("organizations").delete().eq("id", orgId);
         await supabase.from("tenants").delete().eq("id", tenantId);
-        setError(authError?.message ?? "Erro ao criar conta. Tente novamente.");
+        setError(authError?.message ?? "Erro ao criar conta.");
         setLoading(false);
         return;
       }
 
-      // 4. Vincular proprietário ao tenant e à org
-      await supabase
-        .from("tenants")
-        .update({ owner_id: authData.user.id })
-        .eq("id", tenantId);
+      await supabase.from("tenants").update({ owner_id: authData.user.id }).eq("id", tenantId);
+      await supabase.from("organizations").update({ owner_id: authData.user.id }).eq("id", orgId);
+      await supabase.from("profiles").update({ organization_id: orgId }).eq("id", authData.user.id);
 
-      await supabase.from("organizations")
-        .update({ owner_id: authData.user.id })
-        .eq("id", orgId);
-
-      // 5. Atualizar organization_id no profile
-      await supabase.from("profiles")
-        .update({ organization_id: orgId })
-        .eq("id", authData.user.id);
-
-      // 6. Notifica usuários master sobre o novo cadastro (fire-and-forget).
-      // Se falhar, o cadastro continua válido — não bloqueia o usuário.
-      supabase.functions.invoke("notify-signup", {
-        body: {
-          tenantId,
-          tenantName: companyName.trim(),
-          subdomain,
-          ownerEmail: email.trim(),
-          ownerName: name.trim(),
-        },
-      }).catch(() => undefined);
+      supabase.functions
+        .invoke("notify-signup", {
+          body: {
+            tenantId,
+            tenantName: companyName.trim(),
+            subdomain,
+            ownerEmail: email.trim(),
+            ownerName: name.trim(),
+          },
+        })
+        .catch(() => undefined);
 
       setCreatedSubdomain(subdomain);
       setStep("success");
     } catch {
-      if (orgId) {
-        await supabase.from("organizations").delete().eq("id", orgId);
-      }
-      if (tenantId) {
-        await supabase.from("tenants").delete().eq("id", tenantId);
-      }
+      if (orgId)    await supabase.from("organizations").delete().eq("id", orgId);
+      if (tenantId) await supabase.from("tenants").delete().eq("id", tenantId);
       setError("Erro inesperado. Tente novamente.");
     } finally {
       setLoading(false);
@@ -167,6 +183,68 @@ export default function SignupPage() {
   const handleGoToApp = () => {
     window.location.href = getTenantUrl(createdSubdomain);
   };
+
+  /* ── Renders ── */
+  if (step === "gate") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-sm space-y-8">
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <ShieldCheck className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Área restrita</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Informe a senha de acesso para continuar.
+            </p>
+          </div>
+
+          <form
+            onSubmit={handleGateSubmit}
+            className="bg-card border border-border rounded-card p-6 shadow-xl space-y-4"
+          >
+            {gateError && (
+              <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <p className="text-xs text-destructive">{gateError}</p>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="gate-password" className="text-xs">Senha de acesso</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="gate-password"
+                  type="password"
+                  value={gatePassword}
+                  onChange={(e) => setGatePassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pl-10 h-10"
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-10 font-medium"
+              disabled={!gatePassword.trim() || gateLoading}
+            >
+              {gateLoading ? (
+                <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
+              ) : (
+                "Continuar"
+              )}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (step === "success") {
     return (
@@ -181,7 +259,9 @@ export default function SignupPage() {
             <h1 className="text-2xl font-bold text-foreground">Conta criada!</h1>
             <p className="text-sm text-muted-foreground mt-2">
               Sua empresa foi configurada em{" "}
-              <span className="font-medium text-foreground">{createdSubdomain}.{ROOT_DOMAIN}</span>
+              <span className="font-medium text-foreground">
+                {createdSubdomain}.{ROOT_DOMAIN}
+              </span>
             </p>
           </div>
           <Button className="w-full" onClick={handleGoToApp}>
@@ -220,14 +300,8 @@ export default function SignupPage() {
             <Label htmlFor="name" className="text-xs">Nome do responsável</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="João Silva"
-                className="pl-10 h-10"
-                required
-              />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="João Silva" className="pl-10 h-10" required />
             </div>
           </div>
 
@@ -235,14 +309,8 @@ export default function SignupPage() {
             <Label htmlFor="company" className="text-xs">Nome da empresa</Label>
             <div className="relative">
               <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="company"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Acme Soluções"
-                className="pl-10 h-10"
-                required
-              />
+              <Input id="company" value={companyName} onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="Acme Soluções" className="pl-10 h-10" required />
             </div>
           </div>
 
@@ -250,14 +318,9 @@ export default function SignupPage() {
             <Label htmlFor="subdomain" className="text-xs">Subdomínio</Label>
             <div className="relative">
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="subdomain"
-                value={subdomain}
+              <Input id="subdomain" value={subdomain}
                 onChange={(e) => handleSubdomainInput(e.target.value)}
-                placeholder="acme"
-                className="pl-10 pr-28 h-10"
-                required
-              />
+                placeholder="acme" className="pl-10 pr-28 h-10" required />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
                 .{ROOT_DOMAIN}
               </span>
@@ -265,14 +328,14 @@ export default function SignupPage() {
             {subdomain && (
               <p className={`text-xs ${
                 subdomainStatus === "available" ? "text-green-600 dark:text-green-400" :
-                subdomainStatus === "taken" ? "text-destructive" :
-                subdomainStatus === "invalid" ? "text-destructive" :
+                subdomainStatus === "taken"     ? "text-destructive" :
+                subdomainStatus === "invalid"   ? "text-destructive" :
                 "text-muted-foreground"
               }`}>
                 {subdomainStatus === "checking" && "Verificando disponibilidade..."}
                 {subdomainStatus === "available" && "✓ Subdomínio disponível"}
-                {subdomainStatus === "taken" && "✗ Subdomínio já está em uso"}
-                {subdomainStatus === "invalid" && "Use apenas letras minúsculas, números e hífens (mín. 3 caracteres)"}
+                {subdomainStatus === "taken"     && "✗ Subdomínio já está em uso"}
+                {subdomainStatus === "invalid"   && "Use apenas letras minúsculas, números e hífens (mín. 3 caracteres)"}
               </p>
             )}
           </div>
@@ -281,15 +344,8 @@ export default function SignupPage() {
             <Label htmlFor="email" className="text-xs">E-mail</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="joao@acme.com.br"
-                className="pl-10 h-10"
-                required
-              />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="joao@acme.com.br" className="pl-10 h-10" required />
             </div>
           </div>
 
@@ -297,24 +353,14 @@ export default function SignupPage() {
             <Label htmlFor="password" className="text-xs">Senha</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                value={password}
+              <Input id="password" type="password" value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="pl-10 h-10"
-                required
-                minLength={6}
-              />
+                placeholder="••••••••" className="pl-10 h-10" required minLength={6} />
             </div>
           </div>
 
-          <Button
-            type="submit"
-            className="w-full h-10 font-medium"
-            disabled={!isFormValid || loading}
-          >
+          <Button type="submit" className="w-full h-10 font-medium"
+            disabled={!isFormValid || loading}>
             {loading ? (
               <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
             ) : (
