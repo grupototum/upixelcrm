@@ -157,7 +157,7 @@ export default function BotBuilderPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) { navigate("/automations?tab=bots"); return; }
     supabase.from('bots')
       .select('id, name, status, nodes, edges, trigger_type, trigger_value')
       .eq('id', id)
