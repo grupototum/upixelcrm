@@ -17,6 +17,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function ContactsPage() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -148,7 +150,7 @@ export default function ContactsPage() {
                       <DropdownMenuItem onClick={() => navigate(`/leads/${contact.id}`)} className="text-xs gap-2 cursor-pointer rounded-lg">
                         <ExternalLink className="h-3.5 w-3.5" /> Ver Perfil
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(contact.id)} className="text-xs gap-2 cursor-pointer rounded-lg text-destructive focus:text-destructive">
+                      <DropdownMenuItem onClick={() => setDeleteTarget(contact.id)} className="text-xs gap-2 cursor-pointer rounded-lg text-destructive focus:text-destructive">
                         <Trash2 className="h-3.5 w-3.5" /> Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -194,6 +196,19 @@ export default function ContactsPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contato?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita. O contato será removido permanentemente.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={async () => { if (deleteTarget) { await handleDelete(deleteTarget); setDeleteTarget(null); } }}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <LeadFormModal
         open={showForm}
