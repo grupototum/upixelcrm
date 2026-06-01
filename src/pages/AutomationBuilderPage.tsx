@@ -66,7 +66,7 @@ function BuilderHeader({ id }: { id: string }) {
               </button>
             </div>
           )}
-          <Button variant="outline" size="sm" className="h-8 gap-2">
+          <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => toast.info("Para testar: ative o fluxo e envie uma mensagem para acionar o gatilho.", { duration: 5000 })}>
             <Play className="h-3.5 w-3.5" />
             Testar Fluxo
           </Button>
