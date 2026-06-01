@@ -169,6 +169,12 @@ export default function SignupPage() {
         })
         .catch(() => undefined);
 
+      // 7. Provisiona o subdomínio como custom domain na Vercel
+      // (fire-and-forget). SSL é provisionado automaticamente em ~10s.
+      supabase.functions.invoke("tenant-provision-domain", {
+        body: { subdomain },
+      }).catch(() => undefined);
+
       setCreatedSubdomain(subdomain);
       setStep("success");
     } catch {
