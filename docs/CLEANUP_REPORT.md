@@ -93,3 +93,42 @@
 **Veredito atual: 🔴 NO-GO.** A base de segurança de dados (RLS multi-tenant) está sólida e verificada,
 mas há **4 críticos** que devem ser tratados antes do deploy — sendo o mais urgente o `.env.production`
 versionado, que exige rotação de chaves independentemente de qualquer outra ação.
+
+---
+
+## ✅ ADENDO — Correções aplicadas em 2026-06-10 (mesma sessão)
+
+Após aprovação humana ("pode fazer todas as correções"), foram aplicados:
+
+### Críticos (todos resolvidos)
+| # | Item | Resolução |
+|---|------|-----------|
+| 1 | `.env.production` versionado | Removido do tracking; `.gitignore` agora cobre `.env.*` (exceto `.env.example`); vars Meta documentadas no `.env.example`. **Pendente (manual): rotacionar anon key + Meta IDs e limpar histórico git** |
+| 2 | TypeScript strict | `strict: true` + `noImplicitAny: true` ativados; 57 erros corrigidos sem `as any` novos; `tsc` = 0 erros |
+| 3 | Erros silenciosos | `toast.error` em useInbox/useTags/useSequences/useCannedResponses; `ErrorBoundary` envolvendo a árvore inteira do app |
+| 4 | QueryClient sem defaults | staleTime 5min, gcTime 10min, retry 2 com backoff exponencial |
+
+### Altos resolvidos
+| # | Item | Resolução |
+|---|------|-----------|
+| 5 | react-router open redirect | 6.30.4 — `npm audit --omit=dev` = 0 vulnerabilidades |
+| 6 | SECURITY DEFINER expostas | **Aplicado em produção:** REVOKE em 11 funções de trigger; `read_secret` revogada de PUBLIC (o REVOKE original deixou o grant default — anon conseguia ler segredos do Vault!); RPCs de org restritas a authenticated |
+| 8 | Bucket `whatsapp_media` | Listagem pública removida — SELECT agora só para authenticated |
+| 9 | RPCs de org sem tenant check | `owner_add_org_member` e `supervisor_set_role` agora validam `tenant_id` (aplicado em produção) |
+| 10 | Índices compostos | `tasks(client_id, created_at)`, `timeline_events(client_id, created_at)`, `pipeline_columns(client_id, pipeline_id)` criados em produção |
+| 13 | Rollback/DR | `docs/ROLLBACK.md` criado |
+| 19 | search_path mutável | 17 funções corrigidas em produção (advisor zerado nesse lint) |
+
+### Médios resolvidos
+- `Promise.allSettled` no bulk add tag (falhas parciais reportadas ao usuário)
+- Locks do bun removidos (npm é o gerenciador oficial)
+- `lint_output.txt`/`tsc_output.txt` removidos e ignorados
+
+### ⚠️ Pendências que exigem ação humana (não automatizáveis)
+1. **Rotacionar** a anon key do Supabase (Dashboard → Settings → API) e revisar Meta App — o `.env.production` ficou 3 commits no histórico público.
+2. (Opcional) Limpar o histórico git: `git filter-repo --path .env.production --invert-paths`.
+3. Ativar **Leaked Password Protection** (Dashboard → Auth → Policies → HaveIBeenPwned).
+4. Itens estruturais do backlog: testes E2E (item 11), consolidação de políticas RLS multi-permissive (item 12), validação de upload no backend (item 7), decomposição dos god components (item 14).
+
+**Veredito revisado: 🟡 GO condicional** — críticos de código resolvidos e hardening aplicado em produção;
+falta apenas a rotação de chaves (ação manual) para fechar o último crítico.
