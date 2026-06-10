@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { useAppState } from "@/contexts/AppContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -425,7 +426,7 @@ export default function ImportPage({
       return idx >= 0 && row[idx] ? row[idx] : null;
     };
 
-    const leadsToInsert: Record<string, any>[] = [];
+    const leadsToInsert: TablesInsert<"leads">[] = [];
     let skippedNoName = 0;
     let skippedDuplicate = 0;
 
@@ -551,7 +552,7 @@ export default function ImportPage({
     setStep(4);
 
     if (inserted > 0 && onComplete) {
-      onComplete({ inserted, skipped, errors });
+      onComplete({ inserted, skipped, skippedNoName, skippedDuplicate, errors });
     }
   };
 

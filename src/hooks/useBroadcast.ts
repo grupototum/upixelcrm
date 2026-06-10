@@ -118,11 +118,12 @@ export function useBroadcast() {
       toast.error(`Falha ao sincronizar: ${detail}`);
       return { ok: false };
     }
-    if (data?.error) {
-      toast.error(`Falha ao sincronizar: ${data.error}`);
+    const res = data as { error?: string; count?: number } | null;
+    if (res?.error) {
+      toast.error(`Falha ao sincronizar: ${res.error}`);
       return { ok: false };
     }
-    const count = (data?.count as number) ?? 0;
+    const count = res?.count ?? 0;
     toast.success(`${count} template(s) sincronizado(s) com Meta.`);
     queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
     await refetchTemplates();
@@ -176,8 +177,9 @@ export function useBroadcast() {
       const detail = await extractEdgeError(error, "Erro ao criar template");
       throw new Error(detail);
     }
-    if (data?.error) {
-      throw new Error(data.error as string);
+    const res = data as { error?: string } | null;
+    if (res?.error) {
+      throw new Error(res.error);
     }
     queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
     await refetchTemplates();

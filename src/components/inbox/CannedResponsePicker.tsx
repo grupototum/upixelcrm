@@ -33,7 +33,7 @@ export function CannedResponsePicker({ onSelect, onClose, searchQuery }: CannedR
             {results.map((item) => (
               <CommandItem
                 key={item.id}
-                value={item.short_code}
+                value={item.short_code ?? undefined}
                 onSelect={() => onSelect(item.content)}
                 className="flex flex-col items-start gap-0.5 py-2 px-3 data-[selected=true]:bg-accent text-foreground cursor-pointer"
               >

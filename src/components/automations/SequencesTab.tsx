@@ -291,10 +291,10 @@ export function SequencesTab() {
                                     <div className="bg-card rounded p-2 border border-border">
                                       <div className="flex items-center justify-between gap-2">
                                         <div className="text-xs truncate">
-                                          <p className="font-semibold text-foreground">{editingStep.metadata.file_name}</p>
+                                          <p className="font-semibold text-foreground">{String(editingStep.metadata.file_name ?? "")}</p>
                                           <p className="text-muted-foreground">{((editingStep.metadata.file_size as number) / 1024).toFixed(1)} KB</p>
                                         </div>
-                                        <a href={editingStep.metadata.file_url} download target="_blank" rel="noreferrer">
+                                        <a href={String(editingStep.metadata.file_url)} download target="_blank" rel="noreferrer">
                                           <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
                                             <Download className="h-3 w-3" />
                                           </Button>
@@ -388,7 +388,7 @@ export function SequencesTab() {
                               {step.metadata?.file_url ? (
                                 <div className="flex items-center gap-2 text-[10px]">
                                   <Paperclip className="h-2.5 w-2.5 text-success" />
-                                  <span className="truncate text-foreground font-medium">{step.metadata.file_name}</span>
+                                  <span className="truncate text-foreground font-medium">{String(step.metadata.file_name ?? "")}</span>
                                   <span className="text-muted-foreground">({((step.metadata.file_size as number) / 1024).toFixed(1)} KB)</span>
                                 </div>
                               ) : (

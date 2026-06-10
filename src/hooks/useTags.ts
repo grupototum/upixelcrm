@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { untypedFrom } from "@/lib/supabase-untyped";
 import { toast } from "sonner";
 import type { TagMeta } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
@@ -16,8 +17,8 @@ export function useTags() {
   const fetchTags = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("tags")
+    // tags.client_id existe no banco mas não nos tipos gerados (schema drift)
+    const { data, error } = await untypedFrom("tags")
       .select("*")
       .eq("client_id", clientId)
       .order("name", { ascending: true });
@@ -38,8 +39,7 @@ export function useTags() {
   const createTag = useCallback(
     async (params: { name: string; color?: string; category?: string }) => {
       if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
-      const { data, error } = await supabase
-        .from("tags")
+      const { data, error } = await untypedFrom("tags")
         .insert({
           client_id: clientId,
           name: params.name,

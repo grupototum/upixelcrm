@@ -56,7 +56,7 @@ export function CSVPreview({ csvHeaders, csvRows, mapping, previewCount = 3 }: C
       company: company || undefined,
       city: city || undefined,
       position: position || undefined,
-      origin: origin,
+      origin: origin ?? undefined,
       tags,
       errors,
     });
