@@ -24,6 +24,7 @@ export function useTags() {
 
     if (error) {
       console.error("Error fetching tags:", error);
+      toast.error("Erro ao carregar etiquetas. Tente novamente.");
     } else {
       setTags((data as unknown as TagMeta[]) || []);
     }

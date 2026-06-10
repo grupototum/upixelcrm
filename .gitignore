@@ -30,6 +30,8 @@ migration-dump/
 
 # Credenciais de migração — NUNCA commitar
 .env
+.env.*
+!.env.example
 .env.migration
 
 # ship:all — hashes locais das edge functions (não compartilhar entre devs)
@@ -43,6 +45,10 @@ supabase/.temp/
 .env.debug
 .env.local
 debug-*.mjs
+
+# Build/check artifacts — nunca commitar
+lint_output.txt
+tsc_output.txt
 
 # Local test fixtures (planilhas com dados reais de cliente — nunca commitar)
 Teste Importação/

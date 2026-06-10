@@ -42,6 +42,7 @@ export function useCannedResponses() {
 
     if (error) {
       console.error("Error fetching templates:", error);
+      toast.error("Erro ao carregar respostas rápidas. Tente novamente.");
       setLoading(false);
       return;
     }

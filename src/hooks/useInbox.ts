@@ -98,6 +98,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
     if (convError) {
       logger.error("Error loading conversations:", convError);
+      toast.error("Erro ao carregar conversas. Tente novamente.");
       return;
     }
 
