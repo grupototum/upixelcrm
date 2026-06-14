@@ -44,6 +44,7 @@ import { ReplyBox } from "@/components/inbox/ReplyBox";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
 import { useAppState } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useInbox } from "@/hooks/useInbox";
 
 const channelColors: Record<string, string> = {
@@ -74,6 +75,7 @@ export default function InboxPage() { // force HMR reset
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead } = useAppState();
+  const { user } = useAuth();
   const inbox = useInbox(refreshData);
 
   
@@ -823,6 +825,8 @@ export default function InboxPage() { // force HMR reset
                   leadName={selectedLeadGroup.lead_name}
                   leadPhone={selectedLeadGroup.lead_phone}
                   leadEmail={selectedLeadGroup.lead_email}
+                  leadCompany={selectedLeadGroup.lead_company}
+                  agentName={user?.name}
                   onAddChannel={async (channel) => {
                     const phone = selectedLeadGroup.lead_phone || "";
                     const email = selectedLeadGroup.lead_email || "";
