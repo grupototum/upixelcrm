@@ -41,9 +41,12 @@ import { CreateTagModal } from "@/components/crm/CreateTagModal";
 import { ConversationActions } from "@/components/inbox/ConversationActions";
 import { LabelSelector } from "@/components/inbox/LabelSelector";
 import { ReplyBox } from "@/components/inbox/ReplyBox";
+import { SnoozePopover } from "@/components/inbox/SnoozePopover";
+import { MacrosDropdown } from "@/components/inbox/MacrosDropdown";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
 import { useAppState } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useInbox } from "@/hooks/useInbox";
 
 const channelColors: Record<string, string> = {
@@ -74,6 +77,7 @@ export default function InboxPage() { // force HMR reset
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead } = useAppState();
+  const { user } = useAuth();
   const inbox = useInbox(refreshData);
 
   
@@ -457,14 +461,19 @@ export default function InboxPage() { // force HMR reset
                       <CheckSquare className="h-3 w-3" /> Resolver
                     </Button>
                     <div className="w-px h-4 bg-border/50" />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[10px] font-bold gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg"
-                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "snoozed")}
-                    >
-                      <Clock className="h-3 w-3" /> Adiar
-                    </Button>
+                    <SnoozePopover
+                      onSnooze={(until) => inbox.snoozeConversation(inbox.selectedLeadId!, until)}
+                    />
+                    <div className="w-px h-4 bg-border/50" />
+                    <MacrosDropdown
+                      leadId={inbox.selectedLeadId!}
+                      conversationId={activeConversationId || undefined}
+                      currentLabels={selectedLeadGroup.labels}
+                      sendMessage={(text) => inbox.sendMessage(text, activeConversationId || undefined)}
+                      updateStatus={inbox.updateStatus}
+                      updateLabels={inbox.updateLabels}
+                      assignToAgent={inbox.assignToAgent}
+                    />
                   </div>
                   <Button
                     variant="ghost"
@@ -823,6 +832,8 @@ export default function InboxPage() { // force HMR reset
                   leadName={selectedLeadGroup.lead_name}
                   leadPhone={selectedLeadGroup.lead_phone}
                   leadEmail={selectedLeadGroup.lead_email}
+                  leadCompany={selectedLeadGroup.lead_company}
+                  agentName={user?.name}
                   onAddChannel={async (channel) => {
                     const phone = selectedLeadGroup.lead_phone || "";
                     const email = selectedLeadGroup.lead_email || "";

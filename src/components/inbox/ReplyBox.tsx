@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { CannedResponsePicker } from "./CannedResponsePicker";
 import { MessageTemplatePopover } from "./MessageTemplatePopover";
+import { interpolateCannedResponse } from "@/lib/cannedResponseUtils";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
@@ -32,6 +33,8 @@ interface ReplyBoxProps {
   leadName?: string;
   leadPhone?: string;
   leadEmail?: string;
+  leadCompany?: string;
+  agentName?: string;
   onAddChannel?: (channel: string) => Promise<void>;
 }
 
@@ -55,6 +58,8 @@ export function ReplyBox({
   leadName,
   leadPhone,
   leadEmail,
+  leadCompany,
+  agentName,
   onAddChannel,
 }: ReplyBoxProps) {
   const [message, setMessage] = useState("");
@@ -90,9 +95,14 @@ export function ReplyBox({
   };
 
   const handleSelectCanned = (content: string) => {
+    const interpolated = interpolateCannedResponse(
+      content,
+      { name: leadName, phone: leadPhone, email: leadEmail, company: leadCompany },
+      agentName,
+    );
     const words = message.split(" ");
     words.pop();
-    const newMessage = [...words, content].join(" ").trim();
+    const newMessage = [...words, interpolated].join(" ").trim();
     setMessage(newMessage);
     setShowCannedPicker(false);
     textareaRef.current?.focus();

@@ -91,6 +91,15 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
+    // Self-healing: reawaken any conversation whose snooze has expired.
+    // Cheap conditional UPDATE, runs once per load — avoids needing pg_cron.
+    await supabase
+      .from("conversations")
+      .update({ status: "open", snoozed_until: null })
+      .eq("client_id", clientId)
+      .eq("status", "snoozed")
+      .lte("snoozed_until", new Date().toISOString());
+
     const { data: convs, error: convError } = await supabase
       .from("conversations")
       .select("*")
@@ -620,6 +629,32 @@ export function useInbox(onLeadCreated?: () => void) {
     toast.success(`Conversa marcada como ${status === 'resolved' ? 'Resolvida' : status === 'snoozed' ? 'Soneca' : 'Aberta'}`);
   }, [conversations, loadConversations]);
 
+  // Snooze conversation until a given datetime
+  const snoozeConversation = useCallback(async (leadId: string, until: Date) => {
+    const leadGroup = conversations.find(c => c.lead_id === leadId);
+    if (!leadGroup) return;
+
+    const convIds = leadGroup.source_conversations.map(sc => sc.id);
+    const { error } = await supabase
+      .from("conversations")
+      .update({
+        status: "snoozed",
+        snoozed_until: until.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", convIds);
+
+    if (error) {
+      toast.error("Erro ao adiar conversa");
+      return;
+    }
+
+    setConversations(prev =>
+      prev.map(c => c.lead_id === leadId ? { ...c, status: "snoozed" } : c)
+    );
+    toast.success(`Conversa adiada até ${until.toLocaleString("pt-BR")}`);
+  }, [conversations]);
+
   // Update conversation priority (stored in metadata)
   const updatePriority = useCallback(async (leadId: string, priority: string) => {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
@@ -944,6 +979,7 @@ export function useInbox(onLeadCreated?: () => void) {
     conversations, messages, selectedLeadId, loading,
     selectLead, sendMessage, createConversation,
     updateStatus, updatePriority, assignToAgent, updateLabels,
+    snoozeConversation,
     transcribeAudio, sendWhatsAppMedia, deleteLead, mergeLeads,
     refresh: loadConversations,
   };
