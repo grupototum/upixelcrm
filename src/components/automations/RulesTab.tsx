@@ -140,9 +140,9 @@ export function RulesTab() {
                       <Target className="h-3 w-3" /> Gatilho
                     </p>
                     <p className="text-[11px] font-medium text-foreground">{triggerLabels[auto.trigger.type] ?? (auto.trigger.type ? auto.trigger.type.replace(/_/g, " ") : "Sem gatilho")}</p>
-                    {auto.trigger.type === "time_in_column" && auto.trigger.config?.hours && (
+                    {auto.trigger.type === "time_in_column" && Boolean(auto.trigger.config?.hours) && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {String(auto.trigger.config.hours)}h na coluna
+                        {String(auto.trigger.config?.hours)}h na coluna
                       </p>
                     )}
                   </div>

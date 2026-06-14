@@ -97,8 +97,15 @@ export function BulkActionsBar() {
         if (current.includes(tag)) return null;
         return supabase.from("leads").update({ tags: [...current, tag] }).eq("id", l.id);
       });
-      await Promise.all(updates);
-      toast.success(`Tag "${tag}" adicionada a ${ids.length} lead(s).`);
+      const results = await Promise.allSettled(updates);
+      const failures = results.filter(
+        (r) => r.status === "rejected" || (r.status === "fulfilled" && r.value?.error)
+      ).length;
+      if (failures > 0) {
+        toast.error(`Tag aplicada com ${failures} falha(s) de ${ids.length} lead(s). Tente novamente.`);
+      } else {
+        toast.success(`Tag "${tag}" adicionada a ${ids.length} lead(s).`);
+      }
       setTagOpen(false);
       setTagInput("");
       await refreshData();

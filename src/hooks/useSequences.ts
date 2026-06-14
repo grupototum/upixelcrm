@@ -55,6 +55,7 @@ export function useSequences() {
 
     if (seqErr) {
       console.error("Error fetching sequences:", seqErr);
+      toast.error("Erro ao carregar sequências. Tente novamente.");
       setLoading(false);
       return;
     }

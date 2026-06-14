@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { untypedFrom } from "@/lib/supabase-untyped";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,7 +65,7 @@ export function useMetaAds() {
     queryFn: async () => {
       if (!clientId) return [];
       try {
-        const { data, error } = await (supabase.from("ad_campaigns") as any)
+        const { data, error } = await untypedFrom("ad_campaigns")
           .select("*")
           .eq("client_id", clientId)
           .eq("platform", "meta")

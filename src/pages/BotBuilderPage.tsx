@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BotCanvas } from '@/components/bots/BotCanvas';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
 interface BotRow {
@@ -27,8 +28,8 @@ function BuilderInner({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => v
     setSaving(true);
     try {
       const { error } = await supabase.from('bots').update({
-        nodes: getNodes(),
-        edges: getEdges(),
+        nodes: getNodes() as unknown as Json,
+        edges: getEdges() as unknown as Json,
       }).eq('id', bot.id);
       if (error) throw error;
       toast.success('Fluxo salvo');
@@ -82,8 +83,8 @@ function BuilderHeader({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => 
     setSaving(true);
     try {
       const { error } = await supabase.from('bots').update({
-        nodes: getNodes(),
-        edges: getEdges(),
+        nodes: getNodes() as unknown as Json,
+        edges: getEdges() as unknown as Json,
       }).eq('id', current.id);
       if (error) throw error;
       toast.success('Fluxo salvo');

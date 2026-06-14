@@ -212,14 +212,20 @@ function CRMPageInner() {
       result = result.filter((l) => (l.value ?? 0) <= max);
     }
 
-    // Status filter
+    // Status filter (campos extras ainda não presentes no tipo Lead)
     if (crmFilters.status.length > 0) {
-      result = result.filter((l) => l.status && crmFilters.status.includes(l.status));
+      result = result.filter((l) => {
+        const status = (l as Lead & { status?: string }).status;
+        return status && crmFilters.status.includes(status);
+      });
     }
 
-    // Priority filter
+    // Priority filter (campos extras ainda não presentes no tipo Lead)
     if (crmFilters.priority.length > 0) {
-      result = result.filter((l) => l.priority && crmFilters.priority.includes(l.priority));
+      result = result.filter((l) => {
+        const priority = (l as Lead & { priority?: string }).priority;
+        return priority && crmFilters.priority.includes(priority);
+      });
     }
 
     // Date range filter

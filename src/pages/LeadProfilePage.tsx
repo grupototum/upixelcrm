@@ -44,6 +44,14 @@ const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string
   field_changed: { icon: Edit3, color: "text-accent", label: "Campo alterado" },
 };
 
+interface LeadNote {
+  id: string;
+  lead_id: string;
+  content: string;
+  created_at: string;
+  user_name: string;
+}
+
 export default function LeadProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -68,9 +76,9 @@ export default function LeadProfilePage() {
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
 
-  const leadNotes = useMemo(() => {
+  const leadNotes = useMemo<LeadNote[]>(() => {
     if (!lead?.notes_local) return [];
-    try { return JSON.parse(lead.notes_local); } catch { return []; }
+    try { return JSON.parse(lead.notes_local) as LeadNote[]; } catch { return []; }
   }, [lead?.notes_local]);
 
   const customFields: Array<{ key: string; value: string }> = useMemo(() => {
@@ -227,8 +235,8 @@ export default function LeadProfilePage() {
               <h1 className="text-xl font-bold text-foreground truncate">{lead.name}</h1>
               <Select
                 value={lead.category || "lead"}
-                onValueChange={(val: Lead["category"]) => {
-                  if (hasPermission("lead.change_category")) updateLead(lead.id, { category: val });
+                onValueChange={(val: string) => {
+                  if (hasPermission("lead.change_category")) updateLead(lead.id, { category: val as Lead["category"] });
                 }}
                 disabled={!hasPermission("lead.change_category")}
               >

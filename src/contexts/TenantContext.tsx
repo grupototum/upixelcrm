@@ -57,11 +57,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Capturado após os guards acima — aqui é garantidamente string
+    const sub: string = subdomain;
+
     async function resolve() {
       // 1. Tentar resolver como organization (subdomain na tabela organizations)
       const { data: orgData } = await supabase.from("organizations")
         .select("*")
-        .eq("subdomain", subdomain)
+        .eq("subdomain", sub)
         .maybeSingle();
 
       if (orgData?.tenant_id) {
@@ -89,7 +92,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       const { data: tenantData, error } = await supabase
         .from("tenants")
         .select("*")
-        .eq("subdomain", subdomain)
+        .eq("subdomain", sub)
         .eq("is_active", true)
         .single();
 

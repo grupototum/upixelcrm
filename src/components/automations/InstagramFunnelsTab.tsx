@@ -14,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { untypedFrom } from "@/lib/supabase-untyped";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -96,8 +96,7 @@ export function InstagramFunnelsTab() {
     queryKey: ["instagram-rules", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      const { data, error } = await supabase
-        .from("instagram_auto_replies")
+      const { data, error } = await untypedFrom("instagram_auto_replies")
         .select("*")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
@@ -127,13 +126,12 @@ export function InstagramFunnelsTab() {
         active: form.active,
       };
       if (editing) {
-        const { error } = await supabase
-          .from("instagram_auto_replies")
+        const { error } = await untypedFrom("instagram_auto_replies")
           .update(payload)
           .eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("instagram_auto_replies").insert(payload);
+        const { error } = await untypedFrom("instagram_auto_replies").insert(payload);
         if (error) throw error;
       }
     },
@@ -148,8 +146,7 @@ export function InstagramFunnelsTab() {
   });
 
   const toggleActive = async (rule: Rule) => {
-    const { error } = await supabase
-      .from("instagram_auto_replies")
+    const { error } = await untypedFrom("instagram_auto_replies")
       .update({ active: !rule.active })
       .eq("id", rule.id);
     if (error) {
@@ -161,7 +158,7 @@ export function InstagramFunnelsTab() {
 
   const deleteRule = async (rule: Rule) => {
     if (!confirm(`Excluir a regra "${rule.name}"?`)) return;
-    const { error } = await supabase.from("instagram_auto_replies").delete().eq("id", rule.id);
+    const { error } = await untypedFrom("instagram_auto_replies").delete().eq("id", rule.id);
     if (error) {
       toast.error("Erro ao excluir");
       return;

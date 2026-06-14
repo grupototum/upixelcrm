@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { isValidUuid, resolveClientId } from "@/lib/tenant-utils";
@@ -42,6 +43,7 @@ export function useCannedResponses() {
 
     if (error) {
       console.error("Error fetching templates:", error);
+      toast.error("Erro ao carregar respostas rápidas. Tente novamente.");
       setLoading(false);
       return;
     }
@@ -66,14 +68,14 @@ export function useCannedResponses() {
         return false;
       }
 
-      const payload: Record<string, unknown> = {
+      const payload: TablesInsert<"inbox_templates"> = {
         client_id: clientId,
         title: params.title,
         content: params.content,
         short_code: params.short_code?.trim() || null,
         category: params.category ?? "template",
       };
-      if (isValidUuid(tenant?.id)) payload.tenant_id = tenant.id;
+      if (tenant && isValidUuid(tenant.id)) payload.tenant_id = tenant.id;
 
       const { data, error } = await supabase
         .from("inbox_templates")

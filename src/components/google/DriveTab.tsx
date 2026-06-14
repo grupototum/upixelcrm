@@ -90,7 +90,8 @@ export function DriveTab({ fetchDriveList }: DriveTabProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeType, setActiveType] = useState<FileType | "all">("all");
 
-  const handleOpenFile = (link: string) => {
+  const handleOpenFile = (link: string | undefined) => {
+    if (!link) return;
     window.open(link, "_blank");
   };
 

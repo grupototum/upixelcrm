@@ -263,8 +263,8 @@ export function FilterPopover({ filters, onFiltersChange, availableTags }: Filte
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Qualquer</SelectItem>
-                      {(def.options as string[]).map((opt) => (
-                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      {def.options.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

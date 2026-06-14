@@ -9,6 +9,7 @@ import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Eager: telas de entrada (raiz, login, dashboard) e fallbacks — evita flash de loading.
 import DashboardPage from "./pages/DashboardPage";
@@ -67,7 +68,17 @@ function RouteFallback() {
   );
 }
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+    },
+    mutations: { retry: 1 },
+  },
+});
 
 function AutomationWorkerRunner() {
   useAutomationWorker();
@@ -185,11 +196,13 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <ThemeProvider>
-    <TenantProvider>
-      <AppRoutes />
-    </TenantProvider>
-  </ThemeProvider>
+  <ErrorBoundary>
+    <ThemeProvider>
+      <TenantProvider>
+        <AppRoutes />
+      </TenantProvider>
+    </ThemeProvider>
+  </ErrorBoundary>
 );
 
 export default App;

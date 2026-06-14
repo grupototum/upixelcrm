@@ -13,7 +13,7 @@ const tooltipStyle = {
 
 interface CampaignChartProps {
   campaigns: Campaign[];
-  dataKey?: "leads" | "spend" | "revenue" | "roi";
+  dataKey?: "leads" | "spend" | "revenue" | "roi" | "clicks";
   title: string;
 }
 

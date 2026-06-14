@@ -55,7 +55,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [recents, setRecents] = useState<string[]>(() => readRecents());
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const { logout, user } = useAuth();
   const { canAccessModule } = usePermissions();
 
@@ -189,7 +189,7 @@ export function CommandPalette() {
         title: theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro",
         icon: theme === "dark" ? Sun : Moon,
         keywords: ["theme", "dark", "light", "tema", "claro", "escuro"],
-        perform: () => runAction("sys:theme-toggle", () => setTheme(theme === "dark" ? "light" : "dark")),
+        perform: () => runAction("sys:theme-toggle", () => toggleTheme()),
       },
       {
         id: "sys:logout",
@@ -212,7 +212,7 @@ export function CommandPalette() {
           }]
         : []),
     ];
-  }, [go, runAction, theme, setTheme, logout, navigate, user?.tenant_id, isMaster]);
+  }, [go, runAction, theme, toggleTheme, logout, navigate, user?.tenant_id, isMaster]);
 
   // Apenas comandos que o usuário pode ver (respeita permissões de rota).
   const visibleCommands = useMemo(

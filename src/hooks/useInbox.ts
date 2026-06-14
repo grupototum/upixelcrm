@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { extractEdgeError } from "@/lib/edge-error";
 import { invokeEdge } from "@/lib/edge-invoke";
 import { resolveClientId } from "@/lib/tenant-utils";
+import { untypedFrom } from "@/lib/supabase-untyped";
 
 export interface LeadConversation {
   lead_id: string;
@@ -98,11 +99,12 @@ export function useInbox(onLeadCreated?: () => void) {
 
     if (convError) {
       logger.error("Error loading conversations:", convError);
+      toast.error("Erro ao carregar conversas. Tente novamente.");
       return;
     }
 
     // Fetch leads
-    const leadIds = (convs || []).filter(c => c.lead_id).map(c => c.lead_id);
+    const leadIds = (convs || []).map(c => c.lead_id).filter((id): id is string => !!id);
     let leadsMap: Record<string, any> = {};
 
     if (leadIds.length > 0) {
@@ -673,6 +675,9 @@ export function useInbox(onLeadCreated?: () => void) {
   const findOrCreateLead = useCallback(async (
     phone?: string, email?: string, name?: string
   ): Promise<string | null> => {
+    // Sem client_id não há como buscar nem criar o lead.
+    if (!clientId) return null;
+
     // Normaliza para forma canônica antes de buscar e inserir, evitando
     // leads duplicados quando o mesmo número vem em formatos diferentes
     // (ex.: webhook Meta como wa_id "553391294114" vs cadastro como "+55 33 99129-4114").
@@ -724,6 +729,11 @@ export function useInbox(onLeadCreated?: () => void) {
   const createConversation = useCallback(async (
     channel: string, leadId?: string, phone?: string, email?: string, leadName?: string
   ) => {
+    if (!clientId) {
+      toast.error("Erro ao criar conversa.");
+      return null;
+    }
+
     let resolvedLeadId = leadId || null;
     if (!resolvedLeadId && (phone || email)) {
       resolvedLeadId = await findOrCreateLead(phone, email, leadName);
@@ -886,10 +896,10 @@ export function useInbox(onLeadCreated?: () => void) {
         throw new Error(detail);
       }
 
-      const transcript = data?.transcript;
+      const transcript = (data as { transcript?: string } | null)?.transcript;
       if (!transcript) throw new Error("Transcrição vazia");
 
-      const newMeta = { ...(msg.metadata || {}), transcript };
+      const newMeta = { ...((msg.metadata as Record<string, unknown> | null) || {}), transcript };
       await supabase.from("messages").update({ metadata: newMeta }).eq("id", messageId);
 
       setMessages(prev =>
@@ -914,8 +924,8 @@ export function useInbox(onLeadCreated?: () => void) {
       // 2. Move tasks
       await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
       
-      // 3. Move notes
-      await supabase.from("notes").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      // 3. Move notes (tabela ainda fora dos tipos gerados)
+      await untypedFrom("notes").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
 
       // 4. Delete source lead
       const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);

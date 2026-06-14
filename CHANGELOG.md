@@ -10,6 +10,35 @@ Tipos: `feat` | `fix` | `refactor` | `docs` | `chore` | `perf` | `security`
 
 ---
 
+## 📅 2026-06-10 — Sessão: Clean Up pré-produção (PR #10)
+
+### 🔒 Segurança
+- `security` `.env.production` removido do tracking; `.gitignore` cobre `.env.*` — pendente rotação da anon key (histórico)
+- `security` `read_secret()` revogada de PUBLIC — anon conseguia ler segredos do Vault via RPC (aplicado em produção)
+- `security` REVOKE em 11 funções de trigger expostas via `/rest/v1/rpc`; `search_path` fixado em 17 funções — `20260610120000`
+- `security` Bucket `whatsapp_media`: listagem pública removida + limites de tamanho/MIME no backend — `20260610120400`
+- `security` RPCs de org (`owner_add_org_member`, `supervisor_set_role`) validam `tenant_id` — `20260610120000`
+- `security` react-router-dom 6.30.4 (GHSA-2j2x-hqr9-3h42); `npm audit --omit=dev` zerado
+
+### ✅ Consertado
+- `fix` TypeScript `strict: true` ativado; 57 erros de tipo corrigidos sem `as any` — `tsconfig.app.json`, 21 arquivos
+- `fix` Erros silenciosos: `toast.error` em useInbox/useTags/useSequences/useCannedResponses; `ErrorBoundary` envolvendo o app — `App.tsx`
+- `fix` QueryClient com defaults (staleTime/gcTime/retry com backoff) — `App.tsx`
+- `fix` Bulk add tag: `Promise.allSettled` com contagem de falhas — `BulkActionsBar.tsx`
+- `fix` FilterPopover renderizava objetos em vez de label/value em campos custom de select
+
+### ⚡ Performance
+- `perf` 134 políticas RLS com funções em `(select ...)` — avaliação por statement (advisor `auth_rls_initplan` zerado) — `20260610120300`
+- `perf` Índices compostos: `tasks(client_id, created_at)`, `timeline_events(client_id, created_at)`, `pipeline_columns(client_id, pipeline_id)` — `20260610120100`
+
+### 🧹 Organização
+- `chore` Pastas de marketing/design/prompts movidas da raiz para `docs/marketing` e `docs/internal`
+- `chore` Locks do bun e artefatos de build removidos; `RagContextInjector` órfão (2 cópias) removido
+- `docs` `docs/CLEANUP_REPORT.md` (auditoria 24 itens) + `docs/ROLLBACK.md` (runbook DR)
+- `test` Testes unitários de `tenant-utils` (isolamento multi-tenant) — 41 testes no total
+
+---
+
 ## 📅 2026-05-22 — Sessão: features CRM + bug fixes
 
 ### ✅ Consertado

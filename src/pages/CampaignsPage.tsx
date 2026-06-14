@@ -198,17 +198,33 @@ function BroadcastsTab({ clientId }: { clientId?: string }) {
 
 // ─── Lead Attribution tab ──────────────────────────────────────────────────────
 
+interface AttributedLead {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  origin: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  ad_campaign_id: string | null;
+  fbclid: string | null;
+  gclid: string | null;
+  created_at: string;
+}
+
 function AttributionTab({ clientId }: { clientId?: string }) {
   const { data: attributedLeads = [], isLoading } = useQuery({
     queryKey: ["leads-attribution", clientId],
-    queryFn: async () => {
+    queryFn: async (): Promise<AttributedLead[]> => {
       if (!clientId) return [];
       const { data } = await supabase.from("leads")
         .select("id,name,phone,email,origin,utm_source,utm_medium,utm_campaign,utm_content,ad_campaign_id,fbclid,gclid,created_at")
         .eq("client_id", clientId)
         .or("utm_campaign.not.is.null,ad_campaign_id.not.is.null,fbclid.not.is.null,gclid.not.is.null")
         .order("created_at", { ascending: false })
-        .limit(200) as any;
+        .limit(200);
       return data ?? [];
     },
     enabled: !!clientId,
@@ -216,11 +232,11 @@ function AttributionTab({ clientId }: { clientId?: string }) {
 
   // Group by campaign
   const byCampaign = useMemo(() => {
-    const map = new Map<string, { name: string; platform: string; leads: any[] }>();
+    const map = new Map<string, { name: string; platform: string; leads: AttributedLead[] }>();
     for (const lead of attributedLeads) {
       const key = lead.utm_campaign ?? lead.ad_campaign_id ?? "Desconhecida";
       const platform = lead.gclid ? "google" : lead.fbclid || lead.utm_source === "facebook" ? "meta" : lead.utm_source ?? "—";
-      const existing = map.get(key) ?? { name: key, platform, leads: [] };
+      const existing = map.get(key) ?? { name: key, platform, leads: [] as AttributedLead[] };
       existing.leads.push(lead);
       map.set(key, existing);
     }
