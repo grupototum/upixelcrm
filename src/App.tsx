@@ -28,6 +28,7 @@ const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
 const IntelligencePage = lazy(() => import("./pages/IntelligencePage"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const SLAPage = lazy(() => import("./pages/SLAPage"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
 const ImportPage = lazy(() => import("./pages/ImportPage"));
 const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
@@ -158,6 +159,7 @@ function AppRoutes() {
                 <Route path="/intelligence" element={<ProtectedRoute requiredPermission="intelligence.view"><IntelligencePage /></ProtectedRoute>} />
                 <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><ReportsPage /></ProtectedRoute>} />
+                <Route path="/sla" element={<ProtectedRoute requiredPermission="reports.view"><SLAPage /></ProtectedRoute>} />
                 <Route path="/integrations" element={<ProtectedRoute requiredPermission="settings.view"><IntegrationsPage /></ProtectedRoute>} />
                 <Route path="/google" element={<ProtectedRoute><GooglePage /></ProtectedRoute>} />
                 {/* WhatsApp tem 3 entradas — todas usam os MESMOS componentes

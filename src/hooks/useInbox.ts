@@ -8,6 +8,7 @@ import { extractEdgeError } from "@/lib/edge-error";
 import { invokeEdge } from "@/lib/edge-invoke";
 import { resolveClientId } from "@/lib/tenant-utils";
 import { untypedFrom } from "@/lib/supabase-untyped";
+import { notifyMentions } from "@/lib/mentions";
 
 export interface LeadConversation {
   lead_id: string;
@@ -576,6 +577,15 @@ export function useInbox(onLeadCreated?: () => void) {
         sender_name: "Você (Nota Privada)",
         metadata: { is_private: true },
       });
+      if (clientId) {
+        void notifyMentions({
+          clientId,
+          authorId: user?.id,
+          text,
+          leadId: selectedLeadId,
+          leadName: leadGroup.lead_name,
+        });
+      }
       await loadMessages(selectedLeadId);
       return;
     }
@@ -601,7 +611,7 @@ export function useInbox(onLeadCreated?: () => void) {
         last_message_at: new Date().toISOString(),
       }).eq("id", target.id);
     }
-  }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail]);
+  }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail, clientId, user]);
 
   // Update conversation status
   const updateStatus = useCallback(async (leadId: string, status: string) => {
