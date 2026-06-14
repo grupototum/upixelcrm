@@ -41,6 +41,7 @@ import { CreateTagModal } from "@/components/crm/CreateTagModal";
 import { ConversationActions } from "@/components/inbox/ConversationActions";
 import { LabelSelector } from "@/components/inbox/LabelSelector";
 import { ReplyBox } from "@/components/inbox/ReplyBox";
+import { SnoozePopover } from "@/components/inbox/SnoozePopover";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
 import { useAppState } from "@/contexts/AppContext";
@@ -459,14 +460,9 @@ export default function InboxPage() { // force HMR reset
                       <CheckSquare className="h-3 w-3" /> Resolver
                     </Button>
                     <div className="w-px h-4 bg-border/50" />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[10px] font-bold gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg"
-                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "snoozed")}
-                    >
-                      <Clock className="h-3 w-3" /> Adiar
-                    </Button>
+                    <SnoozePopover
+                      onSnooze={(until) => inbox.snoozeConversation(inbox.selectedLeadId!, until)}
+                    />
                   </div>
                   <Button
                     variant="ghost"
