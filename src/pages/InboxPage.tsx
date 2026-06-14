@@ -42,6 +42,7 @@ import { ConversationActions } from "@/components/inbox/ConversationActions";
 import { LabelSelector } from "@/components/inbox/LabelSelector";
 import { ReplyBox } from "@/components/inbox/ReplyBox";
 import { SnoozePopover } from "@/components/inbox/SnoozePopover";
+import { MacrosDropdown } from "@/components/inbox/MacrosDropdown";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
 import { useAppState } from "@/contexts/AppContext";
@@ -462,6 +463,16 @@ export default function InboxPage() { // force HMR reset
                     <div className="w-px h-4 bg-border/50" />
                     <SnoozePopover
                       onSnooze={(until) => inbox.snoozeConversation(inbox.selectedLeadId!, until)}
+                    />
+                    <div className="w-px h-4 bg-border/50" />
+                    <MacrosDropdown
+                      leadId={inbox.selectedLeadId!}
+                      conversationId={activeConversationId || undefined}
+                      currentLabels={selectedLeadGroup.labels}
+                      sendMessage={(text) => inbox.sendMessage(text, activeConversationId || undefined)}
+                      updateStatus={inbox.updateStatus}
+                      updateLabels={inbox.updateLabels}
+                      assignToAgent={inbox.assignToAgent}
                     />
                   </div>
                   <Button
