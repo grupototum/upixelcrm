@@ -669,7 +669,8 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   if (!messageData || messageData.key?.fromMe) return { ok: true, skipped: "own_message" };
 
   const remoteJid = messageData.key?.remoteJid || "";
-  if (remoteJid.endsWith("@g.us")) return { ok: true, skipped: "group_message" };
+  const isGroup = remoteJid.endsWith("@g.us");
+  // Decisao de allowlist movida pra apos o lookup do tenant (precisa de match.client_id).
 
   // Roteamento determinístico por integration_id (query string da URL do webhook).
   // Evita colisões cross-tenant quando dois tenants compartilham o mesmo instance_name.
@@ -713,6 +714,23 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
     console.log(`Instance ${instanceName} paused — dropping incoming message.`);
     return { ok: true, skipped: "paused" };
   }
+
+  // Allowlist de grupos: default deny. Mensagens 1:1 passam direto;
+  // mensagens de grupo so passam se o grupo_jid estiver listado para o client_id.
+  if (isGroup) {
+    const { data: allow } = await adminClient
+      .from("whatsapp_group_allowlist")
+      .select("id")
+      .eq("client_id", match.client_id)
+      .eq("group_jid", remoteJid)
+      .eq("enabled", true)
+      .maybeSingle();
+    if (!allow) {
+      console.log(`Group ${remoteJid} not in allowlist for client ${match.client_id} — drop.`);
+      return { ok: true, skipped: "group_not_in_allowlist", group_jid: remoteJid };
+    }
+  }
+
 
   const clientId = match.client_id;
   const integrationId = match.id as string;
