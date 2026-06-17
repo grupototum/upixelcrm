@@ -48,6 +48,7 @@ import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBa
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInbox } from "@/hooks/useInbox";
+import { useCsatSender } from "@/hooks/useCsatSender";
 
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success",
@@ -79,6 +80,7 @@ export default function InboxPage() { // force HMR reset
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead } = useAppState();
   const { user } = useAuth();
   const inbox = useInbox(refreshData);
+  useCsatSender();
 
   
   const [searchQuery, setSearchQuery] = useState("");
