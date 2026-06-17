@@ -884,12 +884,40 @@ export function useInbox(onLeadCreated?: () => void) {
           });
         }
 
-        if (newMsg.direction === "inbound" && conv && !conv.lead_id) {
-          const phone = (newMsg.metadata as any)?.phone;
-          const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
-          const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
-          if (leadId) {
-            await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
+        if (newMsg.direction === "inbound" && conv) {
+          // Detect CSAT reply: single digit 1-5 on a conversation that had CSAT sent
+          const trimmed = (newMsg.content ?? "").trim();
+          const possibleRating = Number(trimmed);
+          if (
+            Number.isInteger(possibleRating) &&
+            possibleRating >= 1 &&
+            possibleRating <= 5 &&
+            trimmed.length === 1
+          ) {
+            const { data: csatConv } = await supabase
+              .from("conversations")
+              .select("csat_sent_at, lead_id")
+              .eq("id", newMsg.conversation_id)
+              .maybeSingle();
+
+            if (csatConv?.csat_sent_at && clientId) {
+              await supabase.from("csat_responses").insert({
+                client_id: clientId,
+                conversation_id: newMsg.conversation_id,
+                lead_id: csatConv.lead_id ?? null,
+                rating: possibleRating,
+              });
+            }
+          }
+
+          // Auto-assign lead if conversation has none
+          if (!conv.lead_id) {
+            const phone = (newMsg.metadata as any)?.phone;
+            const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
+            const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
+            if (leadId) {
+              await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
+            }
           }
         }
 

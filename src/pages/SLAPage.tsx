@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Clock, Timer, CheckCircle2, Inbox } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, Timer, CheckCircle2, Inbox, Star } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useSLAMetrics, formatDuration } from "@/hooks/useSLAMetrics";
+import { useCsatMetrics } from "@/hooks/useCsatMetrics";
 
 const RANGES: { id: "7d" | "30d" | "90d"; label: string; days: number }[] = [
   { id: "7d", label: "Últimos 7 dias", days: 7 },
@@ -25,6 +26,9 @@ export default function SLAPage() {
   }, [rangeId]);
 
   const { metrics, byAgent, loading, error, refresh } = useSLAMetrics(start, end);
+  const csat = useCsatMetrics(start, end);
+
+  useEffect(() => { csat.load(); }, [csat.load]);
 
   return (
     <AppLayout>
@@ -129,6 +133,60 @@ export default function SLAPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        {/* CSAT */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Star className="h-4 w-4 text-amber-500" />
+              Satisfação do cliente (CSAT)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {csat.loading ? (
+              <p className="text-xs text-muted-foreground">Carregando…</p>
+            ) : csat.error ? (
+              <p className="text-xs text-destructive">Erro: {csat.error}</p>
+            ) : !csat.metrics || csat.metrics.total_responses === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem respostas CSAT no período.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-3xl font-bold">
+                    {csat.metrics.avg_rating != null
+                      ? csat.metrics.avg_rating.toFixed(1)
+                      : "—"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ 5</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({csat.metrics.total_responses} respostas)
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {([5, 4, 3, 2, 1] as const).map((star) => {
+                    const key = `rating_${star}` as keyof typeof csat.metrics;
+                    const count = (csat.metrics![key] as number) ?? 0;
+                    const pct = csat.metrics!.total_responses > 0
+                      ? Math.round((count / csat.metrics!.total_responses) * 100)
+                      : 0;
+                    return (
+                      <div key={star} className="flex items-center gap-2 text-xs">
+                        <span className="w-6 text-right text-muted-foreground">{star}★</span>
+                        <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-2 rounded-full bg-amber-400 transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-8 text-right text-muted-foreground">{pct}%</span>
+                        <span className="w-6 text-right tabular-nums">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </CardContent>
