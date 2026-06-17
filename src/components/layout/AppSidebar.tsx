@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
-  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText,
+  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText, Clock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -69,6 +69,7 @@ const navGroups: NavGroup[] = [
       { title: "Disparos", url: "/whatsapp/broadcast", icon: Send },
       { title: "Templates WhatsApp", url: "/whatsapp/templates", icon: FileText },
       { title: "Relatórios", url: "/reports", icon: BarChart3 },
+      { title: "SLA & Atendimento", url: "/sla", icon: Clock },
     ],
   },
   {
