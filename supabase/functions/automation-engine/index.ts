@@ -294,8 +294,9 @@ serve(async (req) => {
       
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) {
-        await supabase.from("automation_queue").insert({
-          client_id: lead.client_id,
+        // automation_queue NÃO tem coluna client_id — incluí-la fazia o
+        // enfileiramento do delay falhar silenciosamente.
+        const { error: delayQueueError } = await supabase.from("automation_queue").insert({
           tenant_id: lead.tenant_id,
           automation_id,
           lead_id,
@@ -303,6 +304,7 @@ serve(async (req) => {
           scheduled_at: scheduledAt.toISOString(),
           context: { ...leadContext, _run_id: run_id }
         });
+        if (delayQueueError) console.error("Failed to enqueue delay:", delayQueueError.message);
       }
       isWaiting = true;
       outputData = { scheduledAt };
@@ -522,8 +524,8 @@ serve(async (req) => {
         const fallbackEdge = edges.find(e => e.source === node_id);
         const targetNode = (timeoutEdge ?? fallbackEdge)?.target;
         if (targetNode) {
-          await supabase.from("automation_queue").insert({
-            client_id: lead.client_id,
+          // automation_queue NÃO tem coluna client_id (idem nó delay).
+          const { error: timeoutQueueError } = await supabase.from("automation_queue").insert({
             tenant_id: lead.tenant_id,
             automation_id,
             lead_id,
@@ -531,6 +533,7 @@ serve(async (req) => {
             scheduled_at: scheduledAt.toISOString(),
             context: { ...leadContext, _from_timeout: true, _run_id: run_id },
           });
+          if (timeoutQueueError) console.error("Failed to enqueue wait_for_reply timeout:", timeoutQueueError.message);
         }
       }
 
@@ -682,8 +685,9 @@ serve(async (req) => {
     }
 
     // 5. Log Execution
-    await supabase.from("automation_executions").insert({
-      client_id: lead.client_id,
+    // NOTA: automation_executions NÃO tem coluna client_id — incluí-la fazia
+    // TODO registro de execução falhar silenciosamente.
+    const { error: execLogError } = await supabase.from("automation_executions").insert({
       tenant_id: lead.tenant_id,
       automation_id,
       lead_id,
@@ -693,6 +697,7 @@ serve(async (req) => {
       output: { ...outputData, run_id },
       status: outputData.error ? 'failed' : 'success'
     });
+    if (execLogError) console.error("Failed to log automation_execution:", execLogError.message);
 
     // 6. Atualiza o run com o estado atual
     if (run_id && !isWaiting) {
