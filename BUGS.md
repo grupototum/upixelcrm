@@ -160,7 +160,7 @@
 - **Obtido:** quando não há tasks pendentes, o `space-y-2` fica vazio (só o header "0 pendentes").
 - **Sugestão de fix:** adicionar `else <p>Nenhuma tarefa pendente</p>`.
 
-#### BUG-016 — `due_date` exibido cru
+#### BUG-016 — `due_date` exibido cru ✅ RESOLVIDO (2026-06-18)
 - **Tela:** Dashboard
 - **Arquivo:** `src/pages/DashboardPage.tsx:233`
 - **Obtido:** `{task.due_date}` impresso como string ISO, sem formatação.
@@ -224,18 +224,18 @@
 
 ### 🟢 LEVES
 
-#### BUG-026 — Show/hide password sem aria-label
+#### BUG-026 — Show/hide password sem aria-label ✅ RESOLVIDO (2026-06-18)
 - **Tela:** Login
 - **Arquivo:** `src/pages/LoginPage.tsx:94-102`
 - **Sugestão de fix:** `aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}`.
 
-#### BUG-027 — Pluralização errada "integraçãoões"
+#### BUG-027 — Pluralização errada "integraçãoões" ✅ RESOLVIDO (2026-06-18)
 - **Tela:** Integrações
 - **Arquivo:** `src/pages/IntegrationsPage.tsx:125`
 - **Obtido:** `integração{activeCount !== 1 ? "ões" : ""} ativa{activeCount !== 1 ? "s" : ""}` → quando há mais de 1 fica "integraçãoões".
 - **Sugestão de fix:** trocar por `{activeCount !== 1 ? "integrações ativas" : "integração ativa"}`.
 
-#### BUG-028 — ChevronRight redefinido localmente
+#### BUG-028 — ChevronRight redefinido localmente ✅ RESOLVIDO (2026-06-18)
 - **Tela:** CRM Contatos
 - **Arquivo:** `src/pages/ContactsPage.tsx:210-227`
 - **Obtido:** função `ChevronRight` redefinida apesar de `lucide-react` já fornecer o ícone.

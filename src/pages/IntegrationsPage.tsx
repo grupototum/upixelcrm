@@ -217,7 +217,7 @@ export default function IntegrationsPage() {
       subtitle="Conecte seus canais e ferramentas ao uPixel"
       actions={
         <B variant="outline" className="text-[10px] gap-1.5 px-2 py-1">
-          <CheckCircle2 className="h-3 w-3 text-success" /> {activeCount} integração{activeCount !== 1 ? "ões" : ""} ativa{activeCount !== 1 ? "s" : ""}
+          <CheckCircle2 className="h-3 w-3 text-success" /> {activeCount} {activeCount !== 1 ? "integrações ativas" : "integração ativa"}
         </B>
       }
     >
