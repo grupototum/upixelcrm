@@ -253,7 +253,7 @@
 - **Obtido:** componente `BuilderInner` definido e nunca usado; `void handleSave; void handleToggle` para silenciar lint.
 - **Sugestão de fix:** remover.
 
-#### BUG-031 — Emoji decorativo em produção
+#### BUG-031 — Emoji decorativo em produção ✅ RESOLVIDO (2026-06-18)
 - **Tela:** WhatsApp Disparos
 - **Arquivo:** `src/pages/WhatsAppBroadcastPage.tsx:28`
 - **Obtido:** título "Aumente seu ROI com Envios Oficiais 🚀". CLAUDE.md proíbe emojis nesta base.
@@ -426,7 +426,7 @@
 - **Obtido:** Mesmo padrão N+1 / fetch-all do R-001 para tasks
 - **Severidade:** 🟡
 
-#### R-005 — `/dashboard` retorna 404
+#### R-005 — `/dashboard` retorna 404 ✅ RESOLVIDO (2026-06-18)
 - **Tela:** rota `/dashboard`
 - **Esperado:** Mesma tela do Dashboard (`/`)
 - **Obtido:** Página 404 ("Oops! Page not found")
@@ -496,7 +496,7 @@
 
 ### 🟢 LEVES
 
-#### R-006 — Página 404 em inglês
+#### R-006 — Página 404 em inglês ✅ RESOLVIDO (2026-06-18)
 - **Tela:** rota inexistente
 - **Obtido:** "Oops! Page not found", "Return to Home" enquanto resto do app é PT-BR
 - **Severidade:** 🟢
