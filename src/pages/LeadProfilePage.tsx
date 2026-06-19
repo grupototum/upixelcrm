@@ -670,7 +670,7 @@ export default function LeadProfilePage() {
             </div>
             <div>
               <Label className="text-xs">Prazo</Label>
-              <Input type="date" value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} className="mt-1" />
+              <Input type="date" value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} min={new Date().toISOString().split("T")[0]} className="mt-1" />
             </div>
           </div>
           <DialogFooter className="mt-4">

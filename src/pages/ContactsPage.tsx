@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
@@ -21,19 +21,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 export default function ContactsPage() {
   const navigate = useNavigate();
-  const { leads, addLead, updateLead, deleteLead, columns } = useAppState();
+  const { leads, addLead, updateLead, deleteLead, columns, loading } = useAppState();
   
   const [activeCategory, setActiveCategory] = useState<"partner" | "collaborator">("partner");
   const [search, setSearch] = useState("");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
 
   const filteredContacts = useMemo(() => {
     return leads.filter(l => {
