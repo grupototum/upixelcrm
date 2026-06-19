@@ -9,7 +9,7 @@ import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { LeadsByPeriodChart, LeadsByOriginChart } from "@/components/dashboard/DashboardCharts";
-import { formatRelativeTime } from "@/lib/format-date";
+import { formatRelativeTime, formatShortDate } from "@/lib/format-date";
 
 const typeColors: Record<string, string> = {
   stage_change: "bg-primary",
@@ -268,7 +268,7 @@ export default function DashboardPage() {
                   {task.status === "overdue" && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">Atrasada</span>
                   )}
-                  {task.due_date && <span className="text-xs text-muted-foreground">{task.due_date}</span>}
+                  {task.due_date && <span className="text-xs text-muted-foreground">{formatShortDate(task.due_date)}</span>}
                 </div>
               </div>
             ))}

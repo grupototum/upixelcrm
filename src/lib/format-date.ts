@@ -16,3 +16,14 @@ export function formatRelativeTime(iso: string | null | undefined): string {
   if (diffD < 30) return `Há ${diffD}d`;
   return new Date(iso).toLocaleDateString("pt-BR");
 }
+
+/**
+ * Data curta em PT-BR ("dd/MM"). Usada para datas de vencimento (due_date)
+ * onde o formato relativo não faz sentido. Aceita ISO ou date-only.
+ */
+export function formatShortDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}

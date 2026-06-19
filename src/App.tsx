@@ -148,6 +148,8 @@ function AppRoutes() {
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                {/* /dashboard é URL bookmarcável esperada — redireciona pra raiz */}
+                <Route path="/dashboard" element={<Navigate to="/" replace />} />
                 <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
                 <Route path="/leads/:id" element={<ProtectedRoute><LeadProfilePage /></ProtectedRoute>} />

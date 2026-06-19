@@ -24,7 +24,7 @@ export default function WhatsAppBroadcastPage() {
           </div>
           <div className="space-y-2 relative z-10">
             <h2 className="text-2xl font-black font-heading text-foreground tracking-tight">
-              Aumente seu ROI com Envios Oficiais 🚀
+              Aumente seu ROI com Envios Oficiais
             </h2>
             <p className="text-sm text-muted-foreground font-medium max-w-md leading-relaxed">
               Crie modelos persuasivos, envie para aprovação e acompanhe o desempenho das suas campanhas.
