@@ -37,6 +37,23 @@ interface MediaInfo {
   metadata: Record<string, unknown>;
 }
 
+// Baileys/protobuf serializa inteiros de 64 bits como Long ({ low, high, unsigned }).
+// Persistir esse objeto cru quebra a renderização no frontend (React error #31),
+// então normalizamos para number antes de gravar em metadata.
+function longToNumber(value: any): number | null {
+  if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (typeof value === "object" && "low" in value && "high" in value) {
+    const hi = value.unsigned ? value.high >>> 0 : value.high;
+    return hi * 4294967296 + (value.low >>> 0);
+  }
+  return null;
+}
+
 // ─── Evolution API (Baileys) message extraction ───
 function extractMessageContent(messageData: any): MediaInfo {
   const msg = messageData.message;
@@ -61,7 +78,7 @@ function extractMessageContent(messageData: any): MediaInfo {
   if (msg.documentMessage) {
     const url = mediaUrl || msg.documentMessage.url || "";
     const fileName = msg.documentMessage.fileName || "documento";
-    return { content: url || `[Arquivo: ${fileName}]`, type: "file", metadata: { filename: fileName, caption: msg.documentMessage.caption || "", mimetype: msg.documentMessage.mimetype, size: msg.documentMessage.fileLength, media_url: url } };
+    return { content: url || `[Arquivo: ${fileName}]`, type: "file", metadata: { filename: fileName, caption: msg.documentMessage.caption || "", mimetype: msg.documentMessage.mimetype, size: longToNumber(msg.documentMessage.fileLength), media_url: url } };
   }
   if (msg.stickerMessage) {
     const url = mediaUrl || msg.stickerMessage.url || "";
