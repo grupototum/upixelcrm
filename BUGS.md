@@ -202,7 +202,7 @@
 - **Obtido:** dois itens de menu lateral sem handler — UX confusa.
 - **Sugestão de fix:** rotear para anchors da própria página ou esconder.
 
-#### BUG-023 — `setProjectId` dead state
+#### BUG-023 — `setProjectId` dead state ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Integrações
 - **Arquivo:** `src/pages/IntegrationsPage.tsx:51,82`
 - **Obtido:** `projectId` é setado mas nunca lido no JSX.
@@ -265,13 +265,13 @@
 - **Obtido:** banner "Automações avançadas em breve" abaixo da lista funcional confunde o usuário.
 - **Sugestão de fix:** colocar em accordion ou seção separada.
 
-#### BUG-033 — Subtítulo dos KPIs no Dashboard inconsistente com 0 leads
+#### BUG-033 — Subtítulo dos KPIs no Dashboard inconsistente com 0 leads ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Dashboard
 - **Arquivo:** `src/pages/DashboardPage.tsx:50-51`
 - **Obtido:** `"—"` aparece quando não há leads; inconsistente entre cards (alguns mostram `0 últimos 30d`).
 - **Sugestão de fix:** padronizar para "0%".
 
-#### BUG-034 — `formatRelativeTime` aceita datas futuras silenciosamente
+#### BUG-034 — `formatRelativeTime` aceita datas futuras silenciosamente ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Dashboard
 - **Arquivo:** `src/pages/DashboardPage.tsx:245-254`
 - **Obtido:** Se `diff` for negativo (data futura), cai em "Agora" sem tratamento.
