@@ -70,18 +70,14 @@ export default function DashboardPage() {
     {
       label: "Leads Ganhos",
       value: String(stats?.won ?? 0),
-      change: totalLeads > 0
-        ? `${Math.round(((stats?.won ?? 0) / totalLeads) * 100)}% conversão`
-        : "—",
+      change: `${totalLeads > 0 ? Math.round(((stats?.won ?? 0) / totalLeads) * 100) : 0}% conversão`,
       up: true,
       icon: TrendingUp, accent: "success",
     },
     {
       label: "Leads Perdidos",
       value: String(stats?.lost ?? 0),
-      change: totalLeads > 0
-        ? `${Math.round(((stats?.lost ?? 0) / totalLeads) * 100)}% perda`
-        : "—",
+      change: `${totalLeads > 0 ? Math.round(((stats?.lost ?? 0) / totalLeads) * 100) : 0}% perda`,
       up: false,
       icon: TrendingDown, accent: "destructive",
     },

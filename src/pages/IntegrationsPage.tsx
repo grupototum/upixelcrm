@@ -76,7 +76,6 @@ export default function IntegrationsPage() {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [apiModalOpen, setApiModalOpen] = useState(false);
   const [webhookModalOpen, setWebhookModalOpen] = useState(false);
-  const [projectId, setProjectId] = useState<string | null>(null);
 
   // Categoria ativa controlada por URL (?category=messaging|ads|workspace|developer|all)
   const activeCategory: CategoryId = useMemo(() => {
@@ -127,7 +126,6 @@ export default function IntegrationsPage() {
         }
 
         setRealStatuses(statusMap);
-        setProjectId(import.meta.env.VITE_SUPABASE_PROJECT_ID);
       } catch (error) {
         logger.error("Error fetching statuses:", error);
       } finally {

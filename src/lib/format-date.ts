@@ -6,7 +6,9 @@ export function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return "";
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return "";
-  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  const rawDiff = Math.floor((Date.now() - t) / 1000);
+  if (rawDiff < 0) return "Agendado";
+  const diffSec = rawDiff;
   if (diffSec < 60) return "Agora";
   const diffMin = Math.floor(diffSec / 60);
   if (diffMin < 60) return `Há ${diffMin}min`;
