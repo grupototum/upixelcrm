@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.csat_responses (
 ALTER TABLE public.csat_responses ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "csat_responses_tenant_access" ON public.csat_responses
-  FOR ALL USING (get_user_client_id() = client_id OR is_master_user());
+  FOR ALL USING (get_user_client_id() = client_id::text OR is_master_user());
 
 CREATE INDEX IF NOT EXISTS idx_csat_responses_client_id
   ON public.csat_responses(client_id);
@@ -88,7 +88,7 @@ AS $$
     COUNT(*) FILTER (WHERE rating = 4)                   AS rating_4,
     COUNT(*) FILTER (WHERE rating = 5)                   AS rating_5
   FROM public.csat_responses
-  WHERE client_id = get_user_client_id()
+  WHERE client_id::text = get_user_client_id()
     AND responded_at >= p_start
     AND responded_at <  p_end;
 $$;
