@@ -124,7 +124,7 @@
 - **Obtido:** `if (!id) return;` dentro do effect — `loading` nunca vira `false` se id é undefined → spinner infinito.
 - **Sugestão de fix:** `if (!id) { navigate('/automations?tab=bots'); return; }` antes do effect ou setar `loading=false`.
 
-#### BUG-011 — Deleção de contato sem confirmação
+#### BUG-011 — Deleção de contato sem confirmação ✅ RESOLVIDO (AlertDialog já implementado)
 - **Tela:** CRM → Contatos
 - **Arquivo:** `src/pages/ContactsPage.tsx:51-58, 151-153`
 - **Fluxo:** Item "Excluir" do dropdown chama `deleteLead` diretamente.
@@ -208,7 +208,7 @@
 - **Obtido:** `projectId` é setado mas nunca lido no JSX.
 - **Sugestão de fix:** remover ou usar.
 
-#### BUG-024 — CRMPage `deleteLead` chamado sem confirmação em alguns pontos
+#### BUG-024 — CRMPage `deleteLead` chamado sem confirmação em alguns pontos ✅ RESOLVIDO (BulkActionsBar e InboxPage têm AlertDialog)
 - **Tela:** CRM Pipeline
 - **Arquivo:** `src/pages/CRMPage.tsx:62`
 - **Obtido:** `deleteLead` destruturado e passado adiante; cards do Kanban podem chamar destrutivo sem AlertDialog em todos os pontos (verificar `KanbanColumn`/`SortableLeadCard`).
@@ -432,7 +432,7 @@
 - **Obtido:** Página 404 ("Oops! Page not found")
 - **Severidade:** 🟡 (URL bookmarcável esperada quebrada)
 
-#### R-007 — Botão "Em breve" no toolbar do Inbox
+#### R-007 — Botão "Em breve" no toolbar do Inbox ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Inbox → painel de resposta
 - **Obtido:** Botão literalmente rotulado "Em breve", sem feedback ao clique
 - **Severidade:** 🟡
@@ -487,7 +487,7 @@
 - **Tela:** Reports
 - **Severidade:** 🟡
 
-#### R-032 — Copy "Seu período de teste acabou" pra visitante deslogado
+#### R-032 — Copy "Seu período de teste acabou" pra visitante deslogado ✅ RESOLVIDO (copy removido)
 - **Tela:** Landing
 - **Obtido:** Texto na seção PLANOS afirma "Seu período de teste acabou, mas seus leads não esperam!" — exibido para visitante sem cookie, sem trial, sem conta
 - **Severidade:** 🟡
@@ -506,7 +506,7 @@
 - **Obtido:** ~16 botões (cards de conversa, ícones do header e do toolbar) sem `aria-label`
 - **Severidade:** 🟢
 
-#### R-018 — Typo "11 automaçãoões"
+#### R-018 — Typo "11 automaçãoões" ✅ RESOLVIDO (pluralização correta no código atual)
 - **Tela:** Automações (cabeçalho da contagem)
 - **Obtido:** Sufixo duplicado: "automaç**ãoões**"
 - **Severidade:** 🟢

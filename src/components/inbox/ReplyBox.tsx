@@ -423,7 +423,7 @@ export function ReplyBox({
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:bg-secondary shrink-0 hover:text-primary transition-colors" title="Em breve">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground shrink-0 transition-colors" title="Emojis (em breve)" aria-label="Emojis (em breve)" disabled>
                 <Smile className="h-4 w-4" />
               </Button>
             </div>
