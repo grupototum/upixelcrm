@@ -678,6 +678,24 @@ type IntegrationRow = {
   config: Record<string, unknown> | null;
 };
 
+// ─── SDR pilot routing (shadow-safe) ───
+// Tenant piloto do SDR. NOTA: na tabela `tenants` este UUID está rotulado como
+// "Master", mas é o client_id real do WhatsApp Comercial Totum (instância
+// c6c6e4215-comercial-totum-rde2), onde o inbound do piloto cai hoje.
+// Confirmar com o Rael antes do cutover do piloto.
+const SDR_PILOT_CLIENT_ID = "6c6e4215-3001-4d48-addb-4a192078400c";
+
+// Retorna true se o lead deve seguir pela rota SDR (fila consumida por um
+// serviço externo na VPS) em vez dos motores de auto-resposta atuais.
+// Default-safe: sem flag, tenant errado ou qualquer erro → false (fluxo atual).
+async function isSdrPilot(adminClient: any, clientId: string, leadId: string): Promise<boolean> {
+  if (clientId !== SDR_PILOT_CLIENT_ID) return false;
+  const { data: lead } = await adminClient
+    .from("leads").select("tags").eq("id", leadId).maybeSingle();
+  const tags = (lead?.tags as string[] | null) ?? [];
+  return Array.isArray(tags) && tags.includes("sdr-pilot");
+}
+
 // ─── Handle Evolution API (Baileys) webhook ───
 async function handleEvolutionWebhook(body: any, adminClient: any, integrationIdFromUrl: string | null) {
   const instanceName = body.instance;
@@ -774,16 +792,30 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   if (convId) {
     const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
     if (conv?.lead_id) {
-      triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, {
-        message: finalContent,
-        message_type: msgType,
-        channel: "whatsapp",
-      });
+      // Rota SDR (piloto): enfileira para o serviço externo da VPS e NÃO dispara
+      // os motores atuais (anti-colisão). Conversas não-piloto seguem inalteradas.
+      if (await isSdrPilot(adminClient, clientId, conv.lead_id)) {
+        await adminClient.from("whatsapp_message_queue").insert({
+          client_id: clientId,
+          conversation_id: convId,
+          message_data: { content: finalContent, type: msgType },
+          source: "evolution",
+          status: "pending",
+          route: "sdr",
+        });
+        console.log("[sdr-route] enqueued", convId);
+      } else {
+        triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, {
+          message: finalContent,
+          message_type: msgType,
+          channel: "whatsapp",
+        });
 
-      // Bot engine — only for text messages
-      if (msgType === "text") {
-        runBotEngine(adminClient, clientId, conv.lead_id, phone, matchConfig, finalContent)
-          .catch((err: any) => console.error("Bot engine error (non-blocking):", err));
+        // Bot engine — only for text messages
+        if (msgType === "text") {
+          runBotEngine(adminClient, clientId, conv.lead_id, phone, matchConfig, finalContent)
+            .catch((err: any) => console.error("Bot engine error (non-blocking):", err));
+        }
       }
 
       const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();

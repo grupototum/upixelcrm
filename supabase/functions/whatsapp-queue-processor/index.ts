@@ -104,6 +104,9 @@ Deno.serve(async (req) => {
       .from("whatsapp_message_queue")
       .select("*")
       .eq("status", "pending")
+      // Itens da rota SDR (route='sdr') são consumidos por um serviço externo
+      // na VPS — o cron do salesbot só processa os seus próprios.
+      .eq("route", "salesbot")
       .lt("attempt_count", 5)
       .order("created_at", { ascending: true })
       .limit(100);
