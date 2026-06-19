@@ -136,19 +136,19 @@
 
 ### 🟡 MÉDIOS
 
-#### BUG-012 — Navigate durante render no LoginPage
+#### BUG-012 — Navigate durante render no LoginPage ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Login
 - **Arquivo:** `src/pages/LoginPage.tsx:22-25`
 - **Obtido:** `if (isAuthenticated) { navigate("/", ...); return null; }` chamado no corpo do componente → warning React "Cannot update during render".
 - **Sugestão de fix:** mover para `useEffect`.
 
-#### BUG-013 — `catch {}` engole erro original no signup
+#### BUG-013 — `catch {}` engole erro original no signup ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Cadastro
 - **Arquivo:** `src/pages/SignupPage.tsx:162-169`
 - **Obtido:** `catch { ... setError("Erro inesperado..."); }` sem `(e)` nem log; depuração impossível em produção.
 - **Sugestão de fix:** `catch (e) { logger.error(e); ... }`.
 
-#### BUG-014 — Loading fake com `setTimeout` no CRM/Contacts
+#### BUG-014 — Loading fake com `setTimeout` no CRM/Contacts ✅ RESOLVIDO (2026-06-19)
 - **Tela:** CRM Pipeline / Contatos
 - **Arquivos:** `src/pages/CRMPage.tsx:95-98`, `src/pages/ContactsPage.tsx:31-34`
 - **Obtido:** `setTimeout(() => setIsLoading(false), 600)` — skeleton fake mesmo quando dados já estão carregados pelo `AppContext`.
@@ -214,7 +214,7 @@
 - **Obtido:** `deleteLead` destruturado e passado adiante; cards do Kanban podem chamar destrutivo sem AlertDialog em todos os pontos (verificar `KanbanColumn`/`SortableLeadCard`).
 - **Sugestão de fix:** envolver via wrapper que sempre pede confirmação.
 
-#### BUG-025 — "Nova Tarefa" do LeadProfile sem validação de data
+#### BUG-025 — "Nova Tarefa" do LeadProfile sem validação de data ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Perfil do Lead
 - **Arquivo:** `src/pages/LeadProfilePage.tsx:651-653`
 - **Obtido:** input `type=date` sem `min` — aceita datas passadas.
@@ -241,7 +241,7 @@
 - **Obtido:** função `ChevronRight` redefinida apesar de `lucide-react` já fornecer o ícone.
 - **Sugestão de fix:** `import { ChevronRight } from 'lucide-react'`.
 
-#### BUG-029 — `Index.tsx` placeholder do Lovable abandonado
+#### BUG-029 — `Index.tsx` placeholder do Lovable abandonado ✅ RESOLVIDO (já deletado)
 - **Tela:** —
 - **Arquivo:** `src/pages/Index.tsx`
 - **Obtido:** arquivo inteiro é placeholder ("IMPORTANT: Fully REPLACE this") com `<img src="/placeholder.svg" />`. Não está roteado, mas confunde manutenção.

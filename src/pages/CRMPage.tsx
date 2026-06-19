@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
@@ -124,7 +124,7 @@ function SelectionToggleButton({ visibleLeads }: { visibleLeads: Lead[] }) {
 function CRMPageInner() {
   const navigate = useNavigate();
   const {
-    leads, pipelines, columns, currentPipelineId, leadCountByPipeline,
+    leads, pipelines, columns, currentPipelineId, leadCountByPipeline, loading,
     setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn, reorderColumns,
     addLead, updateLead, deleteLead, moveLead
   } = useAppState();
@@ -140,7 +140,6 @@ function CRMPageInner() {
   const [showSearch, setShowSearch] = useState(false);
   const [pipelineToDelete, setPipelineToDelete] = useState<string | null>(null);
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [configColumn, setConfigColumn] = useState<PipelineColumn | null>(null);
   const [configColumnTab, setConfigColumnTab] = useState<string>("general");
   const [crmFilters, setCrmFilters] = useState<CRMFilters>(EMPTY_FILTERS);
@@ -162,10 +161,6 @@ function CRMPageInner() {
     columns.filter(c => c.pipeline_id === currentPipelineId).sort((a, b) => a.order - b.order)
   , [columns, currentPipelineId]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(t);
-  }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -503,7 +498,7 @@ function CRMPageInner() {
         </div>
       }
     >
-      {isLoading ? (
+      {loading ? (
         <KanbanSkeleton />
       ) : (
         <DndContext

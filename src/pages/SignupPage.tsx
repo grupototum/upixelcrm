@@ -1,4 +1,5 @@
 import { useState, useEffect, FormEvent } from "react";
+import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantUrl } from "@/utils/tenant";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,8 @@ export default function SignupPage() {
 
       sessionStorage.setItem(GATE_SESSION_KEY, "1");
       setStep("form");
-    } catch {
+    } catch (e) {
+      logger.error("signup gate check failed:", e);
       setGateError("Erro de conexão. Tente novamente.");
     } finally {
       setGateLoading(false);
@@ -177,7 +179,8 @@ export default function SignupPage() {
 
       setCreatedSubdomain(subdomain);
       setStep("success");
-    } catch {
+    } catch (e) {
+      logger.error("signup failed, rolling back:", e);
       if (orgId)    await supabase.from("organizations").delete().eq("id", orgId);
       if (tenantId) await supabase.from("tenants").delete().eq("id", tenantId);
       setError("Erro inesperado. Tente novamente.");
