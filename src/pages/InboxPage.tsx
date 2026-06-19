@@ -45,6 +45,7 @@ import { SnoozePopover } from "@/components/inbox/SnoozePopover";
 import { MacrosDropdown } from "@/components/inbox/MacrosDropdown";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
+import { formatFileSize } from "@/lib/utils";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInbox } from "@/hooks/useInbox";
@@ -757,7 +758,7 @@ export default function InboxPage() { // force HMR reset
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-[11px] font-bold truncate">{msg.metadata?.filename || "Documento"}</p>
-                                      <p className="text-[9px] text-muted-foreground uppercase">{msg.metadata?.size || "Ver arquivo"}</p>
+                                      <p className="text-[9px] text-muted-foreground uppercase">{formatFileSize(msg.metadata?.size) || "Ver arquivo"}</p>
                                     </div>
                                     <a href={msg.content} download target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-lg bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:shadow-sm transition-all">
                                       <Download className="h-4 w-4" />
