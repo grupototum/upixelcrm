@@ -190,13 +190,13 @@
 - **Obtido:** "Rate Card: Brasil" estático; sem locale do tenant.
 - **Sugestão de fix:** ler do perfil/tenant.
 
-#### BUG-021 — Botão da câmera no avatar sem handler
+#### BUG-021 — Botão da câmera no avatar sem handler ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Perfil
 - **Arquivo:** `src/pages/ProfilePage.tsx:54-56`
 - **Obtido:** botão de câmera sobre avatar sem `onClick` — usuário tenta trocar foto e nada acontece.
 - **Sugestão de fix:** abrir input file ou esconder botão.
 
-#### BUG-022 — Atalhos "Notificações" e "Idioma e Região" sem onClick
+#### BUG-022 — Atalhos "Notificações" e "Idioma e Região" sem onClick ✅ RESOLVIDO (removidos)
 - **Tela:** Perfil
 - **Arquivo:** `src/pages/ProfilePage.tsx:70-75`
 - **Obtido:** dois itens de menu lateral sem handler — UX confusa.
@@ -247,7 +247,7 @@
 - **Obtido:** arquivo inteiro é placeholder ("IMPORTANT: Fully REPLACE this") com `<img src="/placeholder.svg" />`. Não está roteado, mas confunde manutenção.
 - **Sugestão de fix:** deletar.
 
-#### BUG-030 — Dead code em BotBuilderPage
+#### BUG-030 — Dead code em BotBuilderPage ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Bot Builder
 - **Arquivo:** `src/pages/BotBuilderPage.tsx:21-70`
 - **Obtido:** componente `BuilderInner` definido e nunca usado; `void handleSave; void handleToggle` para silenciar lint.

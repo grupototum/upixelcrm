@@ -19,57 +19,6 @@ interface BotRow {
   trigger_value?: string;
 }
 
-function BuilderInner({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => void }) {
-  const { getNodes, getEdges } = useReactFlow();
-  const [saving, setSaving] = useState(false);
-  const [toggling, setToggling] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('bots').update({
-        nodes: getNodes() as unknown as Json,
-        edges: getEdges() as unknown as Json,
-      }).eq('id', bot.id);
-      if (error) throw error;
-      toast.success('Fluxo salvo');
-      onSaved({ ...bot, nodes: getNodes(), edges: getEdges() });
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erro ao salvar');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleToggle = async () => {
-    setToggling(true);
-    const next = bot.status === 'published' ? 'draft' : 'published';
-    try {
-      const { error } = await supabase.from('bots').update({ status: next }).eq('id', bot.id);
-      if (error) throw error;
-      toast.success(next === 'published' ? 'Bot ativado' : 'Bot pausado');
-      onSaved({ ...bot, status: next });
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erro');
-    } finally {
-      setToggling(false);
-    }
-  };
-
-  return (
-    <BotCanvas
-      initialNodes={bot.nodes as any[]}
-      initialEdges={bot.edges as any[]}
-      onNodesChange={() => {}}
-      onEdgesChange={() => {}}
-    />
-  );
-
-  // We only use the inner canvas but expose save/toggle via the outer header.
-  // The actual save reads from ReactFlow context, so header must be inside ReactFlowProvider.
-  void handleSave; void handleToggle;
-}
-
 function BuilderHeader({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => void }) {
   const navigate = useNavigate();
   const { getNodes, getEdges } = useReactFlow();

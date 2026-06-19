@@ -53,7 +53,13 @@ export function ProfileSettings() {
                   <AvatarImage src={user?.avatar || ""} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-bold">{initials}</AvatarFallback>
                 </Avatar>
-                <button className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-background border border-border flex items-center justify-center shadow-lg hover:bg-secondary transition-colors opacity-0 group-hover:opacity-100 duration-200">
+                <button
+                  className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-background border border-border flex items-center justify-center shadow-lg hover:bg-secondary transition-colors opacity-0 group-hover:opacity-100 duration-200"
+                  onClick={() => {}}
+                  aria-label="Trocar foto de perfil (em breve)"
+                  disabled
+                  title="Troca de foto em breve"
+                >
                   <Camera className="h-4 w-4" />
                 </button>
               </div>
