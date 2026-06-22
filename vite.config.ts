@@ -26,6 +26,10 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
   },
   build: {
+    // O chunk `vendor` (React + Radix + Router) é mantido unido de propósito
+    // (ver comentário em manualChunks) e fica ~800kB / ~250kB gzip. O limite
+    // padrão de 500kB gera aviso enganoso num bundle já otimizado e cacheado.
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         manualChunks: (id) => {
