@@ -640,17 +640,36 @@ serve(async (req) => {
 
       let aiResponseText = "";
 
+      // Provedor selecionado na UI. NVIDIA NIM é compatível com o formato da
+      // OpenAI (mesmo /chat/completions + Bearer token), então só muda a URL,
+      // a chave e o modelo padrão.
+      const provider = (nodeData.provider || 'openai').toLowerCase();
+      const providerConfig: Record<string, { url: string; keyEnv: string; defaultModel: string }> = {
+        openai: {
+          url: 'https://api.openai.com/v1/chat/completions',
+          keyEnv: 'OPENAI_API_KEY',
+          defaultModel: 'gpt-4o-mini',
+        },
+        nvidia: {
+          url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+          keyEnv: 'NVIDIA_API_KEY',
+          defaultModel: 'meta/llama-3.1-70b-instruct',
+        },
+      };
+      const cfg = providerConfig[provider] || providerConfig.openai;
+      const model = (nodeData.model && String(nodeData.model).trim()) || cfg.defaultModel;
+
       try {
-        const openAiKey = Deno.env.get("OPENAI_API_KEY");
-        if (openAiKey) {
-          const aiReq = await fetch('https://api.openai.com/v1/chat/completions', {
+        const apiKey = Deno.env.get(cfg.keyEnv);
+        if (apiKey) {
+          const aiReq = await fetch(cfg.url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${openAiKey}`
+              'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-              model: 'gpt-4o-mini',
+              model,
               messages: [{ role: 'user', content: promptText }],
               temperature: 0.7,
               max_tokens: 500
@@ -663,7 +682,7 @@ serve(async (req) => {
              throw new Error(aiRes.error?.message || 'Invalid AI response');
           }
         } else {
-          outputData.warning = 'OPENAI_API_KEY not configured';
+          outputData.warning = `${cfg.keyEnv} not configured`;
           aiResponseText = "[IA não configurada]";
         }
       } catch (err: any) {
