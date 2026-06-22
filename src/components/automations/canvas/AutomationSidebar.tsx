@@ -453,13 +453,52 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
              </div>
           </div>
         );
-      case 'ai_assistant':
+      case 'ai_assistant': {
+        const provider = localData.provider || 'openai';
+        const providerDefaults: Record<string, string> = {
+          openai: 'gpt-4o-mini',
+          nvidia: 'meta/llama-3.1-70b-instruct',
+        };
         return (
           <div className="space-y-4">
+             <div className="space-y-2">
+               <Label className="text-[10px] uppercase font-bold text-muted-foreground">Provedor de IA</Label>
+               <Select
+                  value={provider}
+                  onValueChange={(value) => handleUpdate({ provider: value })}
+               >
+                  <SelectTrigger className="h-8 text-xs">
+                     <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                     <SelectItem value="openai">OpenAI</SelectItem>
+                     <SelectItem value="nvidia">NVIDIA NIM</SelectItem>
+                  </SelectContent>
+               </Select>
+             </div>
+
+             <div className="space-y-2">
+               <Label className="text-[10px] uppercase font-bold text-muted-foreground">Modelo</Label>
+               <Input
+                  name="model"
+                  placeholder={providerDefaults[provider] || 'modelo'}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                  value={localData.model || ''}
+                  onChange={(e) => handleUpdate({ model: e.target.value })}
+                  className="h-8 text-xs font-mono"
+               />
+               <p className="text-[9px] text-muted-foreground italic">
+                  {provider === 'nvidia'
+                    ? '* Ex: meta/llama-3.1-70b-instruct (deixe vazio para o padrão).'
+                    : '* Ex: gpt-4o-mini (deixe vazio para o padrão).'}
+               </p>
+             </div>
+
              <Label className="text-xs font-semibold">Prompt da IA</Label>
-             <Textarea 
+             <Textarea
                 name="prompt"
-                placeholder="Você é um assistente... Use {{lead.name}}" 
+                placeholder="Você é um assistente... Use {{lead.name}}"
                 className="min-h-[150px] text-sm resize-none"
                 onFocus={onFocus}
                 onBlur={onBlur}
@@ -484,6 +523,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
              </div>
           </div>
         );
+      }
       default:
         return <p className="text-xs text-muted-foreground">Este tipo de módulo não possui configurações extras.</p>;
     }
