@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 
-const MENTION_REGEX = /@([a-zA-Z0-9_.\-]{2,32})/g;
+const MENTION_REGEX = /@([a-zA-Z0-9_.-]{2,32})/g;
 
 export function extractMentions(text: string): string[] {
   const found = new Set<string>();

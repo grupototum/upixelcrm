@@ -37,10 +37,8 @@ export function useSLAMetrics(start?: Date, end?: Date) {
     setError(null);
     try {
       const [overall, agents] = await Promise.all([
-        (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)
-          ("sla_metrics", { p_start: startIso, p_end: endIso }),
-        (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)
-          ("sla_metrics_by_agent", { p_start: startIso, p_end: endIso }),
+        (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)("sla_metrics", { p_start: startIso, p_end: endIso }),
+        (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)("sla_metrics_by_agent", { p_start: startIso, p_end: endIso }),
       ]);
 
       if (overall.error) throw overall.error;
