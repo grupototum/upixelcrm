@@ -41,25 +41,30 @@ CREATE INDEX IF NOT EXISTS idx_macro_executions_conv ON public.macro_executions(
 -- RLS using project pattern: get_user_client_id() + is_master_user()
 ALTER TABLE public.macros ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view macros in their client" ON public.macros;
 CREATE POLICY "Users can view macros in their client"
   ON public.macros FOR SELECT TO authenticated
   USING (client_id = get_user_client_id() OR public.is_master_user());
 
+DROP POLICY IF EXISTS "Users can insert macros in their client" ON public.macros;
 CREATE POLICY "Users can insert macros in their client"
   ON public.macros FOR INSERT TO authenticated
   WITH CHECK (client_id = get_user_client_id());
 
+DROP POLICY IF EXISTS "Users can update macros in their client" ON public.macros;
 CREATE POLICY "Users can update macros in their client"
   ON public.macros FOR UPDATE TO authenticated
   USING (client_id = get_user_client_id() OR public.is_master_user())
   WITH CHECK (client_id = get_user_client_id() OR public.is_master_user());
 
+DROP POLICY IF EXISTS "Users can delete macros in their client" ON public.macros;
 CREATE POLICY "Users can delete macros in their client"
   ON public.macros FOR DELETE TO authenticated
   USING (client_id = get_user_client_id() OR public.is_master_user());
 
 ALTER TABLE public.macro_executions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view macro_executions in their client" ON public.macro_executions;
 CREATE POLICY "Users can view macro_executions in their client"
   ON public.macro_executions FOR SELECT TO authenticated
   USING (
@@ -70,6 +75,7 @@ CREATE POLICY "Users can view macro_executions in their client"
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert macro_executions in their client" ON public.macro_executions;
 CREATE POLICY "Users can insert macro_executions in their client"
   ON public.macro_executions FOR INSERT TO authenticated
   WITH CHECK (
@@ -80,5 +86,13 @@ CREATE POLICY "Users can insert macro_executions in their client"
     )
   );
 
--- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.macros;
+-- Realtime (idempotente — evita erro se a tabela já está na publicação)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+     WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='macros'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.macros;
+  END IF;
+END $$;

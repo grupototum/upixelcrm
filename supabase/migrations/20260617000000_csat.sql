@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.csat_responses (
 
 ALTER TABLE public.csat_responses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "csat_responses_tenant_access" ON public.csat_responses;
 CREATE POLICY "csat_responses_tenant_access" ON public.csat_responses
   FOR ALL USING (get_user_client_id() = client_id::text OR is_master_user());
 
@@ -95,5 +96,13 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.csat_stats(TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
 
--- 6) Add csat_responses to realtime publication
-ALTER PUBLICATION supabase_realtime ADD TABLE public.csat_responses;
+-- 6) Add csat_responses to realtime publication (idempotente)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+     WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='csat_responses'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.csat_responses;
+  END IF;
+END $$;
