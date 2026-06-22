@@ -17,7 +17,6 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       functions: ${{ steps.filter.outputs.functions }}
       functions_list: ${{ steps.list.outputs.list }}
-      migrations: ${{ steps.filter.outputs.migrations }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,8 +37,6 @@ jobs:
               - 'package-lock.json'
             functions:
               - 'supabase/functions/**'
-            migrations:
-              - 'supabase/migrations/**'
 
       - name: Compute list of edge functions to deploy
         id: list
@@ -61,34 +58,9 @@ jobs:
           echo "list=$FNS" >> "$GITHUB_OUTPUT"
           echo "Functions to deploy: $FNS"
 
-  # Aplica migrations ANTES de qualquer deploy de função/frontend.
-  # Evita a inversão que derrubou o whatsapp-queue-processor (função nova
-  # filtrando por coluna que ainda não existia no banco).
-  # Requer os secrets SUPABASE_ACCESS_TOKEN e SUPABASE_DB_PASSWORD.
-  deploy-migrations:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.migrations == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - name: Push database migrations
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          supabase link --project-ref xusdhzwfkzufupjwbebt
-          supabase db push --include-all
-
   deploy-functions:
-    needs: [detect-changes, deploy-migrations]
-    if: |
-      always() &&
-      needs.detect-changes.outputs.functions == 'true' &&
-      needs.detect-changes.outputs.functions_list != '' &&
-      (needs.deploy-migrations.result == 'success' || needs.deploy-migrations.result == 'skipped')
+    needs: detect-changes
+    if: needs.detect-changes.outputs.functions == 'true' && needs.detect-changes.outputs.functions_list != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -145,13 +117,12 @@ jobs:
           retention-days: 7
 
   deploy-vps:
-    needs: [detect-changes, build, deploy-functions, deploy-migrations]
+    needs: [detect-changes, build, deploy-functions]
     if: |
       always() &&
       needs.detect-changes.outputs.frontend == 'true' &&
       needs.build.result == 'success' &&
-      (needs.deploy-functions.result == 'success' || needs.deploy-functions.result == 'skipped') &&
-      (needs.deploy-migrations.result == 'success' || needs.deploy-migrations.result == 'skipped')
+      (needs.deploy-functions.result == 'success' || needs.deploy-functions.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -197,7 +168,7 @@ jobs:
             rm -rf /tmp/upixel-extract /tmp/upixel-deploy.tar.gz
 
   summary:
-    needs: [detect-changes, deploy-migrations, deploy-functions, build, deploy-vps]
+    needs: [detect-changes, deploy-functions, build, deploy-vps]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -206,7 +177,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| DB migrations | ${{ needs.deploy-migrations.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Edge functions | ${{ needs.deploy-functions.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend deploy | ${{ needs.deploy-vps.result }} |" >> $GITHUB_STEP_SUMMARY
