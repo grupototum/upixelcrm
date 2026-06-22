@@ -653,14 +653,31 @@ serve(async (req) => {
         nvidia: {
           url: 'https://integrate.api.nvidia.com/v1/chat/completions',
           keyEnv: 'NVIDIA_API_KEY',
-          defaultModel: 'meta/llama-3.1-70b-instruct',
+          defaultModel: 'meta/llama-3.3-70b-instruct',
         },
       };
       const cfg = providerConfig[provider] || providerConfig.openai;
       const model = (nodeData.model && String(nodeData.model).trim()) || cfg.defaultModel;
 
       try {
-        const apiKey = Deno.env.get(cfg.keyEnv);
+        // Prioriza a chave configurada na UI (tabela integrations, por cliente);
+        // se não houver, cai para a variável de ambiente (secret global).
+        let apiKey: string | undefined;
+        if (lead.client_id) {
+          const { data: aiIntegration } = await supabase
+            .from("integrations")
+            .select("config")
+            .eq("client_id", lead.client_id)
+            .eq("provider", `${provider}_api`)
+            .maybeSingle();
+          let aiConfig = aiIntegration?.config;
+          if (typeof aiConfig === 'string') {
+            try { aiConfig = JSON.parse(aiConfig); } catch { aiConfig = null; }
+          }
+          if (aiConfig?.api_key) apiKey = aiConfig.api_key;
+        }
+        if (!apiKey) apiKey = Deno.env.get(cfg.keyEnv);
+
         if (apiKey) {
           const aiReq = await fetch(cfg.url, {
             method: 'POST',
@@ -682,7 +699,7 @@ serve(async (req) => {
              throw new Error(aiRes.error?.message || 'Invalid AI response');
           }
         } else {
-          outputData.warning = `${cfg.keyEnv} not configured`;
+          outputData.warning = `Chave de IA (${provider}) não configurada — defina em Inteligência → Chaves de IA ou no secret ${cfg.keyEnv}`;
           aiResponseText = "[IA não configurada]";
         }
       } catch (err: any) {

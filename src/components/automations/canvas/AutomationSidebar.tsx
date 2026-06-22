@@ -457,7 +457,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
         const provider = localData.provider || 'openai';
         const providerDefaults: Record<string, string> = {
           openai: 'gpt-4o-mini',
-          nvidia: 'meta/llama-3.1-70b-instruct',
+          nvidia: 'meta/llama-3.3-70b-instruct',
         };
         return (
           <div className="space-y-4">
@@ -490,7 +490,7 @@ export function AutomationSidebar({ selectedNodeId, onDeleteNode }: SidebarProps
                />
                <p className="text-[9px] text-muted-foreground italic">
                   {provider === 'nvidia'
-                    ? '* Ex: meta/llama-3.1-70b-instruct (deixe vazio para o padrão).'
+                    ? '* Ex: meta/llama-3.3-70b-instruct (deixe vazio para o padrão).'
                     : '* Ex: gpt-4o-mini (deixe vazio para o padrão).'}
                </p>
              </div>
