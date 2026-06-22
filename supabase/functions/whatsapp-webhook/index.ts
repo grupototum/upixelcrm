@@ -679,11 +679,13 @@ type IntegrationRow = {
 };
 
 // ─── SDR pilot routing (shadow-safe) ───
-// Tenant piloto do SDR. NOTA: na tabela `tenants` este UUID está rotulado como
-// "Master", mas é o client_id real do WhatsApp Comercial Totum (instância
-// c6c6e4215-comercial-totum-rde2), onde o inbound do piloto cai hoje.
-// Confirmar com o Rael antes do cutover do piloto.
-const SDR_PILOT_CLIENT_ID = "6c6e4215-3001-4d48-addb-4a192078400c";
+// Tenant piloto do SDR. Configurável via secret SDR_PILOT_TENANT_ID
+// (defina com `supabase secrets set SDR_PILOT_TENANT_ID=<uuid>` para trocar
+// o tenant sem redeploy). Fallback: client_id do WhatsApp Comercial Totum
+// (instância c6c6e4215-comercial-totum-rde2), onde o inbound do piloto cai
+// hoje. NOTA: na tabela `tenants` esse UUID está rotulado como "Master".
+const SDR_PILOT_CLIENT_ID =
+  Deno.env.get("SDR_PILOT_TENANT_ID") ?? "6c6e4215-3001-4d48-addb-4a192078400c";
 
 // Retorna true se o lead deve seguir pela rota SDR (fila consumida por um
 // serviço externo na VPS) em vez dos motores de auto-resposta atuais.
