@@ -45,11 +45,13 @@ import { SnoozePopover } from "@/components/inbox/SnoozePopover";
 import { MacrosDropdown } from "@/components/inbox/MacrosDropdown";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
+import { ShadowSdrPanel } from "@/components/inbox/ShadowSdrPanel";
 import { formatFileSize } from "@/lib/utils";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInbox } from "@/hooks/useInbox";
 import { useCsatSender } from "@/hooks/useCsatSender";
+import type { ShadowSdrConversationInput } from "@/types/shadow-sdr";
 
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success",
@@ -266,6 +268,35 @@ export default function InboxPage() { // force HMR reset
     () => selectedLead ? tasks.filter(t => t.lead_id === selectedLead.id) : [],
     [tasks, selectedLead]
   );
+
+  const shadowSdrInput = useMemo<ShadowSdrConversationInput | null>(() => {
+    if (!selectedLeadGroup) return null;
+
+    return {
+      lead: {
+        id: selectedLead?.id || selectedLeadGroup.lead_id,
+        name: selectedLead?.name || selectedLeadGroup.lead_name,
+        phone: selectedLead?.phone || selectedLeadGroup.lead_phone,
+        email: selectedLead?.email || selectedLeadGroup.lead_email,
+        company: selectedLead?.company || selectedLeadGroup.lead_company,
+        category: selectedLeadGroup.category,
+        stageName: leadColumn?.name,
+        value: selectedLead?.value,
+        tags: selectedLead?.tags || [],
+      },
+      channels: selectedLeadGroup.channels,
+      lastMessageAt: selectedLeadGroup.last_message_at,
+      messages: inbox.messages.map((message) => ({
+        id: message.id,
+        content: message.content,
+        direction: message.direction,
+        type: message.type,
+        createdAt: message.created_at,
+        senderName: message.sender_name,
+        isPrivate: message.is_private,
+      })),
+    };
+  }, [selectedLeadGroup, selectedLead, leadColumn?.name, inbox.messages]);
 
   return (
     <AppLayout title="Inbox" subtitle="Central de atendimento">
@@ -1021,6 +1052,8 @@ export default function InboxPage() { // force HMR reset
                       </div>
                     </div>
                   </div>
+
+                  <ShadowSdrPanel input={shadowSdrInput} />
 
                   {/* Tasks */}
                   <div className="space-y-3">
