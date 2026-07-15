@@ -2,6 +2,8 @@ import { logger } from "@/lib/logger";
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getProfileClientId } from "@/services/users";
+import { listIntegrations, updateIntegration } from "@/services/integrations";
 
 export interface FacebookPageIntegration {
   id: string;
@@ -22,22 +24,10 @@ export function useFacebookPageIntegration() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("client_id")
-        .eq("id", session.user.id)
-        .single();
+      const clientId = await getProfileClientId(session.user.id);
+      if (!clientId) return;
 
-      if (!profile) return;
-
-      const { data, error } = await supabase
-        .from("integrations")
-        .select("id, status, config")
-        .eq("provider", "facebook_page")
-        .eq("client_id", profile.client_id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await listIntegrations(clientId, "facebook_page");
 
       const mapped: FacebookPageIntegration[] = (data ?? []).map((row) => {
         const cfg = (row.config ?? {}) as {
@@ -68,11 +58,7 @@ export function useFacebookPageIntegration() {
     async (integrationId: string) => {
       setLoading(true);
       try {
-        const { error } = await supabase
-          .from("integrations")
-          .update({ status: "disconnected", updated_at: new Date().toISOString() })
-          .eq("id", integrationId);
-        if (error) throw error;
+        await updateIntegration(integrationId, { status: "disconnected" });
         toast.success("Página desconectada.");
         await fetchPages();
       } catch (err) {
