@@ -21,7 +21,9 @@
 | 4 | `src/services/inbox.ts` (inbox_templates, macros, tasks, contadores) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
 > Nota mov. 4: useConversationLabels é in-memory puro (sem queries) — fora do repositório. Queries de conversations/messages do useInbox migram no Lote 3.
 | 5 | `src/services/broadcast.ts` (whatsapp_templates, broadcast_campaigns, dispatch_logs, créditos, edge) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
-| 6 | `src/services/automations.ts` | pendente | — | — |
+| 6 | `src/services/automations.ts` (sequences, steps, automation_runs, stats) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+
+**Lote 1 concluído em 2026-07-15** — 6/6 movimentos, build e lint verdes em todos. Aguardando OK para o Lote 2.
 
 ## Lote 2 — migrar hooks moderados (aguardando plano detalhado + OK)
 ## Lote 3 — AppContext.tsx + useInbox.ts (aguardando)
