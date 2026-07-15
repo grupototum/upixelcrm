@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import * as inboxRepo from "@/services/inbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { resolveClientId } from "@/lib/tenant-utils";
@@ -28,29 +29,20 @@ export function useUnreadCounts() {
 
     try {
       // Inbox: conversations com unread_count > 0 e status aberto
-      const { count: inboxRaw, error: convErr } = await supabase
-        .from("conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("client_id", clientId)
-        .gt("unread_count", 0)
-        .eq("status", "open");
-      if (convErr) {
+      try {
+        const inboxRaw = await inboxRepo.countOpenUnreadConversations(clientId);
+        setInboxCount(inboxRaw);
+      } catch (convErr) {
         logger.error("[useUnreadCounts] inbox query error:", convErr);
-      } else {
-        setInboxCount(inboxRaw ?? 0);
       }
 
       // Tarefas: pendentes (not completed/done) atribuídas ao usuário OU sem assignee.
       // Mantém simples: conta tasks status != 'completed' e != 'done' do tenant.
-      const { count: tasksRaw, error: taskErr } = await supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("client_id", clientId)
-        .not("status", "in", "(completed,done,cancelled)");
-      if (taskErr) {
+      try {
+        const tasksRaw = await inboxRepo.countPendingTasks(clientId);
+        setTasksCount(tasksRaw);
+      } catch (taskErr) {
         logger.error("[useUnreadCounts] tasks query error:", taskErr);
-      } else {
-        setTasksCount(tasksRaw ?? 0);
       }
     } catch (err) {
       logger.error("[useUnreadCounts] unexpected error:", err);
