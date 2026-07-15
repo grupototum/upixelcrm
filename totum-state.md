@@ -15,7 +15,8 @@
 | # | Movimento | Status | Build | Lint |
 |---|---|---|---|---|
 | 1 | `src/services/leads.ts` (tags, custom_field_definitions, leads) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
-| 2 | `src/services/users.ts` | pendente | — | — |
+| 2 | `src/services/users.ts` (profiles: leituras moderadas) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+> Nota mov. 2: usePermissions é lógica pura (sem queries) — fonte real do domínio users são useBroadcast, IntegrationsPage, hooks de FB/IG, mentions.ts, ProfileSettings e ConversationActions.
 | 3 | `src/services/integrations.ts` | pendente | — | — |
 | 4 | `src/services/inbox.ts` | pendente | — | — |
 | 5 | `src/services/broadcast.ts` | pendente | — | — |
