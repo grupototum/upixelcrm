@@ -25,6 +25,22 @@
 
 **Lote 1 concluído em 2026-07-15** — 6/6 movimentos, build e lint verdes em todos. Aguardando OK para o Lote 2.
 
-## Lote 2 — migrar hooks moderados (aguardando plano detalhado + OK)
+## Lote 2 — migrar hooks moderados (aprovado 2026-07-15)
+
+Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoção de leitura duplicada + troca de query); #10 mesma semântica nas operações destrutivas; #11 fetches diretos Evolution/Meta ficam. #1–7 executados com Sonnet 5 (subagentes), #8–11 com o modelo principal. Checkpoint parcial após #7.
+
+| # | Movimento | Status | Build | Lint |
+|---|---|---|---|---|
+| 1 | useTags → services/leads | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
+| 2 | useCustomFields → services/leads | em execução | — | — |
+| 3 | useCannedResponses → services/inbox | pendente | — | — |
+| 4 | useMacros → services/inbox | pendente | — | — |
+| 5 | useUnreadCounts → services/inbox | pendente | — | — |
+| 6 | useAutomationRuns/Stats → services/automations | pendente | — | — |
+| 7 | useSequences → services/automations | pendente | — | — |
+| 8 | useFacebookPage/useInstagram → integrations+users | pendente | — | — |
+| 9 | useMetaAds/useGoogleAds → services/integrations | pendente | — | — |
+| 10 | useDuplicateDetection → services/leads | pendente | — | — |
+| 11 | useBroadcast + BroadcastConfigModal → broadcast+users | pendente | — | — |
 ## Lote 3 — AppContext.tsx + useInbox.ts (aguardando)
 ## Lote 4 — 🟠 Signup/Users/Organization/auth (NUNCA sem OK explícito)
