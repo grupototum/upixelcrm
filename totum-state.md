@@ -37,7 +37,9 @@ Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoçã
 | 4 | useMacros → services/inbox | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
 | 5 | useUnreadCounts → services/inbox | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
 | 6 | useAutomationRuns/Stats → services/automations | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ (2 warnings `any` pré-existentes) |
-| 7 | useSequences → services/automations | em execução | — | — |
+| 7 | useSequences → services/automations | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ (5 warnings `any` pré-existentes, 0 novos) |
+
+**Checkpoint parcial #1–7 entregue em 2026-07-15.** #8–11 seguem com o modelo principal.
 | 8 | useFacebookPage/useInstagram → integrations+users | pendente | — | — |
 | 9 | useMetaAds/useGoogleAds → services/integrations | pendente | — | — |
 | 10 | useDuplicateDetection → services/leads | pendente | — | — |
