@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as leadsRepo from "@/services/leads";
 import { toast } from "sonner";
 import type { CustomFieldDefinition, CustomFieldType } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
@@ -26,16 +26,11 @@ export function useCustomFields() {
   const fetchDefinitions = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("custom_field_definitions")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("display_order", { ascending: true });
-
-    if (error) {
+    try {
+      const data = await leadsRepo.listCustomFieldDefinitions(clientId);
+      setDefinitions(data);
+    } catch (error) {
       console.error("Error fetching custom field definitions:", error);
-    } else {
-      setDefinitions((data as unknown as CustomFieldDefinition[]) || []);
     }
     setLoading(false);
   }, [clientId]);
@@ -54,9 +49,8 @@ export function useCustomFields() {
     }) => {
       if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
       const slug = slugify(params.name);
-      const { data, error } = await supabase
-        .from("custom_field_definitions")
-        .insert({
+      try {
+        const data = await leadsRepo.createCustomFieldDefinition({
           client_id: clientId,
           name: params.name,
           slug,
@@ -65,53 +59,47 @@ export function useCustomFields() {
           is_required: params.is_required ?? false,
           visible_pipelines: params.visible_pipelines || [],
           display_order: definitions.length,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        toast.error("Erro ao criar campo: " + error.message);
+        });
+        toast.success(`Campo "${params.name}" criado!`);
+        setDefinitions((prev) => [...prev, data]);
+        return data;
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        toast.error("Erro ao criar campo: " + message);
         return null;
       }
-      toast.success(`Campo "${params.name}" criado!`);
-      setDefinitions((prev) => [...prev, data as unknown as CustomFieldDefinition]);
-      return data;
     },
     [clientId, definitions.length]
   );
 
   const updateField = useCallback(
     async (id: string, updates: Partial<CustomFieldDefinition>) => {
-      const { error } = await supabase
-        .from("custom_field_definitions")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", id);
-
-      if (error) {
-        toast.error("Erro ao atualizar campo: " + error.message);
+      try {
+        await leadsRepo.updateCustomFieldDefinition(id, updates);
+        setDefinitions((prev) =>
+          prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
+        );
+        return true;
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        toast.error("Erro ao atualizar campo: " + message);
         return false;
       }
-      setDefinitions((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
-      );
-      return true;
     },
     []
   );
 
   const deleteField = useCallback(async (id: string) => {
-    const { error } = await supabase
-      .from("custom_field_definitions")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Erro ao excluir campo: " + error.message);
+    try {
+      await leadsRepo.deleteCustomFieldDefinition(id);
+      setDefinitions((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Campo removido.");
+      return true;
+    } catch (err) {
+      const message = (err as { message?: string })?.message;
+      toast.error("Erro ao excluir campo: " + message);
       return false;
     }
-    setDefinitions((prev) => prev.filter((d) => d.id !== id));
-    toast.success("Campo removido.");
-    return true;
   }, []);
 
   return {

@@ -32,8 +32,8 @@ Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoçã
 | # | Movimento | Status | Build | Lint |
 |---|---|---|---|---|
 | 1 | useTags → services/leads | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
-| 2 | useCustomFields → services/leads | em execução | — | — |
-| 3 | useCannedResponses → services/inbox | pendente | — | — |
+| 2 | useCustomFields → services/leads | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
+| 3 | useCannedResponses → services/inbox | em execução | — | — |
 | 4 | useMacros → services/inbox | pendente | — | — |
 | 5 | useUnreadCounts → services/inbox | pendente | — | — |
 | 6 | useAutomationRuns/Stats → services/automations | pendente | — | — |
