@@ -1,6 +1,6 @@
 # totum-state.md — Adequação arquitetural por camadas
 
-**Branch:** `claude/upixelcrm-layering-phase-2-b61f6l` · **PR:** #37
+**Branch:** `claude/upixelcrm-layering-phase-2-b61f6l` · **PR:** #37 (Lotes 1, 2 e fatia I-1 — MERGED em 2026-07-15, squash `906dd5f`) → restante do Lote 3 em novo PR
 **Fase 1 (diagnóstico):** concluída no Cowork em 2026-07-15 (relatório aprovado no prompt da sessão).
 **Fase 2 (plano):** aprovada em 2026-07-15 — 4 lotes; Lote 4 só com OK explícito.
 
@@ -55,8 +55,10 @@ Roteiro smoke useInbox: abrir inbox, abrir conversa, enviar texto, mudar status,
 
 | # | Fatia | Commit-pai (revert) | Status | Build | Lint | Smoke |
 |---|---|---|---|---|---|---|
-| I-1 | useInbox: lista de conversas + filtros | abb70c5 | ✅ código 2026-07-15 | ✅ | ✅ (23 pré-existentes, 0 novos) | ⏳ aguardando usuário |
-| I-2 | useInbox: mensagens + realtime | — | pendente | — | — | — |
+| I-1 | useInbox: lista de conversas + filtros | abb70c5 | ✅ 2026-07-15 | ✅ | ✅ (23 pré-existentes, 0 novos) | ✅ por revisão de código (usuário); smoke ao vivo PENDENTE |
+| I-2 | useInbox: mensagens + realtime | 906dd5f (base nova pós-merge) | ✅ 2026-07-15 | ✅ | ✅ (23 pré-existentes, 0 novos) | ⏳ revisão do usuário |
+
+> ⚠️ Limitação descoberta na I-1: previews Vercel (`*.vercel.app`) não batem com subdomínio de tenant — TenantContext cai em "Empresa não encontrada" antes do inbox. Smoke ao vivo por fatia é impossível em preview; aprovações do Lote 3 passam a ser por revisão de código do usuário no commit, com smoke real consolidado pendente (rodar em staging/produção com subdomínio válido após o checkpoint).
 | I-3 | useInbox: envio de mensagem | — | pendente | — | — | — |
 | I-4 | useInbox: ações de conversa (status/assign/labels) | — | pendente | — | — | — |
 | I-5 | useInbox: restante (sessão/typing/locais) | — | pendente | — | — | — |

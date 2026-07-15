@@ -45,6 +45,74 @@ export async function listLeadBasicsByIds(
   return data ?? [];
 }
 
+// ---- mensagens de um lead ----
+
+/** Referências (id, channel) das conversas de um lead; "unassigned" = sem lead. */
+export async function listLeadConversationRefs(
+  clientId: string,
+  leadId: string
+): Promise<Pick<Tables<"conversations">, "id" | "channel">[]> {
+  let query = supabase.from("conversations").select("id, channel").eq("client_id", clientId);
+  query = (leadId === "unassigned" ? query.is("lead_id", null) : query.eq("lead_id", leadId)) as typeof query;
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listMessagesByConversationIds(convIds: string[]): Promise<Tables<"messages">[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .in("conversation_id", convIds)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function markConversationsRead(convIds: string[]): Promise<void> {
+  const { error } = await supabase.from("conversations").update({ unread_count: 0 }).in("id", convIds);
+  if (error) throw error;
+}
+
+// ---- lookups do callback de realtime ----
+
+/** lead_id/channel de uma conversa, escopada ao tenant. */
+export async function getConversationRef(
+  conversationId: string,
+  clientId: string
+): Promise<Pick<Tables<"conversations">, "lead_id" | "channel"> | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("lead_id, channel")
+    .eq("id", conversationId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function getConversationCsatInfo(
+  conversationId: string
+): Promise<Pick<Tables<"conversations">, "csat_sent_at" | "lead_id"> | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("csat_sent_at, lead_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function insertCsatResponse(row: TablesInsert<"csat_responses">): Promise<void> {
+  const { error } = await supabase.from("csat_responses").insert(row);
+  if (error) throw error;
+}
+
+export async function assignLeadToConversation(conversationId: string, leadId: string): Promise<void> {
+  const { error } = await supabase.from("conversations").update({ lead_id: leadId }).eq("id", conversationId);
+  if (error) throw error;
+}
+
 // ---- inbox_templates (respostas rápidas) ----
 
 export async function listInboxTemplates(clientId: string): Promise<Tables<"inbox_templates">[]> {

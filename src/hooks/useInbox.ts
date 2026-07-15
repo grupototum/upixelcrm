@@ -13,6 +13,13 @@ import {
   reawakenExpiredSnoozes,
   listConversations,
   listLeadBasicsByIds,
+  listLeadConversationRefs,
+  listMessagesByConversationIds,
+  markConversationsRead,
+  getConversationRef,
+  getConversationCsatInfo,
+  insertCsatResponse,
+  assignLeadToConversation,
 } from "@/services/inbox";
 
 export interface LeadConversation {
@@ -184,18 +191,8 @@ export function useInbox(onLeadCreated?: () => void) {
   const loadMessages = useCallback(async (leadId: string) => {
     if (!clientId) return;
 
-    let convQuery = supabase
-      .from("conversations")
-      .select("id, channel")
-      .eq("client_id", clientId);
-
-    if (leadId === "unassigned") {
-      convQuery = convQuery.is("lead_id", null) as typeof convQuery;
-    } else {
-      convQuery = convQuery.eq("lead_id", leadId) as typeof convQuery;
-    }
-
-    const { data: convs } = await convQuery;
+    // Erro aqui era ignorado no original (lista vazia) — preservado
+    const convs = await listLeadConversationRefs(clientId, leadId).catch(() => []);
 
     if (!convs || convs.length === 0) {
       setMessages([]);
@@ -205,13 +202,10 @@ export function useInbox(onLeadCreated?: () => void) {
     const convIds = convs.map(c => c.id);
     const channelMap = Object.fromEntries(convs.map(c => [c.id, c.channel]));
 
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .in("conversation_id", convIds)
-      .order("created_at", { ascending: true });
-
-    if (error) {
+    let data: Awaited<ReturnType<typeof listMessagesByConversationIds>>;
+    try {
+      data = await listMessagesByConversationIds(convIds);
+    } catch (error) {
       logger.error("Error loading messages:", error);
       return;
     }
@@ -248,8 +242,8 @@ export function useInbox(onLeadCreated?: () => void) {
       };
     }));
 
-    // Mark all as read
-    await supabase.from("conversations").update({ unread_count: 0 }).in("id", convIds);
+    // Mark all as read (erro ignorado como no original)
+    await markConversationsRead(convIds).catch(() => {});
     setConversations(prev =>
       prev.map(c => c.lead_id === leadId ? { ...c, unread_count: 0 } : c)
     );
@@ -806,11 +800,8 @@ export function useInbox(onLeadCreated?: () => void) {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
 
-        const { data: conv } = await supabase.from("conversations")
-          .select("lead_id, channel")
-          .eq("id", newMsg.conversation_id)
-          .eq("client_id", clientId)
-          .maybeSingle();
+        // Erro no lookup era ignorado no original (conv undefined) — preservado
+        const conv = await getConversationRef(newMsg.conversation_id, clientId).catch(() => null);
 
         if (conv?.lead_id === selectedLeadId) {
           const meta = (newMsg.metadata || {}) as Record<string, any>;
@@ -886,19 +877,16 @@ export function useInbox(onLeadCreated?: () => void) {
             possibleRating <= 5 &&
             trimmed.length === 1
           ) {
-            const { data: csatConv } = await supabase
-              .from("conversations")
-              .select("csat_sent_at, lead_id")
-              .eq("id", newMsg.conversation_id)
-              .maybeSingle();
+            const csatConv = await getConversationCsatInfo(newMsg.conversation_id).catch(() => null);
 
             if (csatConv?.csat_sent_at && clientId) {
-              await supabase.from("csat_responses").insert({
+              // Erro no insert era ignorado no original — preservado
+              await insertCsatResponse({
                 client_id: clientId,
                 conversation_id: newMsg.conversation_id,
                 lead_id: csatConv.lead_id ?? null,
                 rating: possibleRating,
-              });
+              }).catch(() => {});
             }
           }
 
@@ -908,7 +896,8 @@ export function useInbox(onLeadCreated?: () => void) {
             const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
             const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
             if (leadId) {
-              await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
+              // Erro no update era ignorado no original — preservado
+              await assignLeadToConversation(newMsg.conversation_id, leadId).catch(() => {});
             }
           }
         }
