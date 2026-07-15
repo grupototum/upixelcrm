@@ -18,8 +18,8 @@ import { useAppState } from "@/contexts/AppContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { isValidUuid } from "@/lib/tenant-utils";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { insertBroadcastCampaign, updateBroadcastCampaign } from "@/services/broadcast";
 
 type Step = "audience" | "channel" | "message" | "schedule" | "review";
 
@@ -194,26 +194,27 @@ export function BroadcastConfigModal() {
         : new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
 
       // Save campaign master record
-      const { error: campaignError } = await (supabase.from("broadcast_campaigns") as any).insert({
-        id: campaignId,
-        client_id: clientId,
-        tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
-        name: campaignName,
-        channel: "whatsapp",
-        route,
-        message_content: messageText,
-        template_id: template?.id ?? null,
-        lead_ids: selectedLeadsForSend.map(l => l.id).filter(Boolean),
-        total_recipients: selectedLeadsForSend.length,
-        scheduled_at: scheduledAt,
-        delay_min_seconds: delayMin,
-        delay_max_seconds: delayMax,
-        status: scheduledAt ? "scheduled" : "sending",
-        created_by: user?.id ?? null,
-      });
-
-      if (campaignError) {
-        toast.error("Erro ao criar campanha: " + campaignError.message);
+      try {
+        await insertBroadcastCampaign({
+          id: campaignId,
+          client_id: clientId,
+          tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
+          name: campaignName,
+          channel: "whatsapp",
+          route,
+          message_content: messageText,
+          template_id: template?.id ?? null,
+          lead_ids: selectedLeadsForSend.map(l => l.id).filter(Boolean),
+          total_recipients: selectedLeadsForSend.length,
+          scheduled_at: scheduledAt,
+          delay_min_seconds: delayMin,
+          delay_max_seconds: delayMax,
+          status: scheduledAt ? "scheduled" : "sending",
+          created_by: user?.id ?? null,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        toast.error("Erro ao criar campanha: " + message);
         return;
       }
 
@@ -236,15 +237,13 @@ export function BroadcastConfigModal() {
         }
       );
 
-      // Update campaign status
-      await (supabase.from("broadcast_campaigns") as any)
-        .update({
-          status: "completed",
-          sent_count: result.sent,
-          failed_count: result.failed,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", campaignId);
+      // Update campaign status (erro aqui é ignorado hoje — comportamento preservado)
+      await updateBroadcastCampaign(campaignId, {
+        status: "completed",
+        sent_count: result.sent,
+        failed_count: result.failed,
+        updated_at: new Date().toISOString(),
+      }).catch(() => {});
 
       setOpen(false);
     } catch (error: any) {
