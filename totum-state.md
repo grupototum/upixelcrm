@@ -47,5 +47,21 @@ Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoçã
 | 11 | useBroadcast + BroadcastConfigModal → broadcast+users | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (4 warnings `any` pré-existentes, 7 eliminados, 0 novos) |
 
 **Lote 2 concluído em 2026-07-15** — 11/11 movimentos, build e lint verdes em todos. Aguardando OK para o Lote 3.
-## Lote 3 — AppContext.tsx + useInbox.ts (aguardando)
+## Lote 3 — useInbox.ts + AppContext.tsx (aprovado 2026-07-15, com travas)
+
+Travas: (1) checkpoint obrigatório após as 5 fatias do useInbox — AppContext só após OK; (2) fatia refreshData do AppContext tem gate próprio (lista de consumidores + estratégia antes); (3) cada fatia registra commit-pai para revert isolado; smoke falhou → reverte e reporta, não conserta no embalo; (4) smoke por fatia: USUÁRIO testa no preview Vercel (ambiente remoto sem .env) e dá ✅/❌ antes da próxima fatia; (5) decisão de comportamento em código já consumido = pausa e pergunta; (6) auth/schema/RLS/migrations/functions = pausa imediata.
+
+Roteiro smoke useInbox: abrir inbox, abrir conversa, enviar texto, mudar status, realtime em 2ª aba. Roteiro AppContext: board carrega, drag entre colunas, criar/editar lead, badges.
+
+| # | Fatia | Commit-pai (revert) | Status | Build | Lint | Smoke |
+|---|---|---|---|---|---|---|
+| I-1 | useInbox: lista de conversas + filtros | abb70c5 | ✅ código 2026-07-15 | ✅ | ✅ (23 pré-existentes, 0 novos) | ⏳ aguardando usuário |
+| I-2 | useInbox: mensagens + realtime | — | pendente | — | — | — |
+| I-3 | useInbox: envio de mensagem | — | pendente | — | — | — |
+| I-4 | useInbox: ações de conversa (status/assign/labels) | — | pendente | — | — | — |
+| I-5 | useInbox: restante (sessão/typing/locais) | — | pendente | — | — | — |
+| A-1 | AppContext: leads/columns/pipelines | — | pendente | — | — | — |
+| A-2 | AppContext: tasks | — | pendente | — | — | — |
+| A-3 | AppContext: notifications | — | pendente | — | — | — |
+| A-4 | AppContext: refreshData (🚧 gate próprio) | — | pendente | — | — | — |
 ## Lote 4 — 🟠 Signup/Users/Organization/auth (NUNCA sem OK explícito)

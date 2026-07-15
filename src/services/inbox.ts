@@ -6,6 +6,45 @@ import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 // ficam nos hooks. As demais queries de conversations/messages do useInbox
 // migram para cá no Lote 3, quando o hook for desmontado.
 
+// ---- conversas (lista do inbox) ----
+
+/**
+ * Reacorda conversas cuja soneca expirou. Self-healing barato que roda a cada
+ * load do inbox (evita pg_cron). Erros são ignorados de propósito — mesmo
+ * comportamento do código original, que não checava o resultado.
+ */
+export async function reawakenExpiredSnoozes(clientId: string): Promise<void> {
+  await supabase
+    .from("conversations")
+    .update({ status: "open", snoozed_until: null })
+    .eq("client_id", clientId)
+    .eq("status", "snoozed")
+    .lte("snoozed_until", new Date().toISOString());
+}
+
+export async function listConversations(clientId: string): Promise<Tables<"conversations">[]> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("last_message_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Dados básicos dos leads exibidos na lista do inbox (RLS filtra o tenant). */
+export async function listLeadBasicsByIds(
+  ids: string[]
+): Promise<Pick<Tables<"leads">, "id" | "name" | "phone" | "email" | "company" | "origin" | "category">[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id, name, phone, email, company, origin, category")
+    .in("id", ids);
+  if (error) throw error;
+  return data ?? [];
+}
+
 // ---- inbox_templates (respostas rápidas) ----
 
 export async function listInboxTemplates(clientId: string): Promise<Tables<"inbox_templates">[]> {
