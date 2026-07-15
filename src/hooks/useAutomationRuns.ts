@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import * as automationsRepo from "@/services/automations";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -45,13 +46,10 @@ export function useAutomationRuns(automationId: string | null) {
   const fetchRuns = useCallback(async () => {
     if (!automationId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("automation_runs")
-      .select("*, leads:lead_id(name, phone)")
-      .eq("automation_id", automationId)
-      .order("started_at", { ascending: false })
-      .limit(200);
-    if (error) {
+    let data;
+    try {
+      data = await automationsRepo.listAutomationRuns(automationId);
+    } catch (error) {
       console.error("Failed to load runs:", error);
       setLoading(false);
       return;
@@ -83,12 +81,11 @@ export function useAutomationRuns(automationId: string | null) {
   }, [automationId, fetchRuns]);
 
   const cancelRun = useCallback(async (runId: string) => {
-    const { error } = await supabase
-      .from("automation_runs")
-      .update({ status: "paused", finished_at: new Date().toISOString() })
-      .eq("id", runId);
-    if (error) {
-      toast.error("Erro ao cancelar run: " + error.message);
+    try {
+      await automationsRepo.pauseAutomationRun(runId);
+    } catch (err) {
+      const message = (err as { message?: string })?.message;
+      toast.error("Erro ao cancelar run: " + message);
       return false;
     }
     setRuns((prev) =>
@@ -119,12 +116,10 @@ export function useAutomationStats() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from("automation_runs_summary")
-      .select("*")
-      .eq("client_id", clientId);
-
-    if (error) {
+    let data;
+    try {
+      data = await automationsRepo.listAutomationStats(clientId);
+    } catch (error) {
       console.error("Failed to load stats:", error);
       setLoading(false);
       return;
