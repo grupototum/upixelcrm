@@ -34,8 +34,8 @@ Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoçã
 | 1 | useTags → services/leads | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
 | 2 | useCustomFields → services/leads | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
 | 3 | useCannedResponses → services/inbox | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ (1 warning exhaustive-deps pré-existente) |
-| 4 | useMacros → services/inbox | em execução | — | — |
-| 5 | useUnreadCounts → services/inbox | pendente | — | — |
+| 4 | useMacros → services/inbox | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
+| 5 | useUnreadCounts → services/inbox | em execução | — | — |
 | 6 | useAutomationRuns/Stats → services/automations | pendente | — | — |
 | 7 | useSequences → services/automations | pendente | — | — |
 | 8 | useFacebookPage/useInstagram → integrations+users | pendente | — | — |
