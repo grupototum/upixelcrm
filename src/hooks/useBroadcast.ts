@@ -5,8 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { invokeEdge } from "@/lib/edge-invoke";
 import { extractEdgeError } from "@/lib/edge-error";
+import { getProfileClientId } from "@/services/users";
+import {
+  listWhatsAppTemplates,
+  getClientCredits,
+  getConnectedWhatsAppIntegration,
+  logCampaignDispatch,
+  invokeWhatsAppTemplates,
+} from "@/services/broadcast";
 
 export type BroadcastRoute = "free" | "official";
 
@@ -85,19 +92,19 @@ export function useBroadcast() {
       if (!clientId) return [];
       // Lê do cache local (whatsapp_templates table). Pra atualizar com Meta,
       // o user clica "Sincronizar" → syncTemplatesWithMeta() abaixo.
-      const { data, error } = await supabase
-        .from("whatsapp_templates")
-        .select("id, name, category, content, status")
-        .eq("client_id", clientId)
-        .order("updated_at", { ascending: false });
-      if (error) { logger.error("Error fetching templates:", error); return []; }
-      return (data ?? []).map((t) => ({
-        id: t.id,
-        name: t.name,
-        category: t.category as Template["category"],
-        content: t.content,
-        status: t.status as Template["status"],
-      })) as Template[];
+      try {
+        const data = await listWhatsAppTemplates(clientId);
+        return data.map((t) => ({
+          id: t.id,
+          name: t.name,
+          category: t.category as Template["category"],
+          content: t.content,
+          status: t.status as Template["status"],
+        })) as Template[];
+      } catch (error) {
+        logger.error("Error fetching templates:", error);
+        return [];
+      }
     },
     enabled: !!clientId,
   });
@@ -110,9 +117,7 @@ export function useBroadcast() {
     // tenant_id no body é obrigatório quando o master opera num subdomínio
     // (profile.tenant_id aponta pro tenant Master, mas a integration vive no
     // tenant ativo do subdomínio — useTenant().tenant.id).
-    const { data, error } = await invokeEdge("whatsapp-templates?action=list", {
-      body: { tenant_id: clientId },
-    });
+    const { data, error } = await invokeWhatsAppTemplates("list", { tenant_id: clientId });
     if (error) {
       const detail = await extractEdgeError(error, "Erro de rede");
       toast.error(`Falha ao sincronizar: ${detail}`);
@@ -135,15 +140,14 @@ export function useBroadcast() {
     queryFn: async () => {
       const { data: { user: u } } = await supabase.auth.getUser();
       if (!u) return 0;
-      const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", u.id).single();
-      if (!profile) return 0;
-      const { data, error } = await (supabase.from("integrations") as any)
-        .select("config")
-        .eq("provider", "client_credits")
-        .eq("client_id", profile.client_id)
-        .maybeSingle();
-      if (error) { logger.error("Error fetching credits:", error); return 0; }
-      return (data?.config as any)?.balance || 0;
+      const profileClientId = await getProfileClientId(u.id).catch(() => null);
+      if (!profileClientId) return 0;
+      try {
+        return await getClientCredits(profileClientId);
+      } catch (error) {
+        logger.error("Error fetching credits:", error);
+        return 0;
+      }
     },
   });
 
@@ -164,14 +168,12 @@ export function useBroadcast() {
    */
   const createTemplate = async (template: Omit<Template, "id" | "status">) => {
     const components = [{ type: "BODY" as const, text: template.content }];
-    const { data, error } = await invokeEdge("whatsapp-templates?action=create", {
-      body: {
-        tenant_id: clientId,
-        name: template.name,
-        category: template.category,
-        language: "pt_BR",
-        components,
-      },
+    const { data, error } = await invokeWhatsAppTemplates("create", {
+      tenant_id: clientId,
+      name: template.name,
+      category: template.category,
+      language: "pt_BR",
+      components,
     });
     if (error) {
       const detail = await extractEdgeError(error, "Erro ao criar template");
@@ -198,12 +200,7 @@ export function useBroadcast() {
     while (attempt <= maxRetries) {
       try {
         if (route === "free") {
-          const { data: integration } = await (supabase.from("integrations") as any)
-            .select("config")
-            .eq("client_id", clientId)
-            .eq("provider", "whatsapp")
-            .eq("status", "connected")
-            .maybeSingle();
+          const integration = await getConnectedWhatsAppIntegration(clientId as string, "whatsapp");
 
           if (!integration?.config) return { ok: false, error: "Integração WhatsApp não encontrada" };
 
@@ -222,12 +219,7 @@ export function useBroadcast() {
           return { ok: true };
 
         } else {
-          const { data: integration } = await (supabase.from("integrations") as any)
-            .select("config, access_token")
-            .eq("client_id", clientId)
-            .eq("provider", "whatsapp_official")
-            .eq("status", "connected")
-            .maybeSingle();
+          const integration = await getConnectedWhatsAppIntegration(clientId as string, "whatsapp_official");
 
           if (!integration?.config) return { ok: false, error: "Integração WhatsApp Oficial não encontrada" };
 
@@ -296,8 +288,8 @@ export function useBroadcast() {
         const personalizedText = interpolate(messageText, lead);
         const result = await dispatchOne(lead, route, personalizedText, template, options.maxRetries ?? 2);
 
-        // Log to campaign_dispatch_logs
-        await (supabase.from("campaign_dispatch_logs") as any).insert({
+        // Log to campaign_dispatch_logs (erro aqui é ignorado hoje — comportamento preservado)
+        await logCampaignDispatch({
           client_id: clientId,
           tenant_id: tenantId,
           campaign_name: campaignName,
@@ -310,7 +302,7 @@ export function useBroadcast() {
           message_content: messageText.substring(0, 500),
           error: result.error ?? null,
           sent_at: result.ok ? new Date().toISOString() : null,
-        });
+        }).catch(() => {});
 
         if (result.ok) {
           sent++;

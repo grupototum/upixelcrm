@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import * as inboxRepo from "@/services/inbox";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -35,20 +35,15 @@ export function useCannedResponses() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from("inbox_templates")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: true });
-
-    if (error) {
+    try {
+      const data = await inboxRepo.listInboxTemplates(clientId);
+      setResponses(data as CannedResponse[]);
+    } catch (error) {
       console.error("Error fetching templates:", error);
       toast.error("Erro ao carregar respostas rápidas. Tente novamente.");
       setLoading(false);
       return;
     }
-
-    setResponses((data ?? []) as CannedResponse[]);
     setLoading(false);
   }, [clientId]);
 
@@ -77,20 +72,16 @@ export function useCannedResponses() {
       };
       if (tenant && isValidUuid(tenant.id)) payload.tenant_id = tenant.id;
 
-      const { data, error } = await supabase
-        .from("inbox_templates")
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) {
-        toast.error("Erro ao criar template: " + error.message);
+      try {
+        const data = await inboxRepo.createInboxTemplate(payload);
+        setResponses((prev) => [...prev, data as CannedResponse]);
+        toast.success("Template salvo!");
+        return true;
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        toast.error("Erro ao criar template: " + message);
         return false;
       }
-
-      setResponses((prev) => [...prev, data as CannedResponse]);
-      toast.success("Template salvo!");
-      return true;
     },
     [clientId, tenant?.id]
   );
@@ -103,34 +94,31 @@ export function useCannedResponses() {
       if (data.short_code !== undefined) dbUpdates.short_code = data.short_code?.trim() || null;
       if (data.category !== undefined) dbUpdates.category = data.category;
 
-      const { error } = await supabase
-        .from("inbox_templates")
-        .update(dbUpdates)
-        .eq("id", id);
-
-      if (error) {
-        toast.error("Erro ao atualizar: " + error.message);
+      try {
+        await inboxRepo.updateInboxTemplate(id, dbUpdates);
+        setResponses((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+        toast.success("Template atualizado!");
+        return true;
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        toast.error("Erro ao atualizar: " + message);
         return false;
       }
-
-      setResponses((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
-      toast.success("Template atualizado!");
-      return true;
     },
     []
   );
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from("inbox_templates").delete().eq("id", id);
-
-    if (error) {
-      toast.error("Erro ao remover: " + error.message);
+    try {
+      await inboxRepo.deleteInboxTemplate(id);
+      setResponses((prev) => prev.filter((r) => r.id !== id));
+      toast.success("Template removido");
+      return true;
+    } catch (err) {
+      const message = (err as { message?: string })?.message;
+      toast.error("Erro ao remover: " + message);
       return false;
     }
-
-    setResponses((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Template removido");
-    return true;
   }, []);
 
   // Busca por short_code apenas (usado pelo picker `/`)

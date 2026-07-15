@@ -1,11 +1,10 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { untypedFrom } from "@/lib/supabase-untyped";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import type { AdCampaign } from "./useMetaAds";
+import { invokeGoogleAds, listAdCampaigns } from "@/services/integrations";
 
 export interface GoogleAdsCreds {
   developer_token: string;
@@ -24,14 +23,16 @@ export function useGoogleAds() {
   const { data: status, refetch: refetchStatus } = useQuery({
     queryKey: ["google-ads-status", clientId],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("google-ads?action=status");
-      if (error) return { status: "disconnected", google_oauth_connected: false };
-      return data as {
-        status: string;
-        developerToken: string | null;
-        customerId: string | null;
-        google_oauth_connected: boolean;
-      };
+      try {
+        return await invokeGoogleAds<{
+          status: string;
+          developerToken: string | null;
+          customerId: string | null;
+          google_oauth_connected: boolean;
+        }>("status");
+      } catch {
+        return { status: "disconnected", google_oauth_connected: false };
+      }
     },
     enabled: !!clientId,
     staleTime: 60_000,
@@ -43,17 +44,7 @@ export function useGoogleAds() {
     queryKey: ["ad-campaigns-google", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      try {
-        const { data, error } = await untypedFrom("ad_campaigns")
-          .select("*")
-          .eq("client_id", clientId)
-          .eq("platform", "google")
-          .order("spend", { ascending: false });
-        if (error) return [];
-        return (data ?? []) as AdCampaign[];
-      } catch {
-        return [];
-      }
+      return listAdCampaigns<AdCampaign>(clientId, "google");
     },
     enabled: !!clientId,
     staleTime: 5 * 60_000,
@@ -64,15 +55,14 @@ export function useGoogleAds() {
   const connect = useCallback(async (creds: GoogleAdsCreds) => {
     setConnecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-ads?action=save-credentials", {
-        body: creds,
-      });
-      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      const data = await invokeGoogleAds<{ error?: string; descriptive_name?: string }>("save-credentials", creds);
+      if (data?.error) throw new Error(data.error);
       toast.success(`Google Ads conectado — ${data.descriptive_name ?? creds.customer_id}`);
       await refetchStatus();
       return true;
-    } catch (err: any) {
-      toast.error(`Erro: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(`Erro: ${message}`);
       return false;
     } finally {
       setConnecting(false);
@@ -81,7 +71,11 @@ export function useGoogleAds() {
 
   // ── Disconnect ────────────────────────────────────────────────
   const disconnect = useCallback(async () => {
-    await supabase.functions.invoke("google-ads?action=disconnect");
+    try {
+      await invokeGoogleAds("disconnect");
+    } catch {
+      // preserva comportamento original: falha no disconnect é ignorada
+    }
     await refetchStatus();
     toast.success("Google Ads desconectado");
   }, [refetchStatus]);
@@ -90,13 +84,14 @@ export function useGoogleAds() {
   const sync = useCallback(async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-ads?action=sync");
-      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      const data = await invokeGoogleAds<{ error?: string; synced?: number }>("sync");
+      if (data?.error) throw new Error(data.error);
       toast.success(`${data.synced} campanhas Google sincronizadas`);
       await refetchCampaigns();
       return data.synced as number;
-    } catch (err: any) {
-      toast.error(`Erro: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(`Erro: ${message}`);
       return 0;
     } finally {
       setSyncing(false);

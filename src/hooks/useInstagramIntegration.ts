@@ -2,6 +2,8 @@ import { logger } from "@/lib/logger";
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getProfileClientId } from "@/services/users";
+import { listIntegrations } from "@/services/integrations";
 
 export interface InstagramConfig {
   configured: boolean;
@@ -28,20 +30,11 @@ export function useInstagramIntegration() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("client_id")
-        .eq("id", session.user.id)
-        .single();
-        
-      if (!profile) return;
+      const clientId = await getProfileClientId(session.user.id);
+      if (!clientId) return;
 
-      const { data } = await supabase
-        .from("integrations")
-        .select("status, config")
-        .eq("provider", "instagram")
-        .eq("client_id", profile.client_id)
-        .maybeSingle();
+      const rows = await listIntegrations(clientId, "instagram");
+      const data = rows[0];
 
       if (data) {
         setConfig({

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { untypedFrom } from "@/lib/supabase-untyped";
+import * as leadsRepo from "@/services/leads";
 import { toast } from "sonner";
 import type { TagMeta } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
@@ -17,17 +16,12 @@ export function useTags() {
   const fetchTags = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }
     setLoading(true);
-    // tags.client_id existe no banco mas não nos tipos gerados (schema drift)
-    const { data, error } = await untypedFrom("tags")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("name", { ascending: true });
-
-    if (error) {
+    try {
+      const data = await leadsRepo.listTags(clientId);
+      setTags(data);
+    } catch (error) {
       console.error("Error fetching tags:", error);
       toast.error("Erro ao carregar etiquetas. Tente novamente.");
-    } else {
-      setTags((data as unknown as TagMeta[]) || []);
     }
     setLoading(false);
   }, [clientId]);
@@ -39,63 +33,53 @@ export function useTags() {
   const createTag = useCallback(
     async (params: { name: string; color?: string; category?: string }) => {
       if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
-      const { data, error } = await untypedFrom("tags")
-        .insert({
-          client_id: clientId,
-          name: params.name,
-          color: params.color || "#6366f1",
-          category: params.category || "general",
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === "23505") {
+      try {
+        const data = await leadsRepo.createTag(clientId, params);
+        toast.success(`Tag "${params.name}" criada!`);
+        setTags((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+        return data;
+      } catch (err) {
+        const code = (err as { code?: string })?.code;
+        const message = (err as { message?: string })?.message;
+        if (code === "23505") {
           toast.error("Esta tag já existe.");
         } else {
-          toast.error("Erro ao criar tag: " + error.message);
+          toast.error("Erro ao criar tag: " + message);
         }
         return null;
       }
-      toast.success(`Tag "${params.name}" criada!`);
-      setTags((prev) => [...prev, data as unknown as TagMeta].sort((a, b) => a.name.localeCompare(b.name)));
-      return data;
     },
     [clientId]
   );
 
   const updateTag = useCallback(
     async (id: string, updates: Partial<Pick<TagMeta, "name" | "color" | "category">>) => {
-      const { error } = await supabase
-        .from("tags")
-        .update(updates)
-        .eq("id", id);
-
-      if (error) {
-        toast.error("Erro ao atualizar tag: " + error.message);
+      try {
+        await leadsRepo.updateTag(id, updates);
+        setTags((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+        );
+        return true;
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        toast.error("Erro ao atualizar tag: " + message);
         return false;
       }
-      setTags((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-      );
-      return true;
     },
     []
   );
 
   const deleteTag = useCallback(async (id: string) => {
-    const { error } = await supabase
-      .from("tags")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Erro ao excluir tag: " + error.message);
+    try {
+      await leadsRepo.deleteTag(id);
+      setTags((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Tag removida.");
+      return true;
+    } catch (err) {
+      const message = (err as { message?: string })?.message;
+      toast.error("Erro ao excluir tag: " + message);
       return false;
     }
-    setTags((prev) => prev.filter((t) => t.id !== id));
-    toast.success("Tag removida.");
-    return true;
   }, []);
 
   return {

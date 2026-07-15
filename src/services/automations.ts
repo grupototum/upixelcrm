@@ -1,0 +1,99 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+
+// Repositório do domínio automations (message_sequences, message_sequence_steps,
+// automation_runs, automation_runs_summary). Funções puras de acesso a dados;
+// toast/estado/realtime ficam nos hooks (useSequences, useAutomationRuns).
+
+// ---- message_sequences ----
+
+export async function listSequences(clientId: string): Promise<Tables<"message_sequences">[]> {
+  const { data, error } = await supabase
+    .from("message_sequences")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listSequenceSteps(sequenceIds: string[]): Promise<Tables<"message_sequence_steps">[]> {
+  if (sequenceIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("message_sequence_steps")
+    .select("*")
+    .in("sequence_id", sequenceIds)
+    .order("step_order", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createSequence(
+  row: TablesInsert<"message_sequences">
+): Promise<Tables<"message_sequences">> {
+  const { data, error } = await supabase.from("message_sequences").insert(row).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSequence(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("message_sequences").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteSequence(id: string): Promise<void> {
+  const { error } = await supabase.from("message_sequences").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---- message_sequence_steps ----
+
+export async function createSequenceStep(
+  row: TablesInsert<"message_sequence_steps">
+): Promise<Tables<"message_sequence_steps">> {
+  const { data, error } = await supabase.from("message_sequence_steps").insert(row).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSequenceStep(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("message_sequence_steps").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteSequenceStep(id: string): Promise<void> {
+  const { error } = await supabase.from("message_sequence_steps").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---- automation_runs ----
+
+/** Runs de uma automação com nome/telefone do lead embutidos. */
+export async function listAutomationRuns(automationId: string, limit = 200) {
+  const { data, error } = await supabase
+    .from("automation_runs")
+    .select("*, leads:lead_id(name, phone)")
+    .eq("automation_id", automationId)
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function pauseAutomationRun(runId: string): Promise<void> {
+  const { error } = await supabase
+    .from("automation_runs")
+    .update({ status: "paused", finished_at: new Date().toISOString() })
+    .eq("id", runId);
+  if (error) throw error;
+}
+
+/** Estatísticas agregadas por automação (view automation_runs_summary). */
+export async function listAutomationStats(clientId: string): Promise<Tables<"automation_runs_summary">[]> {
+  const { data, error } = await supabase
+    .from("automation_runs_summary")
+    .select("*")
+    .eq("client_id", clientId);
+  if (error) throw error;
+  return data ?? [];
+}

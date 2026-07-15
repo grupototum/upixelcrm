@@ -9,6 +9,11 @@ import { invokeEdge } from "@/lib/edge-invoke";
 import { resolveClientId } from "@/lib/tenant-utils";
 import { untypedFrom } from "@/lib/supabase-untyped";
 import { notifyMentions } from "@/lib/mentions";
+import {
+  reawakenExpiredSnoozes,
+  listConversations,
+  listLeadBasicsByIds,
+} from "@/services/inbox";
 
 export interface LeadConversation {
   lead_id: string;
@@ -92,39 +97,26 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    // Self-healing: reawaken any conversation whose snooze has expired.
-    // Cheap conditional UPDATE, runs once per load — avoids needing pg_cron.
-    await supabase
-      .from("conversations")
-      .update({ status: "open", snoozed_until: null })
-      .eq("client_id", clientId)
-      .eq("status", "snoozed")
-      .lte("snoozed_until", new Date().toISOString());
+    // Self-healing: reacorda sonecas expiradas (roda uma vez por load).
+    await reawakenExpiredSnoozes(clientId);
 
-    const { data: convs, error: convError } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("last_message_at", { ascending: false });
-
-    if (convError) {
+    let convs: Awaited<ReturnType<typeof listConversations>>;
+    try {
+      convs = await listConversations(clientId);
+    } catch (convError) {
       logger.error("Error loading conversations:", convError);
       toast.error("Erro ao carregar conversas. Tente novamente.");
       return;
     }
 
-    // Fetch leads
+    // Fetch leads — erro aqui é ignorado como no original (lista segue sem
+    // os dados do lead, exibindo fallbacks do metadata)
     const leadIds = (convs || []).map(c => c.lead_id).filter((id): id is string => !!id);
     let leadsMap: Record<string, any> = {};
 
-    if (leadIds.length > 0) {
-      const { data: leads } = await supabase
-        .from("leads")
-        .select("id, name, phone, email, company, origin, category")
-        .in("id", leadIds);
-      if (leads) {
-        leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
-      }
+    const leads = await listLeadBasicsByIds(leadIds).catch(() => []);
+    if (leads.length > 0) {
+      leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
     }
 
     // Grouping logic

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as inboxRepo from "@/services/inbox";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,18 +43,14 @@ export function useMacros() {
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
-      .from("macros")
-      .select("id, name, description, actions")
-      .eq("client_id", clientId)
-      .order("name", { ascending: true });
-
-    if (error) {
+    try {
+      const data = await inboxRepo.listMacros(clientId);
+      setMacros(data as unknown as Macro[]);
+    } catch (error) {
       logger.error("Error loading macros:", error);
       setLoading(false);
       return;
     }
-    setMacros(((data ?? []) as unknown as Macro[]));
     setLoading(false);
   }, [clientId]);
 
@@ -104,7 +100,7 @@ export function useMacros() {
             const due = action.due_offset_days != null
               ? new Date(Date.now() + action.due_offset_days * 24 * 60 * 60 * 1000).toISOString()
               : null;
-            const { error: taskError } = await supabase.from("tasks").insert({
+            await inboxRepo.createTask({
               client_id: clientId!,
               lead_id: ctx.leadId,
               title: action.title,
@@ -112,7 +108,6 @@ export function useMacros() {
               due_date: due,
               status: "pending",
             });
-            if (taskError) throw taskError;
             results.push({ action: "create_task", success: true });
             break;
           }
@@ -125,13 +120,17 @@ export function useMacros() {
       }
     }
 
-    await supabase.from("macro_executions").insert({
-      macro_id: macroId,
-      conversation_id: ctx.conversationId ?? null,
-      lead_id: ctx.leadId,
-      executed_by: user?.id ?? null,
-      results,
-    });
+    try {
+      await inboxRepo.logMacroExecution({
+        macro_id: macroId,
+        conversation_id: ctx.conversationId ?? null,
+        lead_id: ctx.leadId,
+        executed_by: user?.id ?? null,
+        results,
+      });
+    } catch (error) {
+      logger.error("Error logging macro execution:", error);
+    }
 
     const failed = results.filter(r => !r.success).length;
     if (failed === 0) {
