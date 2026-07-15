@@ -41,7 +41,7 @@ Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoçã
 
 **Checkpoint parcial #1–7 entregue em 2026-07-15.** #8–11 seguem com o modelo principal.
 | 8 | useFacebookPage/useInstagram → integrations+users | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (6 warnings `any` pré-existentes, 0 novos) |
-| 9 | useMetaAds/useGoogleAds → services/integrations | pendente | — | — |
+| 9 | useMetaAds/useGoogleAds → services/integrations | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (0 problemas — 4 warnings `any` pré-existentes eliminados) |
 | 10 | useDuplicateDetection → services/leads | pendente | — | — |
 | 11 | useBroadcast + BroadcastConfigModal → broadcast+users | pendente | — | — |
 ## Lote 3 — AppContext.tsx + useInbox.ts (aguardando)

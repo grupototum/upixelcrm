@@ -1,11 +1,10 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { untypedFrom } from "@/lib/supabase-untyped";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { extractEdgeError } from "@/lib/edge-error";
+import { invokeMetaAds, listAdCampaigns } from "@/services/integrations";
 
 export interface MetaAdsCreds {
   access_token: string;
@@ -49,9 +48,11 @@ export function useMetaAds() {
   const { data: status, refetch: refetchStatus } = useQuery({
     queryKey: ["meta-ads-status", clientId],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("meta-ads?action=status");
-      if (error) return { status: "disconnected", accessToken: null, adAccountId: null, tokenExpiresAt: null };
-      return data as { status: string; accessToken: string | null; adAccountId: string | null; tokenExpiresAt: string | null };
+      try {
+        return await invokeMetaAds<{ status: string; accessToken: string | null; adAccountId: string | null; tokenExpiresAt: string | null }>("status");
+      } catch {
+        return { status: "disconnected", accessToken: null, adAccountId: null, tokenExpiresAt: null };
+      }
     },
     enabled: !!clientId,
     staleTime: 60_000,
@@ -64,17 +65,7 @@ export function useMetaAds() {
     queryKey: ["ad-campaigns-meta", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      try {
-        const { data, error } = await untypedFrom("ad_campaigns")
-          .select("*")
-          .eq("client_id", clientId)
-          .eq("platform", "meta")
-          .order("spend", { ascending: false });
-        if (error) return [];
-        return (data ?? []) as AdCampaign[];
-      } catch {
-        return [];
-      }
+      return listAdCampaigns<AdCampaign>(clientId, "meta");
     },
     enabled: !!clientId,
     staleTime: 5 * 60_000,
@@ -85,19 +76,14 @@ export function useMetaAds() {
   const connect = useCallback(async (creds: MetaAdsCreds) => {
     setConnecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("meta-ads?action=save-credentials", {
-        body: creds,
-      });
-      if (error) {
-        const detail = await extractEdgeError(error, "Falha ao salvar credenciais Meta Ads");
-        throw new Error(detail);
-      }
+      const data = await invokeMetaAds<{ error?: string; account_name?: string }>("save-credentials", creds);
       if (data?.error) throw new Error(data.error);
       toast.success(`Meta Ads conectado — ${data.account_name}`);
       await refetchStatus();
       return true;
-    } catch (err: any) {
-      toast.error(`Erro: ${err.message}`, { duration: 8000 });
+    } catch (err) {
+      const detail = await extractEdgeError(err, "Falha ao salvar credenciais Meta Ads");
+      toast.error(`Erro: ${detail}`, { duration: 8000 });
       return false;
     } finally {
       setConnecting(false);
@@ -106,7 +92,11 @@ export function useMetaAds() {
 
   // ── Disconnect ────────────────────────────────────────────────
   const disconnect = useCallback(async () => {
-    await supabase.functions.invoke("meta-ads?action=disconnect");
+    try {
+      await invokeMetaAds("disconnect");
+    } catch {
+      // preserva comportamento original: falha no disconnect é ignorada
+    }
     await refetchStatus();
     toast.success("Meta Ads desconectado");
   }, [refetchStatus]);
@@ -119,21 +109,18 @@ export function useMetaAds() {
       if (since) body.since = since;
       if (until) body.until = until;
 
-      const { data, error } = await supabase.functions.invoke("meta-ads?action=sync", { body });
+      const data = await invokeMetaAds<{ token_expired?: boolean; error?: string; synced?: number }>("sync", body);
       if (data?.token_expired) {
         toast.error("Token Meta Ads expirado — reconecte em Integrações → Meta Ads", { duration: 8000 });
         return 0;
-      }
-      if (error) {
-        const detail = await extractEdgeError(error, "Falha na sincronização Meta Ads");
-        throw new Error(detail);
       }
       if (data?.error) throw new Error(data.error);
       toast.success(`${data.synced} campanhas sincronizadas`);
       await refetchCampaigns();
       return data.synced as number;
-    } catch (err: any) {
-      toast.error(`Erro na sincronização: ${err.message}`, { duration: 8000 });
+    } catch (err) {
+      const detail = await extractEdgeError(err, "Falha na sincronização Meta Ads");
+      toast.error(`Erro na sincronização: ${detail}`, { duration: 8000 });
       return 0;
     } finally {
       setSyncing(false);
