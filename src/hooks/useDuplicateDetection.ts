@@ -1,9 +1,16 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  listAllLeads,
+  reassignLeadRelations,
+  reassignAndMergePrimary,
+  updateLead,
+  bulkDeleteLeads,
+  bulkDeleteLeadsLogOnly,
+} from "@/services/leads";
 
 export type DuplicateReason = "phone" | "email" | "name_company";
 export type DuplicateConfidence = "alta" | "media";
@@ -51,14 +58,7 @@ export function useDuplicateDetection() {
 
   const { data: dbLeads = [] } = useQuery<Lead[]>({
     queryKey: ["all-leads-dedup", clientId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("leads")
-        .select("*")
-        .eq("client_id", clientId)
-        .limit(5000);
-      return (data ?? []) as Lead[];
-    },
+    queryFn: () => listAllLeads(clientId),
     enabled: !!clientId && stateLeads.length === 0,
     staleTime: 60_000,
   });
@@ -129,11 +129,7 @@ export function useDuplicateDetection() {
     if (sourceIds.length === 0) return;
 
     // Reassign related records to primary
-    await Promise.all([
-      supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
-      supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
-      supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
-    ]);
+    await reassignLeadRelations(sourceIds, primaryId);
 
     // Merge tags and notes from duplicates into primary
     const primary = group.leads.find((l) => l.id === primaryId)!;
@@ -146,8 +142,10 @@ export function useDuplicateDetection() {
       if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
     });
 
-    await supabase.from("leads").update({ tags: mergedTags, notes: mergedNotes || null }).eq("id", primaryId);
-    await supabase.from("leads").delete().in("id", sourceIds);
+    // ponytail: sem checagem de erro aqui de propósito — mesmo comportamento
+    // do código original, que também ignorava falhas nesses dois passos.
+    await updateLead(primaryId, { tags: mergedTags, notes: mergedNotes || null }).catch(() => {});
+    await bulkDeleteLeads(sourceIds).catch(() => {});
 
     setGroups((prev) => prev.filter((g) => g.id !== group.id));
   }, []);
@@ -218,12 +216,7 @@ export function useDuplicateDetection() {
         });
 
         // Reassign + update primary em paralelo (4 ops por grupo)
-        const results = await Promise.allSettled([
-          supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
-          supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
-          supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
-          supabase.from("leads").update({ tags: mergedTags, notes: mergedNotes || null }).eq("id", primaryId),
-        ]);
+        const results = await reassignAndMergePrimary(sourceIds, primaryId, mergedTags, mergedNotes);
 
         results.forEach((r, idx) => {
           if (r.status === "rejected") {
@@ -233,7 +226,7 @@ export function useDuplicateDetection() {
 
         groupSourceIds.set(g.id, sourceIds);
         return true;
-      } catch (err: any) {
+      } catch (err) {
         console.error(`Group ${g.id} merge failed:`, err);
         return false;
       }
@@ -262,15 +255,7 @@ export function useDuplicateDetection() {
     });
 
     if (allSourceIds.length > 0) {
-      // Delete em chunks de 500 (limite seguro do PostgREST .in())
-      const DEL_CHUNK = 500;
-      for (let i = 0; i < allSourceIds.length; i += DEL_CHUNK) {
-        const slice = allSourceIds.slice(i, i + DEL_CHUNK);
-        const { error: delError } = await supabase.from("leads").delete().in("id", slice);
-        if (delError) {
-          console.error("Bulk delete failed:", delError);
-        }
-      }
+      await bulkDeleteLeadsLogOnly(allSourceIds);
     }
 
     setGroups((prev) => prev.filter((g) => !successIds.includes(g.id)));

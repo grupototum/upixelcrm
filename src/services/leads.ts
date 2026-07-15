@@ -136,15 +136,47 @@ export async function updateLead(id: string, updates: Record<string, unknown>): 
   if (error) throw error;
 }
 
-/** Reaponta conversas, tarefas e timeline dos leads em sourceIds para o lead primário. */
+/**
+ * Reaponta conversas, tarefas e timeline dos leads em sourceIds para o lead
+ * primário. ponytail: erros individuais são ignorados de propósito (mesmo
+ * comportamento do merge() de dedup hoje — nenhuma das 3 updates é crítica
+ * o bastante pra abortar o merge do lead).
+ */
 export async function reassignLeadRelations(sourceIds: string[], primaryId: string): Promise<void> {
-  const results = await Promise.allSettled([
+  await Promise.all([
     supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
     supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
     supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
   ]);
-  for (const r of results) {
-    if (r.status === "rejected") throw r.reason;
-    if (r.value.error) throw r.value.error;
+}
+
+/**
+ * Reaponta conversas/tarefas/timeline e atualiza tags+notes do lead primário
+ * numa única leva (usado pelo merge em lote — mergeMany). Retorna os
+ * settled results para quem chamar decidir o que logar; nenhuma falha
+ * individual aborta o grupo (mesmo comportamento atual).
+ */
+export async function reassignAndMergePrimary(
+  sourceIds: string[],
+  primaryId: string,
+  mergedTags: string[],
+  mergedNotes: string
+): Promise<PromiseSettledResult<unknown>[]> {
+  return Promise.allSettled([
+    supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+    supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+    supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+    supabase.from("leads").update({ tags: mergedTags, notes: mergedNotes || null }).eq("id", primaryId),
+  ]);
+}
+
+/** Delete em chunks que loga e segue em erro, sem abortar os chunks restantes. */
+export async function bulkDeleteLeadsLogOnly(ids: string[]): Promise<void> {
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { error } = await supabase.from("leads").delete().in("id", ids.slice(i, i + CHUNK));
+    if (error) {
+      console.error("Bulk delete failed:", error);
+    }
   }
 }

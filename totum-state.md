@@ -42,7 +42,8 @@ Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoçã
 **Checkpoint parcial #1–7 entregue em 2026-07-15.** #8–11 seguem com o modelo principal.
 | 8 | useFacebookPage/useInstagram → integrations+users | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (6 warnings `any` pré-existentes, 0 novos) |
 | 9 | useMetaAds/useGoogleAds → services/integrations | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (0 problemas — 4 warnings `any` pré-existentes eliminados) |
-| 10 | useDuplicateDetection → services/leads | pendente | — | — |
+| 10 | useDuplicateDetection → services/leads | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (0 problemas — 1 warning `any` pré-existente eliminado) |
+> Nota mov. 10: `reassignLeadRelations` (criada no Lote 1, ainda não consumida por nenhum hook) lançava em erro — divergia da semântica real do app (Promise.all sem checar erro). Corrigido para não lançar, igualando o comportamento atual do merge(). Adicionadas `reassignAndMergePrimary` e `bulkDeleteLeadsLogOnly` espelhando exatamente o batch de 4 vias e o delete com log-e-continua do mergeMany. Nenhuma heurística de matching/pickPrimary foi tocada.
 | 11 | useBroadcast + BroadcastConfigModal → broadcast+users | pendente | — | — |
 ## Lote 3 — AppContext.tsx + useInbox.ts (aguardando)
 ## Lote 4 — 🟠 Signup/Users/Organization/auth (NUNCA sem OK explícito)
