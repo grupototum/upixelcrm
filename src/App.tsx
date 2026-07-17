@@ -19,6 +19,7 @@ import LandingPage from "./pages/LandingPage";
 import LandingPageEN from "./pages/LandingPageEN";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
+import WorkspaceLoginPage from "./pages/WorkspaceLoginPage";
 
 // Lazy: páginas internas — code-split por rota.
 const InboxPage = lazy(() => import("./pages/InboxPage"));
@@ -57,7 +58,6 @@ const MasterIntegrationsPage = lazy(() => import("./pages/MasterIntegrationsPage
 // Privacy Policy / Terms / Data Deletion Status são servidos como HTML estático
 // pelo nginx (public/privacy-policy/index.html, etc.) — Meta crawler precisa
 // de HTML sem JS pra validar App Review.
-import { getTenantUrl } from "@/utils/tenant";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 import { useAutomationWorker } from "./hooks/useAutomationWorker";
 
@@ -83,15 +83,6 @@ const queryClient = new QueryClient({
 
 function AutomationWorkerRunner() {
   useAutomationWorker();
-  return null;
-}
-
-function RedirectToMasterLogin() {
-  // Acessar /login na raiz manda o usuário pro app do tenant master,
-  // que é onde o formulário de login realmente existe.
-  if (typeof window !== "undefined") {
-    window.location.replace(`${getTenantUrl("master")}/login`);
-  }
   return null;
 }
 
@@ -121,9 +112,10 @@ function AppRoutes() {
           <Route path="/signup" element={<Navigate to="/cadastro" replace />} />
           <Route path="/sign-up" element={<Navigate to="/cadastro" replace />} />
           <Route path="/register" element={<Navigate to="/cadastro" replace />} />
-          {/* /login no domínio raiz não tem formulário próprio: manda pro tenant master,
-              que é onde o usuário admin entra. Tenants de cliente acessam pelo próprio subdomínio. */}
-          <Route path="/login" element={<RedirectToMasterLogin />} />
+          {/* /login no domínio raiz não tem tenant no contexto: mostra uma página
+              orientando a pessoa a acessar pelo subdomínio da própria empresa
+              (com atalho pra digitar o workspace e ir direto). */}
+          <Route path="/login" element={<WorkspaceLoginPage />} />
           {/* Páginas legais (/privacy-policy, /terms-of-service, /data-deletion-status)
               são HTMLs estáticos servidos pelo nginx — não passam pelo React. */}
           <Route path="/en" element={<LandingPageEN />} />
