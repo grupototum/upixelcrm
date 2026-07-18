@@ -113,6 +113,27 @@ export async function assignLeadToConversation(conversationId: string, leadId: s
   if (error) throw error;
 }
 
+// ---- envio de mensagem (persistência outbound) ----
+
+/** Insere uma mensagem. Lança em erro — quem quiser ignorar usa .catch(). */
+export async function insertMessage(row: TablesInsert<"messages">): Promise<void> {
+  const { error } = await supabase.from("messages").insert(row);
+  if (error) throw error;
+}
+
+/** Atualiza last_message/last_message_at de uma conversa. */
+export async function updateConversationLastMessage(
+  conversationId: string,
+  lastMessage: string,
+  lastMessageAt: string = new Date().toISOString(),
+): Promise<void> {
+  const { error } = await supabase
+    .from("conversations")
+    .update({ last_message: lastMessage, last_message_at: lastMessageAt })
+    .eq("id", conversationId);
+  if (error) throw error;
+}
+
 // ---- inbox_templates (respostas rápidas) ----
 
 export async function listInboxTemplates(clientId: string): Promise<Tables<"inbox_templates">[]> {

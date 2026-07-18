@@ -20,6 +20,8 @@ import {
   getConversationCsatInfo,
   insertCsatResponse,
   assignLeadToConversation,
+  insertMessage,
+  updateConversationLastMessage,
 } from "@/services/inbox";
 
 export interface LeadConversation {
@@ -458,7 +460,8 @@ export function useInbox(onLeadCreated?: () => void) {
       } else {
         // Webchat/email/outros: apenas registra a mensagem com o link da mídia.
         // Para email, idealmente usaríamos anexo via Gmail API, mas isso requer extensão futura.
-        const { error: msgError } = await supabase.from("messages").insert({
+        // Lança em erro, como no original (msgError -> throw)
+        await insertMessage({
           conversation_id: target.id,
           content: url,
           type: mediaType === "video" || mediaType === "document" ? "file" : mediaType,
@@ -471,12 +474,12 @@ export function useInbox(onLeadCreated?: () => void) {
             channel: target.channel,
           },
         });
-        if (msgError) throw new Error(msgError.message);
 
-        await supabase.from("conversations").update({
-          last_message: mediaType === "image" ? "📷 Imagem" : mediaType === "audio" ? "🎵 Áudio" : mediaType === "video" ? "🎥 Vídeo" : `📎 ${file.name}`,
-          last_message_at: new Date().toISOString(),
-        }).eq("id", target.id);
+        // Erro ignorado como no original
+        await updateConversationLastMessage(
+          target.id,
+          mediaType === "image" ? "📷 Imagem" : mediaType === "audio" ? "🎵 Áudio" : mediaType === "video" ? "🎥 Vídeo" : `📎 ${file.name}`,
+        ).catch(() => {});
       }
 
       // Realtime entrega o INSERT da mensagem persistida (pelo proxy ou direto)
@@ -521,18 +524,16 @@ export function useInbox(onLeadCreated?: () => void) {
         throw new Error(error.message || "Failed to send email");
       }
 
-      await supabase.from("messages").insert({
+      // Erros ignorados como no original
+      await insertMessage({
         conversation_id: target.id,
         content: text,
         type: "email",
         direction: "outbound",
         sender_name: "Você",
-      });
+      }).catch(() => {});
 
-      await supabase.from("conversations").update({
-        last_message: text,
-        last_message_at: new Date().toISOString(),
-      }).eq("id", target.id);
+      await updateConversationLastMessage(target.id, text).catch(() => {});
 
       await loadMessages(leadId);
       await loadConversations();
@@ -555,14 +556,15 @@ export function useInbox(onLeadCreated?: () => void) {
     if (!target) return;
 
     if (isPrivate) {
-      await supabase.from("messages").insert({
+      // Erro ignorado como no original
+      await insertMessage({
         conversation_id: target.id,
         content: text,
         type: "text",
         direction: "outbound",
         sender_name: "Você (Nota Privada)",
         metadata: { is_private: true },
-      });
+      }).catch(() => {});
       if (clientId) {
         void notifyMentions({
           clientId,
@@ -585,17 +587,15 @@ export function useInbox(onLeadCreated?: () => void) {
       // Webchat e outros canais sem proxy: persiste direto.
       // Realtime entrega o INSERT e o dedup por id evita duplicata na UI,
       // então não chamamos loadMessages aqui.
-      await supabase.from("messages").insert({
+      // Erros ignorados como no original
+      await insertMessage({
         conversation_id: target.id,
         content: text,
         type: "text",
         direction: "outbound",
         sender_name: "Você",
-      });
-      await supabase.from("conversations").update({
-        last_message: text,
-        last_message_at: new Date().toISOString(),
-      }).eq("id", target.id);
+      }).catch(() => {});
+      await updateConversationLastMessage(target.id, text).catch(() => {});
     }
   }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail, clientId, user]);
 
