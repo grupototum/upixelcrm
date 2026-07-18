@@ -51,3 +51,124 @@ export async function insertNotifications(rows: TablesInsert<"notifications">[])
   const { error } = await supabase.from("notifications").insert(rows);
   if (error) throw error;
 }
+
+// ---- administração de usuários/organizações (Lote 4 — UsersPage) ----
+// As decisões de permissão (quem pode chamar o quê) ficam na página;
+// aqui só o acesso. RPCs fazem a checagem real no servidor.
+
+/**
+ * Lista profiles para a tela de administração. Passe EXATAMENTE um filtro
+ * (tenantId | organizationId | selfId) ou nenhum (master vê todos).
+ */
+export async function listProfilesForAdmin(filter: {
+  tenantId?: string;
+  organizationId?: string;
+  selfId?: string;
+} = {}): Promise<Record<string, unknown>[]> {
+  let query = supabase.from("profiles").select("*").order("created_at", { ascending: false });
+  if (filter.tenantId) query = query.eq("tenant_id", filter.tenantId);
+  else if (filter.organizationId) query = query.eq("organization_id", filter.organizationId);
+  else if (filter.selfId !== undefined) query = query.eq("id", filter.selfId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listOrganizations(): Promise<Record<string, unknown>[]> {
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listAuditLogs(tenantId?: string, limit = 50): Promise<Record<string, unknown>[]> {
+  let query = supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(limit);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function insertAuditLog(row: {
+  user_id?: string | null;
+  user_name: string;
+  action: string;
+  details: Record<string, unknown> | null;
+  tenant_id: string | null;
+}): Promise<void> {
+  const { error } = await supabase.from("audit_log").insert(row as never);
+  if (error) throw error;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- RPCs administrativas fora dos tipos gerados */
+export async function setUserBlocked(asMaster: boolean, targetUserId: string, blockStatus: boolean): Promise<void> {
+  const rpcName = asMaster ? "admin_toggle_block" : "supervisor_toggle_block";
+  const { error } = await supabase.rpc(rpcName as any, {
+    target_user_id: targetUserId,
+    block_status: blockStatus,
+  });
+  if (error) throw error;
+}
+
+export async function adminDeleteUser(targetUserId: string): Promise<void> {
+  const { error } = await supabase.rpc("admin_delete_user" as any, { target_user_id: targetUserId });
+  if (error) throw error;
+}
+
+export async function adminApproveUser(targetUserId: string): Promise<void> {
+  const { error } = await supabase.rpc("admin_approve_user" as any, { target_user_id: targetUserId });
+  if (error) throw error;
+}
+
+export async function setUserRole(asMaster: boolean, targetUserId: string, newRole: string): Promise<void> {
+  const rpcName = asMaster ? "admin_set_role" : "supervisor_set_role";
+  const { error } = await supabase.rpc(rpcName as any, {
+    target_user_id: targetUserId,
+    new_role: newRole,
+  });
+  if (error) throw error;
+}
+
+export async function adminAddOrgMember(targetUserId: string, targetOrgId: string): Promise<void> {
+  const { error } = await supabase.rpc("admin_add_org_member" as any, {
+    target_user_id: targetUserId,
+    target_org_id: targetOrgId,
+  });
+  if (error) throw error;
+}
+
+export async function adminRemoveOrgMember(targetUserId: string): Promise<void> {
+  const { error } = await supabase.rpc("admin_remove_org_member" as any, { target_user_id: targetUserId });
+  if (error) throw error;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+export async function deleteOrganization(orgId: string): Promise<void> {
+  const { error } = await supabase.from("organizations").delete().eq("id", orgId);
+  if (error) throw error;
+}
+
+/**
+ * Cria usuário via edge admin-create-user. O accessToken vem de quem chama
+ * (sessão continua responsabilidade do AuthContext/página — Lote 4 L4-5).
+ * Retorna o JSON da resposta; lança se !response.ok com a mensagem da API.
+ */
+export async function invokeAdminCreateUser(
+  accessToken: string,
+  payload: { name: string; email: string; password: string; role: string; organization_id: string | null }
+): Promise<{ user: { id: string } }> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/admin-create-user`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Erro ao criar usuário");
+  return result;
+}
