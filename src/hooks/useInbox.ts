@@ -22,6 +22,8 @@ import {
   assignLeadToConversation,
   insertMessage,
   updateConversationLastMessage,
+  updateConversationsStatus,
+  updateConversationMetadata,
 } from "@/services/inbox";
 
 export interface LeadConversation {
@@ -608,15 +610,9 @@ export function useInbox(onLeadCreated?: () => void) {
     setConversations(prev => prev.map(c => c.lead_id === leadId ? { ...c, status } : c));
 
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
-    const { error } = await supabase
-      .from("conversations")
-      .update({ 
-        status, 
-        updated_at: new Date().toISOString() 
-      })
-      .in("id", convIds);
-
-    if (error) {
+    try {
+      await updateConversationsStatus(convIds, status);
+    } catch {
       toast.error("Erro ao atualizar status");
       loadConversations(); // Revert
       return;
@@ -631,16 +627,9 @@ export function useInbox(onLeadCreated?: () => void) {
     if (!leadGroup) return;
 
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
-    const { error } = await supabase
-      .from("conversations")
-      .update({
-        status: "snoozed",
-        snoozed_until: until.toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .in("id", convIds);
-
-    if (error) {
+    try {
+      await updateConversationsStatus(convIds, "snoozed", until.toISOString());
+    } catch {
       toast.error("Erro ao adiar conversa");
       return;
     }
@@ -658,7 +647,8 @@ export function useInbox(onLeadCreated?: () => void) {
 
     for (const sc of leadGroup.source_conversations) {
       const newMeta = { ...sc.metadata, priority };
-      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", sc.id);
+      // Erro ignorado como no original
+      await updateConversationMetadata(sc.id, newMeta).catch(() => {});
     }
 
     loadConversations();
@@ -672,7 +662,8 @@ export function useInbox(onLeadCreated?: () => void) {
 
     for (const sc of leadGroup.source_conversations) {
       const newMeta = { ...sc.metadata, assignee_id: agentId };
-      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", sc.id);
+      // Erro ignorado como no original
+      await updateConversationMetadata(sc.id, newMeta).catch(() => {});
     }
 
     loadConversations();
@@ -689,13 +680,8 @@ export function useInbox(onLeadCreated?: () => void) {
     // We update all conversations for this lead to have the same labels
     for (const sc of leadGroup.source_conversations) {
       const newMeta = { ...(sc.metadata as any || {}), labels };
-      await supabase
-        .from("conversations")
-        .update({ 
-          metadata: newMeta,
-          updated_at: new Date().toISOString() 
-        })
-        .eq("id", sc.id);
+      // Erro ignorado como no original
+      await updateConversationMetadata(sc.id, newMeta, true).catch(() => {});
     }
     
     await loadConversations();

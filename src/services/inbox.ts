@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 // Repositório do domínio inbox (inbox_templates, macros, contadores de
 // conversations/tasks). Funções puras de acesso a dados; toast/estado/realtime
@@ -131,6 +131,32 @@ export async function updateConversationLastMessage(
     .from("conversations")
     .update({ last_message: lastMessage, last_message_at: lastMessageAt })
     .eq("id", conversationId);
+  if (error) throw error;
+}
+
+// ---- ações de conversa (status/snooze/metadata) ----
+
+/** Atualiza status (e opcionalmente snoozed_until) de várias conversas. */
+export async function updateConversationsStatus(
+  convIds: string[],
+  status: string,
+  snoozedUntil?: string,
+): Promise<void> {
+  const patch: TablesUpdate<"conversations"> = { status, updated_at: new Date().toISOString() };
+  if (snoozedUntil !== undefined) patch.snoozed_until = snoozedUntil;
+  const { error } = await supabase.from("conversations").update(patch).in("id", convIds);
+  if (error) throw error;
+}
+
+/** Atualiza o metadata de uma conversa; `touch` também bumpa updated_at. */
+export async function updateConversationMetadata(
+  conversationId: string,
+  metadata: TablesUpdate<"conversations">["metadata"],
+  touch = false,
+): Promise<void> {
+  const patch: TablesUpdate<"conversations"> = { metadata };
+  if (touch) patch.updated_at = new Date().toISOString();
+  const { error } = await supabase.from("conversations").update(patch).eq("id", conversationId);
   if (error) throw error;
 }
 
