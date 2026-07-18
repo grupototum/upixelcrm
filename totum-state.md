@@ -85,4 +85,6 @@ Regras herdadas + específicas: ZERO mudança de fluxo de auth (signUp/signIn/si
 | L4-2 | UsersPage → services/users | 590b6aa | ✅ 2026-07-18 | ✅ | ✅ (5 — 7 `any` pré-existentes eliminados, 0 novos) |
 | L4-3 | OrganizationSection → services/users | e9b490b | ✅ 2026-07-18 | ✅ | ✅ (6 — 4 `any` pré-existentes eliminados, 0 novos) |
 | L4-4 | SignupPage → services/signup (novo) + users | 99ba4e8 | ✅ 2026-07-18 | ✅ | ✅ 0 problemas |
-| L4-5 | Centralização de supabase.auth: AuthContext/lib expõe getSession/getUser; migrar os ~10 arquivos que chamam supabase.auth fora do AuthContext (useInbox ×3, useBroadcast, FB/IG hooks, edge-invoke fica — é lib) | — | pendente | — | — |
+| L4-5 | Centralização de supabase.auth em lib/auth-session (11 call sites, 8 arquivos) | f1fb795 | ✅ 2026-07-18 | ✅ | ✅ (48 pré-existentes, 0 novos) |
+
+**LOTE 4 CONCLUÍDO em 2026-07-18 — PLANO DE CAMADAS COMPLETO.** Leituras de sessão/usuário centralizadas em lib/auth-session (getCurrentSession/getCurrentUser). Ficam intocados por decisão registrada: AuthContext (dono do auth), SignupPage.signUp, SecuritySettings (re-auth/troca de senha = fluxo de auth), lib/edge-invoke (máquina de refresh) e o health-check do RAGIntegrationStatus (usa o error do getSession como diagnóstico). Backlog não-bloqueante ("Lote 3.5"): ~18 consumidores de página/componente ainda com .from() direto (IntegrationsPage, CampaignsPage, WhatsAppManagement, modais etc.) — repositórios já cobrem a maioria; smoke consolidado segue pendente (prompt do agente VPS entregue).

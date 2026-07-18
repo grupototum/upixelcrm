@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentSession } from "@/lib/auth-session";
 import { toast } from "sonner";
 
 interface GoogleStatus {
@@ -22,7 +23,7 @@ export function useGoogleIntegration() {
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
   const invokeFunction = useCallback(async (action: string, body?: Record<string, unknown>, extraParams?: Record<string, string>) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const session = await getCurrentSession();
     if (!session) throw new Error("Not authenticated");
 
     const params = new URLSearchParams({ action, ...extraParams });

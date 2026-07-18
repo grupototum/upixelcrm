@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth-session";
 import { toast } from "@/hooks/use-toast";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -74,7 +75,7 @@ export function usePushNotifications() {
       const subJson = subscription.toJSON();
 
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) {
         toast({ title: "Erro", description: "Você precisa estar logado.", variant: "destructive" });
         setLoading(false);
@@ -117,7 +118,7 @@ export function usePushNotifications() {
         await subscription.unsubscribe();
 
         // Remove from database
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await getCurrentUser();
         if (user) {
           await supabase.from("push_subscriptions").delete()
             .eq("user_id", user.id)

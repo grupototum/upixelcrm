@@ -3,8 +3,8 @@ import { z } from "zod";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
-import { supabase } from "@/integrations/supabase/client";
 import * as usersRepo from "@/services/users";
+import { getCurrentSession } from "@/lib/auth-session";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -267,7 +267,7 @@ export default function UsersPage() {
 
     setCreatingUser(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) {
         toast.error("Você precisa estar autenticado");
         return;

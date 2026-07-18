@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MessageCircle, Instagram, Facebook, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, Megaphone, TrendingUp, LayoutGrid, MessagesSquare, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth-session";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +96,7 @@ export default function IntegrationsPage() {
   useEffect(() => {
     async function fetchStatuses() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await getCurrentUser();
         if (!user) return;
 
         const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).single();
@@ -153,7 +154,7 @@ export default function IntegrationsPage() {
 
     try {
       const newStatus = value ? "connected" : "disconnected";
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
       const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).single();
       if (!profile?.client_id) return;
