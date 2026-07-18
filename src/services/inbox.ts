@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 // Repositório do domínio inbox (inbox_templates, macros, contadores de
 // conversations/tasks). Funções puras de acesso a dados; toast/estado/realtime
@@ -43,6 +43,165 @@ export async function listLeadBasicsByIds(
     .in("id", ids);
   if (error) throw error;
   return data ?? [];
+}
+
+// ---- mensagens de um lead ----
+
+/** Referências (id, channel) das conversas de um lead; "unassigned" = sem lead. */
+export async function listLeadConversationRefs(
+  clientId: string,
+  leadId: string
+): Promise<Pick<Tables<"conversations">, "id" | "channel">[]> {
+  let query = supabase.from("conversations").select("id, channel").eq("client_id", clientId);
+  query = (leadId === "unassigned" ? query.is("lead_id", null) : query.eq("lead_id", leadId)) as typeof query;
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listMessagesByConversationIds(convIds: string[]): Promise<Tables<"messages">[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .in("conversation_id", convIds)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function markConversationsRead(convIds: string[]): Promise<void> {
+  const { error } = await supabase.from("conversations").update({ unread_count: 0 }).in("id", convIds);
+  if (error) throw error;
+}
+
+// ---- lookups do callback de realtime ----
+
+/** lead_id/channel de uma conversa, escopada ao tenant. */
+export async function getConversationRef(
+  conversationId: string,
+  clientId: string
+): Promise<Pick<Tables<"conversations">, "lead_id" | "channel"> | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("lead_id, channel")
+    .eq("id", conversationId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function getConversationCsatInfo(
+  conversationId: string
+): Promise<Pick<Tables<"conversations">, "csat_sent_at" | "lead_id"> | null> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("csat_sent_at, lead_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function insertCsatResponse(row: TablesInsert<"csat_responses">): Promise<void> {
+  const { error } = await supabase.from("csat_responses").insert(row);
+  if (error) throw error;
+}
+
+export async function assignLeadToConversation(conversationId: string, leadId: string): Promise<void> {
+  const { error } = await supabase.from("conversations").update({ lead_id: leadId }).eq("id", conversationId);
+  if (error) throw error;
+}
+
+// ---- envio de mensagem (persistência outbound) ----
+
+/** Insere uma mensagem. Lança em erro — quem quiser ignorar usa .catch(). */
+export async function insertMessage(row: TablesInsert<"messages">): Promise<void> {
+  const { error } = await supabase.from("messages").insert(row);
+  if (error) throw error;
+}
+
+/** Atualiza last_message/last_message_at de uma conversa. */
+export async function updateConversationLastMessage(
+  conversationId: string,
+  lastMessage: string,
+  lastMessageAt: string = new Date().toISOString(),
+): Promise<void> {
+  const { error } = await supabase
+    .from("conversations")
+    .update({ last_message: lastMessage, last_message_at: lastMessageAt })
+    .eq("id", conversationId);
+  if (error) throw error;
+}
+
+// ---- ações de conversa (status/snooze/metadata) ----
+
+/** Atualiza status (e opcionalmente snoozed_until) de várias conversas. */
+export async function updateConversationsStatus(
+  convIds: string[],
+  status: string,
+  snoozedUntil?: string,
+): Promise<void> {
+  const patch: TablesUpdate<"conversations"> = { status, updated_at: new Date().toISOString() };
+  if (snoozedUntil !== undefined) patch.snoozed_until = snoozedUntil;
+  const { error } = await supabase.from("conversations").update(patch).in("id", convIds);
+  if (error) throw error;
+}
+
+/** Atualiza o metadata de uma conversa; `touch` também bumpa updated_at. */
+export async function updateConversationMetadata(
+  conversationId: string,
+  metadata: TablesUpdate<"conversations">["metadata"],
+  touch = false,
+): Promise<void> {
+  const patch: TablesUpdate<"conversations"> = { metadata };
+  if (touch) patch.updated_at = new Date().toISOString();
+  const { error } = await supabase.from("conversations").update(patch).eq("id", conversationId);
+  if (error) throw error;
+}
+
+// ---- criar conversa / transcrição / merge (inbox) ----
+
+/** Cria uma conversa e retorna o id. Lança em erro. */
+export async function insertConversation(
+  row: TablesInsert<"conversations">,
+): Promise<{ id: string }> {
+  const { data, error } = await supabase.from("conversations").insert(row).select("id").single();
+  if (error) throw error;
+  return data;
+}
+
+/** content/metadata de uma mensagem (usado na transcrição). Lança em erro. */
+export async function getMessageContentMeta(
+  messageId: string,
+): Promise<Pick<Tables<"messages">, "content" | "metadata"> | null> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("content, metadata")
+    .eq("id", messageId)
+    .single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updateMessageMetadata(
+  messageId: string,
+  metadata: TablesUpdate<"messages">["metadata"],
+): Promise<void> {
+  const { error } = await supabase.from("messages").update({ metadata }).eq("id", messageId);
+  if (error) throw error;
+}
+
+/** Move todas as conversas de um lead para outro (passo do merge). Lança em erro. */
+export async function reassignConversationsToLead(
+  fromLeadId: string,
+  toLeadId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("conversations")
+    .update({ lead_id: toLeadId })
+    .eq("lead_id", fromLeadId);
+  if (error) throw error;
 }
 
 // ---- inbox_templates (respostas rápidas) ----

@@ -1,6 +1,6 @@
 # totum-state.md — Adequação arquitetural por camadas
 
-**Branch:** `claude/upixelcrm-layering-phase-2-b61f6l` · **PR:** #37
+**Branch:** `claude/upixelcrm-layering-phase-2-b61f6l` · **PR:** #37 (Lotes 1, 2 e fatia I-1 — MERGED em 2026-07-15, squash `906dd5f`) → useInbox (I-2..I-5) mergeado em 2026-07-17 via branch `claude/arch-layers-continue` → **AppContext (A-1..A-4) é o próximo PR, sessão nova**
 **Fase 1 (diagnóstico):** concluída no Cowork em 2026-07-15 (relatório aprovado no prompt da sessão).
 **Fase 2 (plano):** aprovada em 2026-07-15 — 4 lotes; Lote 4 só com OK explícito.
 
@@ -53,15 +53,24 @@ Travas: (1) checkpoint obrigatório após as 5 fatias do useInbox — AppContext
 
 Roteiro smoke useInbox: abrir inbox, abrir conversa, enviar texto, mudar status, realtime em 2ª aba. Roteiro AppContext: board carrega, drag entre colunas, criar/editar lead, badges.
 
-| # | Fatia | Commit-pai (revert) | Status | Build | Lint | Smoke |
-|---|---|---|---|---|---|---|
-| I-1 | useInbox: lista de conversas + filtros | abb70c5 | ✅ código 2026-07-15 | ✅ | ✅ (23 pré-existentes, 0 novos) | ⏳ aguardando usuário |
-| I-2 | useInbox: mensagens + realtime | — | pendente | — | — | — |
-| I-3 | useInbox: envio de mensagem | — | pendente | — | — | — |
-| I-4 | useInbox: ações de conversa (status/assign/labels) | — | pendente | — | — | — |
-| I-5 | useInbox: restante (sessão/typing/locais) | — | pendente | — | — | — |
-| A-1 | AppContext: leads/columns/pipelines | — | pendente | — | — | — |
+> ⚠️ Limitação descoberta na I-1: previews Vercel (`*.vercel.app`) não batem com subdomínio de tenant — TenantContext cai em "Empresa não encontrada" antes do inbox. Smoke ao vivo por fatia é impossível em preview; aprovações do Lote 3 passam a ser por revisão de código do usuário no commit, com smoke real consolidado pendente (rodar em produção com subdomínio válido).
+
+**2026-07-17 — retomado em sessão nova, useInbox concluído e MERGEADO.** A branch original (`claude/upixelcrm-layering-phase-2-b61f6l`) tinha só I-1 (via #37) + I-2 (commit `56ffe05`, nunca mergeado). Recomeçado a partir da main pós-#40/#41 na branch `claude/arch-layers-continue`: I-2 reaproveitado via cherry-pick, I-3/I-4/I-5 feitos do zero seguindo o mesmo padrão (mover query crua para função nomeada em `services/*`, preservando exatamente o comportamento de erro de cada ponto — lança onde lançava, `.catch(() => default)` comentado onde ignorava). **Smoke ao vivo por fatia continua PENDENTE** (mesma limitação de preview); build+lint local (`npm run build` + `npm run lint`) serviu de gate a cada commit — 0 errors, 459 warnings pré-existentes, 0 novos, nas 5 fatias. **Decisão do usuário: mergear o useInbox assim que completo** (em vez de esperar o AppContext também) — uPixel está sem uso ativo, então o smoke consolidado fica pra quando alguém puder testar em produção; AppContext (A-1..A-4) fica pra uma sessão separada, do zero.
+
+| # | Fatia | Status | Build | Lint | Smoke |
+|---|---|---|---|---|---|
+| I-1 | useInbox: lista de conversas + filtros | ✅ na main via #37 | ✅ | ✅ | ⏳ ao vivo pendente |
+| I-2 | useInbox: mensagens + realtime | ✅ `9145f7d` (cherry-pick de `56ffe05`) | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-3 | useInbox: envio de mensagem | ✅ `aed70d9` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-4 | useInbox: ações de conversa (status/assign/labels) | ✅ `d55bebe` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-5 | useInbox: criar conversa/transcrição/merge (inbox) | ✅ `95f6605` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-5 | useInbox: findOrCreateLead/deleteLead/mergeLeads (leads) | ✅ `4109b5f` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| A-1 | AppContext: leads/columns/pipelines | pendente | — | — | — |
 | A-2 | AppContext: tasks | — | pendente | — | — | — |
 | A-3 | AppContext: notifications | — | pendente | — | — | — |
 | A-4 | AppContext: refreshData (🚧 gate próprio) | — | pendente | — | — | — |
+
+**useInbox.ts (I-1..I-5): CONCLUÍDO — PR de merge nesta sessão.** Zero queries diretas restantes no hook — só `supabase.storage` (mídia), `supabase.auth.getSession`, `invokeEdge` e `.channel`/`.removeChannel` (realtime), que ficam no hook por regra do plano (não são repositório de domínio). Repositórios usados: `services/inbox.ts` (conversas/mensagens/ações) e `services/leads.ts` (busca/criação/delete/merge de leads).
+
+**AppContext.tsx (A-1..A-4): NÃO iniciado.** Inventário feito em 2026-07-17: ~38 queries de banco em `pipelines`, `pipeline_columns`, `tasks`, `timeline_events`, `automations`, `automation_rules`, `leads`, espalhadas pelo arquivo (968 linhas). Nenhuma extração feita ainda — próxima sessão parte do zero aqui.
 ## Lote 4 — 🟠 Signup/Users/Organization/auth (NUNCA sem OK explícito)

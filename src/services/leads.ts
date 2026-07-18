@@ -180,3 +180,75 @@ export async function bulkDeleteLeadsLogOnly(ids: string[]): Promise<void> {
     }
   }
 }
+
+// ---- findOrCreateLead / deleteLead / mergeLeads (usado pelo useInbox) ----
+
+/** Leads cujo telefone contém o sufixo, do mais antigo pro mais novo. Lança em erro. */
+export async function findLeadIdsByPhoneSuffix(
+  clientId: string,
+  phoneSuffix: string
+): Promise<{ id: string }[]> {
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id")
+    .eq("client_id", clientId)
+    .or(`phone.ilike.%${phoneSuffix}%`)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function findLeadIdsByEmail(clientId: string, email: string): Promise<{ id: string }[]> {
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id")
+    .eq("client_id", clientId)
+    .ilike("email", email)
+    .limit(1);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getFirstPipelineColumnId(clientId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("pipeline_columns")
+    .select("id")
+    .eq("client_id", clientId)
+    .order("order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
+}
+
+/** Cria um lead automático (origem inbox). */
+export async function insertAutoLead(row: {
+  client_id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  column_id: string;
+  tags: string[];
+  origin: string;
+}): Promise<{ id: string } | null> {
+  const { data, error } = await supabase.from("leads").insert(row).select("id").single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteLeadById(id: string): Promise<void> {
+  const { error } = await supabase.from("leads").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Move tasks de um lead para outro (passo do merge do inbox). */
+export async function reassignTasksToLead(fromLeadId: string, toLeadId: string): Promise<void> {
+  const { error } = await supabase.from("tasks").update({ lead_id: toLeadId }).eq("lead_id", fromLeadId);
+  if (error) throw error;
+}
+
+/** Move notes de um lead para outro (passo do merge do inbox; tabela fora dos tipos gerados). */
+export async function reassignNotesToLead(fromLeadId: string, toLeadId: string): Promise<void> {
+  const { error } = await untypedFrom("notes").update({ lead_id: toLeadId }).eq("lead_id", fromLeadId);
+  if (error) throw error;
+}
