@@ -84,5 +84,5 @@ Regras herdadas + específicas: ZERO mudança de fluxo de auth (signUp/signIn/si
 | L4-1 | ProfileSettings + ConversationActions + mentions.ts → services/users | cb83d24 | ✅ 2026-07-18 | ✅ | ✅ (2 pré-existentes, 0 novos) |
 | L4-2 | UsersPage → services/users | 590b6aa | ✅ 2026-07-18 | ✅ | ✅ (5 — 7 `any` pré-existentes eliminados, 0 novos) |
 | L4-3 | OrganizationSection → services/users | e9b490b | ✅ 2026-07-18 | ✅ | ✅ (6 — 4 `any` pré-existentes eliminados, 0 novos) |
-| L4-4 | SignupPage → services (provisionamento: checagem de subdomínio, criação de org, vínculo owner, rollback manual preservado); auth.signUp FICA na página | — | pendente | — | — |
+| L4-4 | SignupPage → services/signup (novo) + users | 99ba4e8 | ✅ 2026-07-18 | ✅ | ✅ 0 problemas |
 | L4-5 | Centralização de supabase.auth: AuthContext/lib expõe getSession/getUser; migrar os ~10 arquivos que chamam supabase.auth fora do AuthContext (useInbox ×3, useBroadcast, FB/IG hooks, edge-invoke fica — é lib) | — | pendente | — | — |
