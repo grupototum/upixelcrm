@@ -1,5 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
+import { listClientMembers, insertNotifications } from "@/services/users";
 
 const MENTION_REGEX = /@([a-zA-Z0-9_.-]{2,32})/g;
 
@@ -32,12 +32,10 @@ export async function notifyMentions(params: NotifyMentionsParams): Promise<numb
   const handles = extractMentions(params.text);
   if (handles.length === 0) return 0;
 
-  const { data: profiles, error } = await supabase
-    .from("profiles")
-    .select("id, name, email")
-    .eq("client_id", params.clientId);
-
-  if (error) {
+  let profiles: Awaited<ReturnType<typeof listClientMembers>>;
+  try {
+    profiles = await listClientMembers(params.clientId);
+  } catch (error) {
     logger.error("notifyMentions: profiles query failed", error);
     return 0;
   }
@@ -60,8 +58,9 @@ export async function notifyMentions(params: NotifyMentionsParams): Promise<numb
     lead_id: params.leadId ?? null,
   }));
 
-  const { error: insertError } = await supabase.from("notifications").insert(rows);
-  if (insertError) {
+  try {
+    await insertNotifications(rows);
+  } catch (insertError) {
     logger.error("notifyMentions: insert failed", insertError);
     return 0;
   }

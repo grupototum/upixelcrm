@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
+import { getCurrentSession } from "@/lib/auth-session";
 import { useState, useCallback, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getProfileClientId } from "@/services/users";
 import { listIntegrations, updateIntegration } from "@/services/integrations";
@@ -21,7 +21,7 @@ export function useFacebookPageIntegration() {
 
   const fetchPages = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) return;
 
       const clientId = await getProfileClientId(session.user.id);

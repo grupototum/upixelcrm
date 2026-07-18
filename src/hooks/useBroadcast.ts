@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
+import { getCurrentUser } from "@/lib/auth-session";
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -138,7 +138,7 @@ export function useBroadcast() {
   const { data: creditsData, isLoading: loadingCredits } = useQuery({
     queryKey: ["client-credits"],
     queryFn: async () => {
-      const { data: { user: u } } = await supabase.auth.getUser();
+      const u = await getCurrentUser();
       if (!u) return 0;
       const profileClientId = await getProfileClientId(u.id).catch(() => null);
       if (!profileClientId) return 0;

@@ -8,7 +8,7 @@ import { PushNotificationSettings } from "@/components/pwa/PushNotificationSetti
 import { OrganizationSection } from "@/components/profile/OrganizationSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { updateProfileName } from "@/services/users";
 import { toast } from "sonner";
 
 /**
@@ -26,11 +26,7 @@ export function ProfileSettings() {
     if (!user) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ name } as never)
-        .eq("id", user.id);
-      if (error) throw error;
+      await updateProfileName(user.id, name);
       toast.success("Perfil atualizado!");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro ao salvar";

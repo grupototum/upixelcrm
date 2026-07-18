@@ -75,4 +75,16 @@ Roteiro smoke useInbox: abrir inbox, abrir conversa, enviar texto, mudar status,
 **useInbox.ts (I-1..I-5): CONCLUÍDO — PR de merge nesta sessão.** Zero queries diretas restantes no hook — só `supabase.storage` (mídia), `supabase.auth.getSession`, `invokeEdge` e `.channel`/`.removeChannel` (realtime), que ficam no hook por regra do plano (não são repositório de domínio). Repositórios usados: `services/inbox.ts` (conversas/mensagens/ações) e `services/leads.ts` (busca/criação/delete/merge de leads).
 
 **AppContext.tsx (A-1..A-4): NÃO iniciado.** Inventário feito em 2026-07-17: ~38 queries de banco em `pipelines`, `pipeline_columns`, `tasks`, `timeline_events`, `automations`, `automation_rules`, `leads`, espalhadas pelo arquivo (968 linhas). Nenhuma extração feita ainda — próxima sessão parte do zero aqui.
-## Lote 4 — 🟠 Signup/Users/Organization/auth (NUNCA sem OK explícito)
+## Lote 4 — 🟠 Signup/Users/Organization/auth (OK EXPLÍCITO do owner em 2026-07-18, condicionado à resolução do PR #38 — resolvida: merged `cb83d24`)
+
+Regras herdadas + específicas: ZERO mudança de fluxo de auth (signUp/signIn/signOut/sessão continuam com a mesma sequência observável); RLS/policies/config Supabase intocados; 1 movimento = 1 commit com commit-pai; build+lint por movimento; decisão de comportamento em código consumido = pausa e pergunta.
+
+| # | Movimento | Commit-pai | Status | Build | Lint |
+|---|---|---|---|---|---|
+| L4-1 | ProfileSettings + ConversationActions + mentions.ts → services/users | cb83d24 | ✅ 2026-07-18 | ✅ | ✅ (2 pré-existentes, 0 novos) |
+| L4-2 | UsersPage → services/users | 590b6aa | ✅ 2026-07-18 | ✅ | ✅ (5 — 7 `any` pré-existentes eliminados, 0 novos) |
+| L4-3 | OrganizationSection → services/users | e9b490b | ✅ 2026-07-18 | ✅ | ✅ (6 — 4 `any` pré-existentes eliminados, 0 novos) |
+| L4-4 | SignupPage → services/signup (novo) + users | 99ba4e8 | ✅ 2026-07-18 | ✅ | ✅ 0 problemas |
+| L4-5 | Centralização de supabase.auth em lib/auth-session (11 call sites, 8 arquivos) | f1fb795 | ✅ 2026-07-18 | ✅ | ✅ (48 pré-existentes, 0 novos) |
+
+**LOTE 4 CONCLUÍDO em 2026-07-18 — PLANO DE CAMADAS COMPLETO.** Leituras de sessão/usuário centralizadas em lib/auth-session (getCurrentSession/getCurrentUser). Ficam intocados por decisão registrada: AuthContext (dono do auth), SignupPage.signUp, SecuritySettings (re-auth/troca de senha = fluxo de auth), lib/edge-invoke (máquina de refresh) e o health-check do RAGIntegrationStatus (usa o error do getSession como diagnóstico). Backlog não-bloqueante ("Lote 3.5"): ~18 consumidores de página/componente ainda com .from() direto (IntegrationsPage, CampaignsPage, WhatsAppManagement, modais etc.) — repositórios já cobrem a maioria; smoke consolidado segue pendente (prompt do agente VPS entregue).

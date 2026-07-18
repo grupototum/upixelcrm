@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as usersRepo from "@/services/users";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { isValidUuid } from "@/lib/tenant-utils";
@@ -47,25 +47,15 @@ export function OrganizationSection() {
     if (!user) return;
     setLoading(true);
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("id", user.id)
-        .single();
+      // Erros individuais eram ignorados no original ({data} sem checar) — preservado
+      const organizationId = await usersRepo.getProfileOrganizationId(user.id).catch(() => null);
 
-      if (profile?.organization_id) {
-        const { data: orgData } = await supabase
-          .from("organizations")
-          .select("*")
-          .eq("id", profile.organization_id)
-          .single();
+      if (organizationId) {
+        const orgData = await usersRepo.getOrganizationById(organizationId).catch(() => null);
         setOrg(orgData);
 
         if (orgData) {
-          const { data: memberData } = await supabase
-            .from("profiles")
-            .select("id, name, email, role, avatar_url")
-            .eq("organization_id", orgData.id);
+          const memberData = await usersRepo.listOrgMembers(organizationId).catch(() => null);
           setMembers(memberData || []);
         }
       } else {
@@ -90,26 +80,16 @@ export function OrganizationSection() {
       const slug = newOrgName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       const orgSubdomain = newOrgSubdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || slug;
       
-      const { data: newOrg, error } = await supabase.from("organizations")
-        .insert({
-          name: newOrgName.trim(),
-          slug: `${slug}-${Date.now()}`,
-          subdomain: orgSubdomain,
-          tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
-          owner_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const newOrg = await usersRepo.insertOrganization({
+        name: newOrgName.trim(),
+        slug: `${slug}-${Date.now()}`,
+        subdomain: orgSubdomain,
+        tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
+        owner_id: user.id,
+      });
 
       // Update profile with org and shared client_id
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ organization_id: newOrg.id } as any)
-        .eq("id", user.id);
-
-      if (updateError) throw updateError;
+      await usersRepo.setProfileOrganization(user.id, newOrg.id as string);
 
       toast.success("Empresa criada com sucesso!");
       setCreateOpen(false);
@@ -127,11 +107,8 @@ export function OrganizationSection() {
     if (!inviteEmail.trim() || !org) return;
     setInviting(true);
     try {
-      const { data: targetProfile } = await supabase
-        .from("profiles")
-        .select("id, organization_id")
-        .eq("email", inviteEmail.trim())
-        .single();
+      // Erro era ignorado no original ({data} sem checar) — preservado
+      const targetProfile = await usersRepo.findProfileBasicsByEmail(inviteEmail.trim()).catch(() => null);
 
       if (!targetProfile) {
         toast.error("Usuário não encontrado com esse e-mail. O usuário precisa ter uma conta cadastrada.");
@@ -143,12 +120,7 @@ export function OrganizationSection() {
         return;
       }
 
-      const { error } = await supabase.rpc("owner_add_org_member" as any, {
-        target_user_id: targetProfile.id,
-        target_org_id: org.id,
-      });
-
-      if (error) throw error;
+      await usersRepo.ownerAddOrgMember(targetProfile.id, org.id);
 
       toast.success(`${inviteEmail} adicionado à empresa!`);
       setInviteOpen(false);
@@ -164,10 +136,7 @@ export function OrganizationSection() {
   const handleRemoveMember = async (memberId: string, memberName: string) => {
     if (!confirm(`Remover ${memberName} da empresa?`)) return;
     try {
-      const { error } = await supabase.rpc("owner_remove_org_member" as any, {
-        target_user_id: memberId,
-      });
-      if (error) throw error;
+      await usersRepo.ownerRemoveOrgMember(memberId);
       toast.success(`${memberName} removido da empresa`);
       fetchOrg();
     } catch (e: any) {
@@ -182,11 +151,7 @@ export function OrganizationSection() {
       return;
     }
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ organization_id: null, client_id: user.id } as any)
-        .eq("id", user.id);
-      if (error) throw error;
+      await usersRepo.setProfileOrganization(user.id, null, { client_id: user.id });
       toast.success("Você saiu da empresa.");
       fetchOrg();
     } catch (e: any) {

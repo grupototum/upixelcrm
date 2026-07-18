@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getCurrentSession } from "@/lib/auth-session";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -348,7 +349,7 @@ export function useInbox(onLeadCreated?: () => void) {
     setMessages(prev => sortByCreatedAt([...prev, optimisticMsg]));
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) throw new Error("Not authenticated");
 
       const channel = target.channel;
@@ -414,7 +415,7 @@ export function useInbox(onLeadCreated?: () => void) {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) throw new Error("Sessão expirada. Faça login novamente.");
 
       // 1. Upload to Supabase Storage
@@ -527,7 +528,7 @@ export function useInbox(onLeadCreated?: () => void) {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) throw new Error("Not authenticated");
 
       const { error } = await invokeEdge('google-oauth?action=gmail-send', {

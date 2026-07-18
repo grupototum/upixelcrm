@@ -3,7 +3,8 @@ import { z } from "zod";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
-import { supabase } from "@/integrations/supabase/client";
+import * as usersRepo from "@/services/users";
+import { getCurrentSession } from "@/lib/auth-session";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -120,25 +121,23 @@ export default function UsersPage() {
 
     // Filtro CRÍTICO server-side: não-master só pode listar profiles do próprio tenant.
     // Antes filtrávamos client-side, o que vazava dados de TODOS os tenants no payload de rede.
-    let profilesQuery = supabase.from("profiles").select("*").order("created_at", { ascending: false });
-    if (!isMaster) {
-      if (currentTenantId) {
-        profilesQuery = profilesQuery.eq("tenant_id", currentTenantId);
-      } else if (user?.organization_id) {
-        profilesQuery = profilesQuery.eq("organization_id", user.organization_id);
-      } else {
-        // Sem tenant nem organization no contexto: só pode ver o próprio profile.
-        profilesQuery = profilesQuery.eq("id", user?.id ?? "");
-      }
-    }
+    // A precedência do filtro (tenant > organization > self) é decidida AQUI; o repositório só executa.
+    const profileFilter = isMaster
+      ? {}
+      : currentTenantId
+        ? { tenantId: currentTenantId }
+        : user?.organization_id
+          ? { organizationId: user.organization_id }
+          : { selfId: user?.id ?? "" };
 
-    const [profilesRes, orgsRes] = await Promise.all([
-      profilesQuery,
-      isMaster ? supabase.from("organizations").select("*").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    // Erros eram ignorados no original (listas vazias) — preservado
+    const [profilesData, orgsData] = await Promise.all([
+      usersRepo.listProfilesForAdmin(profileFilter).catch(() => []),
+      isMaster ? usersRepo.listOrganizations().catch(() => []) : Promise.resolve([]),
     ]);
 
-    const profilesList = (profilesRes.data || []) as ProfileRow[];
-    const orgsList = (orgsRes.data || []) as OrgRow[];
+    const profilesList = (profilesData || []) as unknown as ProfileRow[];
+    const orgsList = (orgsData || []) as unknown as OrgRow[];
 
     const orgMap = new Map(orgsList.map(o => [o.id, o.name]));
     for (const p of profilesList) {
@@ -161,24 +160,16 @@ export default function UsersPage() {
 
   const fetchAuditLogs = useCallback(async () => {
     setAuditLoading(true);
-    let query = supabase.from("audit_log")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    // Filter by tenant_id if not master user
-    if (!isMaster && currentTenantId) {
-      query = query.eq("tenant_id", currentTenantId);
-    }
-
-    const { data, error } = await query;
-    if (!error && data) setAuditLogs(data as AuditLogRow[]);
+    // Filter by tenant_id if not master user. Erro era ignorado no original — preservado
+    const tenantFilter = !isMaster && currentTenantId ? currentTenantId : undefined;
+    const data = await usersRepo.listAuditLogs(tenantFilter).catch(() => null);
+    if (data) setAuditLogs(data as unknown as AuditLogRow[]);
     setAuditLoading(false);
   }, [isMaster, currentTenantId]);
 
   const logAudit = async (action: string, details?: Record<string, any>) => {
     try {
-      await supabase.from("audit_log").insert({
+      await usersRepo.insertAuditLog({
         user_id: user?.id,
         user_name: user?.name || "Sistema",
         action,
@@ -207,12 +198,11 @@ export default function UsersPage() {
       return;
     }
 
-    const rpcName = isMaster ? "admin_toggle_block" : "supervisor_toggle_block";
-    const { error } = await supabase.rpc(rpcName as any, {
-      target_user_id: profile.id,
-      block_status: !profile.is_blocked,
-    });
-    if (error) { toast.error("Erro: " + error.message); return; }
+    try {
+      await usersRepo.setUserBlocked(isMaster, profile.id, !profile.is_blocked);
+    } catch (error) {
+      toast.error("Erro: " + (error as { message?: string })?.message); return;
+    }
     const action = profile.is_blocked ? "Usuário desbloqueado" : "Usuário bloqueado";
     toast.success(action);
     await logAudit(action, { target_user: profile.name, target_id: profile.id });
@@ -230,12 +220,10 @@ export default function UsersPage() {
       return;
     }
 
-    const { error } = await supabase.rpc("admin_delete_user" as any, {
-      target_user_id: profile.id,
-    });
-
-    if (error) {
-      toast.error("Erro: " + error.message);
+    try {
+      await usersRepo.adminDeleteUser(profile.id);
+    } catch (error) {
+      toast.error("Erro: " + (error as { message?: string })?.message);
       return;
     }
 
@@ -251,12 +239,10 @@ export default function UsersPage() {
       return;
     }
 
-    const { error } = await supabase.rpc("admin_approve_user" as any, {
-      target_user_id: profile.id,
-    });
-
-    if (error) {
-      toast.error("Erro: " + error.message);
+    try {
+      await usersRepo.adminApproveUser(profile.id);
+    } catch (error) {
+      toast.error("Erro: " + (error as { message?: string })?.message);
       return;
     }
 
@@ -281,34 +267,19 @@ export default function UsersPage() {
 
     setCreatingUser(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) {
         toast.error("Você precisa estar autenticado");
         return;
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/admin-create-user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          password: password.trim(),
-          role,
-          organization_id: organization_id || null,
-        }),
+      const result = await usersRepo.invokeAdminCreateUser(session.access_token, {
+        name: name.trim(),
+        email: email.trim(),
+        password: password.trim(),
+        role,
+        organization_id: organization_id || null,
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        toast.error(result.error || "Erro ao criar usuário");
-        return;
-      }
 
       toast.success(`Usuário "${name}" criado com sucesso!`);
       await logAudit("Usuário criado", { target_user: name, target_id: result.user.id, role });
@@ -334,12 +305,11 @@ export default function UsersPage() {
       return;
     }
 
-    const rpcName = isMaster ? "admin_set_role" : "supervisor_set_role";
-    const { error } = await supabase.rpc(rpcName as any, {
-      target_user_id: editModal.id,
-      new_role: editRole,
-    });
-    if (error) { toast.error("Erro: " + error.message); return; }
+    try {
+      await usersRepo.setUserRole(isMaster, editModal.id, editRole);
+    } catch (error) {
+      toast.error("Erro: " + (error as { message?: string })?.message); return;
+    }
     toast.success("Permissão atualizada com sucesso.");
     await logAudit("Permissão alterada", { target_user: editModal.name, target_id: editModal.id, old_role: editModal.role, new_role: editRole });
     setEditModal(null);
@@ -353,11 +323,15 @@ export default function UsersPage() {
     if (!confirm(`Excluir a empresa "${org.name}"? Membros perderão o vínculo.`)) return;
     if (org.members && org.members.length > 0) {
       for (const m of org.members) {
-        await supabase.rpc("admin_remove_org_member" as any, { target_user_id: m.id });
+        // Erro individual era ignorado no original — preservado
+        await usersRepo.adminRemoveOrgMember(m.id).catch(() => {});
       }
     }
-    const { error } = await supabase.from("organizations").delete().eq("id", org.id);
-    if (error) { toast.error("Erro: " + error.message); return; }
+    try {
+      await usersRepo.deleteOrganization(org.id);
+    } catch (error) {
+      toast.error("Erro: " + (error as { message?: string })?.message); return;
+    }
     toast.success("Empresa excluída");
     fetchData();
   };
@@ -375,11 +349,7 @@ export default function UsersPage() {
         toast.error("Esse usuário já pertence a uma empresa. Remova-o primeiro.");
         return;
       }
-      const { error } = await supabase.rpc("admin_add_org_member" as any, {
-        target_user_id: target.id,
-        target_org_id: addMemberModal.id,
-      });
-      if (error) throw error;
+      await usersRepo.adminAddOrgMember(target.id, addMemberModal.id);
       toast.success(`${target.name} adicionado à empresa!`);
       setAddMemberModal(null);
       setAddMemberEmail("");
@@ -397,8 +367,11 @@ export default function UsersPage() {
       return;
     }
     if (!confirm(`Remover ${member.name} da empresa ${org.name}?`)) return;
-    const { error } = await supabase.rpc("admin_remove_org_member" as any, { target_user_id: member.id });
-    if (error) { toast.error("Erro: " + error.message); return; }
+    try {
+      await usersRepo.adminRemoveOrgMember(member.id);
+    } catch (error) {
+      toast.error("Erro: " + (error as { message?: string })?.message); return;
+    }
     toast.success(`${member.name} removido da empresa`);
     fetchData();
   };

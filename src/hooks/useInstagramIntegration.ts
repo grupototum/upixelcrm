@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { getCurrentSession } from "@/lib/auth-session";
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,7 +28,7 @@ export function useInstagramIntegration() {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) return;
 
       const clientId = await getProfileClientId(session.user.id);
@@ -53,7 +54,7 @@ export function useInstagramIntegration() {
   const saveConfig = async (ig_account_id: string, access_token: string, webhook_verify_token: string) => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) throw new Error("Not authenticated");
 
       const url = `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=save-config`;
@@ -83,7 +84,7 @@ export function useInstagramIntegration() {
   const disconnect = async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getCurrentSession();
       if (!session) throw new Error("Not authenticated");
 
       const url = `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=disconnect`;

@@ -1,6 +1,8 @@
 import { useState, useEffect, FormEvent } from "react";
 import { logger } from "@/lib/logger";
 import { supabase } from "@/integrations/supabase/client";
+import * as signupRepo from "@/services/signup";
+import { deleteOrganization, setProfileOrganization } from "@/services/users";
 import { getTenantUrl } from "@/utils/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,12 +48,9 @@ export default function SignupPage() {
     setGateError("");
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "check-signup-gate",
-        { body: { password: gatePassword } }
-      );
+      const ok = await signupRepo.checkSignupGate(gatePassword);
 
-      if (fnError || !data?.ok) {
+      if (!ok) {
         setGateError("Senha incorreta.");
         setGatePassword("");
         return;
@@ -74,11 +73,8 @@ export default function SignupPage() {
 
     setSubdomainStatus("checking");
     const timer = setTimeout(async () => {
-      const [{ data: tenantMatch }, { data: orgMatch }] = await Promise.all([
-        supabase.from("tenants").select("id").eq("subdomain", subdomain).maybeSingle(),
-        supabase.from("organizations").select("id").eq("subdomain", subdomain).maybeSingle(),
-      ]);
-      setSubdomainStatus(tenantMatch || orgMatch ? "taken" : "available");
+      const taken = await signupRepo.isSubdomainTaken(subdomain);
+      setSubdomainStatus(taken ? "taken" : "available");
     }, 500);
 
     return () => clearTimeout(timer);
@@ -107,37 +103,28 @@ export default function SignupPage() {
     let orgId: string | null    = null;
 
     try {
-      const { data: tenantData, error: tenantError } = await supabase
-        .from("tenants")
-        .insert({ name: companyName.trim(), subdomain: `t-${subdomain}` })
-        .select("id")
-        .single();
-
-      if (tenantError || !tenantData) {
-        setError(tenantError?.message ?? "Erro ao reservar subdomínio.");
+      try {
+        tenantId = await signupRepo.createTenant(companyName.trim(), `t-${subdomain}`);
+      } catch (tenantError) {
+        setError((tenantError as { message?: string })?.message ?? "Erro ao reservar subdomínio.");
         setLoading(false);
         return;
       }
-      tenantId = tenantData.id;
 
-      const { data: orgData, error: orgError } = await supabase
-        .from("organizations")
-        .insert({
+      try {
+        orgId = await signupRepo.createTenantOrganization({
           name: companyName.trim(),
           slug: subdomain,
           subdomain,
           tenant_id: tenantId,
-        })
-        .select("id")
-        .single();
-
-      if (orgError || !orgData) {
-        await supabase.from("tenants").delete().eq("id", tenantId);
-        setError(orgError?.message ?? "Erro ao criar organização.");
+        });
+      } catch (orgError) {
+        // Rollback do tenant (erro ignorado como no original)
+        await signupRepo.deleteTenant(tenantId).catch(() => {});
+        setError((orgError as { message?: string })?.message ?? "Erro ao criar organização.");
         setLoading(false);
         return;
       }
-      orgId = orgData.id;
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
@@ -148,41 +135,36 @@ export default function SignupPage() {
       });
 
       if (authError || !authData.user) {
-        await supabase.from("organizations").delete().eq("id", orgId);
-        await supabase.from("tenants").delete().eq("id", tenantId);
+        await deleteOrganization(orgId).catch(() => {});
+        await signupRepo.deleteTenant(tenantId).catch(() => {});
         setError(authError?.message ?? "Erro ao criar conta.");
         setLoading(false);
         return;
       }
 
-      await supabase.from("tenants").update({ owner_id: authData.user.id }).eq("id", tenantId);
-      await supabase.from("organizations").update({ owner_id: authData.user.id }).eq("id", orgId);
-      await supabase.from("profiles").update({ organization_id: orgId }).eq("id", authData.user.id);
+      // Erros abaixo eram ignorados no original — preservado
+      await signupRepo.setTenantOwner(tenantId, authData.user.id).catch(() => {});
+      await signupRepo.setOrganizationOwner(orgId, authData.user.id).catch(() => {});
+      await setProfileOrganization(authData.user.id, orgId).catch(() => {});
 
-      supabase.functions
-        .invoke("notify-signup", {
-          body: {
-            tenantId,
-            tenantName: companyName.trim(),
-            subdomain,
-            ownerEmail: email.trim(),
-            ownerName: name.trim(),
-          },
-        })
-        .catch(() => undefined);
+      signupRepo.notifySignup({
+        tenantId,
+        tenantName: companyName.trim(),
+        subdomain,
+        ownerEmail: email.trim(),
+        ownerName: name.trim(),
+      }).catch(() => undefined);
 
       // 7. Provisiona o subdomínio como custom domain na Vercel
       // (fire-and-forget). SSL é provisionado automaticamente em ~10s.
-      supabase.functions.invoke("tenant-provision-domain", {
-        body: { subdomain },
-      }).catch(() => undefined);
+      signupRepo.provisionTenantDomain(subdomain).catch(() => undefined);
 
       setCreatedSubdomain(subdomain);
       setStep("success");
     } catch (e) {
       logger.error("signup failed, rolling back:", e);
-      if (orgId)    await supabase.from("organizations").delete().eq("id", orgId);
-      if (tenantId) await supabase.from("tenants").delete().eq("id", tenantId);
+      if (orgId)    await deleteOrganization(orgId).catch(() => {});
+      if (tenantId) await signupRepo.deleteTenant(tenantId).catch(() => {});
       setError("Erro inesperado. Tente novamente.");
     } finally {
       setLoading(false);
