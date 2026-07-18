@@ -68,6 +68,29 @@ export async function deleteSequenceStep(id: string): Promise<void> {
 
 // ---- automations (visual builder) e automation_rules (regras básicas) ----
 
+/** masterView = master no subdomínio "master": sem filtro de client_id (RLS permite). */
+export async function listComplexAutomations(
+  clientId: string,
+  masterView = false
+): Promise<Tables<"automations">[]> {
+  let q = supabase.from("automations").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listAutomationRules(
+  clientId: string,
+  masterView = false
+): Promise<Tables<"automation_rules">[]> {
+  let q = supabase.from("automation_rules").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function insertComplexAutomation(
   row: TablesInsert<"automations">
 ): Promise<Tables<"automations"> | null> {

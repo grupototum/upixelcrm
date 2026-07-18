@@ -1,7 +1,6 @@
 import { logger } from "@/lib/logger";
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import * as leadsRepo from "@/services/leads";
 import * as automationsRepo from "@/services/automations";
 import { reassignConversationsToLead } from "@/services/inbox";
@@ -120,54 +119,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id ?? "";
     if (!clientId && !isMasterView) { setLoading(false); return; }
     try {
-      // Em master view, não filtra por client_id — retorna dados de todos os tenants.
-      const withClient = <T extends { eq: (k: string, v: string) => T }>(q: T): T =>
-        isMasterView ? q : q.eq("client_id", clientId);
-
       // FASE 1: estruturas + count rápido (libera UI em ~500ms)
       // Carrega pipelines, columns, tasks, automations e SÓ os column_ids
       // de todos os leads para calcular contagens. UI fica pronta antes
       // de baixar os dados completos dos leads.
+      // Falha em um recurso não derruba os demais (o original checava
+      // res.data por recurso) — por isso o .catch(() => null) individual.
       const PAGE = 1000;
 
-      const [pipeRes, colRes, taskRes, tlRes, autoRes, rulesRes, countRes] = await Promise.all([
-        withClient(supabase.from("pipelines").select("*")).order("name"),
-        withClient(supabase.from("pipeline_columns").select("*")).order("order"),
-        withClient(supabase.from("tasks").select("*")).order("created_at", { ascending: false }).limit(5000),
-        withClient(supabase.from("timeline_events").select("*")).order("created_at", { ascending: false }).limit(100),
-        withClient(supabase.from("automations").select("*")).order("created_at", { ascending: false }),
-        withClient(supabase.from("automation_rules").select("*")).order("created_at", { ascending: false }),
-        withClient(supabase.from("leads").select("*", { count: "exact", head: true })),
+      const [pipeData, colData, taskData, tlData, autoData, rulesData, totalCount] = await Promise.all([
+        leadsRepo.listPipelines(clientId, isMasterView).catch(() => null),
+        leadsRepo.listPipelineColumns(clientId, isMasterView).catch(() => null),
+        leadsRepo.listTasks(clientId, isMasterView).catch(() => null),
+        leadsRepo.listTimelineEvents(clientId, isMasterView).catch(() => null),
+        automationsRepo.listComplexAutomations(clientId, isMasterView).catch(() => null),
+        automationsRepo.listAutomationRules(clientId, isMasterView).catch(() => null),
+        leadsRepo.countLeads(clientId, isMasterView).catch(() => null),
       ]);
 
       // Aplica estruturas imediatamente (CRM já fica navegável)
-      if (pipeRes.data) {
-        setPipelines(pipeRes.data.map(mapPipeline));
-        if (pipeRes.data.length > 0 && !currentPipelineId) {
-          setCurrentPipelineId(pipeRes.data[0].id);
+      if (pipeData) {
+        setPipelines(pipeData.map((p) => mapPipeline(p as unknown as Record<string, unknown>)));
+        if (pipeData.length > 0 && !currentPipelineId) {
+          setCurrentPipelineId(pipeData[0].id);
         }
       }
-      if (colRes.data) setColumns(colRes.data.map(mapColumn));
-      if (taskRes.data) setTasks(taskRes.data.map(mapTask));
-      if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
-      if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
-      if (rulesRes.data) setAutomations(rulesRes.data.map(mapAutomationRule));
+      if (colData) setColumns(colData.map((c) => mapColumn(c as unknown as Record<string, unknown>)));
+      if (taskData) setTasks(taskData.map((t) => mapTask(t as unknown as Record<string, unknown>)));
+      if (tlData) setTimeline(tlData.map((t) => mapTimeline(t as unknown as Record<string, unknown>)));
+      if (autoData) setComplexAutomations(autoData.map((a) => mapComplexAutomation(a as unknown as Record<string, unknown>)));
+      if (rulesData) setAutomations(rulesData.map((r) => mapAutomationRule(r as unknown as Record<string, unknown>)));
 
       // FASE 2: contagens por pipeline via column_id-only (rápido — só UUIDs)
       // Permite mostrar quantos leads tem cada funil ANTES de baixar tudo
-      const total = countRes.count ?? 0;
+      const total = totalCount ?? 0;
       if (total > 0) {
         const colToPipeline = new Map<string, string>();
-        if (colRes.data) {
-          colRes.data.forEach((c: any) => colToPipeline.set(c.id, c.pipeline_id));
+        if (colData) {
+          colData.forEach((c: any) => colToPipeline.set(c.id, c.pipeline_id));
         }
         const counts: Record<string, number> = {};
         const pageCount = Math.ceil(total / PAGE);
         const colIdRequests = Array.from({ length: pageCount }, (_, page) => {
           const from = page * PAGE;
           const to = from + PAGE - 1;
-          return withClient(supabase.from("leads").select("column_id"))
-            .range(from, to);
+          // Página com erro é pulada, como no original
+          return leadsRepo.listLeadColumnIdsPage(clientId, isMasterView, from, to).catch(() => null);
         });
 
         // Paraleliza paginations leves (só column_id)
@@ -175,9 +172,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         for (let i = 0; i < colIdRequests.length; i += BATCH) {
           const batch = colIdRequests.slice(i, i + BATCH);
           const results = await Promise.all(batch);
-          for (const r of results) {
-            if (r.error || !r.data) continue;
-            for (const row of r.data) {
+          for (const rows of results) {
+            if (!rows) continue;
+            for (const row of rows) {
               const cid = (row as any).column_id;
               if (!cid) continue;
               const pid = colToPipeline.get(cid);
@@ -194,7 +191,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // de currentPipelineId, daí o efeito de "sempre volta pro principal").
         const isFirstLoad = !currentPipelineId;
         if (isFirstLoad) {
-          const activePid = pipeRes.data?.[0]?.id ?? "";
+          const activePid = pipeData?.[0]?.id ?? "";
           if (activePid && (counts[activePid] ?? 0) === 0) {
             const bestPid = Object.entries(counts).sort(([, a], [, b]) => b - a)[0]?.[0];
             if (bestPid && bestPid !== activePid) {
@@ -214,9 +211,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const pageRequests = Array.from({ length: pageCount }, (_, page) => {
           const from = page * PAGE;
           const to = from + PAGE - 1;
-          return withClient(supabase.from("leads").select("*"))
-            .order("created_at", { ascending: false })
-            .range(from, to);
+          // Página com erro loga e segue, como no original
+          return leadsRepo.listLeadsPage(clientId, isMasterView, from, to).catch((err) => {
+            logger.error("fetchAllLeads page error:", err);
+            return null;
+          });
         });
 
         const BATCH = 5;
@@ -224,9 +223,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         for (let i = 0; i < pageRequests.length; i += BATCH) {
           const batch = pageRequests.slice(i, i + BATCH);
           const results = await Promise.all(batch);
-          for (const r of results) {
-            if (r.error) { logger.error("fetchAllLeads page error:", r.error); continue; }
-            if (r.data) all.push(...r.data);
+          for (const rows of results) {
+            if (rows) all.push(...rows);
           }
           if (i === 0 && all.length > 0) {
             logger.info("First lead from DB:", { name: all[0].name, custom_fields: all[0].custom_fields });
