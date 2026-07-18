@@ -75,4 +75,14 @@ Roteiro smoke useInbox: abrir inbox, abrir conversa, enviar texto, mudar status,
 **useInbox.ts (I-1..I-5): CONCLUÍDO — PR de merge nesta sessão.** Zero queries diretas restantes no hook — só `supabase.storage` (mídia), `supabase.auth.getSession`, `invokeEdge` e `.channel`/`.removeChannel` (realtime), que ficam no hook por regra do plano (não são repositório de domínio). Repositórios usados: `services/inbox.ts` (conversas/mensagens/ações) e `services/leads.ts` (busca/criação/delete/merge de leads).
 
 **AppContext.tsx (A-1..A-4): NÃO iniciado.** Inventário feito em 2026-07-17: ~38 queries de banco em `pipelines`, `pipeline_columns`, `tasks`, `timeline_events`, `automations`, `automation_rules`, `leads`, espalhadas pelo arquivo (968 linhas). Nenhuma extração feita ainda — próxima sessão parte do zero aqui.
-## Lote 4 — 🟠 Signup/Users/Organization/auth (NUNCA sem OK explícito)
+## Lote 4 — 🟠 Signup/Users/Organization/auth (OK EXPLÍCITO do owner em 2026-07-18, condicionado à resolução do PR #38 — resolvida: merged `cb83d24`)
+
+Regras herdadas + específicas: ZERO mudança de fluxo de auth (signUp/signIn/signOut/sessão continuam com a mesma sequência observável); RLS/policies/config Supabase intocados; 1 movimento = 1 commit com commit-pai; build+lint por movimento; decisão de comportamento em código consumido = pausa e pergunta.
+
+| # | Movimento | Commit-pai | Status | Build | Lint |
+|---|---|---|---|---|---|
+| L4-1 | ProfileSettings + ConversationActions + mentions.ts → services/users (aquecimento, leituras/escritas já existentes no repo) | cb83d24 | pendente | — | — |
+| L4-2 | UsersPage → services/users (CRUD admin de profiles, leitura de organizations, audit_log) | — | pendente | — | — |
+| L4-3 | OrganizationSection → services/users (org create/update, vínculo de profile) | — | pendente | — | — |
+| L4-4 | SignupPage → services (provisionamento: checagem de subdomínio, criação de org, vínculo owner, rollback manual preservado); auth.signUp FICA na página | — | pendente | — | — |
+| L4-5 | Centralização de supabase.auth: AuthContext/lib expõe getSession/getUser; migrar os ~10 arquivos que chamam supabase.auth fora do AuthContext (useInbox ×3, useBroadcast, FB/IG hooks, edge-invoke fica — é lib) | — | pendente | — | — |
