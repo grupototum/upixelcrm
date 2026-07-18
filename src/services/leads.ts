@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { untypedFrom } from "@/lib/supabase-untyped";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { CustomFieldDefinition, Lead, TagMeta } from "@/types";
 
 // Repositório do domínio leads (leads, tags, custom_field_definitions).
@@ -251,4 +252,180 @@ export async function reassignTasksToLead(fromLeadId: string, toLeadId: string):
 export async function reassignNotesToLead(fromLeadId: string, toLeadId: string): Promise<void> {
   const { error } = await untypedFrom("notes").update({ lead_id: toLeadId }).eq("lead_id", fromLeadId);
   if (error) throw error;
+}
+
+/** Move timeline_events de um lead para outro (merge do CRM/AppContext). */
+export async function reassignTimelineToLead(fromLeadId: string, toLeadId: string): Promise<void> {
+  const { error } = await supabase
+    .from("timeline_events")
+    .update({ lead_id: toLeadId })
+    .eq("lead_id", fromLeadId);
+  if (error) throw error;
+}
+
+/** Cria um lead com payload completo e retorna a linha (usado pelo board do CRM). */
+export async function insertLead(row: TablesInsert<"leads">): Promise<Tables<"leads"> | null> {
+  const { data, error } = await supabase.from("leads").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+// ---- carga inicial do board (fetchAll/refreshData do AppContext) ----
+// masterView = usuário master no subdomínio "master": sem filtro de client_id
+// (RLS permite ver todos os tenants). Mesmas queries do fetchAll original.
+
+export async function listPipelines(clientId: string, masterView = false): Promise<Tables<"pipelines">[]> {
+  let q = supabase.from("pipelines").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("name");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listPipelineColumns(
+  clientId: string,
+  masterView = false
+): Promise<Tables<"pipeline_columns">[]> {
+  let q = supabase.from("pipeline_columns").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("order");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listTasks(clientId: string, masterView = false): Promise<Tables<"tasks">[]> {
+  let q = supabase.from("tasks").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(5000);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listTimelineEvents(
+  clientId: string,
+  masterView = false
+): Promise<Tables<"timeline_events">[]> {
+  let q = supabase.from("timeline_events").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(100);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function countLeads(clientId: string, masterView = false): Promise<number> {
+  let q = supabase.from("leads").select("*", { count: "exact", head: true });
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { count, error } = await q;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Página só com column_id (contagem por funil antes de baixar tudo). */
+export async function listLeadColumnIdsPage(
+  clientId: string,
+  masterView: boolean,
+  from: number,
+  to: number
+): Promise<{ column_id: string | null }[]> {
+  let q = supabase.from("leads").select("column_id");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.range(from, to);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Página completa de leads, mais recentes primeiro. */
+export async function listLeadsPage(
+  clientId: string,
+  masterView: boolean,
+  from: number,
+  to: number
+): Promise<Tables<"leads">[]> {
+  let q = supabase.from("leads").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("created_at", { ascending: false }).range(from, to);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// ---- tasks e timeline (CRM) ----
+
+export async function insertTaskReturning(row: TablesInsert<"tasks">): Promise<Tables<"tasks"> | null> {
+  const { data, error } = await supabase.from("tasks").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updateTaskRow(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("tasks").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteTaskById(id: string): Promise<void> {
+  const { error } = await supabase.from("tasks").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function insertTimelineEvent(
+  row: TablesInsert<"timeline_events">
+): Promise<Tables<"timeline_events"> | null> {
+  const { data, error } = await supabase.from("timeline_events").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+// ---- pipelines e colunas (board do CRM) ----
+
+export async function insertPipeline(row: TablesInsert<"pipelines">): Promise<Tables<"pipelines"> | null> {
+  const { data, error } = await supabase.from("pipelines").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updatePipeline(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("pipelines").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deletePipelineById(id: string): Promise<void> {
+  const { error } = await supabase.from("pipelines").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteColumnsByPipeline(pipelineId: string): Promise<void> {
+  const { error } = await supabase.from("pipeline_columns").delete().eq("pipeline_id", pipelineId);
+  if (error) throw error;
+}
+
+export async function insertPipelineColumns(
+  rows: TablesInsert<"pipeline_columns">[]
+): Promise<Tables<"pipeline_columns">[]> {
+  const { data, error } = await supabase.from("pipeline_columns").insert(rows).select();
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function insertPipelineColumn(
+  row: TablesInsert<"pipeline_columns">
+): Promise<Tables<"pipeline_columns"> | null> {
+  const { data, error } = await supabase.from("pipeline_columns").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updatePipelineColumn(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("pipeline_columns").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deletePipelineColumn(id: string): Promise<void> {
+  const { error } = await supabase.from("pipeline_columns").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Todas as colunas visíveis pelo usuário (RLS filtra), ordenadas. */
+export async function listAllPipelineColumns(): Promise<Tables<"pipeline_columns">[]> {
+  const { data, error } = await supabase.from("pipeline_columns").select("*").order("order");
+  if (error) throw error;
+  return data ?? [];
 }

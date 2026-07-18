@@ -1,6 +1,6 @@
 # totum-state.md — Adequação arquitetural por camadas
 
-**Branch:** `claude/upixelcrm-layering-phase-2-b61f6l` · **PR:** #37 (Lotes 1, 2 e fatia I-1 — MERGED em 2026-07-15, squash `906dd5f`) → useInbox (I-2..I-5) mergeado em 2026-07-17 via branch `claude/arch-layers-continue` → **AppContext (A-1..A-4) é o próximo PR, sessão nova**
+**Branch:** `claude/upixelcrm-layering-phase-2-b61f6l` · **PR:** #37 (Lotes 1, 2, I-1 — merged `906dd5f`) → useInbox I-2..I-5 merged em 2026-07-17 via `claude/arch-layers-continue` (#42) → **AppContext A-1..A-4 no PR #38** (reconciliado sobre a main pós-#42 em 2026-07-18; a migração de useInbox feita em paralelo no PR #38 original foi descartada em favor da versão da main)
 **Fase 1 (diagnóstico):** concluída no Cowork em 2026-07-15 (relatório aprovado no prompt da sessão).
 **Fase 2 (plano):** aprovada em 2026-07-15 — 4 lotes; Lote 4 só com OK explícito.
 
@@ -65,10 +65,12 @@ Roteiro smoke useInbox: abrir inbox, abrir conversa, enviar texto, mudar status,
 | I-4 | useInbox: ações de conversa (status/assign/labels) | ✅ `d55bebe` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
 | I-5 | useInbox: criar conversa/transcrição/merge (inbox) | ✅ `95f6605` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
 | I-5 | useInbox: findOrCreateLead/deleteLead/mergeLeads (leads) | ✅ `4109b5f` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
-| A-1 | AppContext: leads/columns/pipelines | pendente | — | — | — |
-| A-2 | AppContext: tasks | — | pendente | — | — | — |
-| A-3 | AppContext: notifications | — | pendente | — | — | — |
-| A-4 | AppContext: refreshData (🚧 gate próprio) | — | pendente | — | — | — |
+| A-1 | AppContext: escritas de leads/pipelines/colunas | ✅ 2026-07-18 (PR #38, reconciliado) | ✅ | ✅ 0 novos | ⏳ consolidado |
+| A-2 | AppContext: tasks + timeline | ✅ 2026-07-18 (PR #38) | ✅ | ✅ 0 novos | ⏳ |
+| A-3 | AppContext: automations (notifications não existe no arquivo) | ✅ 2026-07-18 (PR #38) | ✅ | ✅ 0 novos | ⏳ |
+| A-4 | AppContext: fetchAll/refreshData (gate aberto pelo owner) | ✅ 2026-07-18 (PR #38) | ✅ | ✅ 0 novos | ⏳ |
+
+**AppContext (A-1..A-4): CONCLUÍDO em 2026-07-18** — zero acesso direto ao Supabase (import removido). Estratégia A-4 conservadora: fetchAll mantém assinatura/orquestração em 3 fases; consumidores de refreshData (ImportPage, InboxPage, BulkActionsBar) intocados. Reconciliação pós-#42: funções de useInbox da main venceram (findLeadIdsByPhoneSuffix, insertAutoLead, reassignConversationsToLead em services/inbox etc.); AppContext usa reassignConversationsToLead do services/inbox e ganhou insertLead/insertPipeline/etc. em services/leads. Testes 41/41.
 
 **useInbox.ts (I-1..I-5): CONCLUÍDO — PR de merge nesta sessão.** Zero queries diretas restantes no hook — só `supabase.storage` (mídia), `supabase.auth.getSession`, `invokeEdge` e `.channel`/`.removeChannel` (realtime), que ficam no hook por regra do plano (não são repositório de domínio). Repositórios usados: `services/inbox.ts` (conversas/mensagens/ações) e `services/leads.ts` (busca/criação/delete/merge de leads).
 

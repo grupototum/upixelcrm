@@ -1,7 +1,9 @@
 import { logger } from "@/lib/logger";
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as leadsRepo from "@/services/leads";
+import * as automationsRepo from "@/services/automations";
+import { reassignConversationsToLead } from "@/services/inbox";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
@@ -117,54 +119,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id ?? "";
     if (!clientId && !isMasterView) { setLoading(false); return; }
     try {
-      // Em master view, não filtra por client_id — retorna dados de todos os tenants.
-      const withClient = <T extends { eq: (k: string, v: string) => T }>(q: T): T =>
-        isMasterView ? q : q.eq("client_id", clientId);
-
       // FASE 1: estruturas + count rápido (libera UI em ~500ms)
       // Carrega pipelines, columns, tasks, automations e SÓ os column_ids
       // de todos os leads para calcular contagens. UI fica pronta antes
       // de baixar os dados completos dos leads.
+      // Falha em um recurso não derruba os demais (o original checava
+      // res.data por recurso) — por isso o .catch(() => null) individual.
       const PAGE = 1000;
 
-      const [pipeRes, colRes, taskRes, tlRes, autoRes, rulesRes, countRes] = await Promise.all([
-        withClient(supabase.from("pipelines").select("*")).order("name"),
-        withClient(supabase.from("pipeline_columns").select("*")).order("order"),
-        withClient(supabase.from("tasks").select("*")).order("created_at", { ascending: false }).limit(5000),
-        withClient(supabase.from("timeline_events").select("*")).order("created_at", { ascending: false }).limit(100),
-        withClient(supabase.from("automations").select("*")).order("created_at", { ascending: false }),
-        withClient(supabase.from("automation_rules").select("*")).order("created_at", { ascending: false }),
-        withClient(supabase.from("leads").select("*", { count: "exact", head: true })),
+      const [pipeData, colData, taskData, tlData, autoData, rulesData, totalCount] = await Promise.all([
+        leadsRepo.listPipelines(clientId, isMasterView).catch(() => null),
+        leadsRepo.listPipelineColumns(clientId, isMasterView).catch(() => null),
+        leadsRepo.listTasks(clientId, isMasterView).catch(() => null),
+        leadsRepo.listTimelineEvents(clientId, isMasterView).catch(() => null),
+        automationsRepo.listComplexAutomations(clientId, isMasterView).catch(() => null),
+        automationsRepo.listAutomationRules(clientId, isMasterView).catch(() => null),
+        leadsRepo.countLeads(clientId, isMasterView).catch(() => null),
       ]);
 
       // Aplica estruturas imediatamente (CRM já fica navegável)
-      if (pipeRes.data) {
-        setPipelines(pipeRes.data.map(mapPipeline));
-        if (pipeRes.data.length > 0 && !currentPipelineId) {
-          setCurrentPipelineId(pipeRes.data[0].id);
+      if (pipeData) {
+        setPipelines(pipeData.map((p) => mapPipeline(p as unknown as Record<string, unknown>)));
+        if (pipeData.length > 0 && !currentPipelineId) {
+          setCurrentPipelineId(pipeData[0].id);
         }
       }
-      if (colRes.data) setColumns(colRes.data.map(mapColumn));
-      if (taskRes.data) setTasks(taskRes.data.map(mapTask));
-      if (tlRes.data) setTimeline(tlRes.data.map(mapTimeline));
-      if (autoRes.data) setComplexAutomations(autoRes.data.map(mapComplexAutomation));
-      if (rulesRes.data) setAutomations(rulesRes.data.map(mapAutomationRule));
+      if (colData) setColumns(colData.map((c) => mapColumn(c as unknown as Record<string, unknown>)));
+      if (taskData) setTasks(taskData.map((t) => mapTask(t as unknown as Record<string, unknown>)));
+      if (tlData) setTimeline(tlData.map((t) => mapTimeline(t as unknown as Record<string, unknown>)));
+      if (autoData) setComplexAutomations(autoData.map((a) => mapComplexAutomation(a as unknown as Record<string, unknown>)));
+      if (rulesData) setAutomations(rulesData.map((r) => mapAutomationRule(r as unknown as Record<string, unknown>)));
 
       // FASE 2: contagens por pipeline via column_id-only (rápido — só UUIDs)
       // Permite mostrar quantos leads tem cada funil ANTES de baixar tudo
-      const total = countRes.count ?? 0;
+      const total = totalCount ?? 0;
       if (total > 0) {
         const colToPipeline = new Map<string, string>();
-        if (colRes.data) {
-          colRes.data.forEach((c: any) => colToPipeline.set(c.id, c.pipeline_id));
+        if (colData) {
+          colData.forEach((c: any) => colToPipeline.set(c.id, c.pipeline_id));
         }
         const counts: Record<string, number> = {};
         const pageCount = Math.ceil(total / PAGE);
         const colIdRequests = Array.from({ length: pageCount }, (_, page) => {
           const from = page * PAGE;
           const to = from + PAGE - 1;
-          return withClient(supabase.from("leads").select("column_id"))
-            .range(from, to);
+          // Página com erro é pulada, como no original
+          return leadsRepo.listLeadColumnIdsPage(clientId, isMasterView, from, to).catch(() => null);
         });
 
         // Paraleliza paginations leves (só column_id)
@@ -172,9 +172,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         for (let i = 0; i < colIdRequests.length; i += BATCH) {
           const batch = colIdRequests.slice(i, i + BATCH);
           const results = await Promise.all(batch);
-          for (const r of results) {
-            if (r.error || !r.data) continue;
-            for (const row of r.data) {
+          for (const rows of results) {
+            if (!rows) continue;
+            for (const row of rows) {
               const cid = (row as any).column_id;
               if (!cid) continue;
               const pid = colToPipeline.get(cid);
@@ -191,7 +191,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // de currentPipelineId, daí o efeito de "sempre volta pro principal").
         const isFirstLoad = !currentPipelineId;
         if (isFirstLoad) {
-          const activePid = pipeRes.data?.[0]?.id ?? "";
+          const activePid = pipeData?.[0]?.id ?? "";
           if (activePid && (counts[activePid] ?? 0) === 0) {
             const bestPid = Object.entries(counts).sort(([, a], [, b]) => b - a)[0]?.[0];
             if (bestPid && bestPid !== activePid) {
@@ -211,9 +211,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const pageRequests = Array.from({ length: pageCount }, (_, page) => {
           const from = page * PAGE;
           const to = from + PAGE - 1;
-          return withClient(supabase.from("leads").select("*"))
-            .order("created_at", { ascending: false })
-            .range(from, to);
+          // Página com erro loga e segue, como no original
+          return leadsRepo.listLeadsPage(clientId, isMasterView, from, to).catch((err) => {
+            logger.error("fetchAllLeads page error:", err);
+            return null;
+          });
         });
 
         const BATCH = 5;
@@ -221,9 +223,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         for (let i = 0; i < pageRequests.length; i += BATCH) {
           const batch = pageRequests.slice(i, i + BATCH);
           const results = await Promise.all(batch);
-          for (const r of results) {
-            if (r.error) { logger.error("fetchAllLeads page error:", r.error); continue; }
-            if (r.data) all.push(...r.data);
+          for (const rows of results) {
+            if (rows) all.push(...rows);
           }
           if (i === 0 && all.length > 0) {
             logger.info("First lead from DB:", { name: all[0].name, custom_fields: all[0].custom_fields });
@@ -251,14 +252,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const addTimelineEvent = useCallback(async (event: Omit<TimelineEvent, "id" | "created_at">) => {
-    const { data, error } = await supabase.from("timeline_events").insert({
-      lead_id: event.lead_id || null,
-      type: event.type,
-      content: event.content,
-      user_name: event.user_name,
-    }).select().single();
-    if (error) { logger.error(error); return; }
-    if (data) setTimeline((prev) => [mapTimeline(data), ...prev]);
+    let data: Awaited<ReturnType<typeof leadsRepo.insertTimelineEvent>>;
+    try {
+      data = await leadsRepo.insertTimelineEvent({
+        lead_id: event.lead_id || null,
+        type: event.type,
+        content: event.content,
+        user_name: event.user_name,
+      });
+    } catch (error) {
+      logger.error(error); return;
+    }
+    if (data) setTimeline((prev) => [mapTimeline(data as unknown as Record<string, unknown>), ...prev]);
   }, []);
 
   const updateLead = useCallback(async (id: string, data: Partial<Lead>) => {
@@ -276,8 +281,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.notes_local !== undefined) updateData.notes_local = data.notes_local || null;
     if (data.custom_fields !== undefined) updateData.custom_fields = data.custom_fields || {};
 
-    const { error } = await supabase.from("leads").update(updateData).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar lead"); return; }
+    try {
+      await leadsRepo.updateLead(id, updateData);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar lead"); return;
+    }
 
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, ...data, updated_at: new Date().toISOString() } : l));
 
@@ -285,16 +293,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [addTimelineEvent]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
-    const { data: row, error } = await supabase.from("tasks").insert({
-      title: data.title ?? "",
-      lead_id: data.lead_id || null,
-      due_date: data.due_date || null,
-      assigned_to: data.assigned_to || "Você",
-      description: data.description || null,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar tarefa"); return null; }
-    const newTask = mapTask(row);
+    let row: Awaited<ReturnType<typeof leadsRepo.insertTaskReturning>>;
+    try {
+      row = await leadsRepo.insertTaskReturning({
+        title: data.title ?? "",
+        lead_id: data.lead_id || null,
+        due_date: data.due_date || null,
+        assigned_to: data.assigned_to || "Você",
+        description: data.description || null,
+      });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar tarefa"); return null;
+    }
+    const newTask = mapTask(row as unknown as Record<string, unknown>);
     setTasks((prev) => [newTask, ...prev]);
 
     if (newTask.lead_id) {
@@ -320,8 +331,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Optimistic update
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: toColumnId, updated_at: new Date().toISOString() } : l));
 
-    const { error } = await supabase.from("leads").update({ column_id: toColumnId }).eq("id", id);
-    if (error) {
+    try {
+      await leadsRepo.updateLead(id, { column_id: toColumnId });
+    } catch (error) {
       logger.error(error);
       // Rollback
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
@@ -360,8 +372,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Optimistic update
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: firstColumnOfNewPipeline.id, updated_at: new Date().toISOString() } : l));
 
-    const { error } = await supabase.from("leads").update({ column_id: firstColumnOfNewPipeline.id }).eq("id", id);
-    if (error) {
+    try {
+      await leadsRepo.updateLead(id, { column_id: firstColumnOfNewPipeline.id });
+    } catch (error) {
       logger.error(error);
       // Rollback
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
@@ -383,33 +396,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return null; }
 
-    const { data: row, error } = await supabase.from("leads").insert({
-      name: data.name ?? "",
-      phone: data.phone || null,
-      email: data.email || null,
-      company: data.company || null,
-      position: data.position || null,
-      city: data.city || null,
-      origin: data.origin || "Manual",
-      tags: data.tags ?? [],
-      column_id: columnId,
-      value: data.value ?? null,
-      client_id: clientId,
-      utm_source: data.utm_source || null,
-      utm_medium: data.utm_medium || null,
-      utm_campaign: data.utm_campaign || null,
-      utm_content: data.utm_content || null,
-      utm_term: data.utm_term || null,
-      ad_campaign_id: data.ad_campaign_id || null,
-      ad_adset_id: data.ad_adset_id || null,
-      ad_id: data.ad_id || null,
-      fbclid: data.fbclid || null,
-      gclid: data.gclid || null,
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar lead"); return null; }
-    const newLead = mapLead(row);
+    let row: Awaited<ReturnType<typeof leadsRepo.insertLead>>;
+    try {
+      row = await leadsRepo.insertLead({
+        name: data.name ?? "",
+        phone: data.phone || null,
+        email: data.email || null,
+        company: data.company || null,
+        position: data.position || null,
+        city: data.city || null,
+        origin: data.origin || "Manual",
+        tags: data.tags ?? [],
+        column_id: columnId,
+        value: data.value ?? null,
+        client_id: clientId,
+        utm_source: data.utm_source || null,
+        utm_medium: data.utm_medium || null,
+        utm_campaign: data.utm_campaign || null,
+        utm_content: data.utm_content || null,
+        utm_term: data.utm_term || null,
+        ad_campaign_id: data.ad_campaign_id || null,
+        ad_adset_id: data.ad_adset_id || null,
+        ad_id: data.ad_id || null,
+        fbclid: data.fbclid || null,
+        gclid: data.gclid || null,
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar lead"); return null;
+    }
+    const newLead = mapLead(row as unknown as Record<string, unknown>);
     setLeads((prev) => [newLead, ...prev]);
 
     await addTimelineEvent({
@@ -432,8 +448,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
   const deleteLead = useCallback(async (id: string) => {
-    const { error } = await supabase.from("leads").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir lead"); return; }
+    try {
+      await leadsRepo.bulkDeleteLeads([id]);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir lead"); return;
+    }
     setLeads((prev) => prev.filter((l) => l.id !== id));
     setTasks((prev) => prev.filter((t) => t.lead_id !== id));
     toast.success("Lead excluído");
@@ -441,17 +460,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
     try {
-      const { error: convError } = await supabase
-        .from("conversations")
-        .update({ lead_id: targetLeadId })
-        .eq("lead_id", sourceLeadId);
-      if (convError) throw convError;
+      // Erro em conversations aborta, como no original
+      await reassignConversationsToLead(sourceLeadId, targetLeadId);
 
-      await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
-      await supabase.from("timeline_events").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      // Erros em tasks/timeline eram ignorados no original — preservado
+      await leadsRepo.reassignTasksToLead(sourceLeadId, targetLeadId).catch(() => {});
+      await leadsRepo.reassignTimelineToLead(sourceLeadId, targetLeadId).catch(() => {});
 
-      const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);
-      if (deleteError) throw deleteError;
+      await leadsRepo.bulkDeleteLeads([sourceLeadId]);
 
       setLeads((prev) => prev.filter((l) => l.id !== sourceLeadId));
       toast.success("Leads mesclados com sucesso.");
@@ -462,14 +478,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
-    const { error } = await supabase.from("tasks").update(data).eq("id", id);
-    if (error) { logger.error(error); return; }
+    try {
+      await leadsRepo.updateTaskRow(id, data);
+    } catch (error) {
+      logger.error(error); return;
+    }
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, ...data } : t));
   }, []);
 
   const deleteTask = useCallback(async (id: string) => {
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir tarefa"); return; }
+    try {
+      await leadsRepo.deleteTaskById(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir tarefa"); return;
+    }
     setTasks((prev) => prev.filter((t) => t.id !== id));
     toast.success("Tarefa excluída");
   }, []);
@@ -481,8 +503,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: newStatus } : t));
 
-    const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
-    if (error) {
+    try {
+      await leadsRepo.updateTaskRow(id, { status: newStatus });
+    } catch (error) {
       logger.error(error);
       setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: task.status } : t));
     }
@@ -492,46 +515,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
-    const { data: row, error } = await supabase.from("pipelines").insert({
-      name,
-      client_id: clientId,
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar funil"); return; }
+    let row: Awaited<ReturnType<typeof leadsRepo.insertPipeline>>;
+    try {
+      row = await leadsRepo.insertPipeline({ name, client_id: clientId, ...tenantIdForInsert });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar funil"); return;
+    }
     if (row) {
-      const newPipe = mapPipeline(row);
+      const newPipe = mapPipeline(row as unknown as Record<string, unknown>);
       setPipelines((prev) => [...prev, newPipe]);
       setCurrentPipelineId(newPipe.id);
-      
-      // Criar colunas padrão para o novo funil
+
+      // Criar colunas padrão para o novo funil (erro era ignorado no original — preservado)
       const defaultCols = [
         { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
         { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
         { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
       ];
-      
-      const { data: colRows } = await supabase.from("pipeline_columns").insert(defaultCols).select();
-      if (colRows) setColumns((prev) => [...prev, ...colRows.map(mapColumn)]);
-      
+
+      const colRows = await leadsRepo.insertPipelineColumns(defaultCols).catch(() => null);
+      if (colRows) setColumns((prev) => [...prev, ...colRows.map((c) => mapColumn(c as unknown as Record<string, unknown>))]);
+
       toast.success("Funil criado com sucesso");
     }
   }, [user?.client_id, tenant?.id, tenantIdForInsert]);
 
   const updatePipeline = useCallback(async (id: string, data: Partial<Pipeline>) => {
-    const { error } = await supabase.from("pipelines").update(data).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar funil"); return; }
+    try {
+      await leadsRepo.updatePipeline(id, data);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar funil"); return;
+    }
     setPipelines((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p));
     toast.success("Funil atualizado");
   }, []);
 
   const deletePipeline = useCallback(async (id: string) => {
-    // Delete columns first to be safe (cascade should handle this but let's be explicitly)
-    const { error: colError } = await supabase.from("pipeline_columns").delete().eq("pipeline_id", id);
-    if (colError) { logger.error(colError); }
+    // Delete columns first to be safe (cascade should handle this but let's be explicitly).
+    // Erro só era logado no original — preservado
+    await leadsRepo.deleteColumnsByPipeline(id).catch((colError) => { logger.error(colError); });
 
-    const { error } = await supabase.from("pipelines").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir funil"); return; }
+    try {
+      await leadsRepo.deletePipelineById(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir funil"); return;
+    }
 
     setPipelines((prev) => {
       const filtered = prev.filter((p) => p.id !== id);
@@ -554,30 +582,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pipelineCols = columns.filter(c => c.pipeline_id === currentPipelineId);
     const maxOrder = pipelineCols.length > 0 ? Math.max(...pipelineCols.map(c => c.order)) : -1;
 
-    const { data: row, error } = await supabase.from("pipeline_columns").insert({
-      name,
-      color,
-      order: maxOrder + 1,
-      pipeline_id: currentPipelineId,
-      client_id: clientId,
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar coluna: " + error.message); return; }
-    if (row) setColumns((prev) => [...prev, mapColumn(row)]);
+    let row: Awaited<ReturnType<typeof leadsRepo.insertPipelineColumn>>;
+    try {
+      row = await leadsRepo.insertPipelineColumn({
+        name,
+        color,
+        order: maxOrder + 1,
+        pipeline_id: currentPipelineId,
+        client_id: clientId,
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
+      logger.error(error);
+      toast.error("Erro ao criar coluna: " + ((error as { message?: string })?.message ?? ""));
+      return;
+    }
+    if (row) setColumns((prev) => [...prev, mapColumn(row as unknown as Record<string, unknown>)]);
     toast.success("Coluna criada");
   }, [columns, currentPipelineId, tenant?.id, tenantIdForInsert, user?.client_id]);
 
   const updateColumn = useCallback(async (id: string, data: Partial<PipelineColumn>) => {
-    const { error } = await supabase.from("pipeline_columns").update(data).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar coluna"); return; }
+    try {
+      await leadsRepo.updatePipelineColumn(id, data);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar coluna"); return;
+    }
     setColumns((prev) => prev.map((c) => c.id === id ? { ...c, ...data } : c));
     toast.success("Coluna atualizada");
   }, []);
 
   const deleteColumn = useCallback(async (id: string) => {
-    const { error } = await supabase.from("pipeline_columns").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir coluna"); return; }
+    try {
+      await leadsRepo.deletePipelineColumn(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir coluna"); return;
+    }
     setColumns((prev) => prev.filter((c) => c.id !== id));
     toast.success("Coluna removida");
   }, []);
@@ -595,17 +634,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
 
     // Persiste: 1 UPDATE por coluna. Pra >20 colunas considerar batch RPC.
-    const updates = orderedIds.map((id, idx) =>
-      supabase.from("pipeline_columns").update({ order: idx }).eq("id", id),
+    const results = await Promise.allSettled(
+      orderedIds.map((id, idx) => leadsRepo.updatePipelineColumn(id, { order: idx })),
     );
-    const results = await Promise.all(updates);
-    const failed = results.find((r) => r.error);
+    const failed = results.find((r) => r.status === "rejected");
     if (failed) {
-      logger.error("Erro ao reordenar colunas:", failed.error);
+      logger.error("Erro ao reordenar colunas:", (failed as PromiseRejectedResult).reason);
       toast.error("Erro ao salvar nova ordem. Recarregando...");
-      // Força refetch pra restaurar estado consistente
-      const { data } = await supabase.from("pipeline_columns").select("*").order("order");
-      if (data) setColumns(data.map(mapColumn));
+      // Força refetch pra restaurar estado consistente (erro ignorado como no original)
+      const data = await leadsRepo.listAllPipelineColumns().catch(() => null);
+      if (data) setColumns(data.map((c) => mapColumn(c as unknown as Record<string, unknown>)));
       return;
     }
   }, []);
@@ -617,23 +655,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    const { data: row, error } = await supabase.from("automations").insert({
-      client_id: clientId,
-      name,
-      status: "draft",
-      nodes: [],
-      edges: [],
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) {
+    let row: Awaited<ReturnType<typeof automationsRepo.insertComplexAutomation>>;
+    try {
+      row = await automationsRepo.insertComplexAutomation({
+        client_id: clientId,
+        name,
+        status: "draft",
+        nodes: [],
+        edges: [],
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
       logger.error(error);
-      const detail = (error as any)?.message || (error as any)?.details || "Tente novamente.";
+      const e = error as { message?: string; details?: string };
+      const detail = e?.message || e?.details || "Tente novamente.";
       toast.error(`Erro ao criar fluxo: ${detail}`);
       return null;
     }
     if (row) {
-      const newAuto = mapComplexAutomation(row);
+      const newAuto = mapComplexAutomation(row as unknown as Record<string, unknown>);
       setComplexAutomations(prev => [newAuto, ...prev]);
       return newAuto.id;
     }
@@ -643,18 +683,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
     
-    const { error } = await supabase.from("automations").update({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      nodes: nodes as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      edges: edges as any,
-      updated_at: new Date().toISOString()
-    }).eq("id", id);
-
-    if (error) {
-       logger.error(error); toast.error("Erro ao salvar fluxo"); 
-    } else {
-       toast.success("Fluxo salvo com sucesso!");
+    try {
+      await automationsRepo.updateComplexAutomation(id, {
+        nodes,
+        edges,
+        updated_at: new Date().toISOString(),
+      });
+      toast.success("Fluxo salvo com sucesso!");
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao salvar fluxo");
     }
   }, []);
 
@@ -665,19 +702,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
     
-    const { error } = await supabase.from("automations").update({ status: newStatus }).eq("id", id);
-    if (error) {
+    try {
+      await automationsRepo.updateComplexAutomation(id, { status: newStatus });
+      toast.success("Fluxo " + (newStatus === 'active' ? "Ativado" : "Desativado"));
+    } catch (error) {
       logger.error(error);
       setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: auto.status } : a));
       toast.error("Erro ao alterar status do fluxo");
-    } else {
-      toast.success("Fluxo " + (newStatus === 'active' ? "Ativado" : "Desativado"));
     }
   }, [complexAutomations]);
 
   const deleteAutomation = useCallback(async (id: string) => {
-    const { error } = await supabase.from("automations").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir"); return; }
+    try {
+      await automationsRepo.deleteComplexAutomation(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir"); return;
+    }
     setComplexAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação excluída");
   }, []);
@@ -686,22 +726,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const rule = automations.find(a => a.id === id);
     if (!rule) return;
     const newStatus = !rule.active;
-    
+
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: newStatus } : a));
-    
-    const { error } = await supabase.from("automation_rules").update({ active: newStatus }).eq("id", id);
-    if (error) {
+
+    try {
+      await automationsRepo.updateAutomationRule(id, { active: newStatus });
+      toast.success("Automação " + (newStatus ? "ativada" : "desativada"));
+    } catch (error) {
       logger.error(error);
       setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: rule.active } : a));
       toast.error("Erro ao atualizar automação");
-    } else {
-      toast.success("Automação " + (newStatus ? "ativada" : "desativada"));
     }
   }, [automations]);
 
   const deleteBasicAutomation = useCallback(async (id: string) => {
-    const { error } = await supabase.from("automation_rules").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir"); return; }
+    try {
+      await automationsRepo.deleteAutomationRule(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir"); return;
+    }
     setAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação removida");
   }, []);
@@ -710,20 +753,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
-    const { data: row, error } = await supabase.from("automation_rules").insert({
-      client_id: clientId,
-      pipeline_id: data.pipeline_id || currentPipelineId || null,
-      column_id: data.column_id || null,
-      name: data.name || "Nova Automação",
-      active: true,
-      trigger: (data.trigger as any) || { type: "card_entered" },
-      actions: (data.actions as any) || [],
-      exceptions: (data.exceptions as any) || [],
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar automação"); return; }
-    if (row) setAutomations(prev => [mapAutomationRule(row), ...prev]);
+    let row: Awaited<ReturnType<typeof automationsRepo.insertAutomationRule>>;
+    try {
+      row = await automationsRepo.insertAutomationRule({
+        client_id: clientId,
+        pipeline_id: data.pipeline_id || currentPipelineId || null,
+        column_id: data.column_id || null,
+        name: data.name || "Nova Automação",
+        active: true,
+        trigger: (data.trigger as any) || { type: "card_entered" },
+        actions: (data.actions as any) || [],
+        exceptions: (data.exceptions as any) || [],
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar automação"); return;
+    }
+    if (row) setAutomations(prev => [mapAutomationRule(row as unknown as Record<string, unknown>), ...prev]);
     toast.success("Automação criada!");
   }, [currentPipelineId, user?.client_id, tenant?.id, tenantIdForInsert]);
 
@@ -736,9 +782,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.exceptions !== undefined) updateData.exceptions = data.exceptions;
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
 
-    const { error } = await supabase.from("automation_rules").update(updateData).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar automação"); return; }
-    
+    try {
+      await automationsRepo.updateAutomationRule(id, updateData);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar automação"); return;
+    }
+
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
     toast.success("Automação salva!");
   }, []);
@@ -826,13 +875,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (n: any) => n.type === "trigger" && complexEventTypes.includes(n.data?.type ?? n.data?.configType)
       );
       for (const trigger of triggerNodes) {
-        supabase.functions.invoke("automation-engine", {
-          body: {
-            automation_id: auto.id,
-            lead_id: leadId,
-            node_id: trigger.id,
-            context: columnId ? { column_id: columnId } : {},
-          },
+        automationsRepo.triggerAutomationEngine({
+          automation_id: auto.id,
+          lead_id: leadId,
+          node_id: trigger.id,
+          context: columnId ? { column_id: columnId } : {},
         }).catch((err: any) => logger.error("Complex automation trigger error:", err));
       }
     }

@@ -66,6 +66,81 @@ export async function deleteSequenceStep(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---- automations (visual builder) e automation_rules (regras básicas) ----
+
+/** masterView = master no subdomínio "master": sem filtro de client_id (RLS permite). */
+export async function listComplexAutomations(
+  clientId: string,
+  masterView = false
+): Promise<Tables<"automations">[]> {
+  let q = supabase.from("automations").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listAutomationRules(
+  clientId: string,
+  masterView = false
+): Promise<Tables<"automation_rules">[]> {
+  let q = supabase.from("automation_rules").select("*");
+  if (!masterView) q = q.eq("client_id", clientId);
+  const { data, error } = await q.order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function insertComplexAutomation(
+  row: TablesInsert<"automations">
+): Promise<Tables<"automations"> | null> {
+  const { data, error } = await supabase.from("automations").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updateComplexAutomation(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("automations").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteComplexAutomation(id: string): Promise<void> {
+  const { error } = await supabase.from("automations").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function insertAutomationRule(
+  row: TablesInsert<"automation_rules">
+): Promise<Tables<"automation_rules"> | null> {
+  const { data, error } = await supabase.from("automation_rules").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updateAutomationRule(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("automation_rules").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteAutomationRule(id: string): Promise<void> {
+  const { error } = await supabase.from("automation_rules").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Dispara a edge automation-engine (fire-and-forget). Usa
+ * supabase.functions.invoke direto, sem refresh de sessão — mesmo
+ * comportamento do código original no AppContext.
+ */
+export function triggerAutomationEngine(body: {
+  automation_id: string;
+  lead_id: string;
+  node_id: string;
+  context: Record<string, unknown>;
+}): Promise<unknown> {
+  return supabase.functions.invoke("automation-engine", { body });
+}
+
 // ---- automation_runs ----
 
 /** Runs de uma automação com nome/telefone do lead embutidos. */
