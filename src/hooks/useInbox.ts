@@ -24,6 +24,10 @@ import {
   updateConversationLastMessage,
   updateConversationsStatus,
   updateConversationMetadata,
+  insertConversation,
+  getMessageContentMeta,
+  updateMessageMetadata,
+  reassignConversationsToLead,
 } from "@/services/inbox";
 
 export interface LeadConversation {
@@ -756,22 +760,23 @@ export function useInbox(onLeadCreated?: () => void) {
       resolvedLeadId = await findOrCreateLead(phone, email, leadName);
     }
 
-    const { data, error } = await supabase.from("conversations").insert({
-      channel,
-      lead_id: resolvedLeadId,
-      status: "open",
-      client_id: clientId,
-      metadata: { phone, email, lead_name: leadName },
-    }).select("id").single();
-
-    if (error) {
+    let data: { id: string };
+    try {
+      data = await insertConversation({
+        channel,
+        lead_id: resolvedLeadId,
+        status: "open",
+        client_id: clientId,
+        metadata: { phone, email, lead_name: leadName },
+      });
+    } catch {
       toast.error("Erro ao criar conversa.");
       return null;
     }
 
     await loadConversations();
     if (resolvedLeadId) selectLead(resolvedLeadId);
-    return data?.id;
+    return data.id;
   }, [loadConversations, findOrCreateLead, selectLead, clientId]);
 
   // Initial load
@@ -919,11 +924,8 @@ export function useInbox(onLeadCreated?: () => void) {
   // Transcribe an audio message via AI
   const transcribeAudio = useCallback(async (messageId: string) => {
     try {
-      const { data: msg } = await supabase
-        .from("messages")
-        .select("content, metadata")
-        .eq("id", messageId)
-        .single();
+      // Erro no fetch era ignorado no original (msg undefined) — preservado
+      const msg = await getMessageContentMeta(messageId).catch(() => null);
 
       if (!msg?.content) throw new Error("Áudio não encontrado");
 
@@ -940,7 +942,8 @@ export function useInbox(onLeadCreated?: () => void) {
       if (!transcript) throw new Error("Transcrição vazia");
 
       const newMeta = { ...((msg.metadata as Record<string, unknown> | null) || {}), transcript };
-      await supabase.from("messages").update({ metadata: newMeta }).eq("id", messageId);
+      // Erro no update era ignorado no original — preservado
+      await updateMessageMetadata(messageId, newMeta).catch(() => {});
 
       setMessages(prev =>
         prev.map(m => m.id === messageId ? { ...m, metadata: newMeta } : m)
@@ -955,11 +958,7 @@ export function useInbox(onLeadCreated?: () => void) {
   const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
     try {
       // 1. Move conversations
-      const { error: convError } = await supabase
-        .from("conversations")
-        .update({ lead_id: targetLeadId })
-        .eq("lead_id", sourceLeadId);
-      if (convError) throw convError;
+      await reassignConversationsToLead(sourceLeadId, targetLeadId);
 
       // 2. Move tasks
       await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);

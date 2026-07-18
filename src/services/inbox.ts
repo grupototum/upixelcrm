@@ -160,6 +160,50 @@ export async function updateConversationMetadata(
   if (error) throw error;
 }
 
+// ---- criar conversa / transcrição / merge (inbox) ----
+
+/** Cria uma conversa e retorna o id. Lança em erro. */
+export async function insertConversation(
+  row: TablesInsert<"conversations">,
+): Promise<{ id: string }> {
+  const { data, error } = await supabase.from("conversations").insert(row).select("id").single();
+  if (error) throw error;
+  return data;
+}
+
+/** content/metadata de uma mensagem (usado na transcrição). Lança em erro. */
+export async function getMessageContentMeta(
+  messageId: string,
+): Promise<Pick<Tables<"messages">, "content" | "metadata"> | null> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("content, metadata")
+    .eq("id", messageId)
+    .single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updateMessageMetadata(
+  messageId: string,
+  metadata: TablesUpdate<"messages">["metadata"],
+): Promise<void> {
+  const { error } = await supabase.from("messages").update({ metadata }).eq("id", messageId);
+  if (error) throw error;
+}
+
+/** Move todas as conversas de um lead para outro (passo do merge). Lança em erro. */
+export async function reassignConversationsToLead(
+  fromLeadId: string,
+  toLeadId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("conversations")
+    .update({ lead_id: toLeadId })
+    .eq("lead_id", fromLeadId);
+  if (error) throw error;
+}
+
 // ---- inbox_templates (respostas rápidas) ----
 
 export async function listInboxTemplates(clientId: string): Promise<Tables<"inbox_templates">[]> {
