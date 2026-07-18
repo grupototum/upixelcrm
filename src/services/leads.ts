@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { untypedFrom } from "@/lib/supabase-untyped";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { CustomFieldDefinition, Lead, TagMeta } from "@/types";
 
 // Repositório do domínio leads (leads, tags, custom_field_definitions).
@@ -251,4 +252,76 @@ export async function reassignTasksToLead(fromLeadId: string, toLeadId: string):
 export async function reassignNotesToLead(fromLeadId: string, toLeadId: string): Promise<void> {
   const { error } = await untypedFrom("notes").update({ lead_id: toLeadId }).eq("lead_id", fromLeadId);
   if (error) throw error;
+}
+
+/** Move timeline_events de um lead para outro (merge do CRM/AppContext). */
+export async function reassignTimelineToLead(fromLeadId: string, toLeadId: string): Promise<void> {
+  const { error } = await supabase
+    .from("timeline_events")
+    .update({ lead_id: toLeadId })
+    .eq("lead_id", fromLeadId);
+  if (error) throw error;
+}
+
+/** Cria um lead com payload completo e retorna a linha (usado pelo board do CRM). */
+export async function insertLead(row: TablesInsert<"leads">): Promise<Tables<"leads"> | null> {
+  const { data, error } = await supabase.from("leads").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+// ---- pipelines e colunas (board do CRM) ----
+
+export async function insertPipeline(row: TablesInsert<"pipelines">): Promise<Tables<"pipelines"> | null> {
+  const { data, error } = await supabase.from("pipelines").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updatePipeline(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("pipelines").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deletePipelineById(id: string): Promise<void> {
+  const { error } = await supabase.from("pipelines").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteColumnsByPipeline(pipelineId: string): Promise<void> {
+  const { error } = await supabase.from("pipeline_columns").delete().eq("pipeline_id", pipelineId);
+  if (error) throw error;
+}
+
+export async function insertPipelineColumns(
+  rows: TablesInsert<"pipeline_columns">[]
+): Promise<Tables<"pipeline_columns">[]> {
+  const { data, error } = await supabase.from("pipeline_columns").insert(rows).select();
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function insertPipelineColumn(
+  row: TablesInsert<"pipeline_columns">
+): Promise<Tables<"pipeline_columns"> | null> {
+  const { data, error } = await supabase.from("pipeline_columns").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updatePipelineColumn(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("pipeline_columns").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deletePipelineColumn(id: string): Promise<void> {
+  const { error } = await supabase.from("pipeline_columns").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Todas as colunas visíveis pelo usuário (RLS filtra), ordenadas. */
+export async function listAllPipelineColumns(): Promise<Tables<"pipeline_columns">[]> {
+  const { data, error } = await supabase.from("pipeline_columns").select("*").order("order");
+  if (error) throw error;
+  return data ?? [];
 }

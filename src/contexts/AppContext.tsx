@@ -2,6 +2,8 @@ import { logger } from "@/lib/logger";
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import * as leadsRepo from "@/services/leads";
+import { reassignConversationsToLead } from "@/services/inbox";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
@@ -276,8 +278,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.notes_local !== undefined) updateData.notes_local = data.notes_local || null;
     if (data.custom_fields !== undefined) updateData.custom_fields = data.custom_fields || {};
 
-    const { error } = await supabase.from("leads").update(updateData).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar lead"); return; }
+    try {
+      await leadsRepo.updateLead(id, updateData);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar lead"); return;
+    }
 
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, ...data, updated_at: new Date().toISOString() } : l));
 
@@ -320,8 +325,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Optimistic update
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: toColumnId, updated_at: new Date().toISOString() } : l));
 
-    const { error } = await supabase.from("leads").update({ column_id: toColumnId }).eq("id", id);
-    if (error) {
+    try {
+      await leadsRepo.updateLead(id, { column_id: toColumnId });
+    } catch (error) {
       logger.error(error);
       // Rollback
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
@@ -360,8 +366,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Optimistic update
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: firstColumnOfNewPipeline.id, updated_at: new Date().toISOString() } : l));
 
-    const { error } = await supabase.from("leads").update({ column_id: firstColumnOfNewPipeline.id }).eq("id", id);
-    if (error) {
+    try {
+      await leadsRepo.updateLead(id, { column_id: firstColumnOfNewPipeline.id });
+    } catch (error) {
       logger.error(error);
       // Rollback
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
@@ -383,33 +390,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return null; }
 
-    const { data: row, error } = await supabase.from("leads").insert({
-      name: data.name ?? "",
-      phone: data.phone || null,
-      email: data.email || null,
-      company: data.company || null,
-      position: data.position || null,
-      city: data.city || null,
-      origin: data.origin || "Manual",
-      tags: data.tags ?? [],
-      column_id: columnId,
-      value: data.value ?? null,
-      client_id: clientId,
-      utm_source: data.utm_source || null,
-      utm_medium: data.utm_medium || null,
-      utm_campaign: data.utm_campaign || null,
-      utm_content: data.utm_content || null,
-      utm_term: data.utm_term || null,
-      ad_campaign_id: data.ad_campaign_id || null,
-      ad_adset_id: data.ad_adset_id || null,
-      ad_id: data.ad_id || null,
-      fbclid: data.fbclid || null,
-      gclid: data.gclid || null,
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar lead"); return null; }
-    const newLead = mapLead(row);
+    let row: Awaited<ReturnType<typeof leadsRepo.insertLead>>;
+    try {
+      row = await leadsRepo.insertLead({
+        name: data.name ?? "",
+        phone: data.phone || null,
+        email: data.email || null,
+        company: data.company || null,
+        position: data.position || null,
+        city: data.city || null,
+        origin: data.origin || "Manual",
+        tags: data.tags ?? [],
+        column_id: columnId,
+        value: data.value ?? null,
+        client_id: clientId,
+        utm_source: data.utm_source || null,
+        utm_medium: data.utm_medium || null,
+        utm_campaign: data.utm_campaign || null,
+        utm_content: data.utm_content || null,
+        utm_term: data.utm_term || null,
+        ad_campaign_id: data.ad_campaign_id || null,
+        ad_adset_id: data.ad_adset_id || null,
+        ad_id: data.ad_id || null,
+        fbclid: data.fbclid || null,
+        gclid: data.gclid || null,
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar lead"); return null;
+    }
+    const newLead = mapLead(row as unknown as Record<string, unknown>);
     setLeads((prev) => [newLead, ...prev]);
 
     await addTimelineEvent({
@@ -432,8 +442,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
   const deleteLead = useCallback(async (id: string) => {
-    const { error } = await supabase.from("leads").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir lead"); return; }
+    try {
+      await leadsRepo.bulkDeleteLeads([id]);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir lead"); return;
+    }
     setLeads((prev) => prev.filter((l) => l.id !== id));
     setTasks((prev) => prev.filter((t) => t.lead_id !== id));
     toast.success("Lead excluído");
@@ -441,17 +454,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
     try {
-      const { error: convError } = await supabase
-        .from("conversations")
-        .update({ lead_id: targetLeadId })
-        .eq("lead_id", sourceLeadId);
-      if (convError) throw convError;
+      // Erro em conversations aborta, como no original
+      await reassignConversationsToLead(sourceLeadId, targetLeadId);
 
-      await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
-      await supabase.from("timeline_events").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      // Erros em tasks/timeline eram ignorados no original — preservado
+      await leadsRepo.reassignTasksToLead(sourceLeadId, targetLeadId).catch(() => {});
+      await leadsRepo.reassignTimelineToLead(sourceLeadId, targetLeadId).catch(() => {});
 
-      const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);
-      if (deleteError) throw deleteError;
+      await leadsRepo.bulkDeleteLeads([sourceLeadId]);
 
       setLeads((prev) => prev.filter((l) => l.id !== sourceLeadId));
       toast.success("Leads mesclados com sucesso.");
@@ -492,46 +502,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
-    const { data: row, error } = await supabase.from("pipelines").insert({
-      name,
-      client_id: clientId,
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar funil"); return; }
+    let row: Awaited<ReturnType<typeof leadsRepo.insertPipeline>>;
+    try {
+      row = await leadsRepo.insertPipeline({ name, client_id: clientId, ...tenantIdForInsert });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar funil"); return;
+    }
     if (row) {
-      const newPipe = mapPipeline(row);
+      const newPipe = mapPipeline(row as unknown as Record<string, unknown>);
       setPipelines((prev) => [...prev, newPipe]);
       setCurrentPipelineId(newPipe.id);
-      
-      // Criar colunas padrão para o novo funil
+
+      // Criar colunas padrão para o novo funil (erro era ignorado no original — preservado)
       const defaultCols = [
         { name: "Novos Leads", color: "#3b82f6", order: 0, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
         { name: "Qualificação", color: "#f59e0b", order: 1, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
         { name: "Fechamento", color: "#22c55e", order: 2, pipeline_id: newPipe.id, client_id: clientId, ...tenantIdForInsert },
       ];
-      
-      const { data: colRows } = await supabase.from("pipeline_columns").insert(defaultCols).select();
-      if (colRows) setColumns((prev) => [...prev, ...colRows.map(mapColumn)]);
-      
+
+      const colRows = await leadsRepo.insertPipelineColumns(defaultCols).catch(() => null);
+      if (colRows) setColumns((prev) => [...prev, ...colRows.map((c) => mapColumn(c as unknown as Record<string, unknown>))]);
+
       toast.success("Funil criado com sucesso");
     }
   }, [user?.client_id, tenant?.id, tenantIdForInsert]);
 
   const updatePipeline = useCallback(async (id: string, data: Partial<Pipeline>) => {
-    const { error } = await supabase.from("pipelines").update(data).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar funil"); return; }
+    try {
+      await leadsRepo.updatePipeline(id, data);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar funil"); return;
+    }
     setPipelines((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p));
     toast.success("Funil atualizado");
   }, []);
 
   const deletePipeline = useCallback(async (id: string) => {
-    // Delete columns first to be safe (cascade should handle this but let's be explicitly)
-    const { error: colError } = await supabase.from("pipeline_columns").delete().eq("pipeline_id", id);
-    if (colError) { logger.error(colError); }
+    // Delete columns first to be safe (cascade should handle this but let's be explicitly).
+    // Erro só era logado no original — preservado
+    await leadsRepo.deleteColumnsByPipeline(id).catch((colError) => { logger.error(colError); });
 
-    const { error } = await supabase.from("pipelines").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir funil"); return; }
+    try {
+      await leadsRepo.deletePipelineById(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir funil"); return;
+    }
 
     setPipelines((prev) => {
       const filtered = prev.filter((p) => p.id !== id);
@@ -554,30 +569,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pipelineCols = columns.filter(c => c.pipeline_id === currentPipelineId);
     const maxOrder = pipelineCols.length > 0 ? Math.max(...pipelineCols.map(c => c.order)) : -1;
 
-    const { data: row, error } = await supabase.from("pipeline_columns").insert({
-      name,
-      color,
-      order: maxOrder + 1,
-      pipeline_id: currentPipelineId,
-      client_id: clientId,
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar coluna: " + error.message); return; }
-    if (row) setColumns((prev) => [...prev, mapColumn(row)]);
+    let row: Awaited<ReturnType<typeof leadsRepo.insertPipelineColumn>>;
+    try {
+      row = await leadsRepo.insertPipelineColumn({
+        name,
+        color,
+        order: maxOrder + 1,
+        pipeline_id: currentPipelineId,
+        client_id: clientId,
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
+      logger.error(error);
+      toast.error("Erro ao criar coluna: " + ((error as { message?: string })?.message ?? ""));
+      return;
+    }
+    if (row) setColumns((prev) => [...prev, mapColumn(row as unknown as Record<string, unknown>)]);
     toast.success("Coluna criada");
   }, [columns, currentPipelineId, tenant?.id, tenantIdForInsert, user?.client_id]);
 
   const updateColumn = useCallback(async (id: string, data: Partial<PipelineColumn>) => {
-    const { error } = await supabase.from("pipeline_columns").update(data).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar coluna"); return; }
+    try {
+      await leadsRepo.updatePipelineColumn(id, data);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar coluna"); return;
+    }
     setColumns((prev) => prev.map((c) => c.id === id ? { ...c, ...data } : c));
     toast.success("Coluna atualizada");
   }, []);
 
   const deleteColumn = useCallback(async (id: string) => {
-    const { error } = await supabase.from("pipeline_columns").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir coluna"); return; }
+    try {
+      await leadsRepo.deletePipelineColumn(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir coluna"); return;
+    }
     setColumns((prev) => prev.filter((c) => c.id !== id));
     toast.success("Coluna removida");
   }, []);
@@ -595,17 +621,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
 
     // Persiste: 1 UPDATE por coluna. Pra >20 colunas considerar batch RPC.
-    const updates = orderedIds.map((id, idx) =>
-      supabase.from("pipeline_columns").update({ order: idx }).eq("id", id),
+    const results = await Promise.allSettled(
+      orderedIds.map((id, idx) => leadsRepo.updatePipelineColumn(id, { order: idx })),
     );
-    const results = await Promise.all(updates);
-    const failed = results.find((r) => r.error);
+    const failed = results.find((r) => r.status === "rejected");
     if (failed) {
-      logger.error("Erro ao reordenar colunas:", failed.error);
+      logger.error("Erro ao reordenar colunas:", (failed as PromiseRejectedResult).reason);
       toast.error("Erro ao salvar nova ordem. Recarregando...");
-      // Força refetch pra restaurar estado consistente
-      const { data } = await supabase.from("pipeline_columns").select("*").order("order");
-      if (data) setColumns(data.map(mapColumn));
+      // Força refetch pra restaurar estado consistente (erro ignorado como no original)
+      const data = await leadsRepo.listAllPipelineColumns().catch(() => null);
+      if (data) setColumns(data.map((c) => mapColumn(c as unknown as Record<string, unknown>)));
       return;
     }
   }, []);
