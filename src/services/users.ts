@@ -150,6 +150,87 @@ export async function deleteOrganization(orgId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---- empresa do usuário (OrganizationSection) ----
+
+export async function getProfileOrganizationId(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", userId)
+    .single();
+  if (error) throw error;
+  return data?.organization_id ?? null;
+}
+
+export async function getOrganizationById(orgId: string): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase.from("organizations").select("*").eq("id", orgId).single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function listOrgMembers(
+  orgId: string
+): Promise<{ id: string; name: string; email: string | null; role: string; avatar_url: string | null }[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name, email, role, avatar_url")
+    .eq("organization_id", orgId);
+  if (error) throw error;
+  return (data ?? []) as never;
+}
+
+export async function insertOrganization(row: {
+  name: string;
+  slug: string;
+  subdomain: string;
+  tenant_id: string | null;
+  owner_id: string;
+}): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.from("organizations").insert(row as never).select().single();
+  if (error) throw error;
+  return data;
+}
+
+/** Vincula (ou desvincula, com null) o profile a uma organização. */
+export async function setProfileOrganization(
+  userId: string,
+  organizationId: string | null,
+  extra: Record<string, unknown> = {}
+): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ organization_id: organizationId, ...extra } as never)
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function findProfileBasicsByEmail(
+  email: string
+): Promise<{ id: string; organization_id: string | null } | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, organization_id")
+    .eq("email", email)
+    .single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- RPCs fora dos tipos gerados */
+export async function ownerAddOrgMember(targetUserId: string, targetOrgId: string): Promise<void> {
+  const { error } = await supabase.rpc("owner_add_org_member" as any, {
+    target_user_id: targetUserId,
+    target_org_id: targetOrgId,
+  });
+  if (error) throw error;
+}
+
+export async function ownerRemoveOrgMember(targetUserId: string): Promise<void> {
+  const { error } = await supabase.rpc("owner_remove_org_member" as any, { target_user_id: targetUserId });
+  if (error) throw error;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 /**
  * Cria usuário via edge admin-create-user. O accessToken vem de quem chama
  * (sessão continua responsabilidade do AuthContext/página — Lote 4 L4-5).
