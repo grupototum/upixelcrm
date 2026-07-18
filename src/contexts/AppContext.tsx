@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import * as leadsRepo from "@/services/leads";
+import * as automationsRepo from "@/services/automations";
 import { reassignConversationsToLead } from "@/services/inbox";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -656,23 +657,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    const { data: row, error } = await supabase.from("automations").insert({
-      client_id: clientId,
-      name,
-      status: "draft",
-      nodes: [],
-      edges: [],
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) {
+    let row: Awaited<ReturnType<typeof automationsRepo.insertComplexAutomation>>;
+    try {
+      row = await automationsRepo.insertComplexAutomation({
+        client_id: clientId,
+        name,
+        status: "draft",
+        nodes: [],
+        edges: [],
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
       logger.error(error);
-      const detail = (error as any)?.message || (error as any)?.details || "Tente novamente.";
+      const e = error as { message?: string; details?: string };
+      const detail = e?.message || e?.details || "Tente novamente.";
       toast.error(`Erro ao criar fluxo: ${detail}`);
       return null;
     }
     if (row) {
-      const newAuto = mapComplexAutomation(row);
+      const newAuto = mapComplexAutomation(row as unknown as Record<string, unknown>);
       setComplexAutomations(prev => [newAuto, ...prev]);
       return newAuto.id;
     }
@@ -682,18 +685,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateAutomationNodes = useCallback(async (id: string, nodes: Node[], edges: Edge[]) => {
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, nodes, edges } : a));
     
-    const { error } = await supabase.from("automations").update({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      nodes: nodes as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      edges: edges as any,
-      updated_at: new Date().toISOString()
-    }).eq("id", id);
-
-    if (error) {
-       logger.error(error); toast.error("Erro ao salvar fluxo"); 
-    } else {
-       toast.success("Fluxo salvo com sucesso!");
+    try {
+      await automationsRepo.updateComplexAutomation(id, {
+        nodes,
+        edges,
+        updated_at: new Date().toISOString(),
+      });
+      toast.success("Fluxo salvo com sucesso!");
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao salvar fluxo");
     }
   }, []);
 
@@ -704,19 +704,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
     
-    const { error } = await supabase.from("automations").update({ status: newStatus }).eq("id", id);
-    if (error) {
+    try {
+      await automationsRepo.updateComplexAutomation(id, { status: newStatus });
+      toast.success("Fluxo " + (newStatus === 'active' ? "Ativado" : "Desativado"));
+    } catch (error) {
       logger.error(error);
       setComplexAutomations(prev => prev.map(a => a.id === id ? { ...a, status: auto.status } : a));
       toast.error("Erro ao alterar status do fluxo");
-    } else {
-      toast.success("Fluxo " + (newStatus === 'active' ? "Ativado" : "Desativado"));
     }
   }, [complexAutomations]);
 
   const deleteAutomation = useCallback(async (id: string) => {
-    const { error } = await supabase.from("automations").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir"); return; }
+    try {
+      await automationsRepo.deleteComplexAutomation(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir"); return;
+    }
     setComplexAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação excluída");
   }, []);
@@ -725,22 +728,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const rule = automations.find(a => a.id === id);
     if (!rule) return;
     const newStatus = !rule.active;
-    
+
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: newStatus } : a));
-    
-    const { error } = await supabase.from("automation_rules").update({ active: newStatus }).eq("id", id);
-    if (error) {
+
+    try {
+      await automationsRepo.updateAutomationRule(id, { active: newStatus });
+      toast.success("Automação " + (newStatus ? "ativada" : "desativada"));
+    } catch (error) {
       logger.error(error);
       setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: rule.active } : a));
       toast.error("Erro ao atualizar automação");
-    } else {
-      toast.success("Automação " + (newStatus ? "ativada" : "desativada"));
     }
   }, [automations]);
 
   const deleteBasicAutomation = useCallback(async (id: string) => {
-    const { error } = await supabase.from("automation_rules").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir"); return; }
+    try {
+      await automationsRepo.deleteAutomationRule(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir"); return;
+    }
     setAutomations(prev => prev.filter(a => a.id !== id));
     toast.success("Automação removida");
   }, []);
@@ -749,20 +755,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const clientId = tenant?.id ?? user?.client_id;
     if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return; }
 
-    const { data: row, error } = await supabase.from("automation_rules").insert({
-      client_id: clientId,
-      pipeline_id: data.pipeline_id || currentPipelineId || null,
-      column_id: data.column_id || null,
-      name: data.name || "Nova Automação",
-      active: true,
-      trigger: (data.trigger as any) || { type: "card_entered" },
-      actions: (data.actions as any) || [],
-      exceptions: (data.exceptions as any) || [],
-      ...tenantIdForInsert,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar automação"); return; }
-    if (row) setAutomations(prev => [mapAutomationRule(row), ...prev]);
+    let row: Awaited<ReturnType<typeof automationsRepo.insertAutomationRule>>;
+    try {
+      row = await automationsRepo.insertAutomationRule({
+        client_id: clientId,
+        pipeline_id: data.pipeline_id || currentPipelineId || null,
+        column_id: data.column_id || null,
+        name: data.name || "Nova Automação",
+        active: true,
+        trigger: (data.trigger as any) || { type: "card_entered" },
+        actions: (data.actions as any) || [],
+        exceptions: (data.exceptions as any) || [],
+        ...tenantIdForInsert,
+      });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar automação"); return;
+    }
+    if (row) setAutomations(prev => [mapAutomationRule(row as unknown as Record<string, unknown>), ...prev]);
     toast.success("Automação criada!");
   }, [currentPipelineId, user?.client_id, tenant?.id, tenantIdForInsert]);
 
@@ -775,9 +784,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.exceptions !== undefined) updateData.exceptions = data.exceptions;
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
 
-    const { error } = await supabase.from("automation_rules").update(updateData).eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao atualizar automação"); return; }
-    
+    try {
+      await automationsRepo.updateAutomationRule(id, updateData);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao atualizar automação"); return;
+    }
+
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
     toast.success("Automação salva!");
   }, []);
@@ -865,13 +877,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (n: any) => n.type === "trigger" && complexEventTypes.includes(n.data?.type ?? n.data?.configType)
       );
       for (const trigger of triggerNodes) {
-        supabase.functions.invoke("automation-engine", {
-          body: {
-            automation_id: auto.id,
-            lead_id: leadId,
-            node_id: trigger.id,
-            context: columnId ? { column_id: columnId } : {},
-          },
+        automationsRepo.triggerAutomationEngine({
+          automation_id: auto.id,
+          lead_id: leadId,
+          node_id: trigger.id,
+          context: columnId ? { column_id: columnId } : {},
         }).catch((err: any) => logger.error("Complex automation trigger error:", err));
       }
     }
