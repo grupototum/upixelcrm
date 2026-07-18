@@ -7,7 +7,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { extractEdgeError } from "@/lib/edge-error";
 import { invokeEdge } from "@/lib/edge-invoke";
 import { resolveClientId } from "@/lib/tenant-utils";
-import { untypedFrom } from "@/lib/supabase-untyped";
 import { notifyMentions } from "@/lib/mentions";
 import {
   reawakenExpiredSnoozes,
@@ -29,6 +28,15 @@ import {
   updateMessageMetadata,
   reassignConversationsToLead,
 } from "@/services/inbox";
+import {
+  findLeadIdsByPhoneSuffix,
+  findLeadIdsByEmail,
+  getFirstPipelineColumnId,
+  insertAutoLead,
+  deleteLeadById,
+  reassignTasksToLead,
+  reassignNotesToLead,
+} from "@/services/leads";
 
 export interface LeadConversation {
   lead_id: string;
@@ -706,44 +714,36 @@ export function useInbox(onLeadCreated?: () => void) {
 
     if (canonicalPhone) {
       const phoneSuffix = canonicalPhone.length >= 8 ? canonicalPhone.slice(-8) : canonicalPhone;
-      const { data: duplicates } = await supabase
-        .from("leads").select("id")
-        .eq("client_id", clientId)
-        .or(`phone.ilike.%${phoneSuffix}%`)
-        .order("created_at", { ascending: true });
+      // Erro ignorado como no original (duplicates undefined -> segue o fluxo)
+      const duplicates = await findLeadIdsByPhoneSuffix(clientId, phoneSuffix).catch(() => []);
       if (duplicates && duplicates.length > 0) return duplicates[0].id;
     }
 
     if (email) {
-      const { data: byEmail } = await supabase
-        .from("leads").select("id")
-        .eq("client_id", clientId)
-        .ilike("email", email).limit(1);
+      // Erro ignorado como no original
+      const byEmail = await findLeadIdsByEmail(clientId, email).catch(() => []);
       if (byEmail && byEmail.length > 0) return byEmail[0].id;
     }
 
-    const { data: firstCol } = await supabase
-      .from("pipeline_columns").select("id")
-      .eq("client_id", clientId)
-      .order("order", { ascending: true }).limit(1).maybeSingle();
+    // Erro ignorado como no original
+    const firstColId = await getFirstPipelineColumnId(clientId).catch(() => null);
 
-    if (!firstCol) return null;
+    if (!firstColId) return null;
 
     const leadName = name || phone || email || "Lead Automático";
-    const { data: newLead, error } = await supabase
-      .from("leads").insert({
-        client_id: clientId,
-        name: leadName,
-        phone: canonicalPhone || null,
-        email: email || null,
-        column_id: firstCol.id,
-        tags: ["auto-criado"],
-        origin: "inbox",
-      }).select("id").single();
+    const newLead = await insertAutoLead({
+      client_id: clientId,
+      name: leadName,
+      phone: canonicalPhone || null,
+      email: email || null,
+      column_id: firstColId,
+      tags: ["auto-criado"],
+      origin: "inbox",
+    }).catch(() => null);
 
-    if (error) return null;
+    if (!newLead) return null;
     if (onLeadCreated) onLeadCreated();
-    return newLead?.id ?? null;
+    return newLead.id;
   }, [clientId, onLeadCreated]);
 
   // Create new conversation
@@ -910,9 +910,8 @@ export function useInbox(onLeadCreated?: () => void) {
   // Delete lead and its data
   const deleteLead = useCallback(async (leadId: string) => {
     try {
-      const { error } = await supabase.from("leads").delete().eq("id", leadId);
-      if (error) throw error;
-      
+      await deleteLeadById(leadId);
+
       setSelectedLeadId(null);
       await loadConversations();
       toast.success("Lead excluído com sucesso.");
@@ -960,15 +959,14 @@ export function useInbox(onLeadCreated?: () => void) {
       // 1. Move conversations
       await reassignConversationsToLead(sourceLeadId, targetLeadId);
 
-      // 2. Move tasks
-      await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
-      
-      // 3. Move notes (tabela ainda fora dos tipos gerados)
-      await untypedFrom("notes").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      // 2. Move tasks (erro ignorado como no original)
+      await reassignTasksToLead(sourceLeadId, targetLeadId).catch(() => {});
+
+      // 3. Move notes (erro ignorado como no original; tabela fora dos tipos gerados)
+      await reassignNotesToLead(sourceLeadId, targetLeadId).catch(() => {});
 
       // 4. Delete source lead
-      const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);
-      if (deleteError) throw deleteError;
+      await deleteLeadById(sourceLeadId);
 
       setSelectedLeadId(targetLeadId);
       await loadConversations();
