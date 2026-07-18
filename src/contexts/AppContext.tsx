@@ -253,14 +253,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const addTimelineEvent = useCallback(async (event: Omit<TimelineEvent, "id" | "created_at">) => {
-    const { data, error } = await supabase.from("timeline_events").insert({
-      lead_id: event.lead_id || null,
-      type: event.type,
-      content: event.content,
-      user_name: event.user_name,
-    }).select().single();
-    if (error) { logger.error(error); return; }
-    if (data) setTimeline((prev) => [mapTimeline(data), ...prev]);
+    let data: Awaited<ReturnType<typeof leadsRepo.insertTimelineEvent>>;
+    try {
+      data = await leadsRepo.insertTimelineEvent({
+        lead_id: event.lead_id || null,
+        type: event.type,
+        content: event.content,
+        user_name: event.user_name,
+      });
+    } catch (error) {
+      logger.error(error); return;
+    }
+    if (data) setTimeline((prev) => [mapTimeline(data as unknown as Record<string, unknown>), ...prev]);
   }, []);
 
   const updateLead = useCallback(async (id: string, data: Partial<Lead>) => {
@@ -290,16 +294,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [addTimelineEvent]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
-    const { data: row, error } = await supabase.from("tasks").insert({
-      title: data.title ?? "",
-      lead_id: data.lead_id || null,
-      due_date: data.due_date || null,
-      assigned_to: data.assigned_to || "Você",
-      description: data.description || null,
-    }).select().single();
-
-    if (error) { logger.error(error); toast.error("Erro ao criar tarefa"); return null; }
-    const newTask = mapTask(row);
+    let row: Awaited<ReturnType<typeof leadsRepo.insertTaskReturning>>;
+    try {
+      row = await leadsRepo.insertTaskReturning({
+        title: data.title ?? "",
+        lead_id: data.lead_id || null,
+        due_date: data.due_date || null,
+        assigned_to: data.assigned_to || "Você",
+        description: data.description || null,
+      });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao criar tarefa"); return null;
+    }
+    const newTask = mapTask(row as unknown as Record<string, unknown>);
     setTasks((prev) => [newTask, ...prev]);
 
     if (newTask.lead_id) {
@@ -472,14 +479,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
-    const { error } = await supabase.from("tasks").update(data).eq("id", id);
-    if (error) { logger.error(error); return; }
+    try {
+      await leadsRepo.updateTaskRow(id, data);
+    } catch (error) {
+      logger.error(error); return;
+    }
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, ...data } : t));
   }, []);
 
   const deleteTask = useCallback(async (id: string) => {
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
-    if (error) { logger.error(error); toast.error("Erro ao excluir tarefa"); return; }
+    try {
+      await leadsRepo.deleteTaskById(id);
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao excluir tarefa"); return;
+    }
     setTasks((prev) => prev.filter((t) => t.id !== id));
     toast.success("Tarefa excluída");
   }, []);
@@ -491,8 +504,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: newStatus } : t));
 
-    const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
-    if (error) {
+    try {
+      await leadsRepo.updateTaskRow(id, { status: newStatus });
+    } catch (error) {
       logger.error(error);
       setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: task.status } : t));
     }

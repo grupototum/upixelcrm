@@ -270,6 +270,32 @@ export async function insertLead(row: TablesInsert<"leads">): Promise<Tables<"le
   return data ?? null;
 }
 
+// ---- tasks e timeline (CRM) ----
+
+export async function insertTaskReturning(row: TablesInsert<"tasks">): Promise<Tables<"tasks"> | null> {
+  const { data, error } = await supabase.from("tasks").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function updateTaskRow(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("tasks").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteTaskById(id: string): Promise<void> {
+  const { error } = await supabase.from("tasks").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function insertTimelineEvent(
+  row: TablesInsert<"timeline_events">
+): Promise<Tables<"timeline_events"> | null> {
+  const { data, error } = await supabase.from("timeline_events").insert(row).select().single();
+  if (error) throw error;
+  return data ?? null;
+}
+
 // ---- pipelines e colunas (board do CRM) ----
 
 export async function insertPipeline(row: TablesInsert<"pipelines">): Promise<Tables<"pipelines"> | null> {
