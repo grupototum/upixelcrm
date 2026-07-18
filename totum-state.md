@@ -81,7 +81,7 @@ Regras herdadas + específicas: ZERO mudança de fluxo de auth (signUp/signIn/si
 
 | # | Movimento | Commit-pai | Status | Build | Lint |
 |---|---|---|---|---|---|
-| L4-1 | ProfileSettings + ConversationActions + mentions.ts → services/users (aquecimento, leituras/escritas já existentes no repo) | cb83d24 | pendente | — | — |
+| L4-1 | ProfileSettings + ConversationActions + mentions.ts → services/users | cb83d24 | ✅ 2026-07-18 | ✅ | ✅ (2 pré-existentes, 0 novos) |
 | L4-2 | UsersPage → services/users (CRUD admin de profiles, leitura de organizations, audit_log) | — | pendente | — | — |
 | L4-3 | OrganizationSection → services/users (org create/update, vínculo de profile) | — | pendente | — | — |
 | L4-4 | SignupPage → services (provisionamento: checagem de subdomínio, criação de org, vínculo owner, rollback manual preservado); auth.signUp FICA na página | — | pendente | — | — |

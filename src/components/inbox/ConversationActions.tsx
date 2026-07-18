@@ -13,7 +13,7 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { LabelSelector } from "./LabelSelector";
-import { supabase } from "@/integrations/supabase/client";
+import { listActiveAgents } from "@/services/users";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ConversationActionsProps {
@@ -38,14 +38,8 @@ export function ConversationActions({
     queryKey: ["inbox-agents", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, name")
-        .eq("client_id", clientId)
-        .in("role", ["supervisor", "atendente", "vendedor", "master"])
-        .eq("is_blocked", false)
-        .order("name");
-      return data ?? [];
+      // Erro era ignorado no original (lista vazia) — preservado
+      return listActiveAgents(clientId).catch(() => []);
     },
     enabled: !!clientId,
     staleTime: 60_000,
