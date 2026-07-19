@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useSelection } from "@/contexts/SelectionContext";
 import { useAppState } from "@/contexts/AppContext";
-import { supabase } from "@/integrations/supabase/client";
+import * as leadsRepo from "@/services/leads";
 
 /**
  * Barra de ações em massa: aparece fixa no rodapé quando há leads selecionados.
@@ -47,8 +47,7 @@ export function BulkActionsBar() {
     if (!moveTarget) return;
     setMoving(true);
     try {
-      const { error } = await supabase.from("leads").update({ column_id: moveTarget }).in("id", ids);
-      if (error) throw error;
+      await leadsRepo.bulkMoveLeads(ids, moveTarget);
       const targetName = currentColumns.find((c) => c.id === moveTarget)?.name ?? "outra coluna";
       toast.success(`${ids.length} lead(s) movido(s) para "${targetName}".`);
       setMoveOpen(false);
@@ -66,8 +65,7 @@ export function BulkActionsBar() {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      const { error } = await supabase.from("leads").delete().in("id", ids);
-      if (error) throw error;
+      await leadsRepo.bulkDeleteLeads(ids);
       toast.success(`${ids.length} lead(s) excluído(s).`);
       setDeleteConfirmOpen(false);
       await refreshData();
@@ -88,19 +86,7 @@ export function BulkActionsBar() {
     }
     setTagging(true);
     try {
-      // Update individual: precisamos ler tags atual e dar append; bulk UPDATE com
-      // array_append exigiria RPC. 50 leads = 50 queries, aceitável pra MVP.
-      // TODO: criar RPC bulk_add_tag pra performance se >100 leads ficar comum.
-      const { data: leadsData } = await supabase.from("leads").select("id, tags").in("id", ids);
-      const updates = (leadsData ?? []).map(async (l) => {
-        const current = Array.isArray(l.tags) ? (l.tags as string[]) : [];
-        if (current.includes(tag)) return null;
-        return supabase.from("leads").update({ tags: [...current, tag] }).eq("id", l.id);
-      });
-      const results = await Promise.allSettled(updates);
-      const failures = results.filter(
-        (r) => r.status === "rejected" || (r.status === "fulfilled" && r.value?.error)
-      ).length;
+      const failures = await leadsRepo.bulkAddTag(ids, tag);
       if (failures > 0) {
         toast.error(`Tag aplicada com ${failures} falha(s) de ${ids.length} lead(s). Tente novamente.`);
       } else {

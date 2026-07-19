@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAppState } from "@/contexts/AppContext";
-import { supabase } from "@/integrations/supabase/client";
+import * as leadsRepo from "@/services/leads";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -361,17 +361,14 @@ export default function ImportPage({
     // Re-fetch das definitions DIRETO do banco para garantir que estamos
     // usando a versão mais atualizada (evita race condition se o usuário
     // criou um campo agora mesmo e o estado React ainda não propagou).
-    const { data: freshDefs, error: defsError } = await supabase
-      .from("custom_field_definitions")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("display_order", { ascending: true });
-
-    if (defsError) {
+    let freshDefs: any[] | null = null;
+    try {
+      freshDefs = await leadsRepo.listCustomFieldDefinitions(clientId);
+    } catch (defsError) {
       console.error("Erro ao carregar definições de campos:", defsError);
     }
 
-    const activeDefs = (freshDefs as any[] | null) ?? customFieldDefs;
+    const activeDefs = freshDefs ?? customFieldDefs;
 
     // Normaliza telefone BR para comparação: tira não-dígitos, remove código do país (55)
     // se presente, remove dígito 9 prefixo do celular se houver — garante que números no
@@ -396,17 +393,10 @@ export default function ImportPage({
       for (let page = 0; page < 60; page++) {
         const from = page * PAGE;
         const to = from + PAGE - 1;
-        const q = supabase
-          .from("leads")
-          .select("phone")
-          .eq("client_id", clientId)
-          .not("phone", "is", null)
-          .range(from, to);
-        const { data, error } = await q;
-        if (error) break;
+        const data = await leadsRepo.listLeadPhonesPage(clientId, from, to);
         if (!data || data.length === 0) break;
         for (const r of data) {
-          const ph = (r as any).phone as string | null;
+          const ph = r.phone;
           if (ph) existingPhoneKeys.add(normalizePhoneBR(ph));
         }
         if (data.length < PAGE) break;
@@ -502,7 +492,7 @@ export default function ImportPage({
 
       while (retries < maxRetries && !success) {
         try {
-          const { error } = await supabase.from("leads").insert(chunk);
+          const { error } = await leadsRepo.insertLeadsChunk(chunk);
 
           if (error) {
             console.error(`Chunk ${chunkNum}/${totalChunks} error:`, error);

@@ -10,6 +10,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import * as usersRepo from "@/services/users";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -44,12 +45,8 @@ export function NotificationPopover() {
     queryKey: ["notifications", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data } = await supabase.from("notifications")
-        .select("id, title, body, type, read, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      return (data ?? []) as NotificationRow[];
+      const data = await usersRepo.listNotifications(user.id);
+      return data as NotificationRow[];
     },
     enabled: !!user?.id,
     staleTime: 30_000,
@@ -81,10 +78,7 @@ export function NotificationPopover() {
 
   async function markAllRead() {
     if (!user?.id || unreadCount === 0) return;
-    await supabase.from("notifications")
-      .update({ read: true })
-      .eq("user_id", user.id)
-      .eq("read", false);
+    await usersRepo.markAllNotificationsRead(user.id);
     queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
   }
 
@@ -92,7 +86,7 @@ export function NotificationPopover() {
     queryClient.setQueryData<NotificationRow[]>(["notifications", user?.id], (prev) =>
       prev?.map((n) => (n.id === id ? { ...n, read: true } : n)) ?? []
     );
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
+    await usersRepo.markNotificationRead(id);
   }
 
   return (

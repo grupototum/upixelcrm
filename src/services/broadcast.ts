@@ -24,6 +24,17 @@ export async function listWhatsAppTemplates(clientId: string): Promise<WhatsAppT
   return data ?? [];
 }
 
+/** Só templates aprovados (usado no slash command picker do inbox). */
+export async function listApprovedWhatsAppTemplates(clientId: string): Promise<WhatsAppTemplateRow[]> {
+  const { data, error } = await supabase
+    .from("whatsapp_templates")
+    .select("id, name, category, content, status")
+    .eq("client_id", clientId)
+    .eq("status", "APPROVED");
+  if (error) return [];
+  return data ?? [];
+}
+
 /** Saldo de créditos do tenant (integrations.provider = client_credits). */
 export async function getClientCredits(clientId: string): Promise<number> {
   // integrations.config sem tipo gerado para este provider (schema drift)
@@ -54,6 +65,20 @@ export async function getConnectedWhatsAppIntegration(
 export async function insertBroadcastCampaign(row: Record<string, unknown>): Promise<void> {
   const { error } = await untypedFrom("broadcast_campaigns").insert(row);
   if (error) throw error;
+}
+
+/** Logs de disparo (CampaignsPage/BroadcastsTab). Tabela fora dos tipos gerados. */
+export async function listCampaignDispatchLogs<T>(clientId: string, limit = 500): Promise<T[]> {
+  const { data, error } = await untypedFrom("campaign_dispatch_logs")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return (data || []) as T[];
 }
 
 export async function updateBroadcastCampaign(id: string, updates: Record<string, unknown>): Promise<void> {
