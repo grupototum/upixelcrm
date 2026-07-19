@@ -4,7 +4,7 @@ import { BookOpen, Upload, FileText, Trash2, Loader2, Sparkles, Search, External
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import * as alexandriaRepo from "@/services/alexandria";
 import { toast } from "sonner";
 import { generateDocumentEmbeddings } from "@/services/embeddingService";
 import { useTenant } from "@/contexts/TenantContext";
@@ -50,15 +50,11 @@ export function KnowledgeBaseTab() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from("rag_documents")
-      .select("id, title, content, type, created_at, is_global")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
-    if (error) {
-      logger.error(error);
-    } else {
+    try {
+      const data = await alexandriaRepo.listRagDocumentsForClient(clientId);
       setDocuments(data || []);
+    } catch (error) {
+      logger.error(error);
     }
     setLoading(false);
   }, [clientId]);
@@ -97,32 +93,28 @@ export function KnowledgeBaseTab() {
       } else {
         // For PDF/DOCX, upload to storage and extract text placeholder
         const filePath = `rag-uploads/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("media")
-          .upload(filePath, file);
-
-        if (uploadError) {
+        let publicUrl: string;
+        try {
+          const uploaded = await alexandriaRepo.uploadRagMediaFile(filePath, file);
+          publicUrl = uploaded.publicUrl;
+        } catch (uploadError: any) {
           toast.error(`Erro no upload: ${uploadError.message}`);
           return;
         }
 
-        const { data: urlData } = supabase.storage
-          .from("media")
-          .getPublicUrl(filePath);
-
-        content = `[Arquivo carregado: ${file.name}]\nURL: ${urlData.publicUrl}\n\n[O conteúdo deste arquivo pode ser extraído manualmente ou via processamento futuro. Copie e cole o conteúdo do documento aqui para gerar embeddings de alta qualidade.]`;
+        content = `[Arquivo carregado: ${file.name}]\nURL: ${publicUrl}\n\n[O conteúdo deste arquivo pode ser extraído manualmente ou via processamento futuro. Copie e cole o conteúdo do documento aqui para gerar embeddings de alta qualidade.]`;
       }
 
       // Insert into rag_documents with tenant isolation
-      const { error: insertError } = await supabase.from("rag_documents").insert({
-        client_id: clientId,
-        title: file.name.replace(/\.[^.]+$/, ""),
-        content: content.slice(0, 50000), // Limit to 50k chars
-        type: "uploaded_file",
-        is_global: false,
-      });
-
-      if (insertError) {
+      try {
+        await alexandriaRepo.insertRagDocument({
+          client_id: clientId,
+          title: file.name.replace(/\.[^.]+$/, ""),
+          content: content.slice(0, 50000), // Limit to 50k chars
+          type: "uploaded_file",
+          is_global: false,
+        });
+      } catch (insertError: any) {
         toast.error(`Erro ao salvar documento: ${insertError.message}`);
         return;
       }
@@ -155,13 +147,14 @@ export function KnowledgeBaseTab() {
   };
 
   const handleDelete = async (doc: RagDoc) => {
-    const { error } = await supabase.from("rag_documents").delete().eq("id", doc.id);
-    if (error) {
+    try {
+      await alexandriaRepo.deleteRagDocument(doc.id);
+    } catch {
       toast.error("Erro ao excluir documento");
-    } else {
-      setDocuments(prev => prev.filter(d => d.id !== doc.id));
-      toast.success("Documento excluído");
+      return;
     }
+    setDocuments(prev => prev.filter(d => d.id !== doc.id));
+    toast.success("Documento excluído");
   };
 
   const handleGenerateEmbeddings = async (id: string) => {

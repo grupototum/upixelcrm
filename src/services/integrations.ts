@@ -41,6 +41,20 @@ export async function deleteIntegration(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Variante que filtra por múltiplos providers de uma vez (ex: chaves de IA). */
+export async function listIntegrationsByProviders(
+  clientId: string,
+  providers: string[]
+): Promise<Pick<IntegrationRow, "id" | "provider" | "config">[]> {
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("id, provider, config")
+    .eq("client_id", clientId)
+    .in("provider", providers);
+  if (error) throw error;
+  return data ?? [];
+}
+
 // ---- ad_campaigns ----
 // ponytail: tabela ainda não existe em prod nem nos tipos gerados — em erro
 // (404) retorna [] e o cache passa a popular quando a tabela for criada.

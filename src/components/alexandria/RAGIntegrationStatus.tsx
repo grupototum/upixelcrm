@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import * as alexandriaRepo from "@/services/alexandria";
 
 interface HealthCheck {
   name: string;
@@ -36,9 +37,9 @@ export function RAGIntegrationStatus() {
 
     // 2. rag_documents table
     try {
-      const { data, error } = await supabase.from("rag_documents").select("id").limit(1);
-      updateCheck("rag_documents Table", !error);
-      updateCheck("Documents Available", !!data && data.length > 0);
+      const { ok, hasData } = await alexandriaRepo.probeRagDocumentsTable();
+      updateCheck("rag_documents Table", ok);
+      updateCheck("Documents Available", hasData);
     } catch {
       updateCheck("rag_documents Table", false);
       updateCheck("Documents Available", false);
@@ -46,9 +47,9 @@ export function RAGIntegrationStatus() {
 
     // 3. rag_embeddings table
     try {
-      const { data, error } = await supabase.from("rag_embeddings").select("id").limit(1);
-      updateCheck("rag_embeddings Table", !error);
-      updateCheck("Embeddings Generated", !!data && data.length > 0);
+      const { ok, hasData } = await alexandriaRepo.probeRagEmbeddingsTable();
+      updateCheck("rag_embeddings Table", ok);
+      updateCheck("Embeddings Generated", hasData);
     } catch {
       updateCheck("rag_embeddings Table", false);
       updateCheck("Embeddings Generated", false);
@@ -56,8 +57,8 @@ export function RAGIntegrationStatus() {
 
     // 4. rag_context table
     try {
-      const { error } = await supabase.from("rag_context").select("id").limit(1);
-      updateCheck("rag_context Table", !error);
+      const { ok } = await alexandriaRepo.probeRagContextTable();
+      updateCheck("rag_context Table", ok);
     } catch {
       updateCheck("rag_context Table", false);
     }

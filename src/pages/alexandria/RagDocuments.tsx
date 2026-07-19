@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
+import * as alexandriaRepo from "@/services/alexandria";
 import {
   Loader2, Plus, Trash2, FileText, Sparkles, Search,
   Globe, Lock, BookOpen, FileCode2,
@@ -74,14 +74,11 @@ export default function BibliotecaPage() {
 
   const fetchDocuments = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("rag_documents")
-      .select("id, title, content, type, partition, created_at, is_global")
-      .order("created_at", { ascending: false });
-    if (error) {
-      toast.error("Erro ao carregar documentos");
-    } else {
+    try {
+      const data = await alexandriaRepo.listAllRagDocuments();
       setAllDocs((data || []) as LibraryDocument[]);
+    } catch {
+      toast.error("Erro ao carregar documentos");
     }
     setLoading(false);
   };
@@ -93,34 +90,34 @@ export default function BibliotecaPage() {
     if (partition === "rag" && !newContent.trim()) return toast.error("Conteúdo obrigatório para documentos RAG");
     if (newIsGlobal && !isMaster) return toast.error("Apenas master pode criar documentos globais");
     setAdding(true);
-    const { error } = await supabase.from("rag_documents").insert({
-      title: newTitle.trim(),
-      content: newContent.trim(),
-      type: newType,
-      partition,
-      is_global: newIsGlobal,
-    });
-    if (error) {
-      toast.error("Erro ao adicionar documento");
-    } else {
+    try {
+      await alexandriaRepo.insertRagDocument({
+        title: newTitle.trim(),
+        content: newContent.trim(),
+        type: newType,
+        partition,
+        is_global: newIsGlobal,
+      });
       toast.success("Documento adicionado");
       setNewTitle("");
       setNewContent("");
       setNewType(partition === "wiki" ? "artigo" : "client_info");
       setNewIsGlobal(false);
       fetchDocuments();
+    } catch {
+      toast.error("Erro ao adicionar documento");
     }
     setAdding(false);
   };
 
   const handleDelete = async (doc: LibraryDocument) => {
     if (doc.is_global && !isMaster) return toast.error("Apenas master pode excluir documentos globais");
-    const { error } = await supabase.from("rag_documents").delete().eq("id", doc.id);
-    if (error) {
-      toast.error("Erro ao excluir");
-    } else {
+    try {
+      await alexandriaRepo.deleteRagDocument(doc.id);
       toast.success("Documento excluído");
       setAllDocs((prev) => prev.filter((d) => d.id !== doc.id));
+    } catch {
+      toast.error("Erro ao excluir");
     }
   };
 

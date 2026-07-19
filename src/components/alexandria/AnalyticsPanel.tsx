@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, FileText, Zap, Target } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import * as alexandriaRepo from "@/services/alexandria";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
@@ -38,18 +38,7 @@ export function AnalyticsPanel() {
     async function fetchAnalytics() {
       try {
         setLoading(true);
-        const [docsRes, ctxRes, ctxAvgRes] = await Promise.all([
-          supabase.from("rag_documents").select("id, type"),
-          supabase.from("rag_context").select("id"),
-          supabase.from("rag_context").select("similarity_score"),
-        ]);
-
-        if (docsRes.error) throw docsRes.error;
-        if (ctxRes.error) throw ctxRes.error;
-
-        const docs = docsRes.data || [];
-        const ctxCount = ctxRes.data?.length || 0;
-        const scores = (ctxAvgRes.data || []).map((r) => r.similarity_score);
+        const { docs, ctxCount, scores } = await alexandriaRepo.getRagAnalyticsRaw();
         const avgSim = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 
         const typeMap: Record<string, number> = {};
