@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as metricsRepo from "@/services/metrics";
 import { logger } from "@/lib/logger";
 
 export interface SLAMetrics {
@@ -36,17 +36,11 @@ export function useSLAMetrics(start?: Date, end?: Date) {
     setLoading(true);
     setError(null);
     try {
-      const [overall, agents] = await Promise.all([
-        (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)("sla_metrics", { p_start: startIso, p_end: endIso }),
-        (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)("sla_metrics_by_agent", { p_start: startIso, p_end: endIso }),
-      ]);
+      const { overall, agents } = await metricsRepo.getSlaMetrics(startIso, endIso);
 
-      if (overall.error) throw overall.error;
-      if (agents.error) throw agents.error;
-
-      const overallRow = Array.isArray(overall.data) ? (overall.data[0] as SLAMetrics | undefined) : null;
+      const overallRow = Array.isArray(overall) ? (overall[0] as SLAMetrics | undefined) : null;
       setMetrics(overallRow ?? null);
-      setByAgent(Array.isArray(agents.data) ? (agents.data as SLAByAgent[]) : []);
+      setByAgent(Array.isArray(agents) ? (agents as SLAByAgent[]) : []);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error("useSLAMetrics:", message);

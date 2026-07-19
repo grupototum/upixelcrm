@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as metricsRepo from "@/services/metrics";
 import { logger } from "@/lib/logger";
 
 export interface CsatMetrics {
@@ -22,12 +22,10 @@ export function useCsatMetrics(start?: Date, end?: Date) {
     setLoading(true);
     setError(null);
 
-    const { data, error: rpcError } = await supabase.rpc("csat_stats", {
-      p_start: start.toISOString(),
-      p_end: end.toISOString(),
-    });
-
-    if (rpcError) {
+    let data: unknown;
+    try {
+      data = await metricsRepo.getCsatStats(start, end);
+    } catch (rpcError: any) {
       logger.error("useCsatMetrics: rpc failed", rpcError);
       setError(rpcError.message);
       setLoading(false);
