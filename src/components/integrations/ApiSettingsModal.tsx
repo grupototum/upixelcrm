@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Key, Copy, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
 import { generateSecureToken, hashToken } from "@/lib/crypto";
 import type { ApiKey } from "@/types";
 
@@ -18,12 +18,12 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
 
   const fetchKeys = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any).from("api_keys").select("*").order("created_at", { ascending: false });
-    if (error) {
+    try {
+      const data = await integrationsRepo.listApiKeys<ApiKey>();
+      setKeys(data || []);
+    } catch (error) {
       logger.error(error);
       toast.error("Erro ao carregar chaves de API");
-    } else {
-      setKeys(data || []);
     }
     setLoading(false);
   }, []);
@@ -45,14 +45,15 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
     const preview = token.slice(0, 12) + "..." + token.slice(-4);
     const tokenHash = await hashToken(token);
 
-    const { data: row, error } = await (supabase as any).from("api_keys").insert({
-      name: newKeyName,
-      token_preview: preview,
-      token_hash: tokenHash,
-      active: true,
-    }).select().single();
-
-    if (error) {
+    let row: ApiKey;
+    try {
+      row = await integrationsRepo.createApiKey<ApiKey>({
+        name: newKeyName,
+        token_preview: preview,
+        token_hash: tokenHash,
+        active: true,
+      });
+    } catch (error) {
       logger.error(error);
       toast.error("Erro ao criar chave de API.");
       return;
@@ -72,8 +73,9 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
   };
 
   const revokeKey = async (id: string) => {
-    const { error } = await (supabase as any).from("api_keys").update({ active: false }).eq("id", id);
-    if (error) {
+    try {
+      await integrationsRepo.deactivateApiKey(id);
+    } catch (error) {
       logger.error(error);
       toast.error("Erro ao revogar chave.");
       return;
@@ -83,8 +85,9 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
   };
 
   const deleteKey = async (id: string) => {
-    const { error } = await (supabase as any).from("api_keys").delete().eq("id", id);
-    if (error) {
+    try {
+      await integrationsRepo.deleteApiKey(id);
+    } catch (error) {
       logger.error(error);
       toast.error("Erro ao excluir chave.");
       return;

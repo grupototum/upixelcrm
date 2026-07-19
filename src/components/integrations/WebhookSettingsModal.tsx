@@ -8,7 +8,7 @@ import { Webhook, Plus, Trash2, Edit2, ShieldAlert, Eye, EyeOff, Loader2 } from 
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
 import { generateSecureToken } from "@/lib/crypto";
 import type { WebhookEndpoint } from "@/types";
 
@@ -34,12 +34,12 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
 
   const fetchWebhooks = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any).from("webhook_endpoints").select("*").order("created_at", { ascending: false });
-    if (error) {
+    try {
+      const data = await integrationsRepo.listWebhookEndpoints<WebhookEndpoint>();
+      setWebhooks(data || []);
+    } catch (error) {
       logger.error(error);
       toast.error("Erro ao carregar webhooks");
-    } else {
-      setWebhooks(data || []);
     }
     setLoading(false);
   }, []);
@@ -83,15 +83,16 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
       // FIX-02: Use crypto.getRandomValues() for webhook secret generation.
       // Math.random() is not cryptographically random and makes secrets predictable.
       const secret = generateSecureToken("wh_sec_", 24);
-      const { data: row, error } = await (supabase as any).from("webhook_endpoints").insert({
-        url,
-        description,
-        events,
-        active,
-        secret,
-      }).select().single();
-
-      if (error) {
+      let row: WebhookEndpoint;
+      try {
+        row = await integrationsRepo.createWebhookEndpoint<WebhookEndpoint>({
+          url,
+          description,
+          events,
+          active,
+          secret,
+        });
+      } catch (error) {
         logger.error(error);
         toast.error("Erro ao criar webhook.");
         return;
@@ -99,11 +100,9 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
       setWebhooks(prev => [row, ...prev]);
       toast.success("Webhook criado com sucesso.");
     } else {
-      const { error } = await (supabase as any).from("webhook_endpoints")
-        .update({ url, description, events, active })
-        .eq("id", editingId);
-
-      if (error) {
+      try {
+        await integrationsRepo.updateWebhookEndpoint(editingId, { url, description, events, active });
+      } catch (error) {
         logger.error(error);
         toast.error("Erro ao atualizar webhook.");
         return;
@@ -116,8 +115,9 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
 
   const handleDelete = async (id: string) => {
     if (!confirm("Deseja realmente excluir este webhook?")) return;
-    const { error } = await (supabase as any).from("webhook_endpoints").delete().eq("id", id);
-    if (error) {
+    try {
+      await integrationsRepo.deleteWebhookEndpoint(id);
+    } catch (error) {
       logger.error(error);
       toast.error("Erro ao remover webhook.");
       return;
