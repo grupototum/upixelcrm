@@ -172,3 +172,80 @@ export async function listAutomationStats(clientId: string): Promise<Tables<"aut
   if (error) throw error;
   return data ?? [];
 }
+
+/** Dispara o polling do edge automation-worker (fila de delays/retries). */
+export function triggerAutomationWorker(): Promise<unknown> {
+  return supabase.functions.invoke("automation-worker", { body: {} });
+}
+
+// ---- bots (builder visual simples, tabela "bots") ----
+
+export interface BotRow {
+  id: string;
+  name: string;
+  folder: string;
+  status: "published" | "draft";
+  trigger_type: string;
+  created_at: string;
+}
+
+export async function listBots(clientId: string): Promise<BotRow[]> {
+  const { data, error } = await supabase
+    .from("bots")
+    .select("id, name, folder, status, trigger_type, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as BotRow[];
+}
+
+export async function createBot(row: Record<string, unknown>): Promise<{ id: string }> {
+  const { data, error } = await supabase.from("bots").insert(row).select("id").single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateBot(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("bots").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteBot(id: string): Promise<void> {
+  const { error } = await supabase.from("bots").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function getBotForDuplicate(id: string) {
+  const { data } = await supabase
+    .from("bots")
+    .select("nodes, edges, trigger_type, trigger_value")
+    .eq("id", id)
+    .single();
+  return data;
+}
+
+export async function getBotFull(id: string) {
+  const { data, error } = await supabase
+    .from("bots")
+    .select("id, name, status, nodes, edges, trigger_type, trigger_value")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ---- sequence files (storage) ----
+
+export async function uploadSequenceFile(
+  file: File,
+  stepId: string
+): Promise<{ path: string; publicUrl: string }> {
+  const fileName = `${Date.now()}_${file.name}`;
+  const { data, error } = await supabase.storage
+    .from("sequence_files")
+    .upload(`steps/${stepId}/${fileName}`, file);
+  if (error) throw error;
+
+  const { data: urlData } = supabase.storage.from("sequence_files").getPublicUrl(data.path);
+  return { path: data.path, publicUrl: urlData.publicUrl };
+}
