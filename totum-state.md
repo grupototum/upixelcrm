@@ -88,3 +88,25 @@ Regras herdadas + específicas: ZERO mudança de fluxo de auth (signUp/signIn/si
 | L4-5 | Centralização de supabase.auth em lib/auth-session (11 call sites, 8 arquivos) | f1fb795 | ✅ 2026-07-18 | ✅ | ✅ (48 pré-existentes, 0 novos) |
 
 **LOTE 4 CONCLUÍDO em 2026-07-18 — PLANO DE CAMADAS COMPLETO.** Leituras de sessão/usuário centralizadas em lib/auth-session (getCurrentSession/getCurrentUser). Ficam intocados por decisão registrada: AuthContext (dono do auth), SignupPage.signUp, SecuritySettings (re-auth/troca de senha = fluxo de auth), lib/edge-invoke (máquina de refresh) e o health-check do RAGIntegrationStatus (usa o error do getSession como diagnóstico). Backlog não-bloqueante ("Lote 3.5"): ~18 consumidores de página/componente ainda com .from() direto (IntegrationsPage, CampaignsPage, WhatsAppManagement, modais etc.) — repositórios já cobrem a maioria; smoke consolidado segue pendente (prompt do agente VPS entregue).
+
+
+## Incidente 2026-07-19 — app fora do ar (resolvido)
+
+Causa raiz: em 03/jul as env vars de PRODUÇÃO da Vercel (`VITE_SUPABASE_URL` e
+`VITE_SUPABASE_PUBLISHABLE_KEY`) foram trocadas para o self-host abandonado
+(`upixel.grupototum.com` — domínio órfão sem rota, A record de 02/jul). Todo build
+de produção desde então saiu com o host morto cravado → refresh de sessão do
+supabase-js falhava com CORS/503 no boot → app morto. SEM relação com o refactor
+de camadas (Lotes 1–4). Correção (agente com acesso à Vercel, 19/jul): as duas
+vars restauradas para o Supabase Cloud (`xusdhzwfkzufupjwbebt.supabase.co` +
+`sb_publishable_...`), 2 redeploys sem cache, validação: console limpo, dados
+reais carregando, `x-vercel-id` presente. Descoberta associada: o job
+`deploy-vps` do CI falhava (timeout SSH) desde 17/jul — obsoleto, pois o
+frontend é 100% Vercel (domínios `*.upixel.app` todos válidos no projeto).
+
+**Limpeza (PR desta data, aguardando merge do owner):** vercel.json ganha rewrite
+`/functions/v1/* → Supabase Cloud` (restaura Meta Data Deletion Callback/webhooks
+registrados em upixel.app); nginx da VPS perde o server block do frontend;
+workflow vira "CI + Deploy Edge Functions" (lint+test+build como gate; deploy-vps
+removido). Pendências que seguem: smoke com login real, Lote 3.5 (aprovado),
+remover A record órfão na Cloudflare, investigar HEAD 503 (não-bloqueante).
