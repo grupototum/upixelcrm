@@ -9,20 +9,27 @@
 > Todas as evidências abaixo vêm de grep/leitura real do repo em `/home/user/upixelcrm`,
 > não de inferência. Caminhos de arquivo e contagens são verificáveis.
 
+> **Correção (mesmo dia, após acesso ao conector Supabase):** o achado #8 (Security & RLS)
+> abaixo foi escrito só com base no repo (grep de `supabase/migrations/`) e estava
+> **errado no que importa**. Consulta direta a `pg_class`/`pg_policies` no banco de produção
+> confirmou que as 6 tabelas "sem RLS" têm, sim, RLS habilitada e com política em produção —
+> só não têm arquivo de migration local rastreando isso (mesmo problema do achado #18, não um
+> buraco de segurança separado). Texto original mantido abaixo, corrigido inline com nota.
+
 ---
 
 ## Resumo executivo
 
 | # | Camada | Status | Achado principal |
 |---|---|---|---|
-| 1 | Frontend | ⚠️ PARCIAL | 98% migrado (Lotes 1-4+3.5), mas 2 vazamentos residuais |
+| 1 | Frontend | ⚠️ PARCIAL | 99% migrado; 1 vazamento residual restante (`WhatsAppManagement.tsx`, área sensível) |
 | 2 | APIs & Backend Logic | ✅ ISOLADA | 33 edge functions organizadas, `_shared/` compartilhado |
 | 3 | Database & Storage | ⚠️ PARCIAL | 6 tabelas em produção **sem nenhuma migration** |
 | 4 | Auth & Permissions | ⚠️ PARCIAL | Client-side (UI) + RLS (real) duplicados por design |
 | 5 | Hosting & Deployment | ⚠️ PARCIAL | Split real limpo, mas `docker-compose.upixel.yml` ficou obsoleto |
 | 6 | Cloud & Compute | ⚠️ PARCIAL | VPS ganhou 3º workload (`sdr-worker`) não documentado na limpeza |
 | 7 | CI/CD & Version Control | ⚠️ PARCIAL | Frontend com gate (lint+test+build); **migrations fora do CI** |
-| 8 | Security & RLS | ⚠️ PARCIAL | 49 tabelas com RLS (254 policies), mas 6-7 **sem RLS nenhuma** |
+| 8 | Security & RLS | ✅ ISOLADA (corrigido) | 49+ tabelas com RLS; as 6 "sem RLS" do achado inicial ~~estavam erradas~~ — RLS confirmada ao vivo no banco, só falta o arquivo de migration (ver #18) |
 | 9 | Rate Limiting | ➖ NÃO IMPLEMENTADA | 100% dependente do default da plataforma |
 | 10 | Caching & CDN | ✅ ISOLADA | Service worker + React Query bem calibrados |
 | 11 | Load Balancing & Scaling | ➖ NÃO IMPLEMENTADA | Delegado à Vercel/Supabase (esperado nesta escala) |
@@ -36,41 +43,45 @@
 | 19 | Concurrency Control | ⚠️ PARCIAL | 1 padrão de claim atômico bom (sdr-worker), 1 fraco (automation-worker) |
 | 20 | Monitoring & Tuning | ⚠️ PARCIAL | Health-checks bons; zero monitoramento de performance de query |
 
-**Contagem:** 5 ✅ ISOLADA · 12 ⚠️ PARCIAL · 2 ❌ MISTURADA · 2 ➖ NÃO IMPLEMENTADA (a soma dá 21 porque Rate Limiting e Load Balancing são as duas ➖, e ambas são aceitáveis nesta escala — não são "buracos", são escolhas razoáveis de não reinventar o que a plataforma já resolve).
+**Contagem (após correção do #8):** 6 ✅ ISOLADA · 11 ⚠️ PARCIAL · 2 ❌ MISTURADA · 2 ➖ NÃO IMPLEMENTADA (a soma dá 21 porque Rate Limiting e Load Balancing são as duas ➖, e ambas são aceitáveis nesta escala — não são "buracos", são escolhas razoáveis de não reinventar o que a plataforma já resolve).
 
 ---
 
-## 🔴 Os 2 achados que mais importam (tocam No-Fly Zones do CLAUDE.md)
+## 🔴 O achado que mais importa (toca No-Fly Zone do CLAUDE.md)
 
-### 1. Migrations — drift real em produção (#18, ❌ MISTURADA)
+### Migrations — drift de "bookkeeping" em produção (#18, ❌ MISTURADA)
 
-`docs/migration-history-reconciliation.md` já documenta isto: **36 versions** existem na tabela remota `supabase_migrations.schema_migrations` **sem arquivo local correspondente** — aplicadas via MCP `apply_migration`, dashboard ou SQL direto, nunca commitadas no repo. Uma tentativa anterior de automatizar deploy de migration no CI (PR #29) foi **revertida** (PR #30) exatamente por causa desse drift.
+`docs/migration-history-reconciliation.md` já documenta isto e tem um runbook pronto:
+**36 versions** existem na tabela remota `supabase_migrations.schema_migrations` **sem arquivo
+local correspondente** — aplicadas via MCP `apply_migration`, dashboard ou SQL direto, nunca
+commitadas no repo. Uma tentativa anterior de automatizar deploy de migration no CI (PR #29) foi
+**revertida** (PR #30) exatamente por causa desse drift.
 
-Consequência prática: **6 tabelas em produção não têm NENHUM arquivo de migration** —
-`backup_configs`, `backup_runs`, `error_logs`, `bots`, `bot_sessions`, `meta_oauth_sessions`.
-Se alguém rodar `supabase db reset` ou provisionar um projeto novo a partir do repo, essas
-tabelas simplesmente não existem.
+**Verificado ao vivo no banco (2026-07-19, via conector Supabase):** o schema e a segurança em
+si **estão corretos** — as 6 tabelas afetadas (`backup_configs`, `backup_runs`, `error_logs`,
+`bots`, `bot_sessions`, `meta_oauth_sessions`, + `whatsapp_message_dedup`) **têm RLS habilitada
+e com pelo menos 1 política cada**, confirmado via `pg_class.relrowsecurity` +
+`pg_policies`. O problema é **só** que o repo não tem o arquivo de migration local
+correspondente a essas 36 versões — ou seja, `supabase db push`/`db reset` reconstrutivo
+falharia ou geraria um schema incompleto, mas a produção **atual** não tem brecha de segurança
+por causa disso.
 
-### 2. Security & RLS — tabelas sem proteção nenhuma (#8, ⚠️ PARCIAL grave)
-
-As mesmas 6 tabelas acima (mais `whatsapp_message_dedup`) não têm **nenhuma** `ENABLE ROW LEVEL
-SECURITY`. A função `database-backup` mitiga isso usando service-role key + checagem manual de
-`role === "master"` no código — mas é uma rede de segurança de aplicação, não de banco. Se esse
-`if` for removido ou contornado (bug futuro, outra função que toque a tabela), não há RLS
-segurando a porta.
-
-**Isto é exatamente o tipo de coisa que o CLAUDE.md marca como No-Fly Zone**
-("Banco de dados: RLS policies, tenant_id isolamento" e "Exclusão de dados" — regra:
-"IA sugere. Humano aprova."). Não vou mexer em RLS nem criar migrations de correção sem
-autorização explícita sua.
+O próprio runbook do reconciliation doc é explícito: `migration repair` **só edita a tabela de
+histórico**, não toca em schema nem dados — não é uma operação destrutiva. Ainda assim, como
+envolve acesso direto ao banco de produção (senha do Postgres via Supabase CLI), trato como
+área sensível do CLAUDE.md ("Banco de dados... Supabase migrations") e só executo com aval
+explícito seu — ver o prompt de handoff abaixo.
 
 ---
 
 ## Achados menores (não bloqueantes, mas vale saber)
 
-- **`useCsatSender.ts`** e **`WhatsAppManagement.tsx`** (linha ~218) ainda fazem `.from()` direto
-  fora de `src/services/` — escaparam do Lote 3.5 porque não bateram com os padrões de busca
-  usados na varredura original. Fácil de fechar num lote pequeno futuro.
+- **`useCsatSender.ts`** — ✅ corrigido (mesmo dia): passou a usar
+  `services/inbox.listPendingCsatConversations`/`markCsatSent`/`insertMessage`.
+- **`WhatsAppManagement.tsx`** (linha ~218) ainda faz um `.from("integrations").update(...)`
+  direto — deixado de fora de propósito por estar na área "WhatsApp integration", marcada como
+  sensível no CLAUDE.md. É uma troca mecânica trivial (mesmo padrão já usado em
+  `MasterIntegrationsPage`/`AgentsTab`), mas aguarda seu aval explícito antes de tocar.
 - **`docker-compose.upixel.yml`** ainda descreve a arquitetura antiga (frontend na VPS) — ficou
   para trás na limpeza do PR #44 e contradiz o `nginx.conf`/`deploy.yml` atuais.
 - **`sdr-worker/`** é um processo Node standalone com instruções de systemd pra rodar na VPS —
@@ -109,21 +120,17 @@ autorização explícita sua.
 
 ## Recomendação de próximos passos (ordem sugerida, cada um exige seu próprio aviso/aprovação)
 
-1. **Reconciliar as 36 migrations órfãs** — já existe um runbook pronto em
-   `docs/migration-history-reconciliation.md`. Prioridade alta por ser pré-requisito de tudo
-   mais (sem isso, `supabase db push` não funciona e novas migrations arriscam conflitar).
-2. **Adicionar migrations retroativas para as 6 tabelas órfãs** (`backup_configs`, `backup_runs`,
-   `error_logs`, `bots`, `bot_sessions`, `meta_oauth_sessions`) — com `ENABLE ROW LEVEL SECURITY`
-   e políticas adequadas. Área sensível — precisa do seu aval explícito antes de qualquer
-   implementação.
-3. **Decidir**: manter a automação de backup como está (config decorativa) ou implementar o
+1. **Reconciliar as 36 migrations órfãs** (`migration repair`, não-destrutivo, só bookkeeping) —
+   runbook pronto em `docs/migration-history-reconciliation.md`. Precisa de Supabase CLI + senha
+   do Postgres (não dá via MCP) — ver prompt de handoff em `HANDOFF-PENDENCIAS.md`.
+2. **Decidir**: manter a automação de backup como está (config decorativa) ou implementar o
    `cron.schedule` que falta.
-4. **Decidir**: adicionar Sentry (ou equivalente) para error tracking real, já que hoje não há
+3. **Decidir**: adicionar Sentry (ou equivalente) para error tracking real, já que hoje não há
    visibilidade de produção além de queries manuais na tabela `error_logs`.
-5. Fechar os 2 vazamentos residuais do Lote 3.5 (`useCsatSender.ts`, `WhatsAppManagement.tsx`) —
-   baixo risco, pode ser um lote pequeno.
-6. Atualizar/remover `docker-compose.upixel.yml` obsoleto e decidir o destino real do
-   `sdr-worker` (VPS via systemd? outro host?) para fechar a documentação de infra.
+4. ~~Fechar os 2 vazamentos residuais do Lote 3.5~~ — `useCsatSender.ts` corrigido; falta só
+   `WhatsAppManagement.tsx`, aguardando aval explícito (área sensível).
+5. Atualizar/remover `docker-compose.upixel.yml` obsoleto e decidir o destino real do
+   `sdr-worker` (VPS via systemd? outro host?) — ver prompt de handoff (investigação da VPS).
 
 *Relatório gerado por auditoria automatizada — evidências coletadas via grep/leitura direta do
 repositório em 2026-07-19. Nenhuma alteração de código foi feita como parte desta auditoria.*

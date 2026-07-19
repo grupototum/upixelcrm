@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as inboxRepo from "@/services/inbox";
 import { invokeEdge } from "@/lib/edge-invoke";
 import { logger } from "@/lib/logger";
 import { useTenant } from "@/contexts/TenantContext";
@@ -27,15 +27,9 @@ export function useCsatSender() {
     if (!clientId) return;
 
     const now = new Date().toISOString();
-    const { data: pending, error } = await supabase
-      .from("conversations")
-      .select("id, channel, metadata, lead_id")
-      .eq("client_id", clientId)
-      .lte("csat_requested_at", now)
-      .is("csat_sent_at", null)
-      .not("csat_requested_at", "is", null);
+    const pending = await inboxRepo.listPendingCsatConversations(clientId, now);
 
-    if (error || !pending || pending.length === 0) return;
+    if (pending.length === 0) return;
 
     await Promise.all(
       pending.map(async (conv) => {
@@ -46,10 +40,7 @@ export function useCsatSender() {
 
         if (!phone || !WA_CHANNELS.has(conv.channel)) {
           // Non-WhatsApp or missing phone: mark done to prevent infinite retry
-          await supabase
-            .from("conversations")
-            .update({ csat_sent_at: sentAt })
-            .eq("id", conv.id);
+          await inboxRepo.markCsatSent(conv.id, sentAt);
           return;
         }
 
@@ -70,12 +61,9 @@ export function useCsatSender() {
             return;
           }
 
-          await supabase
-            .from("conversations")
-            .update({ csat_sent_at: sentAt })
-            .eq("id", conv.id);
+          await inboxRepo.markCsatSent(conv.id, sentAt);
 
-          await supabase.from("messages").insert({
+          await inboxRepo.insertMessage({
             conversation_id: conv.id,
             content: CSAT_TEXT,
             type: "text",

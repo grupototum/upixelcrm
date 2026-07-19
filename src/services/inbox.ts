@@ -269,6 +269,26 @@ export async function createTask(row: TablesInsert<"tasks">): Promise<void> {
 // ---- contadores (badges do sidebar) ----
 
 /** Conversas abertas com mensagens não lidas. */
+/** Conversas com CSAT pendente de envio (útil pra useCsatSender). */
+export async function listPendingCsatConversations(
+  clientId: string,
+  nowIso: string
+): Promise<Pick<Tables<"conversations">, "id" | "channel" | "metadata" | "lead_id">[]> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, channel, metadata, lead_id")
+    .eq("client_id", clientId)
+    .lte("csat_requested_at", nowIso)
+    .is("csat_sent_at", null)
+    .not("csat_requested_at", "is", null);
+  if (error || !data) return [];
+  return data;
+}
+
+export async function markCsatSent(conversationId: string, sentAt: string): Promise<void> {
+  await supabase.from("conversations").update({ csat_sent_at: sentAt }).eq("id", conversationId);
+}
+
 export async function countOpenUnreadConversations(clientId: string): Promise<number> {
   const { count, error } = await supabase
     .from("conversations")
