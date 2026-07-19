@@ -41,6 +41,60 @@ export async function deleteIntegration(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Variante que filtra por múltiplos providers de uma vez (ex: chaves de IA). */
+export async function listIntegrationsByProviders(
+  clientId: string,
+  providers: string[]
+): Promise<Pick<IntegrationRow, "id" | "provider" | "config">[]> {
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("id, provider, config")
+    .eq("client_id", clientId)
+    .in("provider", providers);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Status resumido (para os cards da IntegrationsPage). */
+export async function listIntegrationStatuses(
+  clientId: string
+): Promise<Pick<IntegrationRow, "provider" | "status">[]> {
+  const { data } = await supabase.from("integrations").select("provider, status").eq("client_id", clientId);
+  return data ?? [];
+}
+
+/** Ativa/desativa em lote — só atualiza linhas já existentes (não cria registro novo). */
+export async function updateIntegrationStatusByProviders(
+  clientId: string,
+  providers: string[],
+  status: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("integrations")
+    .update({ status })
+    .eq("client_id", clientId)
+    .in("provider", providers);
+  if (error) throw error;
+}
+
+// ---- visão master (MasterIntegrationsPage) ----
+
+/** Todos os tenants (sem filtro) + todas as integrations — visão administrativa. */
+export async function masterListTenantsAndIntegrations(): Promise<{
+  tenants: { id: string; name: string; subdomain: string }[];
+  integrations: (Pick<IntegrationRow, "id" | "provider" | "status" | "client_id" | "tenant_id" | "config" | "created_at">)[];
+}> {
+  const [{ data: tns }, { data: ints }] = await Promise.all([
+    supabase.from("tenants").select("id, name, subdomain").order("name"),
+    supabase
+      .from("integrations")
+      .select("id, provider, status, client_id, tenant_id, config, created_at")
+      .order("provider")
+      .order("created_at", { ascending: false }),
+  ]);
+  return { tenants: tns ?? [], integrations: (ints ?? []) as any };
+}
+
 // ---- ad_campaigns ----
 // ponytail: tabela ainda não existe em prod nem nos tipos gerados — em erro
 // (404) retorna [] e o cache passa a popular quando a tabela for criada.

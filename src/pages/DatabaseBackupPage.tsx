@@ -13,19 +13,12 @@ import {
   Database, Download, Upload, Clock, RefreshCw, CheckCircle2,
   AlertTriangle, XCircle, FileText, ArrowRight, Settings, BarChart3,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import * as backupRepo from "@/services/backup";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-
-function invoke(action: string, body?: BodyInit, contentType?: string) {
-  return supabase.functions.invoke(`database-backup?action=${action}`, {
-    body,
-    headers: contentType ? { "Content-Type": contentType } : undefined,
-  });
-}
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -67,11 +60,7 @@ function RestoreWizard() {
 
   const validate = async () => {
     if (!file) return;
-    const form = new FormData();
-    form.append("file", file);
-    const { data, error } = await supabase.functions.invoke("database-backup?action=restore-validate", {
-      body: form,
-    });
+    const { data, error } = await backupRepo.validateRestoreFile(file);
     if (error) { toast.error("Erro ao validar arquivo"); return; }
     setValidation(data as ValidateResult);
     setStep("validate");
@@ -80,11 +69,7 @@ function RestoreWizard() {
   const execute = async () => {
     if (!file) return;
     setExecuting(true);
-    const form = new FormData();
-    form.append("file", file);
-    const { data, error } = await supabase.functions.invoke("database-backup?action=restore-execute", {
-      body: form,
-    });
+    const { data, error } = await backupRepo.executeRestore(file);
     setExecuting(false);
     if (error || (data as any)?.error) {
       toast.error((data as any)?.error || error?.message || "Erro ao restaurar");
@@ -272,11 +257,7 @@ function CompareTab() {
   const compare = async () => {
     if (!file) return;
     setLoading(true);
-    const form = new FormData();
-    form.append("file", file);
-    const { data, error } = await supabase.functions.invoke("database-backup?action=schema-compare", {
-      body: form,
-    });
+    const { data, error } = await backupRepo.compareBackupSchema(file);
     setLoading(false);
     if (error) { toast.error("Erro ao comparar"); return; }
     setComparison((data as any).comparison ?? []);
@@ -338,7 +319,7 @@ export default function DatabaseBackupPage() {
   const { data: statusData, isLoading: statusLoading } = useQuery({
     queryKey: ["db-backup-status"],
     queryFn: async () => {
-      const { data, error } = await invoke("status");
+      const { data, error } = await backupRepo.getBackupStatus();
       if (error) throw error;
       return data as {
         stats: Record<string, number>;
@@ -352,7 +333,7 @@ export default function DatabaseBackupPage() {
   const { data: listData, isLoading: listLoading } = useQuery({
     queryKey: ["db-backup-list"],
     queryFn: async () => {
-      const { data, error } = await invoke("list");
+      const { data, error } = await backupRepo.listBackupRuns();
       if (error) throw error;
       return (data as any).runs as Array<{
         id: string; status: string; type: string; storage_path: string | null;
@@ -376,7 +357,7 @@ export default function DatabaseBackupPage() {
 
   const saveConfig = useMutation({
     mutationFn: async () => {
-      const { error } = await invoke("config-save", JSON.stringify(config), "application/json");
+      const { error } = await backupRepo.saveBackupConfig(config);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Configuração salva"); qc.invalidateQueries({ queryKey: ["db-backup-status"] }); },
@@ -386,7 +367,7 @@ export default function DatabaseBackupPage() {
   const exportBackup = useMutation({
     mutationFn: async () => {
       toast.info("Gerando backup…");
-      const { data, error } = await invoke("export");
+      const { data, error } = await backupRepo.exportBackup();
       if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
       return data as { filename: string; url: string; row_counts: Record<string, number>; file_size_bytes: number };
     },
@@ -400,7 +381,7 @@ export default function DatabaseBackupPage() {
   });
 
   const downloadRun = async (path: string) => {
-    const { data, error } = await invoke(`download&path=${encodeURIComponent(path)}`);
+    const { data, error } = await backupRepo.getBackupDownloadUrl(path);
     if (error || !(data as any)?.url) { toast.error("Erro ao gerar link"); return; }
     window.open((data as any).url, "_blank");
   };

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as automationsRepo from "@/services/automations";
 import { useAuth } from "@/contexts/AuthContext";
 
 const POLL_INTERVAL_MS = 60_000; // 1 minuto
@@ -28,7 +28,7 @@ export function useAutomationWorker() {
 
     const tick = async () => {
       try {
-        await supabase.functions.invoke("automation-worker", { body: {} });
+        await automationsRepo.triggerAutomationWorker();
       } catch (err) {
         // Silencioso: erros temporários não devem poluir o console
         console.debug("[automation-worker] tick error:", err);

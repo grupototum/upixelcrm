@@ -13,17 +13,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import * as automationsRepo from "@/services/automations";
+import type { BotRow } from "@/services/automations";
 import { useAuth } from "@/contexts/AuthContext";
-
-interface BotRow {
-  id: string;
-  name: string;
-  folder: string;
-  status: "published" | "draft";
-  trigger_type: string;
-  created_at: string;
-}
 
 const ALL_FOLDER = "Todos";
 
@@ -60,7 +52,7 @@ function BotFormDialog({
     setSaving(true);
     try {
       if (isNew) {
-        const { data, error } = await supabase.from("bots").insert({
+        const data = await automationsRepo.createBot({
           client_id: clientId,
           name: name.trim(),
           folder: folder.trim() || "Geral",
@@ -69,17 +61,15 @@ function BotFormDialog({
           nodes: [],
           edges: [],
           trigger_type: "manual",
-        }).select("id").single();
-        if (error) throw error;
+        });
         toast.success("Bot criado!");
         onSaved(data?.id);
       } else {
-        const { error } = await supabase.from("bots").update({
+        await automationsRepo.updateBot(initial.id, {
           name: name.trim(),
           folder: folder.trim() || "Geral",
           status,
-        }).eq("id", initial.id);
-        if (error) throw error;
+        });
         toast.success("Bot atualizado");
         onSaved();
       }
@@ -153,12 +143,7 @@ export function BotsTab() {
     queryKey: ["bots", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      const { data, error } = await supabase.from("bots")
-        .select("id, name, folder, status, trigger_type, created_at")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as BotRow[];
+      return automationsRepo.listBots(clientId);
     },
     enabled: !!clientId,
     staleTime: 30_000,
@@ -171,28 +156,34 @@ export function BotsTab() {
   function refresh() { queryClient.invalidateQueries({ queryKey: ["bots", clientId] }); }
 
   async function handleDuplicate(bot: BotRow) {
-    const { data: src } = await supabase.from("bots")
-      .select("nodes, edges, trigger_type, trigger_value")
-      .eq("id", bot.id).single();
-    const { error } = await supabase.from("bots").insert({
-      client_id: clientId,
-      name: `${bot.name} (cópia)`,
-      folder: bot.folder,
-      status: "draft",
-      embed_url: "",
-      nodes: src?.nodes ?? [],
-      edges: src?.edges ?? [],
-      trigger_type: src?.trigger_type ?? "manual",
-      trigger_value: src?.trigger_value,
-    });
-    if (error) { toast.error("Erro ao duplicar"); return; }
+    const src = await automationsRepo.getBotForDuplicate(bot.id);
+    try {
+      await automationsRepo.createBot({
+        client_id: clientId,
+        name: `${bot.name} (cópia)`,
+        folder: bot.folder,
+        status: "draft",
+        embed_url: "",
+        nodes: src?.nodes ?? [],
+        edges: src?.edges ?? [],
+        trigger_type: src?.trigger_type ?? "manual",
+        trigger_value: src?.trigger_value,
+      });
+    } catch {
+      toast.error("Erro ao duplicar");
+      return;
+    }
     toast.success("Bot duplicado");
     refresh();
   }
 
   async function handleDelete(bot: BotRow) {
-    const { error } = await supabase.from("bots").delete().eq("id", bot.id);
-    if (error) { toast.error("Erro ao excluir"); return; }
+    try {
+      await automationsRepo.deleteBot(bot.id);
+    } catch {
+      toast.error("Erro ao excluir");
+      return;
+    }
     if (selectedBot?.id === bot.id) setSelectedBot(null);
     toast.success("Bot excluído");
     refresh();

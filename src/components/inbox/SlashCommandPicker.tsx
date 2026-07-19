@@ -5,7 +5,7 @@ import {
 import { MessageSquareReply, FileBadge, Zap } from "lucide-react";
 import { useCannedResponses } from "@/hooks/useCannedResponses";
 import { useAppState } from "@/contexts/AppContext";
-import { supabase } from "@/integrations/supabase/client";
+import * as broadcastRepo from "@/services/broadcast";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -44,13 +44,7 @@ export function SlashCommandPicker({
     queryKey: ["slash-wa-templates", clientId],
     queryFn: async (): Promise<WaTemplate[]> => {
       if (!clientId) return [];
-      const { data, error } = await supabase
-        .from("whatsapp_templates")
-        .select("id, name, category, content, status")
-        .eq("client_id", clientId)
-        .eq("status", "APPROVED");
-      if (error) return [];
-      return (data ?? []) as WaTemplate[];
+      return broadcastRepo.listApprovedWhatsAppTemplates(clientId);
     },
     enabled: !!clientId,
     staleTime: 60_000,

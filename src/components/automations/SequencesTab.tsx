@@ -20,7 +20,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSequences, type SequenceStepType, type DelayUnit, type SequenceStep, type SequenceChannel } from "@/hooks/useSequences";
-import { supabase } from "@/integrations/supabase/client";
+import * as automationsRepo from "@/services/automations";
 import { toast } from "sonner";
 
 const stepTypeConfig: Record<SequenceStepType, { icon: typeof MessageSquare; label: string; color: string }> = {
@@ -82,21 +82,11 @@ export function SequencesTab() {
   const handleFileUpload = async (file: File, stepId: string) => {
     setUploading(true);
     try {
-      const fileName = `${Date.now()}_${file.name}`;
-      const { data, error } = await supabase.storage
-        .from("sequence_files")
-        .upload(`steps/${stepId}/${fileName}`, file);
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("sequence_files")
-        .getPublicUrl(data.path);
+      const { path, publicUrl } = await automationsRepo.uploadSequenceFile(file, stepId);
 
       const metadata = {
-        file_id: data.path,
-        file_url: urlData.publicUrl,
+        file_id: path,
+        file_url: publicUrl,
         file_name: file.name,
         file_type: file.type,
         file_size: file.size,

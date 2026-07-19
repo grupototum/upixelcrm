@@ -5,7 +5,7 @@ import { ArrowLeft, Save, Loader2, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BotCanvas } from '@/components/bots/BotCanvas';
-import { supabase } from '@/integrations/supabase/client';
+import * as automationsRepo from '@/services/automations';
 import type { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
@@ -31,11 +31,10 @@ function BuilderHeader({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.from('bots').update({
+      await automationsRepo.updateBot(current.id, {
         nodes: getNodes() as unknown as Json,
         edges: getEdges() as unknown as Json,
-      }).eq('id', current.id);
-      if (error) throw error;
+      });
       toast.success('Fluxo salvo');
       const updated = { ...current, nodes: getNodes(), edges: getEdges() };
       setCurrent(updated);
@@ -51,8 +50,7 @@ function BuilderHeader({ bot, onSaved }: { bot: BotRow; onSaved: (b: BotRow) => 
     setToggling(true);
     const next = current.status === 'published' ? 'draft' : 'published';
     try {
-      const { error } = await supabase.from('bots').update({ status: next }).eq('id', current.id);
-      if (error) throw error;
+      await automationsRepo.updateBot(current.id, { status: next });
       toast.success(next === 'published' ? 'Bot ativado — receberá mensagens' : 'Bot pausado');
       const updated = { ...current, status: next as 'published' | 'draft' };
       setCurrent(updated);
@@ -108,14 +106,15 @@ export default function BotBuilderPage() {
 
   useEffect(() => {
     if (!id) { navigate("/automations?tab=bots"); return; }
-    supabase.from('bots')
-      .select('id, name, status, nodes, edges, trigger_type, trigger_value')
-      .eq('id', id)
-      .single()
-      .then(({ data, error }: any) => {
-        if (error || !data) { toast.error('Bot não encontrado'); navigate('/automations?tab=bots'); return; }
+    automationsRepo.getBotFull(id)
+      .then((data) => {
+        if (!data) { toast.error('Bot não encontrado'); navigate('/automations?tab=bots'); return; }
         setBot(data as BotRow);
         setLoading(false);
+      })
+      .catch(() => {
+        toast.error('Bot não encontrado');
+        navigate('/automations?tab=bots');
       });
   }, [id, navigate]);
 

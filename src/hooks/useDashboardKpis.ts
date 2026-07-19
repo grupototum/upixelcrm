@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import * as metricsRepo from "@/services/metrics";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface DashboardStats {
@@ -99,12 +99,7 @@ export function useDashboardKpis() {
   return useQuery<DashboardKpis>({
     queryKey: ["dashboard-kpis", user?.id],
     queryFn: async () => {
-      // RPC criada via migration manual (20260511_dashboard_kpis_rpc.sql).
-      // O tipo gerado pelo supabase-codegen ainda não inclui — regerar com
-      // `supabase gen types typescript` quando possível.
-      // @ts-expect-error — função existe no banco mas não no tipo gerado
-      const { data, error } = await supabase.rpc("dashboard_kpis");
-      if (error) throw error;
+      const data = await metricsRepo.getDashboardKpis();
       if (!isDashboardKpis(data)) {
         throw new Error("Resposta inválida da RPC dashboard_kpis. Verifique a versão da função no banco.");
       }

@@ -52,6 +52,37 @@ export async function insertNotifications(rows: TablesInsert<"notifications">[])
   if (error) throw error;
 }
 
+export async function listNotifications(userId: string, limit = 20) {
+  const { data } = await supabase
+    .from("notifications")
+    .select("id, title, body, type, read, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await supabase.from("notifications").update({ read: true }).eq("id", id);
+}
+
+// ---- push_subscriptions ----
+
+export async function upsertPushSubscription(row: TablesInsert<"push_subscriptions">): Promise<void> {
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .upsert(row, { onConflict: "user_id,endpoint" });
+  if (error) throw error;
+}
+
+export async function deletePushSubscription(userId: string, endpoint: string): Promise<void> {
+  await supabase.from("push_subscriptions").delete().eq("user_id", userId).eq("endpoint", endpoint);
+}
+
 // ---- administração de usuários/organizações (Lote 4 — UsersPage) ----
 // As decisões de permissão (quem pode chamar o quê) ficam na página;
 // aqui só o acesso. RPCs fazem a checagem real no servidor.

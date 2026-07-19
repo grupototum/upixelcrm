@@ -20,7 +20,8 @@ import { CampaignChart } from "@/components/campaigns/CampaignChart";
 import { CampaignRanking } from "@/components/campaigns/CampaignRanking";
 import type { Campaign } from "@/components/campaigns/types";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import * as broadcastRepo from "@/services/broadcast";
+import * as leadsRepo from "@/services/leads";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -101,11 +102,7 @@ function BroadcastsTab({ clientId }: { clientId?: string }) {
     queryKey: ["campaign-dispatch-logs", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      const { data, error } = await (supabase.from("campaign_dispatch_logs") as any)
-        .select("*").eq("client_id", clientId)
-        .order("created_at", { ascending: false }).limit(500);
-      if (error) { console.error(error); return []; }
-      return (data || []) as DispatchLog[];
+      return broadcastRepo.listCampaignDispatchLogs<DispatchLog>(clientId);
     },
     enabled: !!clientId,
     refetchInterval: 15000,
@@ -219,13 +216,7 @@ function AttributionTab({ clientId }: { clientId?: string }) {
     queryKey: ["leads-attribution", clientId],
     queryFn: async (): Promise<AttributedLead[]> => {
       if (!clientId) return [];
-      const { data } = await supabase.from("leads")
-        .select("id,name,phone,email,origin,utm_source,utm_medium,utm_campaign,utm_content,ad_campaign_id,fbclid,gclid,created_at")
-        .eq("client_id", clientId)
-        .or("utm_campaign.not.is.null,ad_campaign_id.not.is.null,fbclid.not.is.null,gclid.not.is.null")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      return data ?? [];
+      return leadsRepo.listAttributedLeads(clientId);
     },
     enabled: !!clientId,
   });

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -85,13 +85,7 @@ export function AgentsTab() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("integrations")
-        .select("*")
-        .eq("provider", "ai_agent")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await integrationsRepo.listIntegrations(clientId, "ai_agent");
 
       const parsed: AIAgent[] = (data || []).map((row: any) => ({
         id: row.id,
@@ -158,24 +152,18 @@ export function AgentsTab() {
           return;
         }
 
-        const { error } = await supabase.from("integrations").insert({
+        await integrationsRepo.insertIntegration({
           client_id: clientId,
           provider: "ai_agent",
           status: formStatus === "active" ? "connected" : "disconnected",
           config,
         });
-
-        if (error) throw error;
         toast.success("Agente criado com sucesso!");
       } else {
-        const { error } = await supabase.from("integrations")
-          .update({
-            status: formStatus === "active" ? "connected" : "disconnected",
-            config,
-          })
-          .eq("id", editingAgent!.id);
-
-        if (error) throw error;
+        await integrationsRepo.updateIntegration(editingAgent!.id, {
+          status: formStatus === "active" ? "connected" : "disconnected",
+          config,
+        });
         toast.success("Agente atualizado!");
       }
 
@@ -190,11 +178,9 @@ export function AgentsTab() {
 
   const toggleAgent = async (agent: AIAgent) => {
     const newStatus = agent.status === "active" ? "disconnected" : "connected";
-    const { error } = await supabase.from("integrations")
-      .update({ status: newStatus })
-      .eq("id", agent.id);
-
-    if (error) {
+    try {
+      await integrationsRepo.updateIntegration(agent.id, { status: newStatus });
+    } catch {
       toast.error("Erro ao alternar status");
       return;
     }
@@ -209,8 +195,9 @@ export function AgentsTab() {
 
   const deleteAgent = async (id: string) => {
     if (!confirm("Deseja realmente excluir este agente?")) return;
-    const { error } = await supabase.from("integrations").delete().eq("id", id);
-    if (error) {
+    try {
+      await integrationsRepo.deleteIntegration(id);
+    } catch {
       toast.error("Erro ao excluir agente");
       return;
     }

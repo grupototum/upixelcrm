@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,13 +69,7 @@ export function AIProviderSettings() {
     setLoading(true);
     try {
       const providerKeys = PROVIDERS.map((p) => p.key);
-      const { data, error } = await supabase
-        .from("integrations")
-        .select("id, provider, config")
-        .eq("client_id", clientId)
-        .in("provider", providerKeys);
-
-      if (error) throw error;
+      const data = await integrationsRepo.listIntegrationsByProviders(clientId, providerKeys);
 
       const nextConfigured: Record<string, boolean> = {};
       const nextRowIds: Record<string, string> = {};
@@ -111,23 +105,14 @@ export function AIProviderSettings() {
     try {
       const existingId = rowIds[provider.key];
       if (existingId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({ status: "connected", config: { api_key: value } })
-          .eq("id", existingId);
-        if (error) throw error;
+        await integrationsRepo.updateIntegration(existingId, { status: "connected", config: { api_key: value } });
       } else {
-        const { data, error } = await supabase
-          .from("integrations")
-          .insert({
-            client_id: clientId,
-            provider: provider.key,
-            status: "connected",
-            config: { api_key: value },
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
+        const data = await integrationsRepo.insertIntegration({
+          client_id: clientId,
+          provider: provider.key,
+          status: "connected",
+          config: { api_key: value },
+        });
         if (data) setRowIds((prev) => ({ ...prev, [provider.key]: data.id }));
       }
 
@@ -148,11 +133,7 @@ export function AIProviderSettings() {
     if (!existingId) return;
     setSavingKey(provider.key);
     try {
-      const { error } = await supabase
-        .from("integrations")
-        .update({ status: "disconnected", config: {} })
-        .eq("id", existingId);
-      if (error) throw error;
+      await integrationsRepo.updateIntegration(existingId, { status: "disconnected", config: {} });
       setConfigured((prev) => ({ ...prev, [provider.key]: false }));
       toast.success(`Chave da ${provider.label} removida.`);
     } catch (err: any) {

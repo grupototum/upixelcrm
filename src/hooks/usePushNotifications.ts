@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as usersRepo from "@/services/users";
 import { getCurrentUser } from "@/lib/auth-session";
 import { toast } from "@/hooks/use-toast";
 
@@ -83,22 +83,18 @@ export function usePushNotifications() {
       }
 
       // Save subscription to database
-      const { error } = await supabase.from("push_subscriptions").upsert(
-        {
+      try {
+        await usersRepo.upsertPushSubscription({
           user_id: user.id,
           endpoint: subJson.endpoint!,
           keys: subJson.keys as any,
           user_agent: navigator.userAgent,
-        },
-        { onConflict: "user_id,endpoint" }
-      );
-
-      if (error) {
-        logger.error("Error saving push subscription:", error);
-        toast({ title: "Erro", description: "Falha ao salvar inscrição de notificação.", variant: "destructive" });
-      } else {
+        });
         setIsSubscribed(true);
         toast({ title: "Notificações ativadas", description: "Você receberá alertas sobre leads, mensagens e tarefas." });
+      } catch (error) {
+        logger.error("Error saving push subscription:", error);
+        toast({ title: "Erro", description: "Falha ao salvar inscrição de notificação.", variant: "destructive" });
       }
     } catch (err) {
       logger.error("Push subscribe error:", err);
@@ -120,9 +116,7 @@ export function usePushNotifications() {
         // Remove from database
         const user = await getCurrentUser();
         if (user) {
-          await supabase.from("push_subscriptions").delete()
-            .eq("user_id", user.id)
-            .eq("endpoint", endpoint);
+          await usersRepo.deletePushSubscription(user.id, endpoint);
         }
       }
       setIsSubscribed(false);

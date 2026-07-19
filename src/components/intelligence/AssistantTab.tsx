@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { Brain, Sparkles, Send, Lightbulb, MessageSquare, TrendingUp, HelpCircle, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import * as alexandriaRepo from "@/services/alexandria";
 
 interface ChatMessage {
   role: "assistant" | "user";
@@ -54,9 +54,7 @@ export function AssistantTab() {
         content: m.content,
       }));
 
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: { messages: history },
-      });
+      const { data, error } = await alexandriaRepo.invokeAiChat(history);
 
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);

@@ -92,6 +92,46 @@ export async function deleteCustomFieldDefinition(id: string): Promise<void> {
 
 // ---- leads ----
 
+/**
+ * Página de telefones existentes, para dedup na importação (ImportPage).
+ * Retorna null em caso de erro (o caller decide se para a paginação ou trata
+ * como falha — comportamento herdado do código original).
+ */
+export async function listLeadPhonesPage(
+  clientId: string,
+  from: number,
+  to: number
+): Promise<{ phone: string | null }[] | null> {
+  const { data, error } = await supabase
+    .from("leads")
+    .select("phone")
+    .eq("client_id", clientId)
+    .not("phone", "is", null)
+    .range(from, to);
+  if (error) return null;
+  return data ?? [];
+}
+
+/** Insert em chunk sem throw — ImportPage decide retry com base em error.code. */
+export async function insertLeadsChunk(
+  chunk: TablesInsert<"leads">[]
+): Promise<{ error: { code?: string; message?: string } | null }> {
+  const { error } = await supabase.from("leads").insert(chunk);
+  return { error };
+}
+
+/** Leads com atribuição de campanha (UTM/fbclid/gclid) — CampaignsPage/AttributionTab. */
+export async function listAttributedLeads(clientId: string, limit = 200) {
+  const { data } = await supabase
+    .from("leads")
+    .select("id,name,phone,email,origin,utm_source,utm_medium,utm_campaign,utm_content,ad_campaign_id,fbclid,gclid,created_at")
+    .eq("client_id", clientId)
+    .or("utm_campaign.not.is.null,ad_campaign_id.not.is.null,fbclid.not.is.null,gclid.not.is.null")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
 export async function listAllLeads(clientId: string, limit = 5000): Promise<Lead[]> {
   const { data, error } = await supabase
     .from("leads")
@@ -118,8 +158,7 @@ export async function bulkDeleteLeads(ids: string[]): Promise<void> {
 
 /** Adiciona uma tag a vários leads, ignorando os que já a têm. Retorna nº de falhas. */
 export async function bulkAddTag(ids: string[], tag: string): Promise<number> {
-  const { data: leadsData, error } = await supabase.from("leads").select("id, tags").in("id", ids);
-  if (error) throw error;
+  const { data: leadsData } = await supabase.from("leads").select("id, tags").in("id", ids);
   // ponytail: 1 update por lead (append em array exigiria RPC); aceitável até ~100 leads
   const updates = (leadsData ?? []).map(async (l) => {
     const current = Array.isArray(l.tags) ? (l.tags as string[]) : [];

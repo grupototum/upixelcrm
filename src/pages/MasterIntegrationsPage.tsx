@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ShieldCheck, MessageCircle, Instagram, Facebook, Mail, Bot, Loader2, Search, AlertCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -60,14 +60,7 @@ export default function MasterIntegrationsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data: tns }, { data: ints }] = await Promise.all([
-        supabase.from("tenants").select("id, name, subdomain").order("name"),
-        supabase
-          .from("integrations")
-          .select("id, provider, status, client_id, tenant_id, config, created_at")
-          .order("provider")
-          .order("created_at", { ascending: false }),
-      ]);
+      const { tenants: tns, integrations: ints } = await integrationsRepo.masterListTenantsAndIntegrations();
       setTenants((tns ?? []) as TenantRow[]);
       setIntegrations((ints ?? []) as unknown as IntegrationRow[]);
     } catch (err) {
@@ -88,11 +81,9 @@ export default function MasterIntegrationsPage() {
   const toggleStatus = async (int: IntegrationRow) => {
     const newStatus = int.status === "connected" ? "paused" : "connected";
     setIntegrations((prev) => prev.map((i) => i.id === int.id ? { ...i, status: newStatus } : i));
-    const { error } = await supabase
-      .from("integrations")
-      .update({ status: newStatus })
-      .eq("id", int.id);
-    if (error) {
+    try {
+      await integrationsRepo.updateIntegration(int.id, { status: newStatus });
+    } catch (error: any) {
       setIntegrations((prev) => prev.map((i) => i.id === int.id ? { ...i, status: int.status } : i));
       toast.error(`Erro: ${error.message}`);
       return;

@@ -1,7 +1,8 @@
 import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { MessageCircle, Instagram, Facebook, Globe, Webhook, Code, Mail, ExternalLink, CheckCircle2, XCircle, Megaphone, TrendingUp, LayoutGrid, MessagesSquare, Wrench } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
+import * as usersRepo from "@/services/users";
 import { getCurrentUser } from "@/lib/auth-session";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -99,13 +100,10 @@ export default function IntegrationsPage() {
         const user = await getCurrentUser();
         if (!user) return;
 
-        const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).single();
-        if (!profile) return;
+        const clientId = await usersRepo.getProfileClientId(user.id);
+        if (!clientId) return;
 
-        const { data: ints } = await supabase
-          .from("integrations")
-          .select("provider, status")
-          .eq("client_id", profile.client_id);
+        const ints = await integrationsRepo.listIntegrationStatuses(clientId);
 
         const statusMap: Record<string, string> = {};
         const existing = new Set<string>();
@@ -156,17 +154,11 @@ export default function IntegrationsPage() {
       const newStatus = value ? "connected" : "disconnected";
       const user = await getCurrentUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("client_id").eq("id", user.id).single();
-      if (!profile?.client_id) return;
+      const clientId = await usersRepo.getProfileClientId(user.id);
+      if (!clientId) return;
 
       // Só atualiza linhas que já existem (conectadas) — não cria registro novo.
-      const { error } = await supabase
-        .from("integrations")
-        .update({ status: newStatus })
-        .eq("client_id", profile.client_id)
-        .in("provider", providers);
-
-      if (error) throw error;
+      await integrationsRepo.updateIntegrationStatusByProviders(clientId, providers, newStatus);
 
       // Atualiza UI: recalcula status unificado
       const updated = { ...realStatuses };
