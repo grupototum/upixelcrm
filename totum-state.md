@@ -108,5 +108,43 @@ frontend é 100% Vercel (domínios `*.upixel.app` todos válidos no projeto).
 `/functions/v1/* → Supabase Cloud` (restaura Meta Data Deletion Callback/webhooks
 registrados em upixel.app); nginx da VPS perde o server block do frontend;
 workflow vira "CI + Deploy Edge Functions" (lint+test+build como gate; deploy-vps
-removido). Pendências que seguem: smoke com login real, Lote 3.5 (aprovado),
+removido). Pendências que seguem: smoke com login real,
 remover A record órfão na Cloudflare, investigar HEAD 503 (não-bloqueante).
+
+## Lote 3.5 — backlog de consumidores com .from() direto (concluído 2026-07-19)
+
+Varredura real (não a estimativa de ~18 do Lote 4) encontrou ~45 arquivos com
+acesso direto ao Supabase fora de `src/services/`. Migrados em 5 sub-lotes,
+1 commit cada, todos com `tsc --noEmit`, `npm run test` (41/41) e
+`npm run build` verdes antes do commit:
+
+| Sub-lote | Escopo | Repositório(s) |
+|---|---|---|
+| A | Métricas (dashboard, CSAT, SLA) | `services/metrics.ts` (novo) |
+| B | Bots, sequências, automation-worker | `services/automations.ts` (estendido) |
+| C | Alexandria/RAG, Intelligence (agentes IA, chaves de provedor) | `services/alexandria.ts` (novo), `services/integrations.ts` (estendido) |
+| D | Configurações de integrações (API keys, webhooks, status por tenant) | `services/integrations.ts` (estendido) |
+| E | Inbox (slash commands), CRM (bulk actions), campanhas, import, backup | `services/backup.ts` (novo), `leads.ts`/`broadcast.ts`/`users.ts` (estendidos) |
+
+Notas: `BulkActionsBar` passou a usar `bulkMoveLeads/bulkDeleteLeads/bulkAddTag`,
+que já existiam desde o Lote 1 mas nunca tinham sido consumidos — `bulkAddTag`
+foi ajustado para não lançar erro na leitura inicial, alinhando ao
+comportamento real do código que substituiu. Comportamento preservado em
+todos os outros movimentos (mesmos toasts, mesma paginação com fallback,
+mesmo retry com backoff no import em massa).
+
+**Ficam FORA deste lote — decisão já registrada, não tocar sem aviso explícito
+(CLAUDE.md marca "Integrações críticas: WhatsApp integration" e
+"Multi-tenancy" como áreas sensíveis):**
+- WhatsApp: `CloudConnectModal`, `CloudEmbeddedSignup`, `CloudInstanceList`,
+  `QuickConnectWizard`, `WhatsAppManagement`, `RechargeModal`,
+  `useWhatsAppInstances`, `useWhatsAppIntegration`.
+- Meta/Google/Instagram (embedded signup / OAuth): `FacebookPageEmbeddedSignup`,
+  `InstagramEmbeddedSignup`, `MetaAdsEmbeddedConnect`, `GoogleAdsAutoConnect`,
+  `useGoogleIntegration`, `useInstagramIntegration`, `FacebookOAuthCallbackPage`.
+- Auth/tenant (decisão do Lote 4, reafirmada): `AuthContext`, `TenantContext`,
+  `SignupPage.signUp`, `SecuritySettings`.
+- Infra (não são consumidores): `integrations/supabase/client.ts`, `lib/logger.ts`.
+
+Pendências que seguem em aberto: smoke com login real, remover A record
+órfão na Cloudflare.
