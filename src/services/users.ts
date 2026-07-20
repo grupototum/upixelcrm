@@ -1,8 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { TablesInsert } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 // Repositório do domínio users (profiles, notifications) e, a partir do
 // Lote 4, também da gestão administrativa de usuários/organizações.
+
+/** Perfil completo por id; null em erro ou inexistente (bootstrap do AuthContext). */
+export async function getProfileById(userId: string): Promise<Tables<"profiles"> | null> {
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
+  if (error || !data) return null;
+  return data;
+}
 
 /** client_id do perfil do usuário autenticado (null se perfil não existe). */
 export async function getProfileClientId(userId: string): Promise<string | null> {
