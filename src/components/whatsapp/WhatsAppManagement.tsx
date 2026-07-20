@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
 import { useWhatsAppInstances, WaInstance } from "@/hooks/useWhatsAppInstances";
 import { QuickConnectWizard } from "@/components/whatsapp/QuickConnectWizard";
 import { CloudConnectModal } from "@/components/whatsapp/CloudConnectModal";
@@ -214,16 +215,13 @@ function InstanceCard({
     const newStatus = status === "connected" ? "paused" : "connected";
     const previous = status;
     setStatus(newStatus);
-    const { error } = await supabase
-      .from("integrations")
-      .update({ status: newStatus })
-      .eq("id", instance.id);
-    if (error) {
+    try {
+      await integrationsRepo.updateIntegration(instance.id, { status: newStatus });
+      toast.success(newStatus === "connected" ? "Instância ativada." : "Instância pausada.");
+    } catch (err: any) {
       setStatus(previous);
-      toast.error(`Erro ao alterar status: ${error.message}`);
-      return;
+      toast.error(`Erro ao alterar status: ${err.message}`);
     }
-    toast.success(newStatus === "connected" ? "Instância ativada." : "Instância pausada.");
   };
 
   const handleDelete = async () => {
