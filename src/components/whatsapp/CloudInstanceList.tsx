@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import * as integrationsRepo from "@/services/integrations";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -62,16 +63,13 @@ export function CloudInstanceList({ refreshKey }: { refreshKey?: number }) {
   const toggleInstance = async (id: string, currentStatus: string, name: string) => {
     const newStatus = currentStatus === "connected" ? "paused" : "connected";
     setInstances((prev) => prev.map((i) => i.id === id ? { ...i, status: newStatus } : i));
-    const { error } = await supabase
-      .from("integrations")
-      .update({ status: newStatus })
-      .eq("id", id);
-    if (error) {
+    try {
+      await integrationsRepo.updateIntegration(id, { status: newStatus });
+      toast.success(`"${name}" ${newStatus === "connected" ? "ativada" : "pausada"}.`);
+    } catch (err: any) {
       setInstances((prev) => prev.map((i) => i.id === id ? { ...i, status: currentStatus } : i));
-      toast.error(`Erro ao alterar status: ${error.message}`);
-      return;
+      toast.error(`Erro ao alterar status: ${err.message}`);
     }
-    toast.success(`"${name}" ${newStatus === "connected" ? "ativada" : "pausada"}.`);
   };
 
   if (loading) {
