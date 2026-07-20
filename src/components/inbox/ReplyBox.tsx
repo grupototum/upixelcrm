@@ -197,7 +197,7 @@ export function ReplyBox({
 
   return (
     <div className={`p-4 border-t transition-colors duration-200 ${isPrivate ? "bg-amber-50/50 border-amber-200" : "bg-card"}`}>
-      <div className="max-w-4xl mx-auto space-y-3 relative">
+      <div className="w-full space-y-3 relative">
         
         {showCannedPicker && (
           <CannedResponsePicker 

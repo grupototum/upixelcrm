@@ -33,7 +33,7 @@ export function AppLayout({ children, title, subtitle, actions, breadcrumbLabel 
   return (
     <SidebarProvider>
       <CommandPalette />
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-[100dvh] flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-16 flex items-center justify-between px-6 bg-background sticky top-0 z-40 ghost-border border-b shrink-0">
