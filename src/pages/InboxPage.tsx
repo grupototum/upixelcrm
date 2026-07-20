@@ -300,7 +300,7 @@ export default function InboxPage() { // force HMR reset
 
   return (
     <AppLayout title="Inbox" subtitle="Central de atendimento">
-      <div className="flex h-[calc(100vh-4rem)] animate-fade-in">
+      <div className="flex h-[calc(100dvh-4rem)] animate-fade-in">
         {/* ─── Thread list ─── */}
         <div className="w-80 ghost-border border-r flex flex-col shrink-0">
           <div className="p-3 ghost-border border-b space-y-2">
@@ -400,7 +400,7 @@ export default function InboxPage() { // force HMR reset
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={`text-[13px] font-bold truncate ${c.unread_count > 0 ? "text-foreground" : "text-foreground/80"}`}>{c.lead_name}</span>
                         {c.category !== "lead" && (
-                          <Badge className={`text-[8px] px-1.5 py-0 h-3.5 border-none uppercase font-black ${c.category === "partner" ? "bg-blue-500/20 text-blue-600" : "bg-purple-500/20 text-purple-600"}`}>
+                          <Badge className={`text-[9px] px-1.5 py-0 h-3.5 border-none uppercase font-black ${c.category === "partner" ? "bg-blue-500/20 text-blue-600" : "bg-purple-500/20 text-purple-600"}`}>
                             {c.category === "partner" ? "Parceiro" : "Colab."}
                           </Badge>
                         )}
@@ -484,7 +484,7 @@ export default function InboxPage() { // force HMR reset
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end gap-y-1.5">
                   <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))]">
                     <Button
                       variant="ghost"
@@ -718,7 +718,7 @@ export default function InboxPage() { // force HMR reset
                                   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                                   return (
                                     <div className="space-y-2 py-1">
-                                      <div className={`flex items-center gap-3 p-2.5 rounded-card min-w-[220px] ${!isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-[hsl(var(--border-strong))]'}`}>
+                                      <div className={`flex items-center gap-3 p-2.5 rounded-card w-full min-w-0 ${!isOutbound ? 'bg-white/15' : 'bg-secondary/60 border border-[hsl(var(--border-strong))]'}`}>
                                         <button
                                           className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all shadow-md ${!isOutbound ? 'bg-white/25 hover:bg-white/35 text-white' : 'bg-primary/15 hover:bg-primary/25 text-primary'}`}
                                           onClick={(e) => {
@@ -927,7 +927,7 @@ export default function InboxPage() { // force HMR reset
                       }
                     }}
                   >
-                    <SelectTrigger className={`mt-1 text-[8px] h-5 px-2 py-0 border-none uppercase font-black w-auto shadow-none ${
+                    <SelectTrigger className={`mt-1 text-[9px] h-5 px-2 py-0 border-none uppercase font-black w-auto shadow-none ${
                         selectedLeadGroup.category === "partner" ? "bg-blue-500/20 text-blue-600" : 
                         selectedLeadGroup.category === "collaborator" ? "bg-purple-500/20 text-purple-600" :
                         "bg-primary/10 text-primary"
@@ -1031,7 +1031,7 @@ export default function InboxPage() { // force HMR reset
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
                        <Activity className="h-3.5 w-3.5" /> Estatísticas do Lead
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div className="p-3 bg-secondary/20 rounded-xl border border-[hsl(var(--border-strong))]">
                         <p className="text-[9px] text-muted-foreground uppercase font-bold">Mensagens</p>
                         <p className="text-lg font-heading font-bold text-primary">{inbox.messages.length}</p>
@@ -1170,10 +1170,10 @@ export default function InboxPage() { // force HMR reset
                   <ExternalLink className="h-3.5 w-3.5" /> VER NO CRM
                 </Button>
                 
-                <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="w-full text-[10px] font-bold gap-1.5 h-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
                     onClick={() => setMergeModalOpen(true)}
                   >
@@ -1373,7 +1373,7 @@ export default function InboxPage() { // force HMR reset
               </button>
             )}
 
-            <div className="max-w-[90vw] max-h-[75vh] overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10 bg-black/40 flex items-center justify-center">
+            <div className="max-w-[90vw] max-h-[75dvh] overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10 bg-black/40 flex items-center justify-center">
               {mediaViewer.type === "image" || mediaViewer.type === "sticker" ? (
                 <div className="relative group/img">
                   <img src={mediaViewer.url} alt="Full view" className="max-w-full max-h-full object-contain" onError={(e) => {
