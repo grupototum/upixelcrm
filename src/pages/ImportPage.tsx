@@ -39,6 +39,66 @@ interface CsvData {
   rows: string[][];
 }
 
+// Aliases usados tanto para auto-mapear quanto para DETECTAR a linha de cabeçalho.
+// Mantido em módulo para reuso entre parseCSV, o path .xlsx e o auto-map.
+const HEADER_ALIASES = [
+  "nome", "name", "contato", "cliente", "razaosocial", "razao social", "clinica",
+  "telefone", "phone", "tel", "celular", "fone", "whatsapp",
+  "email", "e-mail", "mail",
+  "empresa", "company", "negocio", "nomefantasia", "nome fantasia",
+  "cidade", "city", "municipio",
+  "estado", "uf",
+  "cargo", "position", "funcao", "role",
+  "origem", "origin", "fonte", "source",
+  "tags", "etiquetas", "labels",
+  "endereco", "endereço", "instagram", "site", "website", "observa",
+];
+
+const normalizeHeaderText = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+
+// Muitas planilhas de prospecção têm linhas de título/metadados ANTES do cabeçalho
+// real (ex: "LISTA DE 50 CLÍNICAS..."). Pegar cegamente a 1ª linha como header gera
+// colunas com nome vazio → o Radix Select quebra com value="" ("Algo deu errado").
+// Aqui escolhemos, entre as primeiras linhas, a que mais parece um cabeçalho:
+//  (1) maior nº de células que batem com aliases conhecidos; empatando/zerando →
+//  (2) a primeira linha com o maior nº de células preenchidas (>= 2).
+function detectHeaderIndex(rows: string[][]): number {
+  const sample = rows.slice(0, 15);
+  if (sample.length === 0) return 0;
+
+  const aliasScore = (row: string[]) =>
+    row.reduce((acc, cell) => {
+      const c = normalizeHeaderText(cell);
+      return acc + (c && HEADER_ALIASES.some((a) => c.includes(a)) ? 1 : 0);
+    }, 0);
+
+  const aliasScores = sample.map(aliasScore);
+  const bestAlias = Math.max(...aliasScores);
+  if (bestAlias >= 2) return aliasScores.indexOf(bestAlias);
+
+  // Fallback: linha mais "cheia" (title rows têm 1 célula; header/data têm várias).
+  const fillCounts = sample.map((r) => r.filter((c) => c.trim() !== "").length);
+  const maxFill = Math.max(...fillCounts);
+  if (maxFill <= 1) return 0;
+  const idx = fillCounts.findIndex((c) => c >= maxFill);
+  return idx < 0 ? 0 : idx;
+}
+
+// Garante que TODO header tenha nome não-vazio e único: célula vazia vira "Coluna N",
+// duplicatas ganham sufixo. Blindagem contra o crash do Radix Select (value="") e
+// contra keys duplicadas no React, mesmo se a planilha vier torta.
+function normalizeHeaders(raw: string[]): string[] {
+  const seen = new Map<string, number>();
+  return raw.map((h, i) => {
+    let name = h.trim() || `Coluna ${i + 1}`;
+    const count = seen.get(name) ?? 0;
+    seen.set(name, count + 1);
+    if (count > 0) name = `${name} (${count + 1})`;
+    return name;
+  });
+}
+
 interface ImportResult {
   inserted: number;
   skipped: number;
@@ -84,7 +144,9 @@ function parseCSV(text: string): CsvData {
   }
 
   if (lines.length === 0) return { headers: [], rows: [] };
-  const [headers, ...rawRows] = lines;
+  const headerIdx = detectHeaderIndex(lines);
+  const headers = normalizeHeaders(lines[headerIdx]);
+  const rawRows = lines.slice(headerIdx + 1);
   const rows = rawRows.map((r) => {
     const padded = [...r];
     while (padded.length < headers.length) padded.push("");
@@ -223,12 +285,11 @@ export default function ImportPage({
           toast.error("Planilha vazia.");
           return;
         }
-        const [headerRow, ...dataRows] = nonEmpty;
-        const headers = headerRow.map((h) => String(h ?? "").trim());
-        const rows = dataRows.map((r) => {
-          const padded = headers.map((_, i) => String(r[i] ?? "").trim());
-          return padded;
-        });
+        const asStrings = nonEmpty.map((r) => r.map((c) => String(c ?? "").trim()));
+        const headerIdx = detectHeaderIndex(asStrings);
+        const headers = normalizeHeaders(asStrings[headerIdx]);
+        const dataRows = asStrings.slice(headerIdx + 1);
+        const rows = dataRows.map((r) => headers.map((_, i) => String(r[i] ?? "").trim()));
         applyParsed({ headers, rows }, file);
       } catch (err) {
         console.error("xlsx parse error", err);
