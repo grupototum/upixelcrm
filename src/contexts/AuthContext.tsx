@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import * as usersRepo from "@/services/users";
 import { useTenant } from "@/contexts/TenantContext";
 import { toast } from "sonner";
 
@@ -45,22 +46,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function fetchProfile(userId: string): Promise<AuthUser | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
+  const data = await usersRepo.getProfileById(userId);
 
-  if (error || !data) return null;
+  if (!data) return null;
 
   let organization: AuthOrganization | null = null;
   const orgId = data.organization_id;
   if (orgId) {
-    const { data: orgData } = await supabase.from("organizations")
-      .select("*")
-      .eq("id", orgId)
-      .single();
-    if (orgData) organization = orgData as AuthOrganization;
+    try {
+      const orgData = await usersRepo.getOrganizationById(orgId);
+      if (orgData) organization = orgData as AuthOrganization;
+    } catch {
+      // preserva comportamento original: erro ao buscar organization não bloqueia o login
+    }
   }
 
   return {
