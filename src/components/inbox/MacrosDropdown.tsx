@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useMacros } from "@/hooks/useMacros";
 import { useConversationLabels } from "@/hooks/useConversationLabels";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MacrosDropdownProps {
   leadId: string;
@@ -19,6 +20,8 @@ interface MacrosDropdownProps {
   updateStatus: (leadId: string, status: string) => Promise<void> | void;
   updateLabels: (leadId: string, labels: { id: string; name: string; color: string }[]) => Promise<void> | void;
   assignToAgent: (leadId: string, userId: string | null) => Promise<void> | void;
+  /** Renderiza o gatilho apenas como ícone + tooltip (uso inline no header). */
+  iconOnly?: boolean;
 }
 
 export function MacrosDropdown({
@@ -29,21 +32,40 @@ export function MacrosDropdown({
   updateStatus,
   updateLabels,
   assignToAgent,
+  iconOnly = false,
 }: MacrosDropdownProps) {
   const { macros, executeMacro } = useMacros();
   const { labels } = useConversationLabels();
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-[10px] font-bold gap-1.5 hover:bg-accent/10 hover:text-accent transition-colors rounded-lg"
-        >
-          <Zap className="h-3 w-3" /> Macros
-        </Button>
-      </DropdownMenuTrigger>
+      {iconOnly ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Macros"
+                className="h-8 w-8 rounded-lg hover:bg-accent/10 hover:text-accent transition-colors"
+              >
+                <Zap className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Macros</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-xs h-9 gap-2 font-semibold"
+          >
+            <Zap className="h-3.5 w-3.5" /> Macros
+          </Button>
+        </DropdownMenuTrigger>
+      )}
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
           Macros

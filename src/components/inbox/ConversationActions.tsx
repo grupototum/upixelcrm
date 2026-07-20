@@ -15,6 +15,7 @@ import {
 import { LabelSelector } from "./LabelSelector";
 import { listActiveAgents } from "@/services/users";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ConversationActionsProps {
   conversation: any;
@@ -57,12 +58,21 @@ export function ConversationActions({
       <div className="h-6 w-px bg-border mx-1" />
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-semibold">
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-            {conversation.status === "resolved" ? "Resolvido" : "Resolver"}
-          </Button>
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Alterar status"
+                className="h-8 w-8"
+              >
+                <CheckCircle2 className={`h-4 w-4 ${conversation.status === "resolved" ? "text-green-500" : "text-muted-foreground"}`} />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>{conversation.status === "resolved" ? "Resolvido — alterar status" : "Alterar status"}</TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="end" className="w-48 p-1">
           <DropdownMenuItem onClick={() => onUpdateStatus(conversation.lead_id, "open")} className="py-2 text-xs font-medium cursor-pointer">
             <Clock className="mr-2 h-3.5 w-3.5 text-blue-500" /> Aberto

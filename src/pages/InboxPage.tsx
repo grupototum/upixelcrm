@@ -10,7 +10,7 @@ import {
   File, Download, Maximize2, Activity, X,
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
   Instagram, Merge, Trash2, AlertCircle,
-  PanelRightClose, PanelRightOpen,
+  PanelRightClose, PanelRightOpen, ArrowLeft,
 } from "lucide-react";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
 import {
@@ -29,6 +29,12 @@ import { toast } from "sonner";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -51,6 +57,8 @@ import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInbox } from "@/hooks/useInbox";
 import { useCsatSender } from "@/hooks/useCsatSender";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useElementSize } from "@/hooks/use-element-size";
 import type { ShadowSdrConversationInput } from "@/types/shadow-sdr";
 
 const channelColors: Record<string, string> = {
@@ -102,6 +110,25 @@ export default function InboxPage() { // force HMR reset
     window.localStorage.setItem("upixel.inbox.showSidebar", showSidebar ? "1" : "0");
   }, [showSidebar]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
+  // ── Responsividade ──
+  const isMobile = useIsMobile();
+  // No mobile o layout mostra uma coluna por vez: 'list' → 'chat'.
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  // Painel do lead no mobile abre como overlay sob demanda (não persiste como o desktop).
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  // Mede a largura real do header do chat para colapsar as ações ANTES de sobrepor
+  // (o painel aberto num laptop espreme o chat, o que o viewport sozinho não detecta).
+  const { ref: chatHeaderRef, width: chatHeaderWidth } = useElementSize<HTMLDivElement>();
+  const compactActions = isMobile || (chatHeaderWidth > 0 && chatHeaderWidth < 560);
+
+  // Estado unificado de abertura do painel do lead (desktop persiste; mobile é overlay).
+  const panelOpen = isMobile ? mobilePanelOpen : showSidebar;
+  const setPanelOpen = (open: boolean) => {
+    if (isMobile) setMobilePanelOpen(open);
+    else setShowSidebar(open);
+  };
+  const togglePanel = () => setPanelOpen(!panelOpen);
 
   // New conversation modal
   const [newConvOpen, setNewConvOpen] = useState(false);
@@ -302,7 +329,7 @@ export default function InboxPage() { // force HMR reset
     <AppLayout title="Inbox" subtitle="Central de atendimento">
       <div className="flex h-[calc(100dvh-4rem)] animate-fade-in">
         {/* ─── Thread list ─── */}
-        <div className="w-80 ghost-border border-r flex flex-col shrink-0">
+        <div className={`${isMobile ? (mobileView === "chat" ? "hidden" : "w-full") : "w-80 shrink-0"} ghost-border border-r flex flex-col`}>
           <div className="p-3 ghost-border border-b space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
@@ -373,6 +400,7 @@ export default function InboxPage() { // force HMR reset
                   onClick={() => {
                     inbox.selectLead(c.lead_id);
                     setActiveConversationId(c.source_conversations[0]?.id || null);
+                    setMobileView("chat");
                   }}
                   className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-all duration-200 border-b border-[hsl(var(--border-strong))] relative ${
                     inbox.selectedLeadId === c.lead_id ? "bg-primary/5 shadow-[inset_3px_0_0_0_#9b87f5]" : ""
@@ -439,13 +467,24 @@ export default function InboxPage() { // force HMR reset
         </div>
 
         {/* ─── Chat area ─── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-background relative">
+        <div className={`${isMobile ? (mobileView === "chat" ? "w-full" : "hidden") : "flex-1"} flex flex-col min-w-0 bg-background relative`}>
           {selectedLeadGroup ? (
             <>
               {/* Chat header */}
-              <div className="px-4 py-2.5 ghost-border border-b flex items-center justify-between shrink-0 bg-card z-10">
+              <div ref={chatHeaderRef} className="px-4 py-2.5 ghost-border border-b flex items-center justify-between shrink-0 bg-card z-10">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="relative group cursor-pointer shrink-0" onClick={() => setShowSidebar(!showSidebar)}>
+                  {isMobile && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Voltar para a lista"
+                      className="h-8 w-8 shrink-0 -ml-1"
+                      onClick={() => setMobileView("list")}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <div className="relative group cursor-pointer shrink-0" onClick={togglePanel}>
                     <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm group-hover:shadow-md transition-all">
                       {initials(selectedLeadGroup.lead_name || "?")}
                     </div>
@@ -484,57 +523,127 @@ export default function InboxPage() { // force HMR reset
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end gap-y-1.5">
-                  <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))]">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[10px] font-bold gap-1.5 hover:bg-green-500/10 hover:text-green-600 transition-colors rounded-lg"
-                      onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "resolved")}
-                    >
-                      <CheckSquare className="h-3 w-3" /> Resolver
-                    </Button>
-                    <div className="w-px h-4 bg-border/50" />
-                    <SnoozePopover
-                      onSnooze={(until) => inbox.snoozeConversation(inbox.selectedLeadId!, until)}
-                    />
-                    <div className="w-px h-4 bg-border/50" />
-                    <MacrosDropdown
-                      leadId={inbox.selectedLeadId!}
-                      conversationId={activeConversationId || undefined}
-                      currentLabels={selectedLeadGroup.labels}
-                      sendMessage={(text) => inbox.sendMessage(text, activeConversationId || undefined)}
-                      updateStatus={inbox.updateStatus}
-                      updateLabels={inbox.updateLabels}
-                      assignToAgent={inbox.assignToAgent}
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={showSidebar ? "Recolher painel do lead" : "Mostrar painel do lead"}
-                    title={showSidebar ? "Recolher painel do lead" : "Mostrar painel do lead"}
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => setShowSidebar(!showSidebar)}
-                  >
-                    {showSidebar
-                      ? <PanelRightClose className="h-4 w-4" />
-                      : <PanelRightOpen className="h-4 w-4" />}
-                  </Button>
-                  <ConversationActions
-                    conversation={selectedLeadGroup} 
-                    onRefresh={() => inbox.refresh()} 
-                    onUpdateStatus={inbox.updateStatus}
-                    onUpdatePriority={inbox.updatePriority}
-                    onAssignToAgent={inbox.assignToAgent}
-                    onUpdateLabels={inbox.updateLabels}
-                    onDeleteLead={() => {
-                      setDeleteConfirmOpen(true);
-                    }}
-                    onMergeLeads={() => {
-                      setMergeModalOpen(true);
-                    }}
-                  />
+                <div className="flex items-center gap-2 shrink-0">
+                  <TooltipProvider delayDuration={200}>
+                    {compactActions ? (
+                      /* Erro 2: colapsa as ações num hamburguer ANTES de sobrepor */
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label="Ações da conversa" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-56 p-2 space-y-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-xs h-9 gap-2 font-semibold hover:bg-green-500/10 hover:text-green-600"
+                            onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "resolved")}
+                          >
+                            <CheckSquare className="h-3.5 w-3.5" /> Resolver conversa
+                          </Button>
+                          <SnoozePopover
+                            onSnooze={(until) => inbox.snoozeConversation(inbox.selectedLeadId!, until)}
+                          />
+                          <MacrosDropdown
+                            leadId={inbox.selectedLeadId!}
+                            conversationId={activeConversationId || undefined}
+                            currentLabels={selectedLeadGroup.labels}
+                            sendMessage={(text) => inbox.sendMessage(text, activeConversationId || undefined)}
+                            updateStatus={inbox.updateStatus}
+                            updateLabels={inbox.updateLabels}
+                            assignToAgent={inbox.assignToAgent}
+                          />
+                          {!panelOpen && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-xs h-9 gap-2 font-semibold"
+                              onClick={() => setPanelOpen(true)}
+                            >
+                              <PanelRightOpen className="h-3.5 w-3.5" /> Ver detalhes do lead
+                            </Button>
+                          )}
+                          <div className="border-t my-1" />
+                          <div className="flex justify-center">
+                            <ConversationActions
+                              conversation={selectedLeadGroup}
+                              onRefresh={() => inbox.refresh()}
+                              onUpdateStatus={inbox.updateStatus}
+                              onUpdatePriority={inbox.updatePriority}
+                              onAssignToAgent={inbox.assignToAgent}
+                              onUpdateLabels={inbox.updateLabels}
+                              onDeleteLead={() => setDeleteConfirmOpen(true)}
+                              onMergeLeads={() => setMergeModalOpen(true)}
+                            />
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      /* Erro 1: textos viram ícones + tooltip */
+                      <>
+                        <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-[hsl(var(--border-strong))]">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Resolver conversa"
+                                className="h-8 w-8 rounded-lg hover:bg-green-500/10 hover:text-green-600 transition-colors"
+                                onClick={() => inbox.updateStatus(inbox.selectedLeadId!, "resolved")}
+                              >
+                                <CheckSquare className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Resolver conversa</TooltipContent>
+                          </Tooltip>
+                          <div className="w-px h-4 bg-border/50" />
+                          <SnoozePopover
+                            iconOnly
+                            onSnooze={(until) => inbox.snoozeConversation(inbox.selectedLeadId!, until)}
+                          />
+                          <div className="w-px h-4 bg-border/50" />
+                          <MacrosDropdown
+                            iconOnly
+                            leadId={inbox.selectedLeadId!}
+                            conversationId={activeConversationId || undefined}
+                            currentLabels={selectedLeadGroup.labels}
+                            sendMessage={(text) => inbox.sendMessage(text, activeConversationId || undefined)}
+                            updateStatus={inbox.updateStatus}
+                            updateLabels={inbox.updateLabels}
+                            assignToAgent={inbox.assignToAgent}
+                          />
+                        </div>
+                        {/* Erro 3/4: botão de recolher vive no painel; aqui só o de abrir, quando fechado */}
+                        {!panelOpen && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Mostrar painel do lead"
+                                className="h-8 w-8 shrink-0"
+                                onClick={() => setPanelOpen(true)}
+                              >
+                                <PanelRightOpen className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Mostrar painel do lead</TooltipContent>
+                          </Tooltip>
+                        )}
+                        <ConversationActions
+                          conversation={selectedLeadGroup}
+                          onRefresh={() => inbox.refresh()}
+                          onUpdateStatus={inbox.updateStatus}
+                          onUpdatePriority={inbox.updatePriority}
+                          onAssignToAgent={inbox.assignToAgent}
+                          onUpdateLabels={inbox.updateLabels}
+                          onDeleteLead={() => setDeleteConfirmOpen(true)}
+                          onMergeLeads={() => setMergeModalOpen(true)}
+                        />
+                      </>
+                    )}
+                  </TooltipProvider>
                 </div>
               </div>
 
@@ -901,15 +1010,36 @@ export default function InboxPage() { // force HMR reset
           )}
         </div>
 
-        {/* ─── Lead context panel (Retractable) ─── */}
-        <div 
-          className={`ghost-border border-l bg-card overflow-hidden transition-all duration-300 ease-in-out flex flex-col shrink-0 ${
-            showSidebar && selectedLeadGroup ? "w-80 opacity-100" : "w-0 opacity-0 border-none"
-          }`}
+        {/* ─── Lead context panel (coluna retrátil no desktop, overlay no mobile) ─── */}
+        {isMobile && panelOpen && selectedLeadGroup && mobileView === "chat" && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 animate-in fade-in"
+            onClick={() => setPanelOpen(false)}
+          />
+        )}
+        <div
+          className={
+            isMobile
+              ? `fixed inset-y-0 right-0 z-50 w-[90vw] max-w-sm bg-card ghost-border border-l flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
+                  panelOpen && selectedLeadGroup && mobileView === "chat" ? "translate-x-0" : "translate-x-full"
+                }`
+              : `ghost-border border-l bg-card overflow-hidden transition-all duration-300 ease-in-out flex flex-col shrink-0 ${
+                  panelOpen && selectedLeadGroup ? "w-80 opacity-100" : "w-0 opacity-0 border-none"
+                }`
+          }
         >
           {selectedLeadGroup && (
-            <div className="w-80 flex flex-col h-full">
-              <div className="p-5 ghost-border border-b bg-gradient-to-b from-primary/5 to-transparent">
+            <div className="w-full flex flex-col h-full">
+              <div className="relative p-5 ghost-border border-b bg-gradient-to-b from-primary/5 to-transparent">
+                {/* Erros 3/4: botão de recolher o painel vive dentro do próprio painel */}
+                <button
+                  onClick={() => setPanelOpen(false)}
+                  aria-label="Recolher painel do lead"
+                  title="Recolher painel"
+                  className="absolute top-3 right-3 h-8 w-8 rounded-full bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors z-10"
+                >
+                  <PanelRightClose className="h-4 w-4" />
+                </button>
                 <div className="flex flex-col items-center text-center mb-4">
                   <div className="h-16 w-16 rounded-card bg-gradient-to-br from-primary to-[#e04400] flex items-center justify-center text-xl font-bold text-primary-foreground shadow-lg mb-3 transform rotate-3 hover:rotate-0 transition-transform">
                     {initials(selectedLead?.name || selectedLeadGroup.lead_name)}

@@ -7,9 +7,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SnoozePopoverProps {
   onSnooze: (until: Date) => void | Promise<void>;
+  /** Renderiza o gatilho apenas como ícone + tooltip (uso inline no header). */
+  iconOnly?: boolean;
 }
 
 function addHours(hours: number): Date {
@@ -37,7 +40,7 @@ function toLocalInputValue(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function SnoozePopover({ onSnooze }: SnoozePopoverProps) {
+export function SnoozePopover({ onSnooze, iconOnly = false }: SnoozePopoverProps) {
   const [open, setOpen] = useState(false);
   const [customValue, setCustomValue] = useState(toLocalInputValue(addHours(24)));
 
@@ -48,15 +51,33 @@ export function SnoozePopover({ onSnooze }: SnoozePopoverProps) {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-[10px] font-bold gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg"
-        >
-          <Clock className="h-3 w-3" /> Adiar
-        </Button>
-      </PopoverTrigger>
+      {iconOnly ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Adiar"
+                className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Adiar</TooltipContent>
+        </Tooltip>
+      ) : (
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-xs h-9 gap-2 font-semibold"
+          >
+            <Clock className="h-3.5 w-3.5" /> Adiar
+          </Button>
+        </PopoverTrigger>
+      )}
       <PopoverContent align="end" className="w-64 p-2">
         <div className="space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
