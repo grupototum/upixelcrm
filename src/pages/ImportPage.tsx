@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Upload, FileSpreadsheet, ArrowRight, CheckCircle2, X,
-  AlertCircle, Loader2, SkipForward, Plus, Sparkles,
+  AlertCircle, Loader2, SkipForward, Plus, Sparkles, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,6 +105,28 @@ interface ImportResult {
   skippedNoName: number;
   skippedDuplicate: number;
   errors: number;
+}
+
+// Planilha padrão de importação — mesmo formato de docs/import-leads/modelo-importacao-leads.csv.
+// Gerada no cliente (Blob) para o botão "Baixar modelo", sem depender de asset estático.
+const TEMPLATE_HEADERS = ["Nome", "Telefone", "Email", "Empresa", "Cidade", "Cargo", "Origem", "Tags"];
+const TEMPLATE_ROWS = [
+  ["João da Silva", "(11) 98888-7777", "joao@empresa.com.br", "Empresa Exemplo Ltda", "São Paulo", "Diretor Comercial", "Landing Page", "VIP;Quente"],
+  ["Maria Souza", "(21) 3333-4444", "maria@clinica.com.br", "Clínica Exemplo", "Rio de Janeiro", "Gerente", "Indicação", "Frio"],
+];
+
+function downloadTemplateCSV() {
+  const esc = (c: string) => (/[",\n;]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c);
+  const csv = [TEMPLATE_HEADERS, ...TEMPLATE_ROWS].map((r) => r.map(esc).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "modelo-importacao-leads.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Handles quoted fields, commas inside quotes, CRLF/LF, and UTF-8 BOM
@@ -632,6 +654,7 @@ export default function ImportPage({
 
         {/* Step 1: Upload */}
         {step === 1 && (
+          <>
           <div
             className={`bg-card border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${dragOver ? "border-primary bg-primary/5" : "border-border hover:border-[hsl(var(--border-strong))]"}`}
             onClick={() => inputRef.current?.click()}
@@ -652,6 +675,17 @@ export default function ImportPage({
             <p className="text-[10px] text-muted-foreground mb-4">Aceita .csv, .xlsx e .xls</p>
             <Button variant="outline" size="sm" className="text-xs">Selecionar Arquivo</Button>
           </div>
+          <div className="mt-3 text-center">
+            <button
+              type="button"
+              onClick={downloadTemplateCSV}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar modelo de planilha (.csv)
+            </button>
+          </div>
+          </>
         )}
 
         {/* Step 2: Pipeline & Stage */}
