@@ -10,7 +10,7 @@ import {
   File, Download, Maximize2, Activity, X,
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
   Instagram, Merge, Trash2, AlertCircle,
-  PanelRightClose, PanelRightOpen, ArrowLeft,
+  PanelRightClose, PanelRightOpen, ArrowLeft, List,
 } from "lucide-react";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
 import {
@@ -365,19 +365,28 @@ export default function InboxPage() { // force HMR reset
               />
             </div>
             <div className="flex gap-1.5">
-              {["all", "whatsapp", "whatsapp_official", "email", "instagram"].map(ch => (
-                <button
-                  key={ch}
-                  onClick={() => setChannelFilter(ch)}
-                  className={`px-2 py-1 rounded-full text-[10px] font-medium transition-colors ${
-                    channelFilter === ch
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {ch === "all" ? "Todos" : channelLabels[ch]}
-                </button>
-              ))}
+              {["all", "whatsapp", "whatsapp_official", "email", "instagram"].map(ch => {
+                const Icon = ch === "all" ? List : channelIcons[ch] || MessageCircle;
+                const label = ch === "all" ? "Todos" : channelLabels[ch];
+                return (
+                  <Tooltip key={ch}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setChannelFilter(ch)}
+                        aria-label={label}
+                        className={`h-7 w-7 flex items-center justify-center rounded-full transition-colors ${
+                          channelFilter === ch
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{label}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
             </div>
           </div>
           <div className="flex-1 overflow-auto">
