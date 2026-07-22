@@ -1,5 +1,6 @@
-import { AlertCircle, Sparkles } from "lucide-react";
+import { AlertCircle, Sparkles, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { validateBRPhone } from "@/utils/phone";
 
 interface PreviewRow {
   name: string;
@@ -11,6 +12,7 @@ interface PreviewRow {
   origin?: string;
   tags: string[];
   errors: string[];
+  phoneValid?: boolean;
 }
 
 interface CSVPreviewProps {
@@ -59,11 +61,23 @@ export function CSVPreview({ csvHeaders, csvRows, mapping, previewCount = 3 }: C
       origin: origin ?? undefined,
       tags,
       errors,
+      phoneValid: phone ? validateBRPhone(phone) : undefined,
     });
   }
 
   const allValid = previews.every((p) => p.errors.length === 0);
   const totalErrors = previews.reduce((sum, p) => sum + p.errors.length, 0);
+
+  // F5 — valida telefone BR em TODO o arquivo (não só no preview).
+  const phoneCol = mapping.phone && mapping.phone !== "__skip" ? mapping.phone : null;
+  const phoneIdx = phoneCol ? csvHeaders.indexOf(phoneCol) : -1;
+  let invalidPhones = 0;
+  if (phoneIdx >= 0) {
+    for (const row of csvRows) {
+      const v = (row[phoneIdx] ?? "").trim();
+      if (v && !validateBRPhone(v)) invalidPhones++;
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -110,9 +124,11 @@ export function CSVPreview({ csvHeaders, csvRows, mapping, previewCount = 3 }: C
             {/* Contact info grid */}
             <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
               {preview.phone && (
-                <div className="col-span-2">
+                <div className="col-span-2 flex items-center gap-1.5">
                   <span className="text-muted-foreground">Telefone: </span>
                   <span className="font-medium text-foreground">{preview.phone}</span>
+                  {preview.phoneValid === true && <CheckCircle2 className="h-3 w-3 text-success shrink-0" />}
+                  {preview.phoneValid === false && <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />}
                 </div>
               )}
               {preview.email && (
@@ -166,6 +182,16 @@ export function CSVPreview({ csvHeaders, csvRows, mapping, previewCount = 3 }: C
           </div>
         ))}
       </div>
+
+      {invalidPhones > 0 && (
+        <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-500">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            {invalidPhones} telefone(s) com formato inválido — serão importados assim mesmo,
+            mas podem falhar no WhatsApp.
+          </span>
+        </div>
+      )}
 
       <p className="text-[10px] text-muted-foreground">
         Mostrando {previews.length} de {csvRows.length} registros

@@ -32,6 +32,7 @@ const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const SLAPage = lazy(() => import("./pages/SLAPage"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
 const ImportPage = lazy(() => import("./pages/ImportPage"));
+const ImportHistoryPage = lazy(() => import("./pages/ImportHistoryPage"));
 const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
 const UsersPage = lazy(() => import("./pages/UsersPage"));
 const LeadProfilePage = lazy(() => import("./pages/LeadProfilePage"));
@@ -167,6 +168,7 @@ function AppRoutes() {
                 <Route path="/auth/facebook/callback" element={<ProtectedRoute><FacebookOAuthCallbackPage /></ProtectedRoute>} />
                 <Route path="/whatsapp/broadcast" element={<ProtectedRoute><WhatsAppBroadcastPage /></ProtectedRoute>} />
                 <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
+                <Route path="/import/history" element={<ProtectedRoute><ImportHistoryPage /></ProtectedRoute>} />
                 <Route path="/duplicates" element={<ProtectedRoute><DuplicatesPage /></ProtectedRoute>} />
                 <Route path="/users" element={<ProtectedRoute requiredPermission="users.view"><UsersPage /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

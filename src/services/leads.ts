@@ -112,12 +112,18 @@ export async function listLeadPhonesPage(
   return data ?? [];
 }
 
-/** Insert em chunk sem throw — ImportPage decide retry com base em error.code. */
+/**
+ * Insert em chunk sem throw — ImportPage decide retry com base em error.code.
+ * Usa untypedFrom pois o payload pode conter import_batch_id (coluna ainda fora
+ * dos tipos gerados). Retorna os ids inseridos (para enfileirar automações /
+ * aplicar tags pós-importação). Se a SELECT pós-insert falhar, ids vem vazio.
+ */
 export async function insertLeadsChunk(
-  chunk: TablesInsert<"leads">[]
-): Promise<{ error: { code?: string; message?: string } | null }> {
-  const { error } = await supabase.from("leads").insert(chunk);
-  return { error };
+  chunk: Record<string, unknown>[]
+): Promise<{ error: { code?: string; message?: string } | null; ids: string[] }> {
+  const { data, error } = await untypedFrom("leads").insert(chunk).select("id");
+  const ids = ((data as unknown as { id: string }[]) ?? []).map((r) => r.id);
+  return { error, ids };
 }
 
 /** Leads com atribuição de campanha (UTM/fbclid/gclid) — CampaignsPage/AttributionTab. */
