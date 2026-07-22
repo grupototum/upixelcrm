@@ -25,9 +25,13 @@ import * as leadsRepo from "@/services/leads";
  */
 export function BulkActionsBar() {
   const { selectionMode, selectedIds, selectedCount, clearSelection, exitSelectionMode } = useSelection();
-  const { columns, currentPipelineId, refreshData } = useAppState();
+  const { pipelines, columns, currentPipelineId, refreshData } = useAppState();
 
   const [moveOpen, setMoveOpen] = useState(false);
+  // Funil de destino (default = funil atual) + etapa de destino. Como o funil do
+  // lead é derivado da coluna, mover pra outro funil = escolher uma coluna de
+  // outro funil — a mesma operação de bulkMoveLeads, só muda a coluna de destino.
+  const [moveTargetPipeline, setMoveTargetPipeline] = useState<string>("");
   const [moveTarget, setMoveTarget] = useState<string>("");
   const [moving, setMoving] = useState(false);
 
@@ -41,14 +45,34 @@ export function BulkActionsBar() {
   if (!selectionMode || selectedCount === 0) return null;
 
   const ids = Array.from(selectedIds);
-  const currentColumns = columns.filter((c) => c.pipeline_id === currentPipelineId);
+  // Etapas do funil de destino escolhido (ordenadas). Permite mover pra qualquer
+  // funil, não só o atual.
+  const moveColumns = columns
+    .filter((c) => c.pipeline_id === moveTargetPipeline)
+    .sort((a, b) => a.order - b.order);
+
+  const openMoveDialog = () => {
+    // Abre o diálogo já com o funil atual pré-selecionado e sem etapa escolhida.
+    setMoveTargetPipeline(currentPipelineId);
+    setMoveTarget("");
+    setMoveOpen(true);
+  };
+
+  const handleMovePipelineChange = (pid: string) => {
+    setMoveTargetPipeline(pid);
+    setMoveTarget(""); // as etapas mudam ao trocar de funil
+  };
 
   const handleMove = async () => {
     if (!moveTarget) return;
     setMoving(true);
     try {
       await leadsRepo.bulkMoveLeads(ids, moveTarget);
-      const targetName = currentColumns.find((c) => c.id === moveTarget)?.name ?? "outra coluna";
+      const targetCol = columns.find((c) => c.id === moveTarget);
+      const targetPipe = pipelines.find((p) => p.id === targetCol?.pipeline_id);
+      const targetName = targetCol
+        ? `${targetPipe ? `${targetPipe.name} · ` : ""}${targetCol.name}`
+        : "outra coluna";
       toast.success(`${ids.length} lead(s) movido(s) para "${targetName}".`);
       setMoveOpen(false);
       setMoveTarget("");
@@ -111,7 +135,7 @@ export function BulkActionsBar() {
           {selectedCount} lead{selectedCount === 1 ? "" : "s"} selecionado{selectedCount === 1 ? "" : "s"}
         </span>
         <div className="h-5 w-px bg-border" />
-        <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setMoveOpen(true)}>
+        <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={openMoveDialog}>
           <ArrowRightLeft className="h-3 w-3" /> Mover
         </Button>
         <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setTagOpen(true)}>
@@ -140,22 +164,40 @@ export function BulkActionsBar() {
           <DialogHeader>
             <DialogTitle className="text-sm">Mover {selectedCount} lead(s)</DialogTitle>
             <DialogDescription className="text-xs">
-              Escolha a coluna de destino dentro do funil atual.
+              Escolha o funil e a etapa de destino. Você pode mover para outro funil.
             </DialogDescription>
           </DialogHeader>
-          <Select value={moveTarget} onValueChange={setMoveTarget}>
-            <SelectTrigger className="text-xs"><SelectValue placeholder="Coluna de destino" /></SelectTrigger>
-            <SelectContent>
-              {currentColumns.map((c) => (
-                <SelectItem key={c.id} value={c.id} className="text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
-                    {c.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Funil de destino</label>
+              <Select value={moveTargetPipeline} onValueChange={handleMovePipelineChange}>
+                <SelectTrigger className="text-xs"><SelectValue placeholder="Funil de destino" /></SelectTrigger>
+                <SelectContent>
+                  {pipelines.map((p) => (
+                    <SelectItem key={p.id} value={p.id} className="text-xs">
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Etapa de destino</label>
+              <Select value={moveTarget} onValueChange={setMoveTarget} disabled={!moveTargetPipeline}>
+                <SelectTrigger className="text-xs"><SelectValue placeholder="Etapa de destino" /></SelectTrigger>
+                <SelectContent>
+                  {moveColumns.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
+                        {c.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setMoveOpen(false)} disabled={moving}>
               Cancelar
