@@ -958,7 +958,10 @@ export default function ImportPage({
                 Nova Importação
               </Button>
               <Button size="sm" className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground" asChild>
-                <a href="/crm">Ver no CRM</a>
+                {/* Passa o funil de destino via query param pra o CRM abrir JÁ no
+                    funil onde os leads foram importados (senão o board reseta pro
+                    primeiro funil em ordem alfabética e os leads "somem" da vista). */}
+                <a href={pipelineId ? `/crm?pipeline=${pipelineId}` : "/crm"}>Ver no CRM</a>
               </Button>
             </div>
           </div>

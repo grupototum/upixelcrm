@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
 import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
@@ -128,6 +128,21 @@ function CRMPageInner() {
     setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn, reorderColumns,
     addLead, updateLead, deleteLead, moveLead
   } = useAppState();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Abre o board diretamente no funil indicado pela query (?pipeline=<id>).
+  // Usado pós-importação ("Ver no CRM") pra o usuário cair JÁ no funil onde os
+  // leads foram importados. Espera os funis carregarem antes de consumir o param
+  // (senão a validação falharia e o param seria perdido antes da carga).
+  useEffect(() => {
+    const target = searchParams.get("pipeline");
+    if (!target || pipelines.length === 0) return;
+    if (pipelines.some((p) => p.id === target)) setPipeline(target);
+    const next = new URLSearchParams(searchParams);
+    next.delete("pipeline");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, pipelines, setPipeline, setSearchParams]);
 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);

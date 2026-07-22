@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
-  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText, Clock,
+  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText, Clock, Upload,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -54,6 +54,7 @@ const directLinks: NavLeaf[] = [
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Funil de Vendas", url: "/crm", icon: Kanban },
+  { title: "Importar", url: "/import", icon: Upload },
   { title: "Integrações", url: "/integrations", icon: Plug },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
@@ -89,8 +90,8 @@ const masterLinks: NavLeaf[] = [
   { title: "Integrações (Master)", url: "/master/integrations", icon: ShieldCheck, masterOnly: true },
 ];
 
-// Os 3 itens admin (Usuários, Importação, Banco) agora vivem como tabs dentro
-// de /settings — acessíveis via "Configurações" no link direto acima.
+// Usuários e Banco vivem como tabs dentro de /settings — acessíveis via
+// "Configurações" no link direto acima. Importação também tem link direto próprio.
 
 function isLeafActive(url: string, pathname: string): boolean {
   if (url === "/") return pathname === "/";

@@ -143,8 +143,17 @@ export async function listAllLeads(clientId: string, limit = 5000): Promise<Lead
 }
 
 export async function bulkMoveLeads(ids: string[], columnId: string): Promise<void> {
-  const { error } = await supabase.from("leads").update({ column_id: columnId }).in("id", ids);
-  if (error) throw error;
+  // Move em chunks de 500 (limite seguro do PostgREST .in()), como bulkDeleteLeads.
+  // columnId determina o funil de destino também (o funil do lead é derivado da
+  // coluna: lead.column_id -> pipeline_columns.pipeline_id).
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { error } = await supabase
+      .from("leads")
+      .update({ column_id: columnId })
+      .in("id", ids.slice(i, i + CHUNK));
+    if (error) throw error;
+  }
 }
 
 export async function bulkDeleteLeads(ids: string[]): Promise<void> {
