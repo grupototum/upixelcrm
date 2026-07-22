@@ -10,7 +10,7 @@ import {
   File, Download, Maximize2, Activity, X,
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
   Instagram, Merge, Trash2, AlertCircle,
-  PanelRightClose, PanelRightOpen, ArrowLeft, List,
+  PanelRightClose, PanelRightOpen, ArrowLeft, List, MessageSquareDot,
 } from "lucide-react";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
 import {
@@ -96,6 +96,7 @@ export default function InboxPage() { // force HMR reset
   
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const [inboxTab, setInboxTab] = useState<string>("abertas");
   const [sending, setSending] = useState(false);
   const [showSidebar, setShowSidebar] = useState<boolean>(() => {
@@ -251,6 +252,9 @@ export default function InboxPage() { // force HMR reset
     if (channelFilter !== "all") {
       result = result.filter(t => t.channels.includes(channelFilter));
     }
+    if (unreadOnly) {
+      result = result.filter(t => t.unread_count > 0);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(t =>
@@ -259,7 +263,7 @@ export default function InboxPage() { // force HMR reset
       );
     }
     return result;
-  }, [inbox.conversations, searchQuery, channelFilter, inboxTab]);
+  }, [inbox.conversations, searchQuery, channelFilter, unreadOnly, inboxTab]);
 
   const initials = (name: string) =>
     name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
@@ -387,6 +391,24 @@ export default function InboxPage() { // force HMR reset
                   </Tooltip>
                 );
               })}
+              <div className="w-px h-5 bg-border self-center mx-0.5" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setUnreadOnly(v => !v)}
+                    aria-label="Somente não lidas"
+                    aria-pressed={unreadOnly}
+                    className={`h-7 w-7 flex items-center justify-center rounded-full transition-colors ${
+                      unreadOnly
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <MessageSquareDot className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Somente não lidas</TooltipContent>
+              </Tooltip>
             </div>
           </div>
           <div className="flex-1 overflow-auto">
