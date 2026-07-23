@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getCurrentSession } from "@/lib/auth-session";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
@@ -94,6 +94,23 @@ function canonicalBrPhone(raw?: string | null): string {
   return digits;
 }
 
+function resolveMediaContent(content: string, type: string, metadata: Record<string, any>): string {
+  const isMedia = ["image", "audio", "video", "file", "sticker"].includes(type);
+  if (!isMedia) return content;
+  const isEncrypted = content?.includes(".enc");
+  const isWhatsAppDomain = content?.includes("mmg.whatsapp.net") || content?.includes("media.whatsapp.net");
+  const isPlaceholder = content?.startsWith("[") || !content || content === "";
+  if (
+    (isEncrypted || isPlaceholder || isWhatsAppDomain) &&
+    metadata?.media_url &&
+    !metadata.media_url.includes(".enc") &&
+    !metadata.media_url.startsWith("[")
+  ) {
+    return metadata.media_url;
+  }
+  return content;
+}
+
 function sortByCreatedAt(list: Message[]): Message[] {
   return [...list].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -105,7 +122,6 @@ export function useInbox(onLeadCreated?: () => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const realtimeSubscriptionRef = useRef<any>(null);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
@@ -236,22 +252,9 @@ export function useInbox(onLeadCreated?: () => void) {
     console.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
     setMessages(dedupedRows.map(m => {
       const meta = (m.metadata || {}) as Record<string, any>;
-      // For media messages, resolve the best available URL
-      let resolvedContent = m.content;
-      const isMedia = ["image", "audio", "video", "file", "sticker"].includes(m.type);
-      if (isMedia) {
-        const isEncrypted = resolvedContent?.includes(".enc");
-        const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
-        const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
-        
-        // Fallback to metadata media_url if content is not a direct link or is an inaccessible WhatsApp link
-        if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
-          resolvedContent = meta.media_url;
-        }
-      }
       return {
         ...m,
-        content: resolvedContent,
+        content: resolveMediaContent(m.content, m.type, meta),
         channel: channelMap[m.conversation_id],
         metadata: meta,
         is_private: meta?.is_private || false,
@@ -571,15 +574,19 @@ export function useInbox(onLeadCreated?: () => void) {
     if (!target) return;
 
     if (isPrivate) {
-      // Erro ignorado como no original
-      await insertMessage({
-        conversation_id: target.id,
-        content: text,
-        type: "text",
-        direction: "outbound",
-        sender_name: "Você (Nota Privada)",
-        metadata: { is_private: true },
-      }).catch(() => {});
+      try {
+        await insertMessage({
+          conversation_id: target.id,
+          content: text,
+          type: "text",
+          direction: "outbound",
+          sender_name: "Você (Nota Privada)",
+          metadata: { is_private: true },
+        });
+      } catch (err: any) {
+        toast.error(`Erro ao salvar nota privada: ${err.message}`);
+        return;
+      }
       if (clientId) {
         void notifyMentions({
           clientId,
@@ -797,23 +804,9 @@ export function useInbox(onLeadCreated?: () => void) {
 
         if (conv?.lead_id === selectedLeadId) {
           const meta = (newMsg.metadata || {}) as Record<string, any>;
-          let resolvedContent = newMsg.content;
-          const isMedia = ["image", "audio", "video", "file", "sticker"].includes(newMsg.type);
-
-          // Resolve media URLs similar to loadMessages
-          if (isMedia) {
-            const isEncrypted = resolvedContent?.includes(".enc");
-            const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
-            const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
-
-            if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
-              resolvedContent = meta.media_url;
-            }
-          }
-
           const incomingMsg: Message = {
             ...newMsg,
-            content: resolvedContent,
+            content: resolveMediaContent(newMsg.content, newMsg.type, meta),
             channel: conv.channel,
             metadata: meta,
             is_private: meta?.is_private || false,
@@ -894,7 +887,13 @@ export function useInbox(onLeadCreated?: () => void) {
           }
         }
 
-        loadConversations();
+        // Só recarrega lista quando a mensagem NÃO é do lead selecionado.
+        // Para o lead selecionado, a lista é atualizada via setMessages acima
+        // e o unread_count via markConversationsRead em loadMessages.
+        // Chamar loadConversations() em todo INSERT causa re-fetch storm em produção.
+        if (conv?.lead_id !== selectedLeadId) {
+          loadConversations();
+        }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, async (payload) => {
         const updatedConv = payload.new as any;
