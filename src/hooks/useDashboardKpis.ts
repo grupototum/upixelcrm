@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import * as metricsRepo from "@/services/metrics";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
+import { resolveClientId } from "@/lib/tenant-utils";
 
 export interface DashboardStats {
   total_leads: number;
@@ -95,11 +97,16 @@ function isDashboardKpis(value: unknown): value is DashboardKpis {
  */
 export function useDashboardKpis() {
   const { user } = useAuth();
+  const { tenant } = useTenant();
+  // Escopa pelo tenant do subdomínio atual (igual ao resto do app), com fallback
+  // pro client_id do perfil. Corrige o dashboard vazio quando o client_id do
+  // perfil difere do tenant visualizado (ex.: master vendo um cliente).
+  const clientId = resolveClientId(tenant?.id, user?.client_id) ?? undefined;
 
   return useQuery<DashboardKpis>({
-    queryKey: ["dashboard-kpis", user?.id],
+    queryKey: ["dashboard-kpis", clientId, user?.id],
     queryFn: async () => {
-      const data = await metricsRepo.getDashboardKpis();
+      const data = await metricsRepo.getDashboardKpis(clientId);
       if (!isDashboardKpis(data)) {
         throw new Error("Resposta inválida da RPC dashboard_kpis. Verifique a versão da função no banco.");
       }

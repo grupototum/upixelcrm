@@ -6,6 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { listActiveAgents } from "@/services/users";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Lead, PipelineColumn } from "@/types";
 
 interface LeadFormModalProps {
@@ -24,6 +27,15 @@ const emptyForm = (columnId: string): Partial<Lead> => ({
 export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultColumnId }: LeadFormModalProps) {
   const [form, setForm] = useState<Partial<Lead>>(lead ?? emptyForm(defaultColumnId));
   const [tagInput, setTagInput] = useState("");
+
+  const { user } = useAuth();
+  const clientId = user?.client_id ?? "";
+  const { data: agents = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["lead-form-agents", clientId],
+    queryFn: async () => (clientId ? listActiveAgents(clientId).catch(() => []) : []),
+    enabled: !!clientId && open,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (open) {
@@ -98,6 +110,24 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
             </div>
           </div>
 
+          <div>
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Responsável</Label>
+            <Select
+              value={form.responsible_id || "__none"}
+              onValueChange={(val) => setForm({ ...form, responsible_id: val === "__none" ? undefined : val })}
+            >
+              <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
+                <SelectValue placeholder="Selecione o responsável" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
+                <SelectItem value="__none" className="rounded-lg">— Sem responsável —</SelectItem>
+                {agents.map((a) => (
+                  <SelectItem key={a.id} value={a.id} className="rounded-lg">{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* UTM / Atribuição opcional — aberto por default pra surfaceá-los.
               Usuário ainda pode colapsar com 1 clique, mas os campos ficam
               visíveis na primeira passagem em vez de escondidos. */}
@@ -149,7 +179,17 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
               <Input type="number" value={form.value ?? ""} onChange={(e) => setForm({ ...form, value: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
             </div>
           </div>
-          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Segmento</Label>
+              <Input value={form.segmento ?? ""} onChange={(e) => setForm({ ...form, segmento: e.target.value })} placeholder="Ex: Saúde, Varejo, SaaS" className="mt-1 h-10 rounded-xl" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Faturamento Mensal (R$)</Label>
+              <Input type="number" value={form.faturamento_mensal ?? ""} onChange={(e) => setForm({ ...form, faturamento_mensal: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Tags</Label>
             <div className="flex gap-2 isolate">
