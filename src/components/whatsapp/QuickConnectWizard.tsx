@@ -7,6 +7,7 @@ import { Loader2, MessageCircle, CheckCircle2, RefreshCw, ArrowLeft } from "luci
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { extractEdgeError } from "@/lib/edge-error";
 
 type WizardStep = "name" | "qr" | "success";
 
@@ -308,8 +309,14 @@ export function QuickConnectWizard({
         "whatsapp-proxy?action=create-managed-instance",
         { body: { name: name || "WhatsApp" } }
       );
-      if (error || !res?.success) {
-        throw new Error(error?.message || res?.error || "Falha ao criar instância");
+      if (error) {
+        // supabase.functions.invoke não expõe o corpo JSON do erro em error.message
+        // (só o texto genérico "Edge Function returned a non-2xx status code") —
+        // extractEdgeError lê error.context pra pegar a mensagem real do backend.
+        throw new Error(await extractEdgeError(error, "Falha ao criar instância"));
+      }
+      if (!res?.success) {
+        throw new Error(res?.error || "Falha ao criar instância");
       }
       setData({
         friendlyName: res.friendly_name,
