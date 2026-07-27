@@ -164,7 +164,16 @@ Deno.serve(async (req) => {
       if (!createRes.ok) {
         const errBody = await readResponseBody(createRes);
         console.error("Evolution create failed:", createRes.status, errBody);
-        return jsonResponse({ error: "Falha ao criar instância no servidor Evolution." }, 502);
+        const rawMsg = (errBody && typeof errBody === "object")
+          ? ((errBody as any).response?.message ?? (errBody as any).message ?? (errBody as any).error)
+          : errBody;
+        const evolutionMsg = Array.isArray(rawMsg) ? rawMsg.join("; ") : (rawMsg ? String(rawMsg) : `HTTP ${createRes.status}`);
+        const friendly = createRes.status === 401 || createRes.status === 403
+          ? "Servidor Evolution rejeitou a autenticação (API Key inválida)."
+          : createRes.status === 409
+            ? "Já existe uma instância com esse nome no servidor Evolution. Tente novamente."
+            : `Falha ao criar instância no servidor Evolution: ${evolutionMsg}`;
+        return jsonResponse({ error: friendly, evolution_status: createRes.status, details: errBody }, 502);
       }
 
       // Save to integrations table
