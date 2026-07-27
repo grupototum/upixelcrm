@@ -1163,6 +1163,8 @@ export type Database = {
           utm_source: string | null
           utm_term: string | null
           value: number | null
+          segmento: string | null
+          faturamento_mensal: number | null
         }
         Insert: {
           ad_adset_id?: string | null
@@ -1196,6 +1198,8 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           value?: number | null
+          segmento?: string | null
+          faturamento_mensal?: number | null
         }
         Update: {
           ad_adset_id?: string | null
@@ -1229,6 +1233,8 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           value?: number | null
+          segmento?: string | null
+          faturamento_mensal?: number | null
         }
         Relationships: [
           {

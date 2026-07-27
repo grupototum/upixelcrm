@@ -275,6 +275,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data.position !== undefined) updateData.position = data.position || null;
     if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.value !== undefined) updateData.value = data.value ?? null;
+    if (data.responsible_id !== undefined) updateData.responsible_id = data.responsible_id || null;
+    if (data.segmento !== undefined) updateData.segmento = data.segmento || null;
+    if (data.faturamento_mensal !== undefined) updateData.faturamento_mensal = data.faturamento_mensal ?? null;
     if (data.origin !== undefined) updateData.origin = data.origin || null;
     if (data.category !== undefined) updateData.category = data.category || null;
     if (data.column_id !== undefined) updateData.column_id = data.column_id;
@@ -409,6 +412,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tags: data.tags ?? [],
         column_id: columnId,
         value: data.value ?? null,
+        responsible_id: data.responsible_id || null,
+        segmento: data.segmento || null,
+        faturamento_mensal: data.faturamento_mensal ?? null,
         client_id: clientId,
         utm_source: data.utm_source || null,
         utm_medium: data.utm_medium || null,
@@ -947,6 +953,8 @@ function mapLead(row: Record<string, unknown>): Lead {
     column_id: row.column_id as string,
     responsible_id: (row.responsible_id as string) || undefined,
     value: (row.value as number) || undefined,
+    segmento: (row.segmento as string) || undefined,
+    faturamento_mensal: (row.faturamento_mensal as number) || undefined,
     utm_source: (row.utm_source as string) || undefined,
     utm_medium: (row.utm_medium as string) || undefined,
     utm_campaign: (row.utm_campaign as string) || undefined,

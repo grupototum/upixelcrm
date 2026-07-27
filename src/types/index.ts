@@ -46,6 +46,8 @@ export interface Lead {
   column_id: string;
   responsible_id?: string;
   value?: number;
+  segmento?: string;
+  faturamento_mensal?: number;
   category?: "lead" | "partner" | "collaborator";
   // UTM & ads attribution
   utm_source?: string;
