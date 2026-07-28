@@ -168,12 +168,18 @@ Deno.serve(async (req) => {
           ? ((errBody as any).response?.message ?? (errBody as any).message ?? (errBody as any).error)
           : errBody;
         const evolutionMsg = Array.isArray(rawMsg) ? rawMsg.join("; ") : (rawMsg ? String(rawMsg) : `HTTP ${createRes.status}`);
+        // Diagnóstico: só o hostname (nunca a API key) — permite confirmar pra qual
+        // servidor a secret UPIXEL_EVOLUTION_URL está de fato apontando, sem expor
+        // segredos. "no available server" é o texto padrão do Traefik/Coolify para
+        // um router sem backend saudável — geralmente domínio/subdomínio errado.
+        let attemptedHost = managedUrl;
+        try { attemptedHost = new URL(managedUrl).hostname; } catch { /* mantém managedUrl bruto */ }
         const friendly = createRes.status === 401 || createRes.status === 403
           ? "Servidor Evolution rejeitou a autenticação (API Key inválida)."
           : createRes.status === 409
             ? "Já existe uma instância com esse nome no servidor Evolution. Tente novamente."
-            : `Falha ao criar instância no servidor Evolution: ${evolutionMsg}`;
-        return jsonResponse({ error: friendly, evolution_status: createRes.status, details: errBody }, 502);
+            : `Falha ao criar instância no servidor Evolution (${attemptedHost}): ${evolutionMsg}`;
+        return jsonResponse({ error: friendly, evolution_status: createRes.status, attempted_host: attemptedHost, details: errBody }, 502);
       }
 
       // Save to integrations table
