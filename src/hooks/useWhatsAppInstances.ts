@@ -15,6 +15,11 @@ export interface WaInstance {
   business_id: string;
   has_access_token: boolean;
   connected_number: string;
+  /** Saúde reportada pelo whatsapp-health-check (cron a cada 5 min). */
+  health_status?: string | null;
+  /** Nº de checagens consecutivas que falharam (0 = saudável). */
+  consecutive_failures?: number;
+  last_heartbeat?: string | null;
 }
 
 export function useWhatsAppInstances() {

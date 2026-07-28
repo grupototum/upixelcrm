@@ -232,12 +232,28 @@ Deno.serve(async (req) => {
 
     // ── list-instances: returns all WA instances for this client ──
     if (action === "list-instances") {
-      const { data: integrations, error: listErr } = await adminClient
+      // Inclui os campos de saúde gravados pelo whatsapp-health-check (cron 5/5min)
+      // para o painel avisar quando o servidor Evolution está inacessível — antes
+      // isso só existia no banco e falhava em silêncio.
+      const listSelect = "id, status, config, provider, health_status, consecutive_failures, last_heartbeat";
+      let { data: integrations, error: listErr } = await adminClient
         .from("integrations")
-        .select("id, status, config, provider")
+        .select(listSelect)
         .eq("client_id", clientId)
         .in("provider", ["whatsapp", "whatsapp_official"])
         .order("created_at", { ascending: true });
+
+      // Fallback: ambiente sem as colunas de health (migration não aplicada).
+      if (listErr) {
+        const retry = await adminClient
+          .from("integrations")
+          .select("id, status, config, provider")
+          .eq("client_id", clientId)
+          .in("provider", ["whatsapp", "whatsapp_official"])
+          .order("created_at", { ascending: true });
+        integrations = retry.data;
+        listErr = retry.error;
+      }
 
       if (listErr) console.error("list-instances error:", listErr);
 
@@ -255,6 +271,9 @@ Deno.serve(async (req) => {
           business_id: (row.config as any)?.business_id || "",
           has_access_token: !!(row.config as any)?.access_token,
           connected_number: (row.config as any)?.connected_number || "",
+          health_status: (row as any).health_status ?? null,
+          consecutive_failures: (row as any).consecutive_failures ?? 0,
+          last_heartbeat: (row as any).last_heartbeat ?? null,
         }))
       );
     }
