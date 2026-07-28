@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   MessageCircle, Shield, QrCode, CheckCircle2, XCircle, Loader2,
-  Settings, Phone, Wifi, WifiOff, Plus, Trash2, RefreshCw,
+  Settings, Phone, Wifi, WifiOff, Plus, Trash2, RefreshCw, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -515,6 +515,63 @@ function InstanceEditModal({
   );
 }
 
+// ── Alerta de servidor inacessível ───────────────────────────────────────────
+
+// Cadência do cron whatsapp-health-check: 1 checagem a cada 5 minutos.
+const HEALTH_CHECK_INTERVAL_MIN = 5;
+
+/** Formata o tempo offline a partir do nº de checagens falhas consecutivas. */
+function formatDowntime(failures: number): string {
+  const minutes = failures * HEALTH_CHECK_INTERVAL_MIN;
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days} dia${days > 1 ? "s" : ""}`;
+}
+
+/**
+ * Banner de servidor inacessível. O health-check já gravava `unhealthy` no banco,
+ * mas isso nunca chegava à interface — uma queda do servidor Evolution passava
+ * despercebida por semanas. Aqui ela fica visível.
+ */
+function UnhealthyBanner({ instances }: { instances: WaInstance[] }) {
+  const unhealthy = instances.filter((i) => i.health_status === "unhealthy");
+  if (unhealthy.length === 0) return null;
+
+  // Maior nº de falhas = há quanto tempo o servidor está fora.
+  const worst = unhealthy.reduce(
+    (acc, i) => Math.max(acc, i.consecutive_failures ?? 0),
+    0,
+  );
+  const servers = Array.from(
+    new Set(unhealthy.map((i) => i.api_url).filter(Boolean)),
+  );
+
+  return (
+    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
+      <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-sm font-semibold text-destructive">
+          Servidor WhatsApp inacessível
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {unhealthy.length} de {instances.length} número
+          {instances.length !== 1 ? "s" : ""} sem resposta do servidor
+          {worst > 0 && <> — offline há aproximadamente <strong>{formatDowntime(worst)}</strong></>}.
+          Enquanto isso, não é possível conectar novos números nem enviar mensagens.
+        </p>
+        {servers.length > 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            Servidor: <code className="text-foreground">{servers.join(", ")}</code> — verifique se
+            o serviço da Evolution API está no ar e se o proxy reverso consegue alcançá-lo.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 interface WhatsAppManagementProps {
@@ -596,6 +653,9 @@ export function WhatsAppManagement({ embedded = false }: WhatsAppManagementProps
       </div>
 
       <div className="space-y-6">
+        {/* Alerta de servidor fora do ar (health-check) */}
+        {!loading && <UnhealthyBanner instances={instances} />}
+
         {/* Summary */}
         <div className="flex items-center gap-3 flex-wrap">
           <Badge
