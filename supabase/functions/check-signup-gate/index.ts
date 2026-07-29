@@ -1,10 +1,21 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { corsHeaders as CORS } from "../_shared/cors.ts";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Comparação em tempo constante via digest SHA-256 dos dois lados: não vaza
+// tamanho nem prefixo da senha por timing (o curto-circuito anterior vazava).
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const va = new Uint8Array(da);
+  const vb = new Uint8Array(db);
+  let diff = 0;
+  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
+  return diff === 0;
+}
 
 /**
  * check-signup-gate
@@ -51,9 +62,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const expected: string = data as string;
-  const match =
-    submitted.length === expected.length &&
-    submitted.split("").every((c, i) => c === expected[i]);
+  const match = await timingSafeEqual(submitted, expected);
 
   if (!match) {
     await new Promise((r) => setTimeout(r, 500));

@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { isStrictWebhookUrl } from "../_shared/webhook-url.ts";
 
 interface Node {
   id: string;
@@ -124,6 +121,47 @@ serve(async (req) => {
 
     if (!automation_id || !lead_id || !node_id) {
       throw new Error("Missing required fields: automation_id, lead_id, node_id");
+    }
+
+    // ── Auth: caller interno (service role) ou usuário do tenant dono ──────
+    // Antes qualquer portador da anon key disparava automações de qualquer
+    // tenant (IDOR cross-tenant). Ownership é derivado das linhas de
+    // automations/leads — nunca do tenant_id do body.
+    const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isInternal = bearer.length > 0 && bearer === serviceKey;
+    if (!isInternal) {
+      const userClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: `Bearer ${bearer}` } } }
+      );
+      const { data: userData } = await userClient.auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+      const [{ data: callerProfile }, { data: autoOwner }, { data: leadOwner }] = await Promise.all([
+        supabase.from("profiles").select("tenant_id, client_id, role").eq("id", userId).single(),
+        supabase.from("automations").select("tenant_id, client_id").eq("id", automation_id).single(),
+        supabase.from("leads").select("tenant_id, client_id").eq("id", lead_id).single(),
+      ]);
+      const sameOwner = (owner: { tenant_id?: string | null; client_id?: string | null } | null) =>
+        !!owner &&
+        ((owner.tenant_id != null && owner.tenant_id === callerProfile?.tenant_id) ||
+          (owner.client_id != null && owner.client_id === callerProfile?.client_id));
+      const allowed =
+        !!callerProfile &&
+        (callerProfile.role === "master" || (sameOwner(autoOwner) && sameOwner(leadOwner)));
+      if (!allowed) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        });
+      }
     }
 
     // Track the run ID through the flow execution
@@ -327,7 +365,10 @@ serve(async (req) => {
 
       const headers = { 'Content-Type': 'application/json', ...(nodeData.headers || {}) };
 
-      try {
+      if (!isStrictWebhookUrl(url)) {
+        // Anti-SSRF: https obrigatório, sem localhost/IPs privados/metadata.
+        outputData = { error: "URL de webhook inválida ou bloqueada" };
+      } else try {
         const res = await fetch(url, { method, headers, body: ['GET', 'HEAD'].includes(method) ? undefined : bodyStr });
         const resText = await res.text();
         outputData = { status: res.status, response: resText.substring(0, 500) };

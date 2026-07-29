@@ -14,15 +14,20 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// Default mantido para retrocompatibilidade com consumidores externos que
-// ainda apontam pro endpoint sem param. Era o probe da instância master.
-const DEFAULT_INTEGRATION_ID = "e0f8ee49-b538-46eb-9aaf-062515657572";
 const FAILURE_THRESHOLD = 3;
 
 Deno.serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
-    const integrationId = url.searchParams.get("integration_id") ?? DEFAULT_INTEGRATION_ID;
+    // v3: integration_id é obrigatório — o default hardcoded expunha o status
+    // de um tenant real num endpoint público sem auth.
+    const integrationId = url.searchParams.get("integration_id");
+    if (!integrationId) {
+      return new Response(
+        JSON.stringify({ status: "error", message: "integration_id query param is required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     // Valida formato UUID v4 antes de tocar no banco — evita SQL injection
     // via param mesmo com client supabase (defense-in-depth).

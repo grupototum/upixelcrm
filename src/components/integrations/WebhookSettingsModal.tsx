@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import * as integrationsRepo from "@/services/integrations";
 import { generateSecureToken } from "@/lib/crypto";
+import { isStrictWebhookUrl } from "@/lib/webhookUrl";
 import type { WebhookEndpoint } from "@/types";
 
 const AVAILABLE_EVENTS = [
@@ -70,8 +71,8 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
   };
 
   const handleSave = async () => {
-    if (!url.startsWith("https://")) {
-      toast.error("A URL do Webhook deve usar HTTPS.");
+    if (!isStrictWebhookUrl(url)) {
+      toast.error("A URL do Webhook deve ser HTTPS pública (sem localhost ou IPs internos).");
       return;
     }
     if (events.length === 0) {

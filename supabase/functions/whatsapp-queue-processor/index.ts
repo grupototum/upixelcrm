@@ -3,11 +3,7 @@
 // verify_jwt: false — função interna de cron, autentica internamente via SUPABASE_SERVICE_ROLE_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-id, x-internal-cron, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 interface QueueItem {
   id: string;
@@ -90,6 +86,15 @@ async function processQueueItem(adminClient: any, item: QueueItem): Promise<bool
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Gatilho interno de cron: rejeita anon key (pública) e chamadas sem credencial.
+  const cronBearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!cronBearer || cronBearer === (Deno.env.get("SUPABASE_ANON_KEY") ?? "")) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
   }
 
   try {
