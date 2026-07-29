@@ -95,6 +95,7 @@ export default function IntegrationsPage() {
   };
 
   useEffect(() => {
+    let alive = true;
     async function fetchStatuses() {
       try {
         const user = await getCurrentUser();
@@ -104,6 +105,7 @@ export default function IntegrationsPage() {
         if (!clientId) return;
 
         const ints = await integrationsRepo.listIntegrationStatuses(clientId);
+        if (!alive) return;
 
         const statusMap: Record<string, string> = {};
         const existing = new Set<string>();
@@ -128,10 +130,11 @@ export default function IntegrationsPage() {
       } catch (error) {
         logger.error("Error fetching statuses:", error);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     }
     fetchStatuses();
+    return () => { alive = false; };
   }, []);
 
   const handleToggle = async (id: string, value: boolean) => {
