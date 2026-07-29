@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import {
   FB_OAUTH_STATE_KEY,
-  FB_OAUTH_USER_TOKEN_KEY,
+  FB_OAUTH_SESSION_KEY,
   FB_OAUTH_PAGES_KEY,
   FB_OAUTH_REDIRECT_URI_KEY,
 } from "@/pages/FacebookOAuthCallbackPage";
@@ -55,38 +55,38 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [pendingUserToken, setPendingUserToken] = useState<string | null>(null);
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [pageOptions, setPageOptions] = useState<PageOption[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [savedIntegrations, setSavedIntegrations] = useState<SavedIntegration[]>([]);
 
-  // Detecta retorno do callback OAuth: lê user_token + pages do sessionStorage
-  // e pula direto para a seleção de páginas.
+  // Detecta retorno do callback OAuth: lê session_id + pages do sessionStorage
+  // e pula direto para a seleção de páginas. O token da Meta fica server-side.
   useEffect(() => {
-    const userToken = sessionStorage.getItem(FB_OAUTH_USER_TOKEN_KEY);
+    const sessionId = sessionStorage.getItem(FB_OAUTH_SESSION_KEY);
     const pagesRaw = sessionStorage.getItem(FB_OAUTH_PAGES_KEY);
-    if (!userToken || !pagesRaw) return;
+    if (!sessionId || !pagesRaw) return;
     try {
       const pages = JSON.parse(pagesRaw) as PageOption[];
       if (!Array.isArray(pages) || pages.length === 0) return;
-      setPendingUserToken(userToken);
+      setPendingSessionId(sessionId);
       setPageOptions(pages);
       setSelected(new Set(pages.map((p) => p.id)));
       setPhase("choose_pages");
     } catch {
-      sessionStorage.removeItem(FB_OAUTH_USER_TOKEN_KEY);
+      sessionStorage.removeItem(FB_OAUTH_SESSION_KEY);
       sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
       sessionStorage.removeItem(FB_OAUTH_REDIRECT_URI_KEY);
     }
   }, []);
 
-  const callFinish = useCallback(async (userToken: string, pageIds: string[]) => {
+  const callFinish = useCallback(async (sessionId: string, pageIds: string[]) => {
     setPhase("saving");
     const { data, error: invokeError } = await supabase.functions.invoke(
       "facebook-page-embedded-signup?action=finish",
       {
         body: {
-          user_token: userToken,
+          session_id: sessionId,
           selected_page_ids: pageIds,
           ...(tenant?.id ? { tenant_id: tenant.id } : {}),
         },
@@ -111,7 +111,7 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     sessionStorage.setItem(FB_OAUTH_STATE_KEY, state);
     sessionStorage.setItem(FB_OAUTH_REDIRECT_URI_KEY, redirectUri);
     // Limpa qualquer callback antigo pendente
-    sessionStorage.removeItem(FB_OAUTH_USER_TOKEN_KEY);
+    sessionStorage.removeItem(FB_OAUTH_SESSION_KEY);
     sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
 
     const url = new URL(FB_OAUTH_DIALOG);
@@ -126,17 +126,17 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
   }, [configured]);
 
   const handleConfirm = useCallback(async () => {
-    if (!pendingUserToken) return;
+    if (!pendingSessionId) return;
     if (selected.size === 0) {
       toast.error("Selecione ao menos uma página.");
       return;
     }
     setLoading(true);
     try {
-      const integrations = await callFinish(pendingUserToken, Array.from(selected));
+      const integrations = await callFinish(pendingSessionId, Array.from(selected));
       setSavedIntegrations(integrations);
       setPhase("success");
-      sessionStorage.removeItem(FB_OAUTH_USER_TOKEN_KEY);
+      sessionStorage.removeItem(FB_OAUTH_SESSION_KEY);
       sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
       sessionStorage.removeItem(FB_OAUTH_REDIRECT_URI_KEY);
       toast.success(`${integrations.length} página(s) conectada(s)!`);
@@ -148,7 +148,7 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [pendingUserToken, selected, callFinish, onConnected]);
+  }, [pendingSessionId, selected, callFinish, onConnected]);
 
   const toggleSelected = (pageId: string) => {
     setSelected((prev) => {
@@ -245,7 +245,7 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
               setPageOptions([]);
               setPendingUserToken(null);
               setSelected(new Set());
-              sessionStorage.removeItem(FB_OAUTH_USER_TOKEN_KEY);
+              sessionStorage.removeItem(FB_OAUTH_SESSION_KEY);
               sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);
               sessionStorage.removeItem(FB_OAUTH_REDIRECT_URI_KEY);
             }}

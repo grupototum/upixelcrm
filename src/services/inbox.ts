@@ -29,7 +29,9 @@ export async function listConversations(clientId: string): Promise<Tables<"conve
     .from("conversations")
     .select("*")
     .eq("client_id", clientId)
-    .order("last_message_at", { ascending: false });
+    .order("last_message_at", { ascending: false })
+    // Cap defensivo: o Inbox recarrega essa lista a cada evento realtime.
+    .limit(1000);
   if (error) throw error;
   return data ?? [];
 }
@@ -62,13 +64,16 @@ export async function listLeadConversationRefs(
 }
 
 export async function listMessagesByConversationIds(convIds: string[]): Promise<Tables<"messages">[]> {
+  // Busca as 500 mais recentes (desc + limit) e devolve em ordem cronológica —
+  // antes baixava o histórico inteiro do lead a cada loadMessages.
   const { data, error } = await supabase
     .from("messages")
     .select("*")
     .in("conversation_id", convIds)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(500);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).reverse();
 }
 
 export async function markConversationsRead(convIds: string[]): Promise<void> {

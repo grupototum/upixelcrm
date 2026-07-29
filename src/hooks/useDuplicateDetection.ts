@@ -143,12 +143,11 @@ export function useDuplicateDetection() {
       if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
     });
 
-    // ponytail: sem checagem de erro aqui de propósito — mesmo comportamento
-    // do código original, que também ignorava falhas nesses dois passos.
-    await updateLead(primaryId, { tags: mergedTags, notes: mergedNotes || null })
-      .catch((e) => logger.error("[mergeDuplicates] updateLead", e?.message));
-    await bulkDeleteLeads(sourceIds)
-      .catch((e) => logger.error("[mergeDuplicates] bulkDeleteLeads", e?.message));
+    // Falha em qualquer passo aborta: o grupo continua na lista e o caller
+    // (DuplicatesPage) mostra o toast de erro — antes a UI dizia "mesclado"
+    // mesmo com as duplicatas intactas no banco.
+    await updateLead(primaryId, { tags: mergedTags, notes: mergedNotes || null });
+    await bulkDeleteLeads(sourceIds);
 
     setGroups((prev) => prev.filter((g) => g.id !== group.id));
   }, []);

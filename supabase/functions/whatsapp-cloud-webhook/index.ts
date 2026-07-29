@@ -14,6 +14,36 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
+const WA_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
+
+// ── HMAC do X-Hub-Signature-256 (mesmo padrão do facebook-messenger-webhook) ──
+async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
+  if (!WA_APP_SECRET) {
+    console.error("[whatsapp-cloud-webhook] META_APP_SECRET/FACEBOOK_APP_SECRET not configured");
+    return false;
+  }
+  if (!signatureHeader?.startsWith("sha256=")) return false;
+
+  const expected = signatureHeader.slice("sha256=".length);
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(WA_APP_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
+  const computed = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
 const GRAPH_API_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
@@ -206,7 +236,22 @@ Deno.serve(async (req) => {
 
   // ── POST eventos ──
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    // Valida a assinatura da Meta ANTES de processar; o anti-spoofing por
+    // phone_number_id continua como defesa em profundidade.
+    const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+    if (!sigOk) {
+      console.warn("[whatsapp-cloud-webhook] Invalid X-Hub-Signature-256");
+      return new Response("Forbidden", { status: 403, headers: corsHeaders });
+    }
+
+    let body: any;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return new Response("Invalid JSON", { status: 400, headers: corsHeaders });
+    }
     if (body.object !== "whatsapp_business_account") {
       return new Response(JSON.stringify({ ok: true, skipped: "not_whatsapp" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

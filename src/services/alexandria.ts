@@ -17,7 +17,8 @@ export async function listRagDocumentsForClient(
     .from("rag_documents")
     .select("id, title, content, type, created_at, is_global")
     .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
   if (error) throw error;
   return data ?? [];
 }
@@ -29,7 +30,8 @@ export async function listAllRagDocuments(): Promise<
   const { data, error } = await supabase
     .from("rag_documents")
     .select("id, title, content, type, partition, created_at, is_global")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
   if (error) throw error;
   return data ?? [];
 }
@@ -59,7 +61,8 @@ export interface RagAnalyticsRaw {
 export async function getRagAnalyticsRaw(): Promise<RagAnalyticsRaw> {
   const [docsRes, ctxRes, ctxAvgRes] = await Promise.all([
     supabase.from("rag_documents").select("id, type"),
-    supabase.from("rag_context").select("id"),
+    // count no servidor em vez de baixar todas as linhas só pra contar
+    supabase.from("rag_context").select("id", { count: "exact", head: true }),
     supabase.from("rag_context").select("similarity_score"),
   ]);
 
@@ -67,7 +70,7 @@ export async function getRagAnalyticsRaw(): Promise<RagAnalyticsRaw> {
   if (ctxRes.error) throw ctxRes.error;
 
   const docs = docsRes.data || [];
-  const ctxCount = ctxRes.data?.length || 0;
+  const ctxCount = ctxRes.count ?? 0;
   const scores = (ctxAvgRes.data || []).map((r) => r.similarity_score);
 
   return { docs, ctxCount, scores };

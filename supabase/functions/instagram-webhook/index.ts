@@ -2,6 +2,37 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
+const IG_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
+
+// ── HMAC do X-Hub-Signature-256 (mesmo padrão do facebook-messenger-webhook) ──
+async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
+  if (!IG_APP_SECRET) {
+    // Sem secret configurado, nega — nunca aceita silenciosamente.
+    console.error("[instagram-webhook] META_APP_SECRET/FACEBOOK_APP_SECRET not configured");
+    return false;
+  }
+  if (!signatureHeader?.startsWith("sha256=")) return false;
+
+  const expected = signatureHeader.slice("sha256=".length);
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(IG_APP_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
+  const computed = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
 async function sendPushNotification(
   adminClient: any,
   params: { title: string; body: string; tag: string; type: string; target_user_id?: string; target_client_id?: string; lead_id?: string }
@@ -357,7 +388,10 @@ Deno.serve(async (req) => {
         return (i.config as any)?.webhook_verify_token === token;
       });
 
-      if (validToken || (integrations && integrations.length > 0)) {
+      // FIX: antes um `|| integrations.length > 0` aceitava QUALQUER token
+      // desde que existisse alguma integração Instagram (mesmo bug FIX-01
+      // já corrigido no whatsapp-webhook).
+      if (validToken) {
         return new Response(challenge || "", { status: 200, headers: corsHeaders });
       }
       return new Response("Forbidden", { status: 403, headers: corsHeaders });
@@ -366,7 +400,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    // Valida a assinatura da Meta ANTES de processar (rejeita eventos forjados).
+    const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+    if (!sigOk) {
+      console.warn("[instagram-webhook] Invalid X-Hub-Signature-256");
+      return new Response("Forbidden", { status: 403, headers: corsHeaders });
+    }
+
+    let body: any;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return new Response("Invalid JSON", { status: 400, headers: corsHeaders });
+    }
     console.log("IG Webhook received");
 
     if (body.object !== "instagram") {

@@ -143,10 +143,21 @@ export default function SignupPage() {
         return;
       }
 
-      // Erros abaixo eram ignorados no original — preservado
-      await signupRepo.setTenantOwner(tenantId, authData.user.id).catch(() => {});
-      await signupRepo.setOrganizationOwner(orgId, authData.user.id).catch(() => {});
-      await setProfileOrganization(authData.user.id, orgId).catch(() => {});
+      // Falha aqui deixava o signup terminar em "sucesso" com tenant sem dono.
+      // Agora é fatal: faz rollback de org+tenant e mostra erro. (A conta auth
+      // criada permanece — custo aceito para não ter tenant órfão.)
+      try {
+        await signupRepo.setTenantOwner(tenantId, authData.user.id);
+        await signupRepo.setOrganizationOwner(orgId, authData.user.id);
+        await setProfileOrganization(authData.user.id, orgId);
+      } catch (ownerErr) {
+        logger.error("signup owner-set failed, rolling back:", ownerErr);
+        await deleteOrganization(orgId).catch(() => {});
+        await signupRepo.deleteTenant(tenantId).catch(() => {});
+        setError("Erro ao vincular sua conta à empresa. Tente novamente — se persistir, fale com o suporte.");
+        setLoading(false);
+        return;
+      }
 
       signupRepo.notifySignup({
         tenantId,

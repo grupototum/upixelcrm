@@ -61,6 +61,33 @@ Deno.serve(async (req) => {
       return json({ error: "Subdomínio inválido", code: "INVALID_SUBDOMAIN" }, 400);
     }
 
+    // Ownership: o subdomínio precisa pertencer ao tenant/org do caller (owner,
+    // membro, ou master). Antes qualquer usuário autenticado registrava
+    // qualquer subdomínio no projeto Vercel. O subdomínio real fica em
+    // organizations.subdomain; tenants.subdomain guarda o slug "t-{sub}".
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const [{ data: orgRow }, { data: tenantRow }, { data: callerProfile }] = await Promise.all([
+      adminClient.from("organizations").select("id, tenant_id, owner_id").eq("subdomain", subdomain).maybeSingle(),
+      adminClient.from("tenants").select("id, owner_id").in("subdomain", [subdomain, `t-${subdomain}`]).maybeSingle(),
+      adminClient.from("profiles").select("tenant_id, organization_id, role").eq("id", user.id).maybeSingle(),
+    ]);
+    if (!orgRow && !tenantRow) {
+      return json({ error: "Subdomínio não corresponde a nenhum tenant", code: "TENANT_NOT_FOUND" }, 404);
+    }
+    const tenantIdOfSubdomain = orgRow?.tenant_id ?? tenantRow?.id ?? null;
+    const ownsTenant =
+      callerProfile?.role === "master" ||
+      orgRow?.owner_id === user.id ||
+      tenantRow?.owner_id === user.id ||
+      (orgRow != null && callerProfile?.organization_id === orgRow.id) ||
+      (tenantIdOfSubdomain != null && callerProfile?.tenant_id === tenantIdOfSubdomain);
+    if (!ownsTenant) {
+      return json({ error: "Subdomínio pertence a outro tenant", code: "FORBIDDEN" }, 403);
+    }
+
     const vercelToken = Deno.env.get("VERCEL_API_TOKEN");
     const projectId = Deno.env.get("VERCEL_PROJECT_ID");
     const teamId = Deno.env.get("VERCEL_TEAM_ID");

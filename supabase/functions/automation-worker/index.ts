@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const MAX_RETRIES = 4;
 
@@ -17,6 +13,16 @@ function nextRetryAt(retryCount: number): string {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Gatilho interno de cron: rejeita chamadas com a anon key (pública no
+  // bundle) ou sem credencial. O cron chama com service key via pg_net.
+  const workerBearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!workerBearer || workerBearer === (Deno.env.get("SUPABASE_ANON_KEY") ?? "")) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+    });
   }
 
   try {

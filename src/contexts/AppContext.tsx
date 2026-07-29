@@ -469,11 +469,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Erro em conversations aborta, como no original
       await reassignConversationsToLead(sourceLeadId, targetLeadId);
 
-      // Erros em tasks/timeline eram ignorados no original — preservado (mas logados)
-      await leadsRepo.reassignTasksToLead(sourceLeadId, targetLeadId)
-        .catch((e) => logger.error("[mergeLeads] reassignTasks", e?.message));
-      await leadsRepo.reassignTimelineToLead(sourceLeadId, targetLeadId)
-        .catch((e) => logger.error("[mergeLeads] reassignTimeline", e?.message));
+      // Se tasks/timeline não forem reapontados, NÃO deleta o lead de origem —
+      // antes o delete rodava mesmo assim e os dados sumiam por cascade.
+      await leadsRepo.reassignTasksToLead(sourceLeadId, targetLeadId);
+      await leadsRepo.reassignTimelineToLead(sourceLeadId, targetLeadId);
 
       await leadsRepo.bulkDeleteLeads([sourceLeadId]);
 

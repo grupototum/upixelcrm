@@ -322,10 +322,10 @@ export default function UsersPage() {
     if (!isMaster) return;
     if (!confirm(`Excluir a empresa "${org.name}"? Membros perderão o vínculo.`)) return;
     if (org.members && org.members.length > 0) {
-      for (const m of org.members) {
-        // Erro individual era ignorado no original — preservado
-        await usersRepo.adminRemoveOrgMember(m.id).catch(() => {});
-      }
+      // Paralelo em vez de 1-a-1 sequencial; erro individual segue não-fatal.
+      await Promise.all(
+        org.members.map((m) => usersRepo.adminRemoveOrgMember(m.id).catch(() => {}))
+      );
     }
     try {
       await usersRepo.deleteOrganization(org.id);

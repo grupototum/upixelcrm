@@ -667,11 +667,12 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    for (const sc of leadGroup.source_conversations) {
+    await Promise.all(leadGroup.source_conversations.map((sc) => {
       const newMeta = { ...sc.metadata, priority };
-      // Erro ignorado como no original
-      await updateConversationMetadata(sc.id, newMeta).catch(() => {});
-    }
+      // Erro ignorado como no original (mas logado); paralelo em vez de sequencial
+      return updateConversationMetadata(sc.id, newMeta)
+        .catch((e) => logger.error("[updatePriority]", e?.message));
+    }));
 
     loadConversations();
     toast.success("Prioridade atualizada");
@@ -682,11 +683,12 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    for (const sc of leadGroup.source_conversations) {
+    await Promise.all(leadGroup.source_conversations.map((sc) => {
       const newMeta = { ...sc.metadata, assignee_id: agentId };
-      // Erro ignorado como no original
-      await updateConversationMetadata(sc.id, newMeta).catch(() => {});
-    }
+      // Erro ignorado como no original (mas logado); paralelo em vez de sequencial
+      return updateConversationMetadata(sc.id, newMeta)
+        .catch((e) => logger.error("[assignToAgent]", e?.message));
+    }));
 
     loadConversations();
     toast.success(agentId ? "Agente atribuído" : "Agente removido");
@@ -700,11 +702,12 @@ export function useInbox(onLeadCreated?: () => void) {
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
     
     // We update all conversations for this lead to have the same labels
-    for (const sc of leadGroup.source_conversations) {
+    await Promise.all(leadGroup.source_conversations.map((sc) => {
       const newMeta = { ...(sc.metadata as any || {}), labels };
-      // Erro ignorado como no original
-      await updateConversationMetadata(sc.id, newMeta, true).catch(() => {});
-    }
+      // Erro ignorado como no original (mas logado); paralelo em vez de sequencial
+      return updateConversationMetadata(sc.id, newMeta, true)
+        .catch((e) => logger.error("[updateLabels]", e?.message));
+    }));
     
     await loadConversations();
     toast.success("Etiquetas atualizadas");

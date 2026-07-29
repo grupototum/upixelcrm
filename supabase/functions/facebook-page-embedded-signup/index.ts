@@ -187,17 +187,36 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { code, selected_page_ids, redirect_uri, user_token } = body as {
+    const { code, selected_page_ids, redirect_uri, user_token, session_id } = body as {
       code?: string;
       selected_page_ids?: string[];
       redirect_uri?: string;
-      user_token?: string;
+      user_token?: string; // legado — clientes antigos ainda mandam o token
+      session_id?: string; // fluxo atual — handle opaco de meta_oauth_sessions
     };
 
-    // Códigos OAuth são single-use: `list` troca o code por user_token (long-lived)
-    // e devolve ao cliente. `finish` recebe esse user_token de volta — não troca
-    // o code novamente (já foi consumido pela Meta).
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Códigos OAuth são single-use: `list` troca o code por user_token (long-lived),
+    // guarda-o server-side em meta_oauth_sessions e devolve só o session_id.
+    // `finish` resolve o token pela sessão — o token nunca mais transita no browser.
     let longToken: string | undefined = user_token;
+
+    if (!longToken && session_id) {
+      const { data: sess } = await adminClient
+        .from("meta_oauth_sessions")
+        .select("id, access_token, used, expires_at")
+        .eq("id", session_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!sess || sess.used || new Date(sess.expires_at as string) < new Date()) {
+        return json({ error: "Sessão OAuth expirada. Refaça a conexão com o Facebook.", code: "SESSION_EXPIRED" }, 400);
+      }
+      longToken = sess.access_token as string;
+    }
 
     if (!longToken) {
       if (!code) return json({ error: "Missing code or user_token" }, 400);
@@ -227,13 +246,28 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // ─── LIST ─── Devolve as páginas + user_token (cliente devolve no finish).
-    // O token é do próprio usuário autenticado nesta sessão, transitando em HTTPS
-    // dentro do escopo do tenant — equivalente a guardá-lo em sessionStorage.
+    // ─── LIST ─── Guarda o long-lived token server-side e devolve as páginas +
+    // um session_id opaco. XSS na app não consegue mais roubar o token da Meta.
     if (action === "list") {
+      const { data: sessRow, error: sessErr } = await adminClient
+        .from("meta_oauth_sessions")
+        .insert({
+          user_id: user.id,
+          client_id: clientId,
+          type: "fb_embedded_signup",
+          access_token: longToken,
+          discovered: pages.map((p) => ({ id: p.id, name: p.name, category: p.category ?? null })),
+          expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          used: false,
+        })
+        .select("id")
+        .single();
+      if (sessErr || !sessRow) {
+        return json({ error: "Falha ao criar sessão OAuth", details: sessErr?.message }, 500);
+      }
       return json({
         pages: pages.map((p) => ({ id: p.id, name: p.name, category: p.category ?? null })),
-        user_token: longToken,
+        session_id: sessRow.id,
       });
     }
 
@@ -247,11 +281,6 @@ Deno.serve(async (req) => {
       if (toSave.length === 0) {
         return json({ error: "Nenhuma página selecionada foi encontrada na conta." }, 400);
       }
-
-      const adminClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      );
 
       const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/facebook-messenger-webhook`;
       const saved: Array<{
@@ -345,6 +374,15 @@ Deno.serve(async (req) => {
           errors,
           debug: { tenantId, clientId, attempted: toSave.length },
         }, 500);
+      }
+
+      // Sessão OAuth é single-use: consumida com sucesso, marca como usada.
+      if (session_id && saved.length > 0) {
+        await adminClient
+          .from("meta_oauth_sessions")
+          .update({ used: true })
+          .eq("id", session_id)
+          .eq("user_id", user.id);
       }
 
       return json({

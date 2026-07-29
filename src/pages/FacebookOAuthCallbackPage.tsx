@@ -6,7 +6,8 @@ import { useTenant } from "@/contexts/TenantContext";
 
 export const FB_OAUTH_STATE_KEY = "fb_oauth_state";
 export const FB_OAUTH_PAGES_KEY = "fb_oauth_pages";
-export const FB_OAUTH_USER_TOKEN_KEY = "fb_oauth_user_token";
+// Handle opaco de meta_oauth_sessions — o token da Meta fica server-side.
+export const FB_OAUTH_SESSION_KEY = "fb_oauth_session_id";
 export const FB_OAUTH_REDIRECT_URI_KEY = "fb_oauth_redirect_uri";
 
 export default function FacebookOAuthCallbackPage() {
@@ -61,17 +62,17 @@ export default function FacebookOAuthCallbackPage() {
         if (data?.error) throw new Error(data.error);
 
         const pages = (data?.pages ?? []) as Array<{ id: string; name: string; category?: string | null }>;
-        const userToken = data?.user_token as string | undefined;
+        const sessionId = data?.session_id as string | undefined;
         if (pages.length === 0) {
           setError("Nenhuma página Facebook encontrada nesta conta.");
           return;
         }
-        if (!userToken) {
-          setError("Edge function não devolveu user_token. Refaça o deploy.");
+        if (!sessionId) {
+          setError("Edge function não devolveu session_id. Refaça o deploy.");
           return;
         }
 
-        sessionStorage.setItem(FB_OAUTH_USER_TOKEN_KEY, userToken);
+        sessionStorage.setItem(FB_OAUTH_SESSION_KEY, sessionId);
         sessionStorage.setItem(FB_OAUTH_PAGES_KEY, JSON.stringify(pages));
         sessionStorage.removeItem(FB_OAUTH_STATE_KEY);
         navigate("/facebook-page?fb_callback=1", { replace: true });
