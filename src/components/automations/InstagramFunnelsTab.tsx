@@ -14,7 +14,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { untypedFrom } from "@/lib/supabase-untyped";
+import {
+  listInstagramAutoReplies,
+  insertInstagramAutoReply,
+  updateInstagramAutoReply,
+  deleteInstagramAutoReply,
+} from "@/services/automations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -96,12 +101,9 @@ export function InstagramFunnelsTab() {
     queryKey: ["instagram-rules", clientId],
     queryFn: async () => {
       if (!clientId) return [];
-      const { data, error } = await untypedFrom("instagram_auto_replies")
-        .select("*")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Rule[];
+      // O service lança em erro — react-query captura, como no original
+      const data = await listInstagramAutoReplies(clientId);
+      return data as Rule[];
     },
     enabled: !!clientId,
   });
@@ -125,14 +127,11 @@ export function InstagramFunnelsTab() {
         per_user_cooldown_hours: form.per_user_cooldown_hours,
         active: form.active,
       };
+      // O service lança em erro — o onError da mutation trata, como no original
       if (editing) {
-        const { error } = await untypedFrom("instagram_auto_replies")
-          .update(payload)
-          .eq("id", editing.id);
-        if (error) throw error;
+        await updateInstagramAutoReply(editing.id, payload);
       } else {
-        const { error } = await untypedFrom("instagram_auto_replies").insert(payload);
-        if (error) throw error;
+        await insertInstagramAutoReply(payload);
       }
     },
     onSuccess: () => {
@@ -146,10 +145,9 @@ export function InstagramFunnelsTab() {
   });
 
   const toggleActive = async (rule: Rule) => {
-    const { error } = await untypedFrom("instagram_auto_replies")
-      .update({ active: !rule.active })
-      .eq("id", rule.id);
-    if (error) {
+    try {
+      await updateInstagramAutoReply(rule.id, { active: !rule.active });
+    } catch {
       toast.error("Erro ao atualizar status");
       return;
     }
@@ -158,8 +156,9 @@ export function InstagramFunnelsTab() {
 
   const deleteRule = async (rule: Rule) => {
     if (!confirm(`Excluir a regra "${rule.name}"?`)) return;
-    const { error } = await untypedFrom("instagram_auto_replies").delete().eq("id", rule.id);
-    if (error) {
+    try {
+      await deleteInstagramAutoReply(rule.id);
+    } catch {
       toast.error("Erro ao excluir");
       return;
     }

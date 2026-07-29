@@ -148,3 +148,32 @@ mesmo retry com backoff no import em massa).
 
 Pendências que seguem em aberto: smoke com login real, remover A record
 órfão na Cloudflare.
+
+## Auditoria final de camadas (2026-07-20, main `73c6d84`)
+
+Teste independente por `git grep` em todo `src/` (não baseado em docs), buscando
+`supabase.from(` / `untypedFrom(` / `.rpc(` fora de `src/services/` e
+`src/integrations/supabase/`:
+
+- **Resultado: 1 único vazamento real encontrado** — `InstagramFunnelsTab.tsx`
+  (5 call-sites de `untypedFrom("instagram_auto_replies")`: list/insert/update/
+  toggle/delete). Não estava na lista de exceções — escapou do sub-lote B do
+  Lote 3.5. **Fechado nesta data:** queries movidas para
+  `services/automations.ts` (`listInstagramAutoReplies`,
+  `insertInstagramAutoReply`, `updateInstagramAutoReply`,
+  `deleteInstagramAutoReply` — untypedFrom no service, tabela fora dos tipos
+  gerados), comportamento de erro preservado (react-query/mutation seguem
+  recebendo o throw; toggle/delete viram try/catch com os mesmos toasts).
+  Build ✅ · lint 0 errors (460 warnings pré-existentes da main, 0 novos) ·
+  testes 41/41 ✅.
+- Falso positivo: `lib/tenant-utils.ts` linha 23 — `supabase.from` dentro de
+  comentário JSDoc (@example), não é query.
+- Exceções intencionais confirmadas: `lib/logger.ts` (insert fire-and-forget de
+  `error_logs`, infra) e `integrations/supabase/client.ts`.
+- Com o fechamento acima, **grep de `src/` fica 100% limpo** fora das exceções
+  documentadas. Lotes 1, 2, 3 (useInbox #42 + AppContext #38), 3.5 (#45 +
+  residuais #47–#50) e 4 (#43) todos verificados na main.
+
+Pendências que permanecem (inalteradas): smoke consolidado com login real em
+produção (roteiros na seção do Lote 3), remover A record órfão na Cloudflare,
+HEAD 503 (não-bloqueante).

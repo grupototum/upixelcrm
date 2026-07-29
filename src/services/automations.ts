@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { untypedFrom } from "@/lib/supabase-untyped";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 // Repositório do domínio automations (message_sequences, message_sequence_steps,
@@ -232,6 +233,37 @@ export async function getBotFull(id: string) {
     .single();
   if (error) throw error;
   return data;
+}
+
+// ---- instagram_auto_replies (funis do Instagram) ----
+// Tabela fora dos tipos gerados (schema drift) — acesso via untypedFrom,
+// mesmo padrão de tags/notes. Callers tipam o retorno com o shape local.
+
+export async function listInstagramAutoReplies(clientId: string): Promise<unknown[]> {
+  const { data, error } = await untypedFrom("instagram_auto_replies")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as unknown[]) ?? [];
+}
+
+export async function insertInstagramAutoReply(payload: Record<string, unknown>): Promise<void> {
+  const { error } = await untypedFrom("instagram_auto_replies").insert(payload);
+  if (error) throw error;
+}
+
+export async function updateInstagramAutoReply(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<void> {
+  const { error } = await untypedFrom("instagram_auto_replies").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteInstagramAutoReply(id: string): Promise<void> {
+  const { error } = await untypedFrom("instagram_auto_replies").delete().eq("id", id);
+  if (error) throw error;
 }
 
 // ---- sequence files (storage) ----
