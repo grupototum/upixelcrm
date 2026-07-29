@@ -542,16 +542,17 @@ export function useInbox(onLeadCreated?: () => void) {
         throw new Error(error.message || "Failed to send email");
       }
 
-      // Erros ignorados como no original
+      // Erros ignorados como no original (mas logados)
       await insertMessage({
         conversation_id: target.id,
         content: text,
         type: "email",
         direction: "outbound",
         sender_name: "Você",
-      }).catch(() => {});
+      }).catch((e) => logger.error("[sendMessage/email] insertMessage", e?.message));
 
-      await updateConversationLastMessage(target.id, text).catch(() => {});
+      await updateConversationLastMessage(target.id, text)
+        .catch((e) => logger.error("[sendMessage/email] updateLastMessage", e?.message));
 
       await loadMessages(leadId);
       await loadConversations();
@@ -609,15 +610,16 @@ export function useInbox(onLeadCreated?: () => void) {
       // Webchat e outros canais sem proxy: persiste direto.
       // Realtime entrega o INSERT e o dedup por id evita duplicata na UI,
       // então não chamamos loadMessages aqui.
-      // Erros ignorados como no original
+      // Erros ignorados como no original (mas logados)
       await insertMessage({
         conversation_id: target.id,
         content: text,
         type: "text",
         direction: "outbound",
         sender_name: "Você",
-      }).catch(() => {});
-      await updateConversationLastMessage(target.id, text).catch(() => {});
+      }).catch((e) => logger.error("[sendMessage/text] insertMessage", e?.message));
+      await updateConversationLastMessage(target.id, text)
+        .catch((e) => logger.error("[sendMessage/text] updateLastMessage", e?.message));
     }
   }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail, clientId, user]);
 
@@ -845,7 +847,7 @@ export function useInbox(onLeadCreated?: () => void) {
                 next[idx] = incomingMsg;
                 return sortByCreatedAt(next);
               }
-              console.debug("[useInbox] no optimistic match — appending", { content: incomingMsg.content, prevPending: prev.filter(m => (m.metadata as any)?.pending).map(m => ({ id: m.id, content: m.content })) });
+              logger.debug("[useInbox] no optimistic match — appending", { id: incomingMsg.id, prevPendingIds: prev.filter(m => (m.metadata as any)?.pending).map(m => m.id) });
             }
 
             return sortByCreatedAt([...prev, incomingMsg]);

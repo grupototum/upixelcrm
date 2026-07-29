@@ -39,7 +39,16 @@ export async function invokeEdge(
     } catch {
       try { firstAttemptBody = await result.error.context.clone().text(); } catch { /* noop */ }
     }
-    console.warn("[invokeEdge] 401 on first attempt", { functionName, body: firstAttemptBody });
+    // Loga só o código/mensagem do erro — o body completo pode conter detalhes de sessão/JWT.
+    const bodySummary =
+      typeof firstAttemptBody === "object" && firstAttemptBody !== null
+        ? (firstAttemptBody as { code?: unknown; error_code?: unknown; msg?: unknown; message?: unknown; error?: unknown })
+        : null;
+    console.warn("[invokeEdge] 401 on first attempt", {
+      functionName,
+      code: bodySummary?.code ?? bodySummary?.error_code,
+      message: String(bodySummary?.msg ?? bodySummary?.message ?? bodySummary?.error ?? firstAttemptBody ?? "").slice(0, 200),
+    });
 
     const { error: refreshError, data: refreshed } = await supabase.auth.refreshSession();
     console.warn("[invokeEdge] refreshSession result", {

@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     const tokenData = await readBody(tokenRes);
 
     if (!tokenRes.ok) {
-      console.error("Token exchange failed:", tokenRes.status, tokenData);
+      console.error("Token exchange failed:", tokenRes.status, (tokenData as any)?.error?.message ?? "(sem detalhe)");
       const metaErr = (tokenData as any)?.error?.message ?? `HTTP ${tokenRes.status}`;
       return jsonResponse({
         error: `Falha ao trocar código por token na Meta: ${metaErr}`,
