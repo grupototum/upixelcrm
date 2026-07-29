@@ -24,6 +24,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, Phone, Mail, Building, User, MapPin, Tag,
   Globe, Briefcase, DollarSign, Calendar, Edit3, Trash2,
   Plus, CheckCircle2, Circle, AlertTriangle, Clock,
@@ -66,6 +70,7 @@ export default function LeadProfilePage() {
 
   const [activeTab, setActiveTab] = useState("dados");
   const [newNote, setNewNote] = useState("");
+  const [noteToDelete, setNoteToDelete] = useState<LeadNote | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
@@ -154,6 +159,19 @@ export default function LeadProfilePage() {
     await addTimelineEvent({ lead_id: id, type: "note", content: `Nota adicionada: "${newNote.slice(0, 50)}..."`, user_name: "Você" });
     setNewNote("");
   }, [newNote, id, lead, leadNotes, addTimelineEvent, updateLead]);
+
+  const handleDeleteNote = useCallback(async () => {
+    if (!noteToDelete || !id || !lead) return;
+    const updated = leadNotes.filter((n) => n.id !== noteToDelete.id);
+    await updateLead(lead.id, { notes_local: JSON.stringify(updated) });
+    await addTimelineEvent({
+      lead_id: id,
+      type: "note",
+      content: `Nota removida: "${noteToDelete.content.slice(0, 50)}..."`,
+      user_name: "Você",
+    });
+    setNoteToDelete(null);
+  }, [noteToDelete, id, lead, leadNotes, addTimelineEvent, updateLead]);
 
   const handleCreateTask = useCallback(async () => {
     if (!newTaskTitle.trim() || !id) return;
@@ -587,8 +605,16 @@ export default function LeadProfilePage() {
             {leadNotes.length > 0 ? (
               <div className="space-y-3">
                 {leadNotes.map((note) => (
-                  <div key={note.id} className="bg-card border border-border rounded-lg p-4 group">
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
+                  <div key={note.id} className="bg-card border border-border rounded-lg p-4 group relative">
+                    <button
+                      type="button"
+                      onClick={() => setNoteToDelete(note)}
+                      className="absolute top-3 right-3 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Excluir nota"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <p className="text-sm text-foreground whitespace-pre-wrap pr-6">{note.content}</p>
                     <p className="text-[10px] text-muted-foreground mt-2">{note.user_name} · {formatDateTime(note.created_at)}</p>
                   </div>
                 ))}
@@ -685,15 +711,36 @@ export default function LeadProfilePage() {
         <AddTagModal open={showTagModal} onOpenChange={setShowTagModal} leadId={id} />
       )}
 
-      <MergeLeadsModal 
-        open={showMergeModal} 
-        onOpenChange={setShowMergeModal} 
-        sourceLead={lead} 
+      <MergeLeadsModal
+        open={showMergeModal}
+        onOpenChange={setShowMergeModal}
+        sourceLead={lead}
         onMerge={async (sourceId, targetId) => {
           await mergeLeads(sourceId, targetId);
           navigate(`/leads/${targetId}`);
-        }} 
+        }}
       />
+
+      {/* Confirmação de exclusão de nota */}
+      <AlertDialog open={!!noteToDelete} onOpenChange={(open) => !open && setNoteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta nota?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A nota será removida permanentemente do lead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteNote}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
