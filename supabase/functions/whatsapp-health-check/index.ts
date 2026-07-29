@@ -24,17 +24,22 @@ async function checkIntegrationHealth(
       if (!api_url || !api_key || !instance_name) {
         return { status: "unconfigured", details: "Missing configuration" };
       }
+      // Evolution v2 só aceita GET aqui (POST → 404) e responde array plano
+      // [{ name, connectionStatus }]; v1 respondia { data: [{ instanceName, state }] }.
       const response = await fetchWithTimeout(`${api_url}/instance/fetchInstances`, {
-        method: "POST",
         headers: { apikey: api_key },
       });
       if (!response.ok) return { status: "unhealthy", details: `API error: ${response.status}` };
       const data = await response.json();
-      const instance = (data.data || []).find((i: any) => i.instanceName === instance_name);
+      const list: any[] = Array.isArray(data) ? data : (data?.data ?? []);
+      const instance = list.find((i: any) =>
+        (i?.name ?? i?.instanceName ?? i?.instance?.instanceName) === instance_name
+      );
       if (!instance) return { status: "disconnected", details: "Instance not found" };
-      if (instance.state === "open") return { status: "healthy", details: "Connected" };
-      if (instance.state === "connecting") return { status: "connecting", details: "Trying to connect" };
-      return { status: "disconnected", details: instance.state || "Unknown state" };
+      const state = instance.connectionStatus ?? instance.state ?? instance.instance?.state;
+      if (state === "open") return { status: "healthy", details: "Connected" };
+      if (state === "connecting") return { status: "connecting", details: "Trying to connect" };
+      return { status: "disconnected", details: state || "Unknown state" };
     }
 
     if (provider === "whatsapp_official" || provider === "whatsapp_cloud") {
