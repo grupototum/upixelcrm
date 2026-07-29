@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { logger } from "@/lib/logger";
 import { Lead } from "@/types";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -144,8 +145,10 @@ export function useDuplicateDetection() {
 
     // ponytail: sem checagem de erro aqui de propósito — mesmo comportamento
     // do código original, que também ignorava falhas nesses dois passos.
-    await updateLead(primaryId, { tags: mergedTags, notes: mergedNotes || null }).catch(() => {});
-    await bulkDeleteLeads(sourceIds).catch(() => {});
+    await updateLead(primaryId, { tags: mergedTags, notes: mergedNotes || null })
+      .catch((e) => logger.error("[mergeDuplicates] updateLead", e?.message));
+    await bulkDeleteLeads(sourceIds)
+      .catch((e) => logger.error("[mergeDuplicates] bulkDeleteLeads", e?.message));
 
     setGroups((prev) => prev.filter((g) => g.id !== group.id));
   }, []);
