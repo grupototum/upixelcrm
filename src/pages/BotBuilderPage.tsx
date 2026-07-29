@@ -106,16 +106,20 @@ export default function BotBuilderPage() {
 
   useEffect(() => {
     if (!id) { navigate("/automations?tab=bots"); return; }
+    let alive = true;
     automationsRepo.getBotFull(id)
       .then((data) => {
+        if (!alive) return;
         if (!data) { toast.error('Bot não encontrado'); navigate('/automations?tab=bots'); return; }
         setBot(data as BotRow);
         setLoading(false);
       })
       .catch(() => {
+        if (!alive) return;
         toast.error('Bot não encontrado');
         navigate('/automations?tab=bots');
       });
+    return () => { alive = false; };
   }, [id, navigate]);
 
   if (loading) {

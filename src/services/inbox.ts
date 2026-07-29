@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { logger } from "@/lib/logger";
 
 // Repositório do domínio inbox (inbox_templates, macros, contadores de
 // conversations/tasks). Funções puras de acesso a dados; toast/estado/realtime
@@ -14,12 +15,13 @@ import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase
  * comportamento do código original, que não checava o resultado.
  */
 export async function reawakenExpiredSnoozes(clientId: string): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("conversations")
     .update({ status: "open", snoozed_until: null })
     .eq("client_id", clientId)
     .eq("status", "snoozed")
     .lte("snoozed_until", new Date().toISOString());
+  if (error) logger.error("[reawakenExpiredSnoozes]", error.message);
 }
 
 export async function listConversations(clientId: string): Promise<Tables<"conversations">[]> {
@@ -286,7 +288,12 @@ export async function listPendingCsatConversations(
 }
 
 export async function markCsatSent(conversationId: string, sentAt: string): Promise<void> {
-  await supabase.from("conversations").update({ csat_sent_at: sentAt }).eq("id", conversationId);
+  const { error } = await supabase
+    .from("conversations")
+    .update({ csat_sent_at: sentAt })
+    .eq("id", conversationId);
+  // Falha aqui faz o CSAT ser reenviado no próximo ciclo do useCsatSender.
+  if (error) logger.error("[markCsatSent]", conversationId, error.message);
 }
 
 export async function countOpenUnreadConversations(clientId: string): Promise<number> {

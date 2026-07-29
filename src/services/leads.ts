@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { untypedFrom } from "@/lib/supabase-untyped";
+import { logger } from "@/lib/logger";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { CustomFieldDefinition, Lead, TagMeta } from "@/types";
 
@@ -173,7 +174,15 @@ export async function bulkDeleteLeads(ids: string[]): Promise<void> {
 
 /** Adiciona uma tag a vários leads, ignorando os que já a têm. Retorna nº de falhas. */
 export async function bulkAddTag(ids: string[], tag: string): Promise<number> {
-  const { data: leadsData } = await supabase.from("leads").select("id, tags").in("id", ids);
+  const { data: leadsData, error: selectError } = await supabase
+    .from("leads")
+    .select("id, tags")
+    .in("id", ids);
+  if (selectError) {
+    // Sem o select nada foi atualizado: reporta tudo como falha em vez de "0 falhas".
+    logger.error("[bulkAddTag]", selectError.message);
+    return ids.length;
+  }
   // ponytail: 1 update por lead (append em array exigiria RPC); aceitável até ~100 leads
   const updates = (leadsData ?? []).map(async (l) => {
     const current = Array.isArray(l.tags) ? (l.tags as string[]) : [];
@@ -247,7 +256,7 @@ export async function findLeadIdsByPhoneSuffix(
     .from("leads")
     .select("id")
     .eq("client_id", clientId)
-    .or(`phone.ilike.%${phoneSuffix}%`)
+    .ilike("phone", `%${phoneSuffix}%`)
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data ?? [];

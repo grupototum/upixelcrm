@@ -72,12 +72,13 @@ export default function SignupPage() {
     if (!SUBDOMAIN_REGEX.test(subdomain)) { setSubdomainStatus("invalid"); return; }
 
     setSubdomainStatus("checking");
+    let alive = true;
     const timer = setTimeout(async () => {
       const taken = await signupRepo.isSubdomainTaken(subdomain);
-      setSubdomainStatus(taken ? "taken" : "available");
+      if (alive) setSubdomainStatus(taken ? "taken" : "available");
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => { alive = false; clearTimeout(timer); };
   }, [subdomain]);
 
   const handleSubdomainInput = (value: string) => {
