@@ -903,19 +903,23 @@ export default function ImportPage({
       const triggerNode = (auto?.nodes as any[] | undefined)?.find((n) => n?.type === "trigger");
       if (auto && triggerNode) {
         toast.info(`Enfileirando ${insertedIds.length} lead(s) na automação "${auto.name}"...`);
-        // dispara sequencialmente pra não estourar rate-limit da edge function.
+        // Chunks de 10 em paralelo: bounded (não estoura rate-limit) mas ~10x
+        // mais rápido que o disparo 1-a-1 sequencial anterior.
         (async () => {
-          for (const leadId of insertedIds) {
-            try {
-              await automationsRepo.triggerAutomationEngine({
-                automation_id: auto.id,
-                lead_id: leadId,
-                node_id: triggerNode.id,
-                context: { source: "import", column_id: column },
-              });
-            } catch (e) {
-              console.error("Falha ao enfileirar lead na automação:", e);
-            }
+          const CHUNK = 10;
+          for (let i = 0; i < insertedIds.length; i += CHUNK) {
+            await Promise.all(
+              insertedIds.slice(i, i + CHUNK).map((leadId) =>
+                automationsRepo
+                  .triggerAutomationEngine({
+                    automation_id: auto.id,
+                    lead_id: leadId,
+                    node_id: triggerNode.id,
+                    context: { source: "import", column_id: column },
+                  })
+                  .catch((e) => console.error("Falha ao enfileirar lead na automação:", e))
+              )
+            );
           }
         })();
       } else {
