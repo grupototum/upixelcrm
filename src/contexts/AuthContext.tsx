@@ -227,9 +227,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     }
 
-    // Validação por tenant (fallback quando subdomain resolve diretamente para tenant)
+    // Validação por tenant (fallback quando subdomain resolve diretamente para tenant).
+    // Perfis legados criados sem tenant_id são aceitos quando o client_id é o
+    // próprio tenant do subdomínio (mesmo workspace, coluna nunca preenchida).
     if (tenant) {
-      if (profile.tenant_id !== tenant.id) {
+      const belongsToTenant =
+        profile.tenant_id === tenant.id ||
+        (!profile.tenant_id && profile.client_id === tenant.id);
+      if (!belongsToTenant) {
         await supabase.auth.signOut();
         return {
           success: false,

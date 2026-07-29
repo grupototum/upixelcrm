@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     // Check if user is a master
     const { data: profile, error: profileError } = await userClient
       .from("profiles")
-      .select("role")
+      .select("role, client_id, tenant_id")
       .eq("id", user.id)
       .single();
 
@@ -100,7 +100,9 @@ Deno.serve(async (req) => {
       .single();
 
     if (!existingProfile) {
-      // Only insert if profile doesn't exist
+      // Only insert if profile doesn't exist.
+      // Herda client_id/tenant_id do master criador — tenant_id NULL fazia o
+      // login por subdomínio rejeitar o usuário ("não pertence a esta empresa").
       const { error: profileCreateError } = await adminClient
         .from("profiles")
         .insert({
@@ -108,10 +110,10 @@ Deno.serve(async (req) => {
           name: name,
           email: email.toLowerCase(),
           role: role,
-          client_id: user.id, // Master's client_id
+          client_id: profile.client_id ?? user.id,
           organization_id: organization_id || null,
           approval_status: "approved", // Auto-approve master-created users
-          tenant_id: null,
+          tenant_id: profile.tenant_id ?? null,
         });
 
       if (profileCreateError) {
@@ -119,6 +121,22 @@ Deno.serve(async (req) => {
         // Try to delete the auth user if profile creation fails
         await adminClient.auth.admin.deleteUser(newAuthUser.id);
         return json({ error: profileCreateError.message || "Failed to create user profile" }, 400);
+      }
+    } else {
+      // O trigger handle_new_user chega primeiro e cria o profile como
+      // 'pending' (e sem tenant_id em bancos antigos). Usuário criado por
+      // master é auto-aprovado e herda o tenant do criador.
+      const { error: profileFixError } = await adminClient
+        .from("profiles")
+        .update({
+          approval_status: "approved",
+          tenant_id: profile.tenant_id ?? null,
+          organization_id: organization_id || null,
+        })
+        .eq("id", newAuthUser.id);
+
+      if (profileFixError) {
+        console.error("Profile post-create update error:", profileFixError);
       }
     }
 
