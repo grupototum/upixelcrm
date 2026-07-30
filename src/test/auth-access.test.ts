@@ -25,6 +25,28 @@ const organization: Organization = {
 };
 
 describe("evaluateProfileAccess", () => {
+  it("bloqueia conta com is_blocked antes de qualquer outra checagem", () => {
+    expect(
+      evaluateProfileAccess(
+        {
+          role: "supervisor",
+          approval_status: "approved",
+          is_blocked: true,
+          tenant_id: "t-1",
+        },
+        tenant,
+        null
+      )
+    ).toBe("blocked");
+    expect(
+      evaluateProfileAccess(
+        { role: "master", approval_status: "approved", is_blocked: true },
+        null,
+        null
+      )
+    ).toBe("blocked");
+  });
+
   it("bloqueia conta pendente antes de qualquer outra checagem", () => {
     expect(
       evaluateProfileAccess(

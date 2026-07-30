@@ -35,10 +35,6 @@ export default function AuthCallbackPage() {
         await fail("expired", true);
         return;
       }
-      if (profile.is_blocked) {
-        await fail("rejected", true);
-        return;
-      }
       const denial = evaluateProfileAccess(profile, tenant, organization);
       if (denial) {
         await fail(denial, true);

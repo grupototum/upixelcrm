@@ -5,14 +5,16 @@ const EMPTY_TENANT_ID = "00000000-0000-0000-0000-000000000000";
 export interface AccessProfile {
   role: string;
   approval_status?: string | null;
+  is_blocked?: boolean | null;
   tenant_id?: string | null;
   client_id?: string | null;
   organization_id?: string | null;
 }
 
-export type AccessDenialReason = "pending" | "rejected" | "wrong_org" | "wrong_tenant";
+export type AccessDenialReason = "blocked" | "pending" | "rejected" | "wrong_org" | "wrong_tenant";
 
 export const ACCESS_DENIAL_MESSAGES: Record<AccessDenialReason, string> = {
+  blocked: "Sua conta está bloqueada. Entre em contato com o administrador.",
   pending:
     "Sua conta está aguardando aprovação do administrador. Você receberá acesso assim que for aprovada.",
   rejected: "Sua conta foi recusada pelo administrador. Entre em contato com o suporte.",
@@ -25,6 +27,7 @@ export function evaluateProfileAccess(
   tenant: Tenant | null,
   organization: Organization | null
 ): AccessDenialReason | null {
+  if (profile.is_blocked) return "blocked";
   if (profile.approval_status === "pending") return "pending";
   if (profile.approval_status === "rejected") return "rejected";
   if (profile.role === "master") return null;

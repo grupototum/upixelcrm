@@ -15,6 +15,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const URL_ERROR_MESSAGES: Record<string, string> = {
   expired: "Seu link de acesso expirou ou é inválido. Solicite um novo Magic Link.",
+  blocked: ACCESS_DENIAL_MESSAGES.blocked,
   pending: ACCESS_DENIAL_MESSAGES.pending,
   rejected: ACCESS_DENIAL_MESSAGES.rejected,
   wrong_org: ACCESS_DENIAL_MESSAGES.wrong_org,
