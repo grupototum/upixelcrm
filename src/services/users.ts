@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { untypedRpc } from "@/lib/supabase-untyped";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 // Repositório do domínio users (profiles, notifications) e, a partir do
@@ -9,6 +10,11 @@ export async function getProfileById(userId: string): Promise<Tables<"profiles">
   const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
   if (error || !data) return null;
   return data;
+}
+
+export async function ensureOwnProfile(): Promise<void> {
+  const { error } = await untypedRpc("ensure_own_profile");
+  if (error) throw error;
 }
 
 /** client_id do perfil do usuário autenticado (null se perfil não existe). */
