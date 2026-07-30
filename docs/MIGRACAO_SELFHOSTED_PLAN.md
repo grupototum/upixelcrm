@@ -1,6 +1,6 @@
 # Plano de Migração — Supabase Cloud → Self-hosted (VPS)
 
-**Status geral:** `FASE 0 — não iniciada`
+**Status geral:** `FASE 0 — em andamento (inventário local parcial feito; falta dump do cloud + acesso ao painel)`
 **Executor:** agente (Claude Sonnet 5) em sessões incrementais + operador humano (ações na VPS/painéis)
 **Origem:** projeto cloud `xusdhzwfkzufupjwbebt` (`https://xusdhzwfkzufupjwbebt.supabase.co`)
 **Destino:** stack Supabase self-hosted em VPS própria (Docker Compose)
@@ -29,17 +29,60 @@
 Objetivo: saber exatamente o que existe no cloud antes de replicar.
 
 - [ ] **[OPERADOR]** Gerar dump de schema do cloud: `pg_dump "$CLOUD_DB_URL" --schema-only --no-owner --no-privileges -f schema-cloud.sql` (connection string em Project Settings → Database). Compartilhar o arquivo com o agente (sem dados, sem senhas).
-- [ ] **[AGENTE]** Comparar `schema-cloud.sql` com as ~130 migrations de `supabase/migrations/` e listar o **drift** (objetos criados só pelo SQL Editor: tabelas, policies, funções, triggers, cron jobs). Nota conhecida: já houve drift antes (ver `20260729120000_restore_user_admin_rpcs.sql`).
-- [ ] **[AGENTE]** Gerar migration de reconciliação `9999_reconcile_drift.sql` com o que faltar no repo.
-- [ ] **[AGENTE]** Inventariar e documentar aqui:
-  - [ ] Edge functions ativas (repo tem 20+ em `supabase/functions/`) e **todos os secrets** que cada uma usa (nomes, não valores).
-  - [ ] Webhooks externos apontando para o cloud (Evolution API, Meta/Instagram/Facebook, Asaas) — URLs exatas.
-  - [ ] Cron jobs (`pg_cron` — automation worker, ver `20260428_automation_worker_cron.sql` e fix de 20260618).
-  - [ ] Buckets do Storage e volume aproximado.
-  - [ ] Config de Auth no painel: providers, redirect URLs, SMTP, rate limits.
-  - [ ] Contagem de linhas das tabelas principais (`profiles`, `tenants`, `organizations`, `leads`, `conversations`, `messages`, ...) para conferência pós-restore.
+- [ ] **[AGENTE]** Comparar `schema-cloud.sql` com as migrations de `supabase/migrations/` e listar o **drift** (objetos criados só pelo SQL Editor: tabelas, policies, funções, triggers, cron jobs). Nota conhecida: já houve drift antes (ver `20260729120000_restore_user_admin_rpcs.sql`). **Bloqueado** até o dump chegar — ver nota de rede abaixo.
+- [ ] **[AGENTE]** Gerar migration de reconciliação `9999_reconcile_drift.sql` com o que faltar no repo. Já se sabe de pelo menos **um item de drift** (ver Cron jobs abaixo) — falta confirmar o restante contra o dump completo.
+- [x] **[AGENTE]** Inventariar e documentar aqui (parte que dá para fazer só com o repo, sem acesso ao cloud — ver nota de rede):
+  - [x] **Edge functions ativas e secrets.** 33 functions em `supabase/functions/` (fora `_shared`). Secrets usados por função (nomes extraídos via `Deno.env.get(...)`, sem valores):
 
-**Aceite:** inventário completo escrito neste doc + drift reconciliado em migration commitada.
+    | Function | Secrets |
+    |---|---|
+    | admin-create-user | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | ai-chat | GROQ_API_KEY, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | asaas-payment | ASAAS_API_KEY, ASAAS_API_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | asaas-webhook | ASAAS_WEBHOOK_TOKEN, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | automation-engine | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | automation-worker | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | check-signup-gate | SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | data-deletion-callback | META_APP_SECRET, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | database-backup | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | facebook-messenger-webhook | FACEBOOK_APP_SECRET, META_APP_SECRET, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | facebook-page-embedded-signup | META_APP_ID, META_APP_SECRET, META_FB_PAGE_EMBEDDED_SIGNUP_CONFIG_ID, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | google-ads | GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | google-oauth | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | instagram-exchange-token | META_APP_ID, META_APP_SECRET, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | instagram-proxy | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | instagram-webhook | FACEBOOK_APP_SECRET, META_APP_SECRET, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | meta-ads | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | meta-ads-exchange-token | META_APP_ID, META_APP_SECRET, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | meta-leads-webhook | FACEBOOK_APP_SECRET, META_APP_SECRET, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | notify-signup | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | rag-embed | GROQ_API_KEY, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | rag-search | GROQ_API_KEY, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | send-push | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT |
+    | tenant-provision-domain | ROOT_DOMAIN, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, VERCEL_API_TOKEN, VERCEL_PROJECT_ID, VERCEL_TEAM_ID |
+    | whatsapp-cloud-exchange-token | META_APP_ID, META_APP_SECRET, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | whatsapp-cloud-proxy | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | whatsapp-cloud-webhook | FACEBOOK_APP_SECRET, META_APP_SECRET, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | whatsapp-health-check | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | whatsapp-proxy | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, UPIXEL_EVOLUTION_KEY, UPIXEL_EVOLUTION_URL |
+    | whatsapp-queue-processor | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | whatsapp-status-probe | SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | whatsapp-templates | SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+    | whatsapp-webhook | SDR_PILOT_TENANT_ID, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL |
+
+    Secrets únicos a provisionar na VPS além dos 3 padrão do Supabase (`SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, que na VPS serão os novos valores gerados na Fase 1, não os do cloud): `ASAAS_API_KEY`, `ASAAS_API_URL`, `ASAAS_WEBHOOK_TOKEN`, `FACEBOOK_APP_SECRET`, `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GROQ_API_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_FB_PAGE_EMBEDDED_SIGNUP_CONFIG_ID`, `ROOT_DOMAIN`, `SDR_PILOT_TENANT_ID`, `UPIXEL_EVOLUTION_KEY`, `UPIXEL_EVOLUTION_URL`, `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`. Valores atuais só existem no painel do Supabase (Edge Functions → Secrets) — **[OPERADOR]** precisa exportá-los de lá (não estão no repo nem no agente).
+  - [ ] Webhooks externos apontando para o cloud (Evolution API, Meta/Instagram/Facebook, Asaas) — URLs exatas. **Pendente [OPERADOR]**: confirmar nos painéis externos (Evolution API, Meta App Dashboard, Asaas) quais URLs de `*.supabase.co/functions/v1/...` estão cadastradas hoje — o agente não tem acesso a esses painéis.
+  - [x] **Cron jobs (`pg_cron`).** Só um job é criado via migration no repo: `automation-worker` (a cada minuto, `* * * * *`), definido em `20260428_automation_worker_cron.sql` e corrigido em `20260618_automation_worker_cron_fix.sql`. **Drift confirmado por evidência indireta:** a própria migration de fix de 20260618 documenta que existe em produção um segundo cron, `whatsapp-queue-processor` (referenciado como "cron de referência já funcional", usado para copiar a autenticação do `automation-worker`), mas **não há nenhuma migration no repo que crie esse job** — ele foi criado direto no SQL Editor/painel. A function `whatsapp-queue-processor` existe em `supabase/functions/`, então o job deve invocá-la, mas o schedule exato e o comando (`net.http_post` com qual URL/headers) são desconhecidos até alguém rodar a query abaixo no cloud. **[OPERADOR]** rodar isto no SQL Editor do projeto cloud e colar o resultado aqui (é leitura, sem risco):
+    ```sql
+    select jobid, jobname, schedule, command, active from cron.job order by jobname;
+    ```
+  - [ ] Buckets do Storage e volume aproximado. Migrations no repo criam só **um** bucket: `whatsapp_media` (`public=true`, ver `20260331184150_e9cc935c-cb34-4d63-b32e-a54b3eb07c6b.sql`, limites ajustados em `20260610120400_storage_whatsapp_media_limits.sql`). Não dá para confirmar se há outros buckets criados fora de migration (drift) nem o volume de dados sem acesso ao painel/API do cloud — **[OPERADOR/rede]**.
+  - [ ] Config de Auth no painel: providers, redirect URLs, SMTP, rate limits. **Pendente [OPERADOR]** — só existe no painel Supabase, agente não tem acesso.
+  - [ ] Contagem de linhas das tabelas principais (`profiles`, `tenants`, `organizations`, `leads`, `conversations`, `messages`, ...) para conferência pós-restore. **Pendente** — requer query contra o Postgres do cloud (bloqueado nesta sessão, ver nota de rede).
+
+> **Nota de rede (confirmado nesta sessão, 2026-07-30):** `curl https://xusdhzwfkzufupjwbebt.supabase.co/...` retorna `403` no proxy do ambiente ("Confiável" bloqueia `*.supabase.co`, como o plano já previa). O MCP do Supabase também não está autorizado nesta sessão (precisa de OAuth interativo, indisponível em sessão não-interativa). Resultado: todo item de Fase 0 que depende de acessar o projeto cloud (dump de schema, drift completo, contagem de linhas, config de Auth, buckets reais) **continua bloqueado** até (a) o operador rodar os comandos/queries marcados **[OPERADOR]** acima e colar os resultados aqui, ou (b) uma sessão futura rodar com rede liberada + MCP do Supabase autorizado.
+
+**Aceite:** inventário completo escrito neste doc + drift reconciliado em migration commitada. **Ainda não atingido** — falta a metade do inventário que depende do cloud (ver nota de rede acima) e a migration `9999_reconcile_drift.sql`.
 
 ## FASE 1 — Stack base na VPS
 
@@ -122,3 +165,4 @@ Objetivo: restore completo validado — ainda como ensaio, o cloud segue sendo p
 | Data | Fase | O que foi feito | Pendências |
 |---|---|---|---|
 | 2026-07-30 | — | Plano criado (sessão Fable). Nada executado ainda. | Fase 0 aguardando: liberar rede do ambiente + dump de schema do cloud |
+| 2026-07-30 | 0 | Sessão Sonnet 5: confirmado que rede continua bloqueada (`*.supabase.co` → 403) e MCP Supabase não autorizado. Feito o inventário local (sem depender do cloud): tabela completa de secrets por edge function (33 functions), cron jobs do repo + **1 item de drift encontrado** (`whatsapp-queue-processor` roda em produção mas não existe em nenhuma migration — query pronta para o operador confirmar `schedule`/`command`), bucket de Storage único no repo (`whatsapp_media`). Documentado tudo na seção Fase 0 acima. | Falta: dump `schema-cloud.sql` do operador, drift completo, `9999_reconcile_drift.sql`, webhooks externos (painéis), config de Auth (painel), contagem de linhas (precisa do cloud) |
