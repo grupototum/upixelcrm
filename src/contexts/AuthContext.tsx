@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 import { supabase } from "@/integrations/supabase/client";
 import * as usersRepo from "@/services/users";
 import { useTenant } from "@/contexts/TenantContext";
+import { ACCESS_DENIAL_MESSAGES, evaluateProfileAccess } from "@/lib/auth-access";
 import { toast } from "sonner";
 
 // Após 30 min sem qualquer interação (mousemove/keydown/click/touch/scroll),
@@ -194,53 +195,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "Perfil não encontrado." };
     }
 
-    // Bloquear login de usuários pendentes ou rejeitados
-    if (profile.approval_status === "pending") {
+    // Aprovação + pertencimento a org/tenant — mesma régua do Magic Link
+    // (lib/auth-access), compartilhada com o AuthCallbackPage.
+    const denial = evaluateProfileAccess(profile, tenant, currentOrg);
+    if (denial) {
       await supabase.auth.signOut();
-      return {
-        success: false,
-        error: "Sua conta está aguardando aprovação do administrador. Você receberá acesso assim que for aprovada.",
-      };
-    }
-    if (profile.approval_status === "rejected") {
-      await supabase.auth.signOut();
-      return {
-        success: false,
-        error: "Sua conta foi recusada pelo administrador. Entre em contato com o suporte.",
-      };
-    }
-
-    // role='master' tem acesso irrestrito a todos os tenants e orgs
-    if (profile.role === "master") {
-      return { success: true };
-    }
-
-    // Validação por organization (quando subdomain resolve para uma org)
-    if (currentOrg) {
-      if (profile.organization_id !== currentOrg.id) {
-        await supabase.auth.signOut();
-        return {
-          success: false,
-          error: "Usuário não pertence a esta organização. Verifique o endereço de acesso.",
-        };
-      }
-      return { success: true };
-    }
-
-    // Validação por tenant (fallback quando subdomain resolve diretamente para tenant).
-    // Perfis legados criados sem tenant_id são aceitos quando o client_id é o
-    // próprio tenant do subdomínio (mesmo workspace, coluna nunca preenchida).
-    if (tenant) {
-      const belongsToTenant =
-        profile.tenant_id === tenant.id ||
-        (!profile.tenant_id && profile.client_id === tenant.id);
-      if (!belongsToTenant) {
-        await supabase.auth.signOut();
-        return {
-          success: false,
-          error: "Usuário não pertence a esta empresa. Verifique o endereço de acesso.",
-        };
-      }
+      return { success: false, error: ACCESS_DENIAL_MESSAGES[denial] };
     }
 
     return { success: true };

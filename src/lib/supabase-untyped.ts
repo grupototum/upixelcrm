@@ -15,3 +15,7 @@ const untypedClient = supabase as unknown as SupabaseClient;
 export function untypedFrom(table: string) {
   return untypedClient.from(table);
 }
+
+export function untypedRpc(fn: string, args?: Record<string, unknown>) {
+  return untypedClient.rpc(fn, args);
+}

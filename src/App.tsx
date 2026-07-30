@@ -20,6 +20,7 @@ import LandingPageEN from "./pages/LandingPageEN";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
 import WorkspaceLoginPage from "./pages/WorkspaceLoginPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 
 // Lazy: páginas internas — code-split por rota.
 const InboxPage = lazy(() => import("./pages/InboxPage"));
@@ -140,6 +141,7 @@ function AppRoutes() {
               <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                 {/* /dashboard é URL bookmarcável esperada — redireciona pra raiz */}
                 <Route path="/dashboard" element={<Navigate to="/" replace />} />
