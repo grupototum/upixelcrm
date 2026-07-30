@@ -1,0 +1,46 @@
+# ════════════════════════════════════════════════════════════════════════
+# Caddyfile.example — reverse proxy com TLS automático (Let's Encrypt) na
+# frente do Kong, para expor a stack Supabase self-hosted em
+# api.upixel.com.br (ou o domínio que o [OPERADOR] escolher — Fase 1 do
+# plano de migração).
+#
+# [OPERADOR]:
+#   1. cp proxy/Caddyfile.example /etc/caddy/Caddyfile  (ou onde o Caddy
+#      da VPS ler config) e ajustar o domínio abaixo.
+#   2. DNS: api.upixel.com.br → IP da VPS (registro A).
+#   3. Studio (studio.upixel.com.br) fica atrás de auth básica do Caddy
+#      OU só acessível via túnel SSH — não expor sem proteção, é acesso
+#      administrativo total ao banco.
+#   4. systemctl reload caddy (ou `caddy reload` se rodando standalone).
+# ════════════════════════════════════════════════════════════════════════
+
+api.upixel.com.br {
+	# Kong escuta em KONG_HTTP_PORT (default 8000) no host da VPS —
+	# ajustar a porta se o .env usado no docker-compose mudar o padrão.
+	reverse_proxy localhost:8000
+
+	# Corpo grande (upload de mídia do WhatsApp / storage) — ajustar
+	# conforme FILE_SIZE_LIMIT do storage no docker-compose.yml.
+	request_body {
+		max_size 60MB
+	}
+
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	log {
+		output file /var/log/caddy/upixel-api-access.log
+	}
+}
+
+# Studio — restrito. Trocar USUARIO/SENHA_HASH por credenciais reais
+# (gerar hash com `caddy hash-password`), ou comentar este bloco inteiro e
+# acessar Studio só via `ssh -L 8000:localhost:8000` (túnel local).
+studio.upixel.com.br {
+	basicauth {
+		USUARIO SENHA_HASH_AQUI
+	}
+	reverse_proxy localhost:8000
+}

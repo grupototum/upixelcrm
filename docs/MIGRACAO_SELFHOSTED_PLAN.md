@@ -1,6 +1,6 @@
 # Plano de Migração — Supabase Cloud → Self-hosted (VPS)
 
-**Status geral:** `FASE 0 — em andamento (inventário local parcial feito; falta dump do cloud + acesso ao painel)`
+**Status geral:** `FASE 0 — em andamento (inventário local parcial feito; falta dump do cloud + acesso ao painel). Artefatos [AGENTE] da FASE 1 preparados adiantado (regra 7) — scaffold deploy/selfhosted/ pronto, mas execução contra VPS real segue bloqueada até a Fase 0 fechar.`
 **Executor:** agente (Claude Sonnet 5) em sessões incrementais + operador humano (ações na VPS/painéis)
 **Origem:** projeto cloud `xusdhzwfkzufupjwbebt` (`https://xusdhzwfkzufupjwbebt.supabase.co`)
 **Destino:** stack Supabase self-hosted em VPS própria (Docker Compose)
@@ -15,6 +15,7 @@
 4. Ações marcadas **[AGENTE]** o agente executa direto (arquivos no repo, validações via rede, SQL via MCP se autorizado).
 5. **No-Fly Zones do CLAUDE.md valem aqui**: banco de produção, auth e deleção de dados → agente sugere, humano aprova antes de executar contra produção.
 6. Produção continua no **cloud** até a Fase 6 (cutover). Nada antes disso pode afetar o ambiente atual.
+7. **Preparação de artefatos [AGENTE] de fase futura é permitida a qualquer momento; EXECUÇÃO contra infra real exige o aceite da fase anterior.** Ou seja: escrever/commitar arquivos (docker-compose, scripts, migrations novas, docs) para uma fase à frente pode acontecer mesmo com a fase atual ainda aberta — desde que nada disso rode contra o cloud ou a VPS de verdade antes da hora.
 
 ### Pré-requisitos da sessão do agente
 
@@ -88,11 +89,11 @@ Objetivo: saber exatamente o que existe no cloud antes de replicar.
 
 Objetivo: Supabase self-hosted rodando vazio e saudável.
 
-- [ ] **[AGENTE]** Preparar no repo (`deploy/selfhosted/`): `docker-compose.yml` oficial do Supabase (Postgres 15+, GoTrue, PostgREST, Realtime, Storage, Kong, edge-runtime, Studio), `.env.example` com todos os parâmetros nomeados, instruções de geração de segredos (`JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY` via ferramenta oficial).
+- [x] **[AGENTE]** Preparar no repo (`deploy/selfhosted/`): `docker-compose.yml` oficial do Supabase (Postgres 15+, GoTrue, PostgREST, Realtime, Storage, Kong, edge-runtime, Studio, com `pg_cron`/`pg_net` habilitados via `postgresql.conf`), `.env.example` com todos os parâmetros nomeados (incluindo os 21 secrets de edge functions da Fase 0), instruções de geração de segredos (`JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY` — `scripts/generate-jwt-keys.md`), exemplo de reverse proxy com TLS (`proxy/Caddyfile.example` e `proxy/nginx.conf.example`) e README com o passo a passo do `[OPERADOR]`. Validado nesta sessão com `docker compose config` (renderiza sem erro, 9 serviços, nenhuma variável não resolvida) — ver Diário. **Falta**: `volumes/db/init/` só tem as extensions; os scripts oficiais de roles/schemas do Postgres (`CREATE ROLE`/`GRANT` de `supabase_admin`, `authenticator`, `auth`/`storage` schemas etc.) precisam ser copiados do repo oficial do Supabase pelo `[OPERADOR]` antes do primeiro `docker compose up` real — ver `volumes/db/init/README.md` para o porquê e o comando exato.
 - [ ] **[OPERADOR]** Subir na VPS; DNS `api.upixel.com.br` (ou similar) → VPS; TLS (Caddy/Traefik/nginx + certbot); SMTP real configurado no GoTrue (o Magic Link depende disso).
-- [ ] **[AGENTE]** Validar por HTTPS: `GET /auth/v1/health`, `GET /rest/v1/` (com anon key), Studio acessível, Realtime conectando.
+- [ ] **[AGENTE]** Validar por HTTPS: `GET /auth/v1/health`, `GET /rest/v1/` (com anon key), Studio acessível, Realtime conectando. **Bloqueado** até existir uma VPS de verdade rodando a stack (rede do ambiente do agente também bloqueia o domínio da VPS, mesma restrição da Fase 0).
 
-**Aceite:** healthchecks verdes por HTTPS a partir da sessão do agente.
+**Aceite:** healthchecks verdes por HTTPS a partir da sessão do agente. **Ainda não atingido** — o scaffold está pronto e validado localmente (config estático), mas nada foi executado contra uma VPS real nesta sessão (proibido sem o aceite da Fase 0, e sem acesso à VPS mesmo que fosse permitido).
 
 ## FASE 2 — Schema
 
@@ -166,3 +167,4 @@ Objetivo: restore completo validado — ainda como ensaio, o cloud segue sendo p
 |---|---|---|---|
 | 2026-07-30 | — | Plano criado (sessão Fable). Nada executado ainda. | Fase 0 aguardando: liberar rede do ambiente + dump de schema do cloud |
 | 2026-07-30 | 0 | Sessão Sonnet 5: confirmado que rede continua bloqueada (`*.supabase.co` → 403) e MCP Supabase não autorizado. Feito o inventário local (sem depender do cloud): tabela completa de secrets por edge function (33 functions), cron jobs do repo + **1 item de drift encontrado** (`whatsapp-queue-processor` roda em produção mas não existe em nenhuma migration — query pronta para o operador confirmar `schedule`/`command`), bucket de Storage único no repo (`whatsapp_media`). Documentado tudo na seção Fase 0 acima. | Falta: dump `schema-cloud.sql` do operador, drift completo, `9999_reconcile_drift.sql`, webhooks externos (painéis), config de Auth (painel), contagem de linhas (precisa do cloud) |
+| 2026-07-30 | 0 + 1 (adiantado) | Sessão Sonnet 5 (orquestrar-totum, execução direta [AGENTE]): (1) adicionada regra 7 na seção "Como usar este plano" — preparar artefatos de fase futura é permitido a qualquer momento, execução contra infra real continua exigindo aceite da fase anterior. (2) Scaffold completo da Fase 1 em `deploy/selfhosted/`: `docker-compose.yml` (db/auth/rest/realtime/storage/meta/studio/functions/kong, pg_cron+pg_net habilitados), `.env.example` com os 21 secrets de edge function da Fase 0, `volumes/db/postgresql.conf` + `init/00-extensions.sql`, `volumes/api/kong.yml`, `proxy/Caddyfile.example` + `nginx.conf.example`, `scripts/generate-jwt-keys.md`, README. (3) Rascunhos `scripts/dump.sh`/`restore.sh` (Fase 3, não executados) e `supabase/migrations/9999_reconcile_drift.sql` (novo arquivo; só emite `RAISE NOTICE` sobre o drift do `whatsapp-queue-processor` — não recria o cron com schedule/command adivinhados). **Validado**: `docker compose config` com `.env` fake local renderiza sem erro (9 serviços, nenhuma var não resolvida — arquivo temporário deletado, nunca commitado); `bash -n` limpo nos 2 scripts; `kong.yml` é YAML válido; `npm run build` e `npm test` (47/47) continuam passando após `npm install` (nenhum arquivo em `src/` ou migrations existentes tocado). **Não validado**: `docker compose up` real (só `config`, por instrução explícita — não subir serviços mesmo localmente) e o SQL do `9999_reconcile_drift.sql` não foi executado contra nenhum Postgres (mantido simples de propósito). Nenhuma etapa passou de 2 tentativas de retry nem ficou >15min. | Falta [OPERADOR]: copiar os scripts oficiais de roles/schemas do Postgres para `volumes/db/init/` (ver README lá — não reproduzidos de memória, risco de erro sutil), gerar os secrets reais e só então rodar a Fase 1 de verdade numa VPS; tudo o que dependia do cloud na Fase 0 continua igual (ver linha acima) |
