@@ -1,0 +1,36 @@
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(self), geolocation=(self), interest-cohort=()
+  X-XSS-Protection: 1; mode=block
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://*.fbcdn.net https://platform-lookaside.fbsbx.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://xusdhzwfkzufupjwbebt.supabase.co wss://xusdhzwfkzufupjwbebt.supabase.co https://graph.facebook.com https://*.googleapis.com https://accounts.google.com; frame-src 'self' https://www.facebook.com https://accounts.google.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self';
+
+# Assets com hash no nome — cache imutável de 1 ano
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# index.html nunca cacheia — garante bundle hash atualizado
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Service worker NUNCA cacheia (precisa propagar updates)
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+# Manifest + ícones PWA — cache curto
+/manifest.json
+  Cache-Control: public, max-age=3600
+/icon-*.png
+  Cache-Control: public, max-age=86400
+
+# Páginas legais (HTML estático servido pelo Meta crawler que não roda JS)
+/privacy-policy/*
+  Cache-Control: public, max-age=3600
+/data-deletion-status/*
+  Cache-Control: public, max-age=3600

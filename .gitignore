@@ -1,0 +1,54 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.builder/config/data.json
+
+# Supabase migration dump (contém dados reais, nunca commitar)
+migration-dump/
+
+# Credenciais de migração — NUNCA commitar
+.env
+.env.migration
+
+# ship:all — hashes locais das edge functions (não compartilhar entre devs)
+.ship-state.json
+
+# Agent Skills e configs locais do AI Assistant
+.agents/
+supabase/.temp/
+
+# Debug/env files
+.env.debug
+.env.local
+debug-*.mjs
+
+# Local test fixtures (planilhas com dados reais de cliente — nunca commitar)
+Teste Importação/
+Teste_Importacao/
+
+# Notas operacionais locais (prompts, roadmaps, SQL templates com IDs reais de clientes)
+API Meta/
+
+vite.config.ts.timestamp-*.mjs
