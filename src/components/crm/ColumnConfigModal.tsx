@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
@@ -33,6 +34,9 @@ const ACTIONS = [
   { value: "move_column", label: "Mover de coluna", icon: ArrowRight },
   { value: "create_task", label: "Criar tarefa", icon: CheckSquare },
 ];
+
+/** 2.7: teto de caracteres da descrição — espelha o CHECK em pipeline_columns. */
+const DESCRIPTION_MAX = 300;
 
 const ACTIONS_COMING_SOON = [
   { value: "send_message", label: "Enviar mensagem", icon: Send },
@@ -66,6 +70,8 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
   const navigate = useNavigate();
 
   const [columnName, setColumnName] = useState(column?.name ?? "");
+  // 2.7: descrição da etapa, limitada a 300 caracteres (espelha o CHECK do banco).
+  const [columnDescription, setColumnDescription] = useState(column?.description ?? "");
   const [columnColor, setColumnColor] = useState(column?.color ?? "#3b82f6");
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -79,6 +85,7 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
   useEffect(() => {
     if (column) {
       setColumnName(column.name);
+      setColumnDescription(column.description ?? "");
       setColumnColor(column.color ?? "#3b82f6");
       if (open) setActiveTab(initialTab);
     }
@@ -87,7 +94,11 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
   if (!column) return null;
 
   const handleSaveGeneral = async () => {
-    await updateColumn(column.id, { name: columnName, color: columnColor });
+    await updateColumn(column.id, {
+      name: columnName,
+      color: columnColor,
+      description: columnDescription.trim() || undefined,
+    });
   };
 
   const handleDeleteColumn = async () => {
@@ -132,6 +143,18 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
             <div>
               <Label className="text-xs">Nome da coluna</Label>
               <Input value={columnName} onChange={(e) => setColumnName(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Descrição da etapa</Label>
+              <Textarea
+                value={columnDescription}
+                onChange={(e) => setColumnDescription(e.target.value.slice(0, DESCRIPTION_MAX))}
+                placeholder="Descreva o que significa um lead estar nesta etapa..."
+                className="mt-1 text-xs min-h-[72px] resize-none"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1 text-right">
+                {columnDescription.length}/{DESCRIPTION_MAX}
+              </p>
             </div>
             <div>
               <Label className="text-xs">Cor</Label>

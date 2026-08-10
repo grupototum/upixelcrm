@@ -475,7 +475,45 @@ serve(async (req) => {
           outputData.success = true;
         }
       }
-      
+      else if (actionType === 'create_task') {
+        // 2.2: o builder oferece "Criar tarefa" (AutomationEditModal.tsx:22) mas
+        // o engine não implementava a ação — ela caía no vazio, sem erro e sem
+        // tarefa. Não era bug do delay: o delay entregava o fluxo corretamente
+        // e o nó seguinte é que não fazia nada.
+        const title = interpolate(nodeData.title || nodeData.task_title || '', leadContext);
+        if (!title) {
+          outputData.error = "create_task sem título";
+          console.error(`[create_task] nó ${node_id} sem título — nada criado`);
+        } else {
+          const offsetDays = Number(nodeData.due_offset_days ?? 0);
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + (Number.isFinite(offsetDays) ? offsetDays : 0));
+
+          const { error: taskError } = await supabase.from("tasks").insert({
+            client_id: lead.client_id,
+            lead_id,
+            title,
+            description: interpolate(nodeData.description || '', leadContext) || null,
+            status: 'pending',
+            due_date: dueDate.toISOString().slice(0, 10),
+            assigned_to: interpolate(nodeData.assigned_to || '', leadContext) || 'Você',
+          });
+
+          if (taskError) {
+            outputData.error = taskError.message;
+            console.error("[create_task] insert falhou:", taskError.message);
+          } else {
+            outputData.success = true;
+          }
+        }
+      }
+      else {
+        // Falhar em silêncio foi o que escondeu o create_task. Qualquer ação não
+        // implementada agora aparece no run.
+        outputData.error = `Ação não implementada no engine: ${actionType}`;
+        console.error(`[action] tipo desconhecido "${actionType}" no nó ${node_id}`);
+      }
+
       const outgoingEdge = edges.find(e => e.source === node_id);
       if (outgoingEdge) nextNodeId = outgoingEdge.target;
     }

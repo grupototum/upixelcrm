@@ -310,3 +310,14 @@
 /* Hide scrollbar */
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 2.4 — drag-to-scroll do board Kanban.
+   O cursor sinaliza que a área vazia é arrastável; durante o pan o
+   user-select é desligado para não selecionar texto sem querer. */
+.board-container {
+  cursor: grab;
+}
+.board-container.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}

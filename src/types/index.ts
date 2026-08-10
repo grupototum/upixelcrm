@@ -27,6 +27,8 @@ export interface PipelineColumn {
   name: string;
   order: number;
   color?: string;
+  /** 2.7: o que significa um lead estar nesta etapa. Máx 300 caracteres. */
+  description?: string;
 }
 
 export interface Lead {
@@ -75,6 +77,10 @@ export interface Task {
   due_date?: string;
   assigned_to?: string;
   created_at: string;
+  /** 2.6: desfecho registrado na conclusão. */
+  result?: string;
+  completed_at?: string;
+  completed_by?: string;
 }
 
 export interface Automation {

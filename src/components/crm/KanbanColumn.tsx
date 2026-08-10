@@ -31,9 +31,11 @@ interface KanbanColumnProps {
   onMoveLead?: (leadId: string, toColumnId: string) => void;
   /** Abrir importação contextualizada nesta coluna (CSV/Excel direto pra cá). */
   onImportLeads?: (columnId: string) => void;
+  /** 2.3: mapa name → cor das etiquetas, resolvido uma vez no board. */
+  tagColors?: Record<string, string>;
 }
 
-export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads }: KanbanColumnProps) {
+export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads, tagColors }: KanbanColumnProps) {
   // useDroppable pra leads entrarem na coluna (mantido).
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id, data: { type: "column", columnId: column.id } });
 
@@ -182,6 +184,13 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {/* 2.7: descrição da etapa. Truncada numa linha, texto completo no hover.
+          Sem descrição, não renderiza nada — nada de espaço reservado. */}
+      {column.description && (
+        <p className="text-xs text-muted-foreground truncate px-1 -mt-1 mb-1" title={column.description}>
+          {column.description}
+        </p>
+      )}
 
       <div
         ref={(node) => {
@@ -214,7 +223,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                       paddingBottom: "8px",
                     }}
                   >
-                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} />
+                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} />
                   </div>
                 );
               })}
@@ -224,7 +233,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                Preserves the original space-y-2 layout and DnD behaviour exactly. */
             <div className="space-y-2">
               {leads.map((lead) => (
-                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
+                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} />
               ))}
             </div>
           )}
