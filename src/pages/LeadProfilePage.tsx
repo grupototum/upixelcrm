@@ -30,7 +30,7 @@ import {
 import {
   ArrowLeft, Phone, Mail, Building, User, MapPin, Tag,
   Globe, Briefcase, DollarSign, Calendar, Edit3, Trash2,
-  Plus, CheckCircle2, Circle, AlertTriangle, Clock,
+  Plus, CheckCircle2, Circle, AlertTriangle, Clock, ChevronDown,
   MessageSquare, ArrowRight, Zap, ClipboardList, StickyNote,
   MoreHorizontal, Send, ChevronRight, Smartphone, Monitor, X, Check, Settings2,
   Handshake, Target, Merge
@@ -64,7 +64,7 @@ export default function LeadProfilePage() {
   const { 
     leads, columns, tasks, timeline, automations: contextAutomations, 
     toggleBasicAutomation, updateLead, deleteLead, addTask, 
-    toggleTaskStatus, addTimelineEvent, mergeLeads 
+    toggleTaskStatus, completeTask, addTimelineEvent, mergeLeads 
   } = useAppState();
   
   const { definitions, loading: cfLoading } = useCustomFields();
@@ -76,6 +76,9 @@ export default function LeadProfilePage() {
   // 2.5: edição inline — id da nota aberta e rascunho do texto.
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteDraft, setEditingNoteDraft] = useState("");
+  // 2.6: rascunho do resultado por tarefa + seção de concluídas colapsada.
+  const [taskResults, setTaskResults] = useState<Record<string, string>>({});
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
@@ -148,6 +151,13 @@ export default function LeadProfilePage() {
   }, [contextAutomations, column, id]);
   const leadTimeline = useMemo(() => timeline.filter((e) => e.lead_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [id, timeline]);
   const leadTasks = useMemo(() => tasks.filter((t) => t.lead_id === id), [id, tasks]);
+  const pendingTasks = useMemo(() => leadTasks.filter((t) => t.status !== "completed"), [leadTasks]);
+  const completedTasks = useMemo(() => leadTasks.filter((t) => t.status === "completed"), [leadTasks]);
+
+  const handleCompleteTask = useCallback(async (taskId: string) => {
+    await completeTask(taskId, taskResults[taskId]);
+    setTaskResults((prev) => { const next = { ...prev }; delete next[taskId]; return next; });
+  }, [completeTask, taskResults]);
   const threads = useMemo(() => mockThreads.filter((t) => t.lead_id === id), [id]);
 
   const handleAddNote = useCallback(async () => {
@@ -598,22 +608,73 @@ export default function LeadProfilePage() {
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               {leadTasks.length > 0 ? (
                 <div className="divide-y divide-border">
-                  {leadTasks.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between px-4 py-3 hover:bg-card-hover transition-colors">
-                      <div className="flex items-center gap-3">
-                        <Checkbox checked={task.status === "completed"} onCheckedChange={() => toggleTaskStatus(task.id)} className="h-4 w-4" />
-                        <div>
-                          <p className={`text-sm font-medium ${task.status === "completed" ? "line-through text-muted-foreground" : "text-foreground"}`}>{task.title}</p>
-                          {task.due_date && (
-                            <span className={`text-[10px] flex items-center gap-1 mt-0.5 ${task.status === "overdue" ? "text-destructive" : "text-muted-foreground"}`}>
-                              <Calendar className="h-2.5 w-2.5" /> {formatDate(task.due_date)}
-                            </span>
-                          )}
+                  {/* 2.6: pendentes ganham campo de resultado + botão de conclusão. */}
+                  {pendingTasks.map((task) => (
+                    <div key={task.id} className="px-4 py-3 hover:bg-card-hover transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Checkbox checked={false} onCheckedChange={() => toggleTaskStatus(task.id)} className="h-4 w-4" />
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{task.title}</p>
+                            {task.due_date && (
+                              <span className={`text-[10px] flex items-center gap-1 mt-0.5 ${task.status === "overdue" ? "text-destructive" : "text-muted-foreground"}`}>
+                                <Calendar className="h-2.5 w-2.5" /> {formatDate(task.due_date)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {statusIcon(task.status)}
+                      </div>
+                      <div className="mt-2 pl-7 space-y-2">
+                        <Textarea
+                          placeholder="Adicionar resultado..."
+                          value={taskResults[task.id] ?? ""}
+                          onChange={(e) => setTaskResults((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                          className="text-xs min-h-[56px] resize-none"
+                        />
+                        <div className="flex justify-end">
+                          <Button size="sm" className="text-xs gap-1" onClick={() => handleCompleteTask(task.id)}>
+                            <CheckCircle2 className="h-3 w-3" /> Tarefa concluída
+                          </Button>
                         </div>
                       </div>
-                      {statusIcon(task.status)}
                     </div>
                   ))}
+
+                  {completedTasks.length > 0 && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCompletedTasks((v) => !v)}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground hover:bg-card-hover transition-colors"
+                        aria-expanded={showCompletedTasks}
+                      >
+                        <ChevronDown className={`h-3 w-3 transition-transform ${showCompletedTasks ? "" : "-rotate-90"}`} />
+                        Concluídas ({completedTasks.length})
+                      </button>
+                      {showCompletedTasks && completedTasks.map((task) => (
+                        <div key={task.id} className="px-4 py-3 border-t border-border">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Checkbox checked onCheckedChange={() => toggleTaskStatus(task.id)} className="h-4 w-4" />
+                              <div>
+                                <p className="text-sm font-medium line-through text-muted-foreground">{task.title}</p>
+                                {task.completed_at && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                    <CheckCircle2 className="h-2.5 w-2.5" /> {formatDateTime(task.completed_at)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {statusIcon(task.status)}
+                          </div>
+                          {task.result && (
+                            <p className="mt-2 pl-7 text-xs text-foreground whitespace-pre-wrap">{task.result}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="p-12 text-center">

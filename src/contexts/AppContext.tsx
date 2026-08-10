@@ -45,6 +45,8 @@ interface AppState {
   updateTask: (id: string, data: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleTaskStatus: (id: string) => Promise<void>;
+  /** 2.6: conclui uma tarefa pendente, gravando o resultado. */
+  completeTask: (id: string, result?: string) => Promise<void>;
 
   addColumn: (name: string, color: string) => Promise<void>;
   updateColumn: (id: string, data: Partial<PipelineColumn>) => Promise<void>;
@@ -503,6 +505,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Tarefa excluída");
   }, []);
 
+  // 2.6: conclusão com resultado. Só age em tarefa pendente — reconcluir uma
+  // tarefa já fechada sobrescreveria o resultado anterior em silêncio.
+  const completeTask = useCallback(async (id: string, result?: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task || task.status === "completed") return;
+
+    const completedAt = new Date().toISOString();
+    const patch = { status: "completed" as const, result: result?.trim() || null, completed_at: completedAt };
+
+    setTasks((prev) => prev.map((t) => t.id === id
+      ? { ...t, status: "completed", result: patch.result ?? undefined, completed_at: completedAt }
+      : t));
+
+    try {
+      await leadsRepo.updateTaskRow(id, patch);
+    } catch (error) {
+      logger.error(error);
+      setTasks((prev) => prev.map((t) => t.id === id ? task : t));
+    }
+  }, [tasks]);
+
   const toggleTaskStatus = useCallback(async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
@@ -902,7 +925,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       leadCountByPipeline,
       setPipeline: setCurrentPipelineId, addPipeline, updatePipeline, deletePipeline,
       addLead, updateLead, deleteLead, moveLead, moveLeadToPipeline,
-      addTask, updateTask, deleteTask, toggleTaskStatus,
+      addTask, updateTask, deleteTask, toggleTaskStatus, completeTask,
       addColumn, updateColumn, deleteColumn, reorderColumns, addTimelineEvent,
       createAutomation, updateAutomationNodes, deleteAutomation, toggleComplexAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,
