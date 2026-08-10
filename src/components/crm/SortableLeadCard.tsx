@@ -44,7 +44,9 @@ export function SortableLeadCard({ lead, onClick, tagColors }: {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...(selectionMode ? {} : attributes)} {...(selectionMode ? {} : listeners)}>
+    // data-dnd-card: marca a área que o useDragScroll deve ignorar, para
+    // arrastar um card não panorâmicar o board junto (2.4).
+    <div ref={setNodeRef} data-dnd-card style={style} {...(selectionMode ? {} : attributes)} {...(selectionMode ? {} : listeners)}>
       <div
         onClick={handleCardClick}
         className={`bg-card ghost-border rounded-xl p-3 hover:shadow-sm transition-all group ${

@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
 import { useTags } from "@/hooks/useTags";
+import { useDragScroll } from "@/hooks/useDragScroll";
 import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
 import { BulkActionsBar } from "@/components/crm/BulkActionsBar";
 import { Plus, Search, X, ChevronDown, LayoutGrid, Upload, CheckSquare } from "lucide-react";
@@ -132,6 +133,10 @@ function CRMPageInner() {
 
   // 2.3: resolvido uma vez aqui e passado pros cards — useTags dentro do
   // SortableLeadCard dispararia um fetch por lead.
+  // 2.4: pan horizontal ao arrastar a área vazia do board.
+  const boardRef = useRef<HTMLDivElement>(null);
+  useDragScroll(boardRef);
+
   const { tags: tagMetas } = useTags();
   const tagColors = useMemo(
     () => Object.fromEntries(tagMetas.map((t) => [t.name, t.color])),
@@ -532,7 +537,7 @@ function CRMPageInner() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex h-[calc(100vh-4rem)] overflow-x-auto p-6 gap-5 animate-fade-in hide-scrollbar">
+          <div ref={boardRef} className="board-container flex h-[calc(100vh-4rem)] overflow-x-auto p-6 gap-5 animate-fade-in hide-scrollbar">
             {/* SortableContext de colunas — horizontal. Items recebem o id sentinela
                 `column:${id}` pra não conflitar com sortable de leads que usa id puro. */}
             <SortableContext
