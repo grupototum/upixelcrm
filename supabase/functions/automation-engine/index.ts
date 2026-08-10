@@ -3,6 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isStrictWebhookUrl } from "../_shared/webhook-url.ts";
 
+// PC-033 / H-018 — limites do cycle-guard.
+// 50 passos cobre fluxos lineares longos legítimos; um ciclo real estoura o
+// limite de revisita muito antes disso.
+const MAX_AUTOMATION_STEPS = 50;
+const MAX_NODE_REVISITS = 3;
+
 interface Node {
   id: string;
   type: string;
@@ -199,6 +205,40 @@ serve(async (req) => {
     if (leadError || !lead) throw new Error("Lead not found");
 
     const leadContext = { ...lead, ...context };
+
+    // PC-033 / H-018: o engine executa um nó por invocação e se re-invoca via
+    // HTTP para o próximo (linha ~801). Um grafo cíclico (A→B→A) vira invocação
+    // infinita. O contador `_steps_executed` já existia, mas nunca era gravado
+    // de volta no contexto — recomeçava do zero a cada hop e nunca limitava nada.
+    // Agora ele é propagado, e o caminho percorrido também, para pegar o ciclo
+    // antes do teto de passos.
+    const stepsExecuted = (context?._steps_executed ?? 0) + 1;
+    const visitedNodes: string[] = [...(context?._visited_nodes ?? []), node_id];
+    leadContext._steps_executed = stepsExecuted;
+    leadContext._visited_nodes = visitedNodes;
+
+    const revisitCount = visitedNodes.filter((n: string) => n === node_id).length;
+    if (stepsExecuted > MAX_AUTOMATION_STEPS || revisitCount > MAX_NODE_REVISITS) {
+      const reason = stepsExecuted > MAX_AUTOMATION_STEPS
+        ? `teto de ${MAX_AUTOMATION_STEPS} passos excedido`
+        : `nó ${node_id} revisitado ${revisitCount}x — ciclo`;
+      console.error(`[cycle-guard] automação ${automation_id} abortada: ${reason}`);
+
+      if (run_id) {
+        await supabase.from("automation_runs").update({
+          status: "failed",
+          error: `Execução abortada pelo cycle-guard: ${reason}`,
+          finished_at: new Date().toISOString(),
+          steps_executed: stepsExecuted,
+          context: leadContext,
+        }).eq("id", run_id);
+      }
+
+      return new Response(JSON.stringify({ error: "cycle_guard_tripped", reason }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     // 3. Find current node
     const currentNode = nodes.find(n => n.id === node_id);
@@ -553,7 +593,7 @@ serve(async (req) => {
             status: "waiting",
             current_node_id: node_id,
             context: { ...leadContext, _wait_save_as: saveAs },
-            steps_executed: (leadContext._steps_executed ?? 0) + 1,
+            steps_executed: stepsExecuted,
           })
           .eq("id", run_id);
       }
@@ -790,7 +830,7 @@ serve(async (req) => {
             : "running",
           finished_at: isTerminal || outputData.error ? new Date().toISOString() : null,
           error: outputData.error ?? null,
-          steps_executed: (leadContext._steps_executed ?? 0) + 1,
+          steps_executed: stepsExecuted,
           context: leadContext,
         })
         .eq("id", run_id);
