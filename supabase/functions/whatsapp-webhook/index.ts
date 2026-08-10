@@ -2,6 +2,40 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
+// PC-026: a rota Meta Official aceitava qualquer payload sem validar procedência.
+// `verify_jwt = false` + integration_id/instance_name enumeráveis significavam que
+// qualquer um podia injetar mensagens em qualquer tenant. Mesmo padrão já usado em
+// whatsapp-cloud-webhook e facebook-messenger-webhook.
+const WA_APP_SECRET = Deno.env.get("WHATSAPP_APP_SECRET") ?? Deno.env.get("META_APP_SECRET") ?? "";
+
+async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
+  if (!WA_APP_SECRET) {
+    console.error("[whatsapp-webhook] WHATSAPP_APP_SECRET/META_APP_SECRET not configured");
+    return false;
+  }
+  if (!signatureHeader?.startsWith("sha256=")) return false;
+
+  const expected = signatureHeader.slice("sha256=".length);
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(WA_APP_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
+  const computed = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Comparação em tempo constante — evita timing oracle sobre a assinatura.
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
 // ─── Push notification helper ───
 async function sendPushNotification(
   adminClient: any,
@@ -850,11 +884,14 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
 
       const phoneNumberId = value.metadata?.phone_number_id;
 
-      // Find integration by phone_number_id
-      const { data: integrations } = await adminClient.from("integrations").select("id, client_id, status, config, access_token")
-        .eq("provider", "whatsapp_official").limit(200);
+      // PC-026: lookup direto por phone_number_id. O scan com .limit(200) trazia
+      // integrações de todos os tenants para a memória da função e silenciosamente
+      // ignorava qualquer uma além da 200ª.
+      const { data: match } = await adminClient.from("integrations").select("id, client_id, status, config, access_token")
+        .eq("provider", "whatsapp_official")
+        .eq("config->>phone_number_id", phoneNumberId)
+        .maybeSingle();
 
-      const match = (integrations || []).find((i: any) => (i.config as any)?.phone_number_id === phoneNumberId);
       if (!match) {
         console.log("No matching official integration for phone_number_id:", phoneNumberId);
         continue;
@@ -967,7 +1004,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    // PC-026: precisa do corpo cru (byte a byte) para conferir o HMAC — re-serializar
+    // com JSON.stringify quebraria a assinatura.
+    const rawBody = await req.text();
+    const body = JSON.parse(rawBody);
     console.log("Webhook received");
 
     // Extrai integration_id da query string. Quando presente, garante roteamento
@@ -979,6 +1019,14 @@ Deno.serve(async (req) => {
 
     // Detect format: Meta Official API has "object": "whatsapp_business_account"
     if (body.object === "whatsapp_business_account") {
+      // PC-026: só a rota Meta assina o payload. A rota Evolution segue sem HMAC
+      // (Evolution não envia X-Hub-Signature-256) e não passa por aqui.
+      const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+      if (!sigOk) {
+        console.warn("[whatsapp-webhook] Invalid X-Hub-Signature-256 — payload rejeitado");
+        return new Response("Forbidden", { status: 403, headers: corsHeaders });
+      }
+
       const result = await handleOfficialWebhook(body, adminClient);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
