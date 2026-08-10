@@ -110,8 +110,10 @@ Deno.serve(async (req) => {
 
         for (const int of integrations ?? []) {
           const cfg = int.config as { page_id?: string; ad_account_id?: string } | null;
-          // Match by page_id if configured, else use first tenant with token
-          if (cfg?.page_id === pageId || !cfg?.page_id) {
+          // PC-027: casa exclusivamente por page_id. O fallback `|| !cfg?.page_id`
+          // fazia a primeira integração meta_ads sem page_id configurado capturar
+          // leads de QUALQUER página — atribuindo lead de um tenant a outro.
+          if (cfg?.page_id === pageId) {
             clientId = int.client_id;
             accessToken = int.access_token;
             break;
