@@ -955,6 +955,7 @@ function mapColumn(row: Record<string, unknown>): PipelineColumn {
     name: row.name as string,
     order: row.order as number,
     color: (row.color as string) || undefined,
+    description: (row.description as string) || undefined,
   };
 }
 

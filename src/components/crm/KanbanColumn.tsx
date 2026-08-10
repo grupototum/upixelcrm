@@ -184,6 +184,13 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {/* 2.7: descrição da etapa. Truncada numa linha, texto completo no hover.
+          Sem descrição, não renderiza nada — nada de espaço reservado. */}
+      {column.description && (
+        <p className="text-xs text-muted-foreground truncate px-1 -mt-1 mb-1" title={column.description}>
+          {column.description}
+        </p>
+      )}
 
       <div
         ref={(node) => {

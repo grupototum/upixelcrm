@@ -27,6 +27,8 @@ export interface PipelineColumn {
   name: string;
   order: number;
   color?: string;
+  /** 2.7: o que significa um lead estar nesta etapa. Máx 300 caracteres. */
+  description?: string;
 }
 
 export interface Lead {
