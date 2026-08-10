@@ -1,0 +1,179 @@
+# totum-state.md — Adequação arquitetural por camadas
+
+**Branch:** `claude/upixelcrm-layering-phase-2-b61f6l` · **PR:** #37 (Lotes 1, 2, I-1 — merged `906dd5f`) → useInbox I-2..I-5 merged em 2026-07-17 via `claude/arch-layers-continue` (#42) → **AppContext A-1..A-4 no PR #38** (reconciliado sobre a main pós-#42 em 2026-07-18; a migração de useInbox feita em paralelo no PR #38 original foi descartada em favor da versão da main)
+**Fase 1 (diagnóstico):** concluída no Cowork em 2026-07-15 (relatório aprovado no prompt da sessão).
+**Fase 2 (plano):** aprovada em 2026-07-15 — 4 lotes; Lote 4 só com OK explícito.
+
+## Regras ativas
+- 1 movimento = 1 commit = 1 iteração; build + lint após cada movimento; quebrou → reverte.
+- Nenhum commit antes da aprovação do lote (inclusive config).
+- Intocáveis: `supabase/migrations`, `supabase/functions`, `deploy/`, `.github/`, RLS/Auth/Storage.
+- 🔴 Catalogados, NÃO aplicar: `SUPABASE_BROADCAST_SETUP.sql`, `SUPABASE_FIX_AUTOMATIONS_AND_SEQUENCES.sql`, `SUPABASE_FIX_CUSTOM_FIELDS.sql` (raiz) + .sql em `scripts/`.
+
+## Lote 1 — repositórios por domínio (aprovado 2026-07-15)
+
+| # | Movimento | Status | Build | Lint |
+|---|---|---|---|---|
+| 1 | `src/services/leads.ts` (tags, custom_field_definitions, leads) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+| 2 | `src/services/users.ts` (profiles: leituras moderadas) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+> Nota mov. 2: usePermissions é lógica pura (sem queries) — fonte real do domínio users são useBroadcast, IntegrationsPage, hooks de FB/IG, mentions.ts, ProfileSettings e ConversationActions.
+| 3 | `src/services/integrations.ts` (integrations, api_keys, webhook_endpoints, ad_campaigns, edges de provedores) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+| 4 | `src/services/inbox.ts` (inbox_templates, macros, tasks, contadores) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+> Nota mov. 4: useConversationLabels é in-memory puro (sem queries) — fora do repositório. Queries de conversations/messages do useInbox migram no Lote 3.
+| 5 | `src/services/broadcast.ts` (whatsapp_templates, broadcast_campaigns, dispatch_logs, créditos, edge) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+| 6 | `src/services/automations.ts` (sequences, steps, automation_runs, stats) | ✅ 2026-07-15 | ✅ | ✅ 0 problemas |
+
+**Lote 1 concluído em 2026-07-15** — 6/6 movimentos, build e lint verdes em todos. Aguardando OK para o Lote 2.
+
+## Lote 2 — migrar hooks moderados (aprovado 2026-07-15)
+
+Regras extras aprovadas: #8 sem qualquer mudança de fluxo de auth (só remoção de leitura duplicada + troca de query); #10 mesma semântica nas operações destrutivas; #11 fetches diretos Evolution/Meta ficam. #1–7 executados com Sonnet 5 (subagentes), #8–11 com o modelo principal. Checkpoint parcial após #7.
+
+| # | Movimento | Status | Build | Lint |
+|---|---|---|---|---|
+| 1 | useTags → services/leads | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
+| 2 | useCustomFields → services/leads | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
+| 3 | useCannedResponses → services/inbox | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ (1 warning exhaustive-deps pré-existente) |
+| 4 | useMacros → services/inbox | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
+| 5 | useUnreadCounts → services/inbox | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ 0 problemas |
+| 6 | useAutomationRuns/Stats → services/automations | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ (2 warnings `any` pré-existentes) |
+| 7 | useSequences → services/automations | ✅ 2026-07-15 (Sonnet 5) | ✅ | ✅ (5 warnings `any` pré-existentes, 0 novos) |
+
+**Checkpoint parcial #1–7 entregue em 2026-07-15.** #8–11 seguem com o modelo principal.
+| 8 | useFacebookPage/useInstagram → integrations+users | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (6 warnings `any` pré-existentes, 0 novos) |
+| 9 | useMetaAds/useGoogleAds → services/integrations | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (0 problemas — 4 warnings `any` pré-existentes eliminados) |
+| 10 | useDuplicateDetection → services/leads | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (0 problemas — 1 warning `any` pré-existente eliminado) |
+> Nota mov. 10: `reassignLeadRelations` (criada no Lote 1, ainda não consumida por nenhum hook) lançava em erro — divergia da semântica real do app (Promise.all sem checar erro). Corrigido para não lançar, igualando o comportamento atual do merge(). Adicionadas `reassignAndMergePrimary` e `bulkDeleteLeadsLogOnly` espelhando exatamente o batch de 4 vias e o delete com log-e-continua do mergeMany. Nenhuma heurística de matching/pickPrimary foi tocada.
+| 11 | useBroadcast + BroadcastConfigModal → broadcast+users | ✅ 2026-07-15 (modelo principal, Sonnet 5) | ✅ | ✅ (4 warnings `any` pré-existentes, 7 eliminados, 0 novos) |
+
+**Lote 2 concluído em 2026-07-15** — 11/11 movimentos, build e lint verdes em todos. Aguardando OK para o Lote 3.
+## Lote 3 — useInbox.ts + AppContext.tsx (aprovado 2026-07-15, com travas)
+
+Travas: (1) checkpoint obrigatório após as 5 fatias do useInbox — AppContext só após OK; (2) fatia refreshData do AppContext tem gate próprio (lista de consumidores + estratégia antes); (3) cada fatia registra commit-pai para revert isolado; smoke falhou → reverte e reporta, não conserta no embalo; (4) smoke por fatia: USUÁRIO testa no preview Vercel (ambiente remoto sem .env) e dá ✅/❌ antes da próxima fatia; (5) decisão de comportamento em código já consumido = pausa e pergunta; (6) auth/schema/RLS/migrations/functions = pausa imediata.
+
+Roteiro smoke useInbox: abrir inbox, abrir conversa, enviar texto, mudar status, realtime em 2ª aba. Roteiro AppContext: board carrega, drag entre colunas, criar/editar lead, badges.
+
+> ⚠️ Limitação descoberta na I-1: previews Vercel (`*.vercel.app`) não batem com subdomínio de tenant — TenantContext cai em "Empresa não encontrada" antes do inbox. Smoke ao vivo por fatia é impossível em preview; aprovações do Lote 3 passam a ser por revisão de código do usuário no commit, com smoke real consolidado pendente (rodar em produção com subdomínio válido).
+
+**2026-07-17 — retomado em sessão nova, useInbox concluído e MERGEADO.** A branch original (`claude/upixelcrm-layering-phase-2-b61f6l`) tinha só I-1 (via #37) + I-2 (commit `56ffe05`, nunca mergeado). Recomeçado a partir da main pós-#40/#41 na branch `claude/arch-layers-continue`: I-2 reaproveitado via cherry-pick, I-3/I-4/I-5 feitos do zero seguindo o mesmo padrão (mover query crua para função nomeada em `services/*`, preservando exatamente o comportamento de erro de cada ponto — lança onde lançava, `.catch(() => default)` comentado onde ignorava). **Smoke ao vivo por fatia continua PENDENTE** (mesma limitação de preview); build+lint local (`npm run build` + `npm run lint`) serviu de gate a cada commit — 0 errors, 459 warnings pré-existentes, 0 novos, nas 5 fatias. **Decisão do usuário: mergear o useInbox assim que completo** (em vez de esperar o AppContext também) — uPixel está sem uso ativo, então o smoke consolidado fica pra quando alguém puder testar em produção; AppContext (A-1..A-4) fica pra uma sessão separada, do zero.
+
+| # | Fatia | Status | Build | Lint | Smoke |
+|---|---|---|---|---|---|
+| I-1 | useInbox: lista de conversas + filtros | ✅ na main via #37 | ✅ | ✅ | ⏳ ao vivo pendente |
+| I-2 | useInbox: mensagens + realtime | ✅ `9145f7d` (cherry-pick de `56ffe05`) | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-3 | useInbox: envio de mensagem | ✅ `aed70d9` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-4 | useInbox: ações de conversa (status/assign/labels) | ✅ `d55bebe` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-5 | useInbox: criar conversa/transcrição/merge (inbox) | ✅ `95f6605` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| I-5 | useInbox: findOrCreateLead/deleteLead/mergeLeads (leads) | ✅ `4109b5f` | ✅ | ✅ (459 pré-existentes, 0 novos) | ⏳ |
+| A-1 | AppContext: escritas de leads/pipelines/colunas | ✅ 2026-07-18 (PR #38, reconciliado) | ✅ | ✅ 0 novos | ⏳ consolidado |
+| A-2 | AppContext: tasks + timeline | ✅ 2026-07-18 (PR #38) | ✅ | ✅ 0 novos | ⏳ |
+| A-3 | AppContext: automations (notifications não existe no arquivo) | ✅ 2026-07-18 (PR #38) | ✅ | ✅ 0 novos | ⏳ |
+| A-4 | AppContext: fetchAll/refreshData (gate aberto pelo owner) | ✅ 2026-07-18 (PR #38) | ✅ | ✅ 0 novos | ⏳ |
+
+**AppContext (A-1..A-4): CONCLUÍDO em 2026-07-18** — zero acesso direto ao Supabase (import removido). Estratégia A-4 conservadora: fetchAll mantém assinatura/orquestração em 3 fases; consumidores de refreshData (ImportPage, InboxPage, BulkActionsBar) intocados. Reconciliação pós-#42: funções de useInbox da main venceram (findLeadIdsByPhoneSuffix, insertAutoLead, reassignConversationsToLead em services/inbox etc.); AppContext usa reassignConversationsToLead do services/inbox e ganhou insertLead/insertPipeline/etc. em services/leads. Testes 41/41.
+
+**useInbox.ts (I-1..I-5): CONCLUÍDO — PR de merge nesta sessão.** Zero queries diretas restantes no hook — só `supabase.storage` (mídia), `supabase.auth.getSession`, `invokeEdge` e `.channel`/`.removeChannel` (realtime), que ficam no hook por regra do plano (não são repositório de domínio). Repositórios usados: `services/inbox.ts` (conversas/mensagens/ações) e `services/leads.ts` (busca/criação/delete/merge de leads).
+
+**AppContext.tsx (A-1..A-4): NÃO iniciado.** Inventário feito em 2026-07-17: ~38 queries de banco em `pipelines`, `pipeline_columns`, `tasks`, `timeline_events`, `automations`, `automation_rules`, `leads`, espalhadas pelo arquivo (968 linhas). Nenhuma extração feita ainda — próxima sessão parte do zero aqui.
+## Lote 4 — 🟠 Signup/Users/Organization/auth (OK EXPLÍCITO do owner em 2026-07-18, condicionado à resolução do PR #38 — resolvida: merged `cb83d24`)
+
+Regras herdadas + específicas: ZERO mudança de fluxo de auth (signUp/signIn/signOut/sessão continuam com a mesma sequência observável); RLS/policies/config Supabase intocados; 1 movimento = 1 commit com commit-pai; build+lint por movimento; decisão de comportamento em código consumido = pausa e pergunta.
+
+| # | Movimento | Commit-pai | Status | Build | Lint |
+|---|---|---|---|---|---|
+| L4-1 | ProfileSettings + ConversationActions + mentions.ts → services/users | cb83d24 | ✅ 2026-07-18 | ✅ | ✅ (2 pré-existentes, 0 novos) |
+| L4-2 | UsersPage → services/users | 590b6aa | ✅ 2026-07-18 | ✅ | ✅ (5 — 7 `any` pré-existentes eliminados, 0 novos) |
+| L4-3 | OrganizationSection → services/users | e9b490b | ✅ 2026-07-18 | ✅ | ✅ (6 — 4 `any` pré-existentes eliminados, 0 novos) |
+| L4-4 | SignupPage → services/signup (novo) + users | 99ba4e8 | ✅ 2026-07-18 | ✅ | ✅ 0 problemas |
+| L4-5 | Centralização de supabase.auth em lib/auth-session (11 call sites, 8 arquivos) | f1fb795 | ✅ 2026-07-18 | ✅ | ✅ (48 pré-existentes, 0 novos) |
+
+**LOTE 4 CONCLUÍDO em 2026-07-18 — PLANO DE CAMADAS COMPLETO.** Leituras de sessão/usuário centralizadas em lib/auth-session (getCurrentSession/getCurrentUser). Ficam intocados por decisão registrada: AuthContext (dono do auth), SignupPage.signUp, SecuritySettings (re-auth/troca de senha = fluxo de auth), lib/edge-invoke (máquina de refresh) e o health-check do RAGIntegrationStatus (usa o error do getSession como diagnóstico). Backlog não-bloqueante ("Lote 3.5"): ~18 consumidores de página/componente ainda com .from() direto (IntegrationsPage, CampaignsPage, WhatsAppManagement, modais etc.) — repositórios já cobrem a maioria; smoke consolidado segue pendente (prompt do agente VPS entregue).
+
+
+## Incidente 2026-07-19 — app fora do ar (resolvido)
+
+Causa raiz: em 03/jul as env vars de PRODUÇÃO da Vercel (`VITE_SUPABASE_URL` e
+`VITE_SUPABASE_PUBLISHABLE_KEY`) foram trocadas para o self-host abandonado
+(`upixel.grupototum.com` — domínio órfão sem rota, A record de 02/jul). Todo build
+de produção desde então saiu com o host morto cravado → refresh de sessão do
+supabase-js falhava com CORS/503 no boot → app morto. SEM relação com o refactor
+de camadas (Lotes 1–4). Correção (agente com acesso à Vercel, 19/jul): as duas
+vars restauradas para o Supabase Cloud (`xusdhzwfkzufupjwbebt.supabase.co` +
+`sb_publishable_...`), 2 redeploys sem cache, validação: console limpo, dados
+reais carregando, `x-vercel-id` presente. Descoberta associada: o job
+`deploy-vps` do CI falhava (timeout SSH) desde 17/jul — obsoleto, pois o
+frontend é 100% Vercel (domínios `*.upixel.app` todos válidos no projeto).
+
+**Limpeza (PR desta data, aguardando merge do owner):** vercel.json ganha rewrite
+`/functions/v1/* → Supabase Cloud` (restaura Meta Data Deletion Callback/webhooks
+registrados em upixel.app); nginx da VPS perde o server block do frontend;
+workflow vira "CI + Deploy Edge Functions" (lint+test+build como gate; deploy-vps
+removido). Pendências que seguem: smoke com login real,
+remover A record órfão na Cloudflare, investigar HEAD 503 (não-bloqueante).
+
+## Lote 3.5 — backlog de consumidores com .from() direto (concluído 2026-07-19)
+
+Varredura real (não a estimativa de ~18 do Lote 4) encontrou ~45 arquivos com
+acesso direto ao Supabase fora de `src/services/`. Migrados em 5 sub-lotes,
+1 commit cada, todos com `tsc --noEmit`, `npm run test` (41/41) e
+`npm run build` verdes antes do commit:
+
+| Sub-lote | Escopo | Repositório(s) |
+|---|---|---|
+| A | Métricas (dashboard, CSAT, SLA) | `services/metrics.ts` (novo) |
+| B | Bots, sequências, automation-worker | `services/automations.ts` (estendido) |
+| C | Alexandria/RAG, Intelligence (agentes IA, chaves de provedor) | `services/alexandria.ts` (novo), `services/integrations.ts` (estendido) |
+| D | Configurações de integrações (API keys, webhooks, status por tenant) | `services/integrations.ts` (estendido) |
+| E | Inbox (slash commands), CRM (bulk actions), campanhas, import, backup | `services/backup.ts` (novo), `leads.ts`/`broadcast.ts`/`users.ts` (estendidos) |
+
+Notas: `BulkActionsBar` passou a usar `bulkMoveLeads/bulkDeleteLeads/bulkAddTag`,
+que já existiam desde o Lote 1 mas nunca tinham sido consumidos — `bulkAddTag`
+foi ajustado para não lançar erro na leitura inicial, alinhando ao
+comportamento real do código que substituiu. Comportamento preservado em
+todos os outros movimentos (mesmos toasts, mesma paginação com fallback,
+mesmo retry com backoff no import em massa).
+
+**Ficam FORA deste lote — decisão já registrada, não tocar sem aviso explícito
+(CLAUDE.md marca "Integrações críticas: WhatsApp integration" e
+"Multi-tenancy" como áreas sensíveis):**
+- WhatsApp: `CloudConnectModal`, `CloudEmbeddedSignup`, `CloudInstanceList`,
+  `QuickConnectWizard`, `WhatsAppManagement`, `RechargeModal`,
+  `useWhatsAppInstances`, `useWhatsAppIntegration`.
+- Meta/Google/Instagram (embedded signup / OAuth): `FacebookPageEmbeddedSignup`,
+  `InstagramEmbeddedSignup`, `MetaAdsEmbeddedConnect`, `GoogleAdsAutoConnect`,
+  `useGoogleIntegration`, `useInstagramIntegration`, `FacebookOAuthCallbackPage`.
+- Auth/tenant (decisão do Lote 4, reafirmada): `AuthContext`, `TenantContext`,
+  `SignupPage.signUp`, `SecuritySettings`.
+- Infra (não são consumidores): `integrations/supabase/client.ts`, `lib/logger.ts`.
+
+Pendências que seguem em aberto: smoke com login real, remover A record
+órfão na Cloudflare.
+
+## Auditoria final de camadas (2026-07-20, main `73c6d84`)
+
+Teste independente por `git grep` em todo `src/` (não baseado em docs), buscando
+`supabase.from(` / `untypedFrom(` / `.rpc(` fora de `src/services/` e
+`src/integrations/supabase/`:
+
+- **Resultado: 1 único vazamento real encontrado** — `InstagramFunnelsTab.tsx`
+  (5 call-sites de `untypedFrom("instagram_auto_replies")`: list/insert/update/
+  toggle/delete). Não estava na lista de exceções — escapou do sub-lote B do
+  Lote 3.5. **Fechado nesta data:** queries movidas para
+  `services/automations.ts` (`listInstagramAutoReplies`,
+  `insertInstagramAutoReply`, `updateInstagramAutoReply`,
+  `deleteInstagramAutoReply` — untypedFrom no service, tabela fora dos tipos
+  gerados), comportamento de erro preservado (react-query/mutation seguem
+  recebendo o throw; toggle/delete viram try/catch com os mesmos toasts).
+  Build ✅ · lint 0 errors (460 warnings pré-existentes da main, 0 novos) ·
+  testes 41/41 ✅.
+- Falso positivo: `lib/tenant-utils.ts` linha 23 — `supabase.from` dentro de
+  comentário JSDoc (@example), não é query.
+- Exceções intencionais confirmadas: `lib/logger.ts` (insert fire-and-forget de
+  `error_logs`, infra) e `integrations/supabase/client.ts`.
+- Com o fechamento acima, **grep de `src/` fica 100% limpo** fora das exceções
+  documentadas. Lotes 1, 2, 3 (useInbox #42 + AppContext #38), 3.5 (#45 +
+  residuais #47–#50) e 4 (#43) todos verificados na main.
+
+Pendências que permanecem (inalteradas): smoke consolidado com login real em
+produção (roteiros na seção do Lote 3), remover A record órfão na Cloudflare,
+HEAD 503 (não-bloqueante).

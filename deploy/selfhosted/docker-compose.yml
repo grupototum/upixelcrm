@@ -1,0 +1,257 @@
+# ════════════════════════════════════════════════════════════════════════
+# uPixel CRM — Stack Supabase self-hosted (VPS)
+#
+# Baseado no docker-compose oficial do Supabase (github.com/supabase/supabase
+# → docker/docker-compose.yml), com o mínimo necessário para o uPixel CRM:
+# Postgres + GoTrue (auth) + PostgREST (rest) + Realtime + Storage + Kong
+# (gateway) + edge-runtime (Deno, para supabase/functions) + Studio.
+#
+# NÃO inclui a stack de observabilidade (Logflare/Vector/Analytics) — o
+# Studio funciona sem ela para as telas essenciais (Table Editor, SQL
+# Editor, Auth, Storage); a aba de Logs fica indisponível. Adicionar depois
+# se for necessário (ver README.md).
+#
+# Uso [OPERADOR] (ver README.md para o passo a passo completo):
+#   1. cp .env.example .env  →  preencher com valores reais (gerados, não
+#      os do projeto cloud — service role key do cloud NÃO vale aqui).
+#   2. docker compose up -d
+#   3. Configurar proxy reverso com TLS na frente da Kong (porta $KONG_HTTP_PORT)
+#      — ver proxy/Caddyfile ou proxy/nginx.conf.example.
+#
+# Este arquivo é preparado pelo [AGENTE]; SUBIR contra uma VPS real é
+# [OPERADOR] — não execute `docker compose up` aqui contra infraestrutura
+# de produção.
+# ════════════════════════════════════════════════════════════════════════
+
+name: upixel-selfhosted
+
+services:
+  # ── Postgres ──────────────────────────────────────────────────────────
+  # Imagem oficial supabase/postgres já vem com pg_cron, pg_net, pgsodium,
+  # pgjwt, pg_graphql etc. compilados — só falta habilitar via
+  # shared_preload_libraries (postgresql.conf) e CREATE EXTENSION (init sql).
+  # O cron `automation-worker` (supabase/migrations/20260428_automation_worker_cron.sql)
+  # depende de pg_cron + pg_net habilitados aqui.
+  db:
+    image: supabase/postgres:15.8.1.060
+    container_name: upixel-db
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_PORT: 5432
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      JWT_EXP: ${JWT_EXPIRY:-3600}
+    volumes:
+      - ./volumes/db/data:/var/lib/postgresql/data
+      - ./volumes/db/init:/docker-entrypoint-initdb.d
+      - ./volumes/db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── GoTrue (Auth) ────────────────────────────────────────────────────
+  auth:
+    image: supabase/gotrue:v2.170.0
+    container_name: upixel-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:?defina API_EXTERNAL_URL no .env}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      GOTRUE_SITE_URL: ${SITE_URL:?defina SITE_URL no .env}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY:-3600}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+      # Magic Link (o uPixel depende disso — ver docs/MAGIC_LINK_SETUP.md)
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+      # SMTP real — [OPERADOR] preenche no .env; sem isso Magic Link não sai.
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-}
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-uPixel CRM}
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "false"
+
+  # ── PostgREST (REST API) ─────────────────────────────────────────────
+  rest:
+    image: postgrest/postgrest:v12.2.8
+    container_name: upixel-rest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY:-3600}
+
+  # ── Realtime ──────────────────────────────────────────────────────────
+  realtime:
+    image: supabase/realtime:v2.34.47
+    container_name: upixel-realtime
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
+      DB_ENC_KEY: ${REALTIME_DB_ENC_KEY:?defina REALTIME_DB_ENC_KEY no .env}
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE:?defina REALTIME_SECRET_KEY_BASE no .env}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+
+  # ── Storage ───────────────────────────────────────────────────────────
+  storage:
+    image: supabase/storage-api:v1.19.3
+    container_name: upixel-storage
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    environment:
+      ANON_KEY: ${ANON_KEY:?defina ANON_KEY no .env}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY:?defina SERVICE_ROLE_KEY no .env}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      FILE_SIZE_LIMIT: "52428800"
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: upixel
+      REGION: local
+      GLOBAL_S3_BUCKET: ""
+    volumes:
+      - ./volumes/storage:/var/lib/storage
+
+  # ── postgres-meta (usado pelo Studio) ───────────────────────────────
+  meta:
+    image: supabase/postgres-meta:v0.87.1
+    container_name: upixel-meta
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB:-postgres}
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  # ── Studio ────────────────────────────────────────────────────────────
+  studio:
+    image: supabase/studio:20250113-83c9420
+    container_name: upixel-studio
+    restart: unless-stopped
+    depends_on:
+      - meta
+      - rest
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${API_EXTERNAL_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      DEFAULT_ORGANIZATION_NAME: ${STUDIO_ORG_NAME:-uPixel}
+      DEFAULT_PROJECT_NAME: ${STUDIO_PROJECT_NAME:-uPixel CRM}
+
+  # ── edge-runtime (serve supabase/functions/*) ───────────────────────
+  functions:
+    image: supabase/edge-runtime:v1.67.4
+    container_name: upixel-functions
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_DB_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      VERIFY_JWT: "false"
+    volumes:
+      - ../../supabase/functions:/home/deno/functions:ro
+    command:
+      - start
+      - --main-service
+      - /home/deno/functions/main
+      - --port
+      - "9000"
+
+  # ── Kong (API gateway) ──────────────────────────────────────────────
+  kong:
+    image: kong:2.8.1
+    container_name: upixel-kong
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+      - functions
+      - meta
+    ports:
+      - "${KONG_HTTP_PORT:-8000}:8000"
+      - "${KONG_HTTPS_PORT:-8443}:8443"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-admin}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:?defina DASHBOARD_PASSWORD no .env}
+    volumes:
+      - ./volumes/api/kong.yml:/var/lib/kong/kong.yml:ro
+
+# Volumes de dados usam bind mount (./volumes/db/data, ./volumes/storage) em
+# vez de named volumes, de propósito — facilita localizar e fazer backup
+# direto no filesystem da VPS (ver scripts/dump.sh e README.md).

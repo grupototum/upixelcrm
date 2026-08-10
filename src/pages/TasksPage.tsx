@@ -1,0 +1,280 @@
+import { useState, useMemo, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { useAppState } from "@/contexts/AppContext";
+import confetti from "canvas-confetti";
+import {
+  Plus, CheckCircle2, Clock, AlertTriangle,
+  Search, Calendar, User, ListChecks, Users, ChevronRight, CalendarDays, Inbox,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
+import { TaskProgressHeader } from "@/components/tasks/TaskProgressHeader";
+import { TaskRow } from "@/components/tasks/TaskRow";
+import type { Task } from "@/types";
+
+export default function TasksPage() {
+  const navigate = useNavigate();
+  const { tasks, leads, toggleTaskStatus, deleteTask, addTask, updateTask } = useAppState();
+  const [subArea, setSubArea] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
+  const [showNewTask, setShowNewTask] = useState(false);
+
+  const fireConfetti = useCallback(() => {
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      origin: { y: 0.7 },
+      colors: ["#22c55e", "#f59e0b", "#3b82f6", "#ec4899"],
+    });
+  }, []);
+
+  const handleToggle = useCallback(async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (task && task.status !== "completed") {
+      fireConfetti();
+    }
+    await toggleTaskStatus(id);
+  }, [tasks, toggleTaskStatus, fireConfetti]);
+
+  const handleUpdatePriority = useCallback(async (id: string, priority: Task["priority"]) => {
+    await updateTask(id, { priority });
+  }, [updateTask]);
+
+  const assignees = useMemo(() => {
+    const set = new Set<string>();
+    tasks.forEach((t) => { if (t.assigned_to) set.add(t.assigned_to); });
+    return Array.from(set).sort();
+  }, [tasks]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const filtered = useMemo(() => {
+    let result = [...tasks];
+    if (subArea === "mine") result = result.filter((t) => t.assigned_to === "Você");
+    if (subArea === "by-lead") result = result.filter((t) => !!t.lead_id);
+    if (subArea === "overdue") result = result.filter((t) => t.status === "overdue");
+    if (subArea === "completed") result = result.filter((t) => t.status === "completed");
+    if (subArea === "today") result = result.filter((t) => t.due_date && t.due_date.slice(0, 10) === todayStr);
+    if ((subArea === "mine" || subArea === "by-lead" || subArea === "all" || subArea === "today") && statusFilter !== "all") {
+      result = result.filter((t) => t.status === statusFilter);
+    }
+    if (priorityFilter !== "all") {
+      result = result.filter((t) => (t.priority || "medium") === priorityFilter);
+    }
+    if (userFilter !== "all") {
+      result = result.filter((t) => t.assigned_to === userFilter);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((t) => t.title.toLowerCase().includes(q));
+    }
+    return result;
+  }, [tasks, subArea, statusFilter, priorityFilter, userFilter, search, todayStr]);
+
+  const groupedByLead = useMemo(() => {
+    if (subArea !== "by-lead") return null;
+    const groups: Record<string, { lead: typeof leads[0]; tasks: typeof filtered }> = {};
+    filtered.forEach((t) => {
+      if (!t.lead_id) return;
+      if (!groups[t.lead_id]) {
+        const lead = leads.find((l) => l.id === t.lead_id);
+        if (lead) groups[t.lead_id] = { lead, tasks: [] };
+      }
+      groups[t.lead_id]?.tasks.push(t);
+    });
+    return Object.values(groups);
+  }, [subArea, filtered, leads]);
+
+  const counts = useMemo(() => ({
+    all: tasks.length,
+    today: tasks.filter((t) => t.due_date && t.due_date.slice(0, 10) === todayStr).length,
+    mine: tasks.filter((t) => t.assigned_to === "Você").length,
+    byLead: tasks.filter((t) => !!t.lead_id).length,
+    overdue: tasks.filter((t) => t.status === "overdue").length,
+    completed: tasks.filter((t) => t.status === "completed").length,
+  }), [tasks, todayStr]);
+
+  const tableHeader = (
+    <div className="grid grid-cols-[4px_auto_1fr_auto_auto_auto] gap-3 items-center pl-0 pr-4 py-3 bg-secondary/50 ghost-border border-b">
+      <span className="w-1" />
+      <span className="w-5" />
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tarefa</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground w-24 text-center">Status</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground w-24 text-center">Prazo</span>
+      <span className="w-7" />
+    </div>
+  );
+
+  const emptyState = (
+    <div className="p-12 text-center">
+      <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+      <p className="text-sm text-muted-foreground">Nenhuma tarefa encontrada</p>
+    </div>
+  );
+
+  return (
+    <AppLayout
+      title="Tarefas"
+      subtitle="Gerenciamento de tarefas"
+      actions={
+        <Button size="sm" className="text-xs gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground rounded-lg" onClick={() => setShowNewTask(true)}>
+          <Plus className="h-3.5 w-3.5" /> Nova Tarefa
+        </Button>
+      }
+    >
+      <div className="p-8 animate-fade-in space-y-6">
+        {/* Progress counter */}
+        <TaskProgressHeader total={tasks.length} completed={counts.completed} />
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {[
+            { key: "all", label: "Todas", count: counts.all, icon: Inbox },
+            { key: "today", label: "Hoje", count: counts.today, icon: CalendarDays },
+            { key: "mine", label: "Minhas", count: counts.mine, icon: ListChecks },
+            { key: "by-lead", label: "Por Lead", count: counts.byLead, icon: Users },
+            { key: "overdue", label: "Atrasadas", count: counts.overdue, icon: AlertTriangle },
+            { key: "completed", label: "Concluídas", count: counts.completed, icon: CheckCircle2 },
+          ].map(({ key, label, count, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => { setSubArea(key); setStatusFilter("all"); }}
+              className={`rounded-xl ghost-border p-4 text-left transition-all duration-200 ${
+                subArea === key
+                  ? key === "overdue" && count > 0
+                    ? "border-destructive bg-destructive/5 shadow-md"
+                    : "border-primary bg-primary/5 shadow-md"
+                  : "bg-card hover:bg-card-hover"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
+                <Icon className={`h-4 w-4 ${
+                  subArea === key
+                    ? key === "overdue" && count > 0 ? "text-destructive" : "text-primary"
+                    : key === "overdue" && count > 0 ? "text-destructive" : "text-muted-foreground"
+                }`} />
+              </div>
+              <p className={`text-2xl font-extrabold tracking-tight ${
+                key === "overdue" && count > 0 ? "text-destructive" : subArea === key ? "text-primary" : "text-foreground"
+              }`}>{count}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-xs rounded-lg" />
+          </div>
+          {(subArea === "mine" || subArea === "by-lead" || subArea === "all" || subArea === "today") && (
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36 h-9 text-xs rounded-lg"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">Todos os status</SelectItem>
+                <SelectItem value="pending" className="text-xs">Pendentes</SelectItem>
+                <SelectItem value="overdue" className="text-xs">Atrasadas</SelectItem>
+                <SelectItem value="completed" className="text-xs">Concluídas</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="w-36 h-9 text-xs rounded-lg"><SelectValue placeholder="Responsável" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Todos</SelectItem>
+              {assignees.map((a) => (
+                <SelectItem key={a} value={a} className="text-xs">{a}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-36 h-9 text-xs rounded-lg"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Todas prioridades</SelectItem>
+              <SelectItem value="low" className="text-xs">🟢 Baixa</SelectItem>
+              <SelectItem value="medium" className="text-xs">🔵 Média</SelectItem>
+              <SelectItem value="high" className="text-xs">🟡 Alta</SelectItem>
+              <SelectItem value="urgent" className="text-xs">🔴 Urgente</SelectItem>
+            </SelectContent>
+          </Select>
+          <Badge variant="outline" className="text-xs text-muted-foreground shrink-0 rounded-lg">
+            {filtered.length} tarefa{filtered.length !== 1 ? "s" : ""}
+          </Badge>
+        </div>
+
+        {/* Task list */}
+        {subArea === "by-lead" && groupedByLead ? (
+          groupedByLead.length === 0 ? (
+            <div className="bg-card rounded-xl ghost-border">{emptyState}</div>
+          ) : (
+            <div className="space-y-4">
+              {groupedByLead.map(({ lead, tasks: groupTasks }) => (
+                <div key={lead.id} className="bg-card rounded-xl ghost-border overflow-hidden">
+                  <button
+                    onClick={() => navigate(`/leads/${lead.id}`)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-secondary/50 ghost-border border-b hover:bg-secondary transition-colors"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+                      {lead.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-semibold text-foreground">{lead.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{lead.company || "Sem empresa"}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] rounded-lg">{groupTasks.length} tarefa{groupTasks.length !== 1 ? "s" : ""}</Badge>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  <div className="divide-y divide-border">
+                    {groupTasks.map((t) => (
+                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="bg-card rounded-xl ghost-border overflow-hidden">
+            {tableHeader}
+            {filtered.length === 0 ? emptyState : (
+              <div className="divide-y divide-border">
+                {filtered.map((t) => (
+                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Coming soon */}
+        <div className="bg-card rounded-xl ghost-border p-5 flex items-center gap-4">
+          <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+            <Clock className="h-4 w-4 text-accent" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold text-foreground">Recorrência, SLA e automação de tarefas</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Em breve: tarefas recorrentes, regras de SLA e criação automática por automações.</p>
+          </div>
+          <Badge variant="outline" className="text-[10px] border-accent/40 text-accent shrink-0 rounded-lg">Em breve</Badge>
+        </div>
+      </div>
+
+      {/* New Task Dialog */}
+      <CreateTaskModal open={showNewTask} onOpenChange={setShowNewTask} />
+    </AppLayout>
+  );
+}

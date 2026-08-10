@@ -5,11 +5,11 @@
 @tailwind utilities;
 
 @layer base {
-  /* Reduz a base do sistema: 16px → 10.88px (-32% acumulado: -20% + -15%).
-     Todas as utilities `rem` do Tailwind (padding, margin, gap, font-size,
-     ícones via h-/w-) escalam proporcionalmente. */
+  /* Base 100% = 16px conforme Upixel-design.md (body 16px / 1rem).
+     A redução anterior para 68% encolhia todo o sistema rem (fontes,
+     padding, gaps, ícones) em -32% e quebrava a escala tipográfica. */
   html {
-    font-size: 68%;
+    font-size: 100%;
   }
 
   :root {
@@ -310,3 +310,14 @@
 /* Hide scrollbar */
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 2.4 — drag-to-scroll do board Kanban.
+   O cursor sinaliza que a área vazia é arrastável; durante o pan o
+   user-select é desligado para não selecionar texto sem querer. */
+.board-container {
+  cursor: grab;
+}
+.board-container.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}

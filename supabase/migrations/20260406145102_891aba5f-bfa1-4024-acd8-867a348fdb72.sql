@@ -1,0 +1,2 @@
+ALTER TABLE public.conversations DROP CONSTRAINT conversations_status_check;
+ALTER TABLE public.conversations ADD CONSTRAINT conversations_status_check CHECK (status = ANY (ARRAY['open', 'pending', 'resolved', 'snoozed', 'archived', 'closed']));

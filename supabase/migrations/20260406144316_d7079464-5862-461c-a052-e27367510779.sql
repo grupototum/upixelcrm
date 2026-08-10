@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN category text NOT NULL DEFAULT 'lead';

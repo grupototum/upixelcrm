@@ -1,0 +1,964 @@
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { corsHeaders } from "../_shared/cors.ts";
+import { isStrictWebhookUrl } from "../_shared/webhook-url.ts";
+
+// PC-033 / H-018 — limites do cycle-guard.
+// 50 passos cobre fluxos lineares longos legítimos; um ciclo real estoura o
+// limite de revisita muito antes disso.
+const MAX_AUTOMATION_STEPS = 50;
+const MAX_NODE_REVISITS = 3;
+
+interface Node {
+  id: string;
+  type: string;
+  data: any;
+}
+
+interface Edge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+function interpolate(template: string, leadContext: any): string {
+  if (!template || typeof template !== 'string') return template;
+  
+  return template.replace(/\{\{(.+?)\}\}/g, (match, path) => {
+    const keys = path.trim().split('.');
+    let value = leadContext;
+    for (const key of keys) {
+      if (value === undefined || value === null) return match;
+      value = value[key];
+    }
+    if (typeof value === 'object') return JSON.stringify(value);
+    return value !== undefined ? String(value) : match;
+  });
+}
+
+function evaluateSingleRule(c: any, leadContext: any): boolean {
+  let actualValue: any = null;
+
+  if (c.type === 'has_phone') actualValue = leadContext.phone;
+  else if (c.type === 'has_email') actualValue = leadContext.email;
+  else if (c.type === 'has_tag') {
+    const tags = leadContext.tags || [];
+    return tags.includes(c.value);
+  } else if (c.type?.startsWith('custom.')) {
+    const fieldSlug = c.type.replace('custom.', '');
+    actualValue = leadContext.custom_fields?.[fieldSlug];
+  } else if (c.type === 'message_contains') {
+    const msg = String(leadContext.message || leadContext.last_message || '').toLowerCase();
+    return msg.includes(String(c.value || '').toLowerCase());
+  } else if (c.type === 'message_equals') {
+    const msg = String(leadContext.message || leadContext.last_message || '').toLowerCase();
+    return msg === String(c.value || '').toLowerCase();
+  } else if (c.type === 'message_starts_with') {
+    const msg = String(leadContext.message || leadContext.last_message || '').toLowerCase();
+    return msg.startsWith(String(c.value || '').toLowerCase());
+  } else if (c.type === 'message_channel') {
+    return String(leadContext.channel || '') === String(c.value || '');
+  }
+
+  const expectedValue = c.value;
+  switch (c.operator) {
+    case 'equals': return String(actualValue) === String(expectedValue);
+    case 'not_equals': return String(actualValue) !== String(expectedValue);
+    case 'contains': return String(actualValue || '').includes(String(expectedValue || ''));
+    case 'is_empty': return !actualValue;
+    case 'is_not_empty': return !!actualValue;
+    case 'greater_than': return Number(actualValue) > Number(expectedValue);
+    case 'less_than': return Number(actualValue) < Number(expectedValue);
+    default: return !!actualValue;
+  }
+}
+
+/**
+ * Evaluate a condition node's data against the lead context.
+ * Supports both legacy flat arrays and nested ConditionGroup arrays:
+ *   groups = [{ operator: 'and'|'or', rules: ConditionRule[] }]
+ * Top-level operator joins the groups.
+ */
+function evaluateCondition(
+  conditionsOrGroups: any[],
+  operator: 'and' | 'or',
+  leadContext: any
+): boolean {
+  if (!conditionsOrGroups || conditionsOrGroups.length === 0) return true;
+
+  // Detect nested group format: each item has { operator, rules[] }
+  const isGroupFormat = conditionsOrGroups[0]?.rules !== undefined;
+
+  if (isGroupFormat) {
+    const groupResults = conditionsOrGroups.map((group: any) => {
+      const rules: any[] = group.rules || [];
+      if (rules.length === 0) return true;
+      const groupOp: 'and' | 'or' = group.operator || 'and';
+      return groupOp === 'or'
+        ? rules.some((r) => evaluateSingleRule(r, leadContext))
+        : rules.every((r) => evaluateSingleRule(r, leadContext));
+    });
+    return operator === 'or'
+      ? groupResults.some(Boolean)
+      : groupResults.every(Boolean);
+  }
+
+  // Legacy flat array
+  if (operator === 'or') {
+    return conditionsOrGroups.some((c) => evaluateSingleRule(c, leadContext));
+  }
+  return conditionsOrGroups.every((c) => evaluateSingleRule(c, leadContext));
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { tenant_id, automation_id, lead_id, node_id, context, run_id: incoming_run_id } = await req.json();
+
+    if (!automation_id || !lead_id || !node_id) {
+      throw new Error("Missing required fields: automation_id, lead_id, node_id");
+    }
+
+    // ── Auth: caller interno (service role) ou usuário do tenant dono ──────
+    // Antes qualquer portador da anon key disparava automações de qualquer
+    // tenant (IDOR cross-tenant). Ownership é derivado das linhas de
+    // automations/leads — nunca do tenant_id do body.
+    const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isInternal = bearer.length > 0 && bearer === serviceKey;
+    if (!isInternal) {
+      const userClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: `Bearer ${bearer}` } } }
+      );
+      const { data: userData } = await userClient.auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+      const [{ data: callerProfile }, { data: autoOwner }, { data: leadOwner }] = await Promise.all([
+        supabase.from("profiles").select("tenant_id, client_id, role").eq("id", userId).single(),
+        supabase.from("automations").select("tenant_id, client_id").eq("id", automation_id).single(),
+        supabase.from("leads").select("tenant_id, client_id").eq("id", lead_id).single(),
+      ]);
+      const sameOwner = (owner: { tenant_id?: string | null; client_id?: string | null } | null) =>
+        !!owner &&
+        ((owner.tenant_id != null && owner.tenant_id === callerProfile?.tenant_id) ||
+          (owner.client_id != null && owner.client_id === callerProfile?.client_id));
+      const allowed =
+        !!callerProfile &&
+        (callerProfile.role === "master" || (sameOwner(autoOwner) && sameOwner(leadOwner)));
+      if (!allowed) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        });
+      }
+    }
+
+    // Track the run ID through the flow execution
+    let run_id: string | null = incoming_run_id ?? null;
+
+    // 1. Fetch automation definition
+    const { data: auto, error: autoError } = await supabase
+      .from("automations")
+      .select("nodes, edges, status")
+      .eq("id", automation_id)
+      .single();
+
+    if (autoError || !auto) throw new Error("Automation not found");
+    
+    // Check if automation is active (evaluated after loading the node to use node.type)
+    const currentNodeForStatusCheck = (auto.nodes || []).find((n: Node) => n.id === node_id);
+    if (auto.status !== 'active' && currentNodeForStatusCheck?.type === 'trigger') {
+       console.log(`Automation ${automation_id} is not active (status: ${auto.status}). Skipping.`);
+       return new Response(JSON.stringify({ success: true, skipped: 'inactive' }), {
+         headers: { ...corsHeaders, "Content-Type": "application/json" },
+         status: 200,
+       });
+    }
+
+    const nodes: Node[] = auto.nodes || [];
+    const edges: Edge[] = auto.edges || [];
+
+    // 2. Fetch Lead Context (merged with provided context)
+    const { data: lead, error: leadError } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("id", lead_id)
+      .single();
+
+    if (leadError || !lead) throw new Error("Lead not found");
+
+    const leadContext = { ...lead, ...context };
+
+    // PC-033 / H-018: o engine executa um nó por invocação e se re-invoca via
+    // HTTP para o próximo (linha ~801). Um grafo cíclico (A→B→A) vira invocação
+    // infinita. O contador `_steps_executed` já existia, mas nunca era gravado
+    // de volta no contexto — recomeçava do zero a cada hop e nunca limitava nada.
+    // Agora ele é propagado, e o caminho percorrido também, para pegar o ciclo
+    // antes do teto de passos.
+    const stepsExecuted = (context?._steps_executed ?? 0) + 1;
+    const visitedNodes: string[] = [...(context?._visited_nodes ?? []), node_id];
+    leadContext._steps_executed = stepsExecuted;
+    leadContext._visited_nodes = visitedNodes;
+
+    const revisitCount = visitedNodes.filter((n: string) => n === node_id).length;
+    if (stepsExecuted > MAX_AUTOMATION_STEPS || revisitCount > MAX_NODE_REVISITS) {
+      const reason = stepsExecuted > MAX_AUTOMATION_STEPS
+        ? `teto de ${MAX_AUTOMATION_STEPS} passos excedido`
+        : `nó ${node_id} revisitado ${revisitCount}x — ciclo`;
+      console.error(`[cycle-guard] automação ${automation_id} abortada: ${reason}`);
+
+      if (run_id) {
+        await supabase.from("automation_runs").update({
+          status: "failed",
+          error: `Execução abortada pelo cycle-guard: ${reason}`,
+          finished_at: new Date().toISOString(),
+          steps_executed: stepsExecuted,
+          context: leadContext,
+        }).eq("id", run_id);
+      }
+
+      return new Response(JSON.stringify({ error: "cycle_guard_tripped", reason }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // 3. Find current node
+    const currentNode = nodes.find(n => n.id === node_id);
+    if (!currentNode) throw new Error(`Node ${node_id} not found in automation`);
+
+    // Check if node itself is disabled
+    if (currentNode.data?.status === 'disabled') {
+       console.log(`Node ${node_id} is disabled. Skipping.`);
+       const outgoingEdge = edges.find(e => e.source === node_id);
+       if (outgoingEdge) {
+          // Bypass this node
+          return fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
+            },
+            body: JSON.stringify({
+              tenant_id: lead.tenant_id,
+              automation_id,
+              lead_id,
+              node_id: outgoingEdge.target,
+              context: leadContext,
+              run_id,
+            })
+          });
+       }
+       return new Response(JSON.stringify({ success: true, skipped: 'node_disabled' }), {
+         headers: { ...corsHeaders, "Content-Type": "application/json" },
+       });
+    }
+
+    let nextNodeId: string | null = null;
+    let outputData: any = {};
+    let isWaiting = false;
+
+    // 4. Execute Node Logic based on type
+    const nodeType = currentNode.type;
+    const nodeData = currentNode.data || {};
+
+    if (nodeType === 'trigger') {
+      // For new_message trigger, check keywords if present
+      if (nodeData.type === 'new_message' && nodeData.keywords) {
+        const keywords = String(nodeData.keywords).split(',').map(k => k.trim().toLowerCase());
+        const message = String(leadContext.message || leadContext.last_message || '').toLowerCase();
+        const matches = keywords.some(k => message.includes(k));
+
+        if (!matches && keywords.length > 0) {
+           console.log(`Automation ${automation_id} skipped: Keywords do not match.`);
+           return new Response(JSON.stringify({ success: true, skipped: 'keywords_mismatch' }), {
+             headers: { ...corsHeaders, "Content-Type": "application/json" },
+             status: 200,
+           });
+        }
+      }
+
+      // Salesbot-style: cria um run rastreável quando o trigger dispara.
+      // Se já existe um run waiting/running para este lead+automação e a
+      // automação não permite re-enroll, ignora o trigger.
+      if (!run_id) {
+        const { data: existingRun } = await supabase
+          .from("automation_runs")
+          .select("id, status")
+          .eq("automation_id", automation_id)
+          .eq("lead_id", lead_id)
+          .in("status", ["running", "waiting"])
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: autoMeta } = await supabase
+          .from("automations")
+          .select("allow_re_enroll")
+          .eq("id", automation_id)
+          .maybeSingle();
+
+        if (existingRun && !autoMeta?.allow_re_enroll) {
+          console.log(`Skipping trigger: run ${existingRun.id} already ${existingRun.status}`);
+          return new Response(
+            JSON.stringify({ success: true, skipped: "already_enrolled", run_id: existingRun.id }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          );
+        }
+
+        const { data: newRun, error: runErr } = await supabase
+          .from("automation_runs")
+          .insert({
+            client_id: lead.client_id,
+            tenant_id: lead.tenant_id,
+            automation_id,
+            lead_id,
+            current_node_id: node_id,
+            status: "running",
+            context: leadContext,
+            trigger_event: nodeData.type ?? nodeData.configType ?? "trigger",
+          })
+          .select("id")
+          .single();
+
+        if (runErr) {
+          console.error("Failed to create run:", runErr);
+        } else if (newRun) {
+          run_id = newRun.id;
+        }
+      }
+
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+    else if (nodeType === 'condition') {
+      const isTrue = evaluateCondition(nodeData.conditions || [], nodeData.conditionOperator || 'and', leadContext);
+      outputData = { evaluatedTo: isTrue };
+      // Find edge matching the boolean result
+      const sourceHandle = isTrue ? 'true' : 'false';
+      const outgoingEdge = edges.find(e => e.source === node_id && e.sourceHandle === sourceHandle);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+    else if (nodeType === 'delay') {
+      // Create a delay entry in the queue and STOP execution
+      let scheduledAt = new Date();
+      if (nodeData.delayType === 'fixed') {
+        const amount = Number(nodeData.amount) || 1;
+        const unit = nodeData.unit || 'days';
+        if (unit === 'minutes') scheduledAt.setMinutes(scheduledAt.getMinutes() + amount);
+        else if (unit === 'hours') scheduledAt.setHours(scheduledAt.getHours() + amount);
+        else if (unit === 'days') scheduledAt.setDate(scheduledAt.getDate() + amount);
+      } else if (nodeData.delayType === 'dynamic') {
+        const dynamicVal = interpolate(nodeData.dynamicDate || '', leadContext);
+        if (dynamicVal) scheduledAt = new Date(dynamicVal);
+      }
+      
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) {
+        // automation_queue NÃO tem coluna client_id — incluí-la fazia o
+        // enfileiramento do delay falhar silenciosamente.
+        const { error: delayQueueError } = await supabase.from("automation_queue").insert({
+          tenant_id: lead.tenant_id,
+          automation_id,
+          lead_id,
+          node_id: outgoingEdge.target,
+          scheduled_at: scheduledAt.toISOString(),
+          context: { ...leadContext, _run_id: run_id }
+        });
+        if (delayQueueError) console.error("Failed to enqueue delay:", delayQueueError.message);
+      }
+      isWaiting = true;
+      outputData = { scheduledAt };
+    }
+    else if (nodeType === 'webhook') {
+      const url = interpolate(nodeData.url || '', leadContext);
+      const method = nodeData.method || 'POST';
+      let bodyStr = undefined;
+      
+      try {
+         const rawBody = typeof nodeData.body === 'object' ? JSON.stringify(nodeData.body) : String(nodeData.body || '');
+         bodyStr = interpolate(rawBody, leadContext);
+         // attempt to parse if POST/PUT
+         if (['POST', 'PUT', 'PATCH'].includes(method) && bodyStr) {
+             try { JSON.parse(bodyStr); } catch(e) { bodyStr = JSON.stringify({ content: bodyStr }); }
+         }
+      } catch (e) {
+         // ignore
+      }
+
+      const headers = { 'Content-Type': 'application/json', ...(nodeData.headers || {}) };
+
+      if (!isStrictWebhookUrl(url)) {
+        // Anti-SSRF: https obrigatório, sem localhost/IPs privados/metadata.
+        outputData = { error: "URL de webhook inválida ou bloqueada" };
+      } else try {
+        const res = await fetch(url, { method, headers, body: ['GET', 'HEAD'].includes(method) ? undefined : bodyStr });
+        const resText = await res.text();
+        outputData = { status: res.status, response: resText.substring(0, 500) };
+      } catch (err: any) {
+        outputData = { error: err.message };
+      }
+
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+    else if (nodeType === 'randomizer') {
+      // Randomly pick side A or side B based on configured percentages
+      const sideA_pct = Number(nodeData.percentageA) || 50;
+      const rand = Math.random() * 100;
+      const isSideA = rand <= sideA_pct;
+      
+      outputData = { picked: isSideA ? 'A' : 'B', randomValue: rand };
+      const sourceHandle = isSideA ? 'a' : 'b'; 
+      const outgoingEdge = edges.find(e => e.source === node_id && e.sourceHandle === sourceHandle);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+    else if (nodeType === 'action') {
+      // Execute an internal CRM action
+      const actionType = nodeData.configType;
+      outputData = { action: actionType };
+      
+      if (actionType === 'add_tag') {
+        const tagToAdd = interpolate(nodeData.tag || '', leadContext);
+        if (tagToAdd) {
+          const currentTags = lead.tags || [];
+          if (!currentTags.includes(tagToAdd)) {
+            const updatedTags = [...currentTags, tagToAdd];
+            await supabase.from("leads").update({ tags: updatedTags }).eq("id", lead_id);
+            leadContext.tags = updatedTags;
+            outputData.success = true;
+            outputData.tag = tagToAdd;
+          }
+        }
+      } else if (actionType === 'change_status') {
+        const newColId = interpolate(nodeData.status || '', leadContext);
+        if (newColId) {
+           await supabase.from("leads").update({ column_id: newColId }).eq("id", lead_id);
+           leadContext.column_id = newColId;
+           outputData.success = true;
+        }
+      } else if (actionType === 'assign_user') {
+        const userId = interpolate(nodeData.userId || '', leadContext);
+        if (userId) {
+          await supabase.from("leads").update({ responsible_id: userId }).eq("id", lead_id);
+          leadContext.responsible_id = userId;
+          outputData.success = true;
+        }
+      } else if (actionType === 'leave_note') {
+        const note = interpolate(nodeData.note || '', leadContext);
+        if (note) {
+          await supabase.from("timeline_events").insert({
+            lead_id,
+            type: 'note',
+            content: note,
+            client_id: lead.client_id,
+            tenant_id: lead.tenant_id,
+            user_name: 'Automação'
+          });
+          outputData.success = true;
+        }
+      }
+      else if (actionType === 'create_task') {
+        // 2.2: o builder oferece "Criar tarefa" (AutomationEditModal.tsx:22) mas
+        // o engine não implementava a ação — ela caía no vazio, sem erro e sem
+        // tarefa. Não era bug do delay: o delay entregava o fluxo corretamente
+        // e o nó seguinte é que não fazia nada.
+        const title = interpolate(nodeData.title || nodeData.task_title || '', leadContext);
+        if (!title) {
+          outputData.error = "create_task sem título";
+          console.error(`[create_task] nó ${node_id} sem título — nada criado`);
+        } else {
+          const offsetDays = Number(nodeData.due_offset_days ?? 0);
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + (Number.isFinite(offsetDays) ? offsetDays : 0));
+
+          const { error: taskError } = await supabase.from("tasks").insert({
+            client_id: lead.client_id,
+            lead_id,
+            title,
+            description: interpolate(nodeData.description || '', leadContext) || null,
+            status: 'pending',
+            due_date: dueDate.toISOString().slice(0, 10),
+            assigned_to: interpolate(nodeData.assigned_to || '', leadContext) || 'Você',
+          });
+
+          if (taskError) {
+            outputData.error = taskError.message;
+            console.error("[create_task] insert falhou:", taskError.message);
+          } else {
+            outputData.success = true;
+          }
+        }
+      }
+      else {
+        // Falhar em silêncio foi o que escondeu o create_task. Qualquer ação não
+        // implementada agora aparece no run.
+        outputData.error = `Ação não implementada no engine: ${actionType}`;
+        console.error(`[action] tipo desconhecido "${actionType}" no nó ${node_id}`);
+      }
+
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+    else if (nodeType === 'message') {
+      // Send a message via whatsapp or email
+      const targetChannel = nodeData.configType || 'whatsapp';
+      const text = interpolate(nodeData.text || '', leadContext);
+      outputData = { channel: targetChannel, sent: false, textPreview: text.substring(0, 50) };
+
+      if (targetChannel === 'whatsapp' || targetChannel === 'whatsapp_official') {
+        const clientId = lead.client_id;
+        if (clientId) {
+          // Find active integration for the specified channel (accept both 'connected' and 'configured' statuses)
+          const { data: integration } = await supabase.from("integrations")
+            .select("config, access_token, status")
+            .eq("client_id", clientId)
+            .eq("provider", targetChannel)
+            .in("status", ["connected", "configured"])
+            .maybeSingle();
+
+          if (integration && integration.config) {
+            // Parse config if it's a JSON string
+            let config = integration.config;
+            if (typeof config === 'string') {
+              try {
+                config = JSON.parse(config);
+              } catch (e) {
+                outputData.error = `Invalid config JSON: ${e}`;
+                config = null;
+              }
+            }
+
+            if (!config) {
+              outputData.error = `Invalid integration configuration`;
+            } else {
+              const cleanPhone = (lead.phone || '').replace(/\D/g, "");
+              const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+              if (targetChannel === 'whatsapp') {
+                // Evolution API
+                const instancePath = config.instance_name;
+                let apiUrl = config.api_url || '';
+                if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
+
+                if (!instancePath || !apiUrl || !config.api_key) {
+                  outputData.error = `Missing Evolution API config: instance_name=${!!instancePath}, api_url=${!!apiUrl}, api_key=${!!config.api_key}`;
+                } else {
+                  try {
+                    const sendRes = await fetch(`${apiUrl}/message/sendText/${instancePath}`, {
+                      method: "POST",
+                      headers: { apikey: config.api_key, "Content-Type": "application/json" },
+                      body: JSON.stringify({ number: formattedPhone, text }),
+                    });
+                    if (sendRes.ok) {
+                       outputData.sent = true;
+                       await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
+                    } else {
+                       const errorText = await sendRes.text();
+                       outputData.error = `API Error ${sendRes.status}: ${errorText.substring(0, 200)}`;
+                    }
+                  } catch (err: any) { outputData.error = `Fetch error: ${err.message}`; }
+                }
+              } else {
+                // WhatsApp Official
+                const phoneNumberId = config.phone_number_id;
+                const accessToken = integration.access_token || config.access_token;
+
+                if (!phoneNumberId || !accessToken) {
+                  outputData.error = `Missing Official API config: phone_number_id=${!!phoneNumberId}, access_token=${!!accessToken}`;
+                } else {
+                  try {
+                    const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({ messaging_product: "whatsapp", to: formattedPhone, type: "text", text: { body: text } }),
+                    });
+                    if (sendRes.ok) {
+                      outputData.sent = true;
+                      await recordOutboundMessage(supabase, lead, targetChannel, text, formattedPhone);
+                    } else {
+                      const errorText = await sendRes.text();
+                      outputData.error = `Official API Error ${sendRes.status}: ${errorText.substring(0, 200)}`;
+                    }
+                  } catch (err: any) { outputData.error = `Fetch error: ${err.message}`; }
+                }
+              }
+            }
+          } else {
+            outputData.error = `No ${targetChannel} integration found with status 'connected' or 'configured' for client ${clientId}`;
+          }
+        } else {
+          outputData.error = `No client_id found for lead`;
+        }
+      } else if (targetChannel === 'email') {
+        // Simple SMTP or Cloud Function call for email
+        outputData.error = "Email automation not fully implemented in engine yet";
+      }
+
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+    else if (nodeType === 'wait_for_reply') {
+      // Salesbot core: pausa execução e espera o lead mandar mensagem.
+      // O run fica em status='waiting' até o webhook do canal acordar.
+      // Configuração:
+      //   • timeoutHours (opcional) — após X horas sem reply, segue por timeout
+      //   • saveAs (opcional) — slug em context onde gravar a mensagem do lead
+      const timeoutHours = Number(nodeData.timeoutHours) || 0;
+      const saveAs = nodeData.saveAs || "last_reply";
+
+      if (run_id) {
+        await supabase
+          .from("automation_runs")
+          .update({
+            status: "waiting",
+            current_node_id: node_id,
+            context: { ...leadContext, _wait_save_as: saveAs },
+            steps_executed: stepsExecuted,
+          })
+          .eq("id", run_id);
+      }
+
+      // Se houver timeout, agenda um item na fila para sair da espera
+      if (timeoutHours > 0) {
+        const scheduledAt = new Date(Date.now() + timeoutHours * 3600 * 1000);
+        const timeoutEdge = edges.find(e => e.source === node_id && e.sourceHandle === "timeout");
+        const fallbackEdge = edges.find(e => e.source === node_id);
+        const targetNode = (timeoutEdge ?? fallbackEdge)?.target;
+        if (targetNode) {
+          // automation_queue NÃO tem coluna client_id (idem nó delay).
+          const { error: timeoutQueueError } = await supabase.from("automation_queue").insert({
+            tenant_id: lead.tenant_id,
+            automation_id,
+            lead_id,
+            node_id: targetNode,
+            scheduled_at: scheduledAt.toISOString(),
+            context: { ...leadContext, _from_timeout: true, _run_id: run_id },
+          });
+          if (timeoutQueueError) console.error("Failed to enqueue wait_for_reply timeout:", timeoutQueueError.message);
+        }
+      }
+
+      isWaiting = true;
+      outputData = { waiting: true, timeoutHours, saveAs };
+    }
+    else if (nodeType === 'send_media') {
+      // Envia mídia (imagem/áudio/vídeo/arquivo) por WhatsApp
+      const targetChannel = nodeData.configType || 'whatsapp';
+      const mediaUrl = interpolate(nodeData.mediaUrl || '', leadContext);
+      const mediaType = nodeData.mediaType || 'image';
+      const caption = interpolate(nodeData.caption || '', leadContext);
+      const fileName = nodeData.fileName || 'arquivo';
+
+      outputData = { channel: targetChannel, mediaType, mediaUrl, sent: false };
+
+      if (!mediaUrl) {
+        outputData.error = "mediaUrl não configurado no nó";
+      } else if (targetChannel === 'whatsapp' || targetChannel === 'whatsapp_official') {
+        const clientId = lead.client_id;
+        const { data: integration } = await supabase.from("integrations")
+          .select("config, access_token, status")
+          .eq("client_id", clientId)
+          .eq("provider", targetChannel)
+          .in("status", ["connected", "configured"])
+          .maybeSingle();
+
+        if (!integration?.config) {
+          outputData.error = `Integração ${targetChannel} não conectada`;
+        } else {
+          let config = integration.config;
+          if (typeof config === 'string') {
+            try { config = JSON.parse(config); } catch { config = null; }
+          }
+          if (!config) {
+            outputData.error = "Configuração inválida";
+          } else {
+            const cleanPhone = (lead.phone || '').replace(/\D/g, "");
+            const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+            if (targetChannel === 'whatsapp') {
+              let apiUrl = config.api_url || '';
+              if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
+              const instancePath = config.instance_name;
+              try {
+                const sendRes = await fetch(`${apiUrl}/message/sendMedia/${instancePath}`, {
+                  method: "POST",
+                  headers: { apikey: config.api_key, "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    number: formattedPhone,
+                    mediatype: mediaType,
+                    media: mediaUrl,
+                    fileName,
+                    caption,
+                  }),
+                });
+                if (sendRes.ok) {
+                  outputData.sent = true;
+                  await recordOutboundMessage(supabase, lead, targetChannel, caption || `[${mediaType}]`, formattedPhone, { media_url: mediaUrl, type: mediaType });
+                } else {
+                  const t = await sendRes.text();
+                  outputData.error = `WhatsApp ${sendRes.status}: ${t.substring(0, 200)}`;
+                }
+              } catch (err: any) { outputData.error = err.message; }
+            } else {
+              // WhatsApp Official — envia mídia via Graph API
+              const phoneNumberId = config.phone_number_id;
+              const accessToken = integration.access_token || config.access_token;
+              const mediaTypeMap: Record<string, string> = { image: 'image', video: 'video', audio: 'audio', document: 'document' };
+              const apiMediaType = mediaTypeMap[mediaType] || 'document';
+              try {
+                const body: any = {
+                  messaging_product: "whatsapp",
+                  to: formattedPhone,
+                  type: apiMediaType,
+                  [apiMediaType]: { link: mediaUrl, ...(caption ? { caption } : {}), ...(apiMediaType === 'document' ? { filename: fileName } : {}) },
+                };
+                const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                  body: JSON.stringify(body),
+                });
+                if (sendRes.ok) {
+                  outputData.sent = true;
+                  await recordOutboundMessage(supabase, lead, targetChannel, caption || `[${mediaType}]`, formattedPhone, { media_url: mediaUrl, type: mediaType });
+                } else {
+                  const t = await sendRes.text();
+                  outputData.error = `Official ${sendRes.status}: ${t.substring(0, 200)}`;
+                }
+              } catch (err: any) { outputData.error = err.message; }
+            }
+          }
+        }
+      } else {
+        outputData.error = `send_media: canal ${targetChannel} não suportado`;
+      }
+
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+    else if (nodeType === 'ai_assistant') {
+      const promptText = interpolate(nodeData.prompt || '', leadContext);
+      const outputField = nodeData.outputField;
+
+      let aiResponseText = "";
+
+      // Provedor selecionado na UI. NVIDIA NIM é compatível com o formato da
+      // OpenAI (mesmo /chat/completions + Bearer token), então só muda a URL,
+      // a chave e o modelo padrão.
+      const provider = (nodeData.provider || 'openai').toLowerCase();
+      const providerConfig: Record<string, { url: string; keyEnv: string; defaultModel: string }> = {
+        openai: {
+          url: 'https://api.openai.com/v1/chat/completions',
+          keyEnv: 'OPENAI_API_KEY',
+          defaultModel: 'gpt-4o-mini',
+        },
+        nvidia: {
+          url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+          keyEnv: 'NVIDIA_API_KEY',
+          defaultModel: 'meta/llama-3.3-70b-instruct',
+        },
+      };
+      const cfg = providerConfig[provider] || providerConfig.openai;
+      const model = (nodeData.model && String(nodeData.model).trim()) || cfg.defaultModel;
+
+      try {
+        // Prioriza a chave configurada na UI (tabela integrations, por cliente);
+        // se não houver, cai para a variável de ambiente (secret global).
+        let apiKey: string | undefined;
+        if (lead.client_id) {
+          const { data: aiIntegration } = await supabase
+            .from("integrations")
+            .select("config")
+            .eq("client_id", lead.client_id)
+            .eq("provider", `${provider}_api`)
+            .maybeSingle();
+          let aiConfig = aiIntegration?.config;
+          if (typeof aiConfig === 'string') {
+            try { aiConfig = JSON.parse(aiConfig); } catch { aiConfig = null; }
+          }
+          if (aiConfig?.api_key) apiKey = aiConfig.api_key;
+        }
+        if (!apiKey) apiKey = Deno.env.get(cfg.keyEnv);
+
+        if (apiKey) {
+          const aiReq = await fetch(cfg.url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: promptText }],
+              temperature: 0.7,
+              max_tokens: 500
+            })
+          });
+          const aiRes = await aiReq.json();
+          if (aiRes.choices && aiRes.choices[0]) {
+            aiResponseText = aiRes.choices[0].message.content.trim();
+          } else {
+             throw new Error(aiRes.error?.message || 'Invalid AI response');
+          }
+        } else {
+          outputData.warning = `Chave de IA (${provider}) não configurada — defina em Inteligência → Chaves de IA ou no secret ${cfg.keyEnv}`;
+          aiResponseText = "[IA não configurada]";
+        }
+      } catch (err: any) {
+        outputData.error = err.message;
+        aiResponseText = `Erro IA: ${err.message}`;
+      }
+
+      if (outputField && aiResponseText) {
+        const currentCustomFields = lead.custom_fields || {};
+        const updatedCustomFields = { ...currentCustomFields, [outputField]: aiResponseText };
+        await supabase.from("leads").update({ custom_fields: updatedCustomFields }).eq("id", lead_id);
+        leadContext.custom_fields = updatedCustomFields;
+      }
+
+      outputData.aiOutput = aiResponseText.substring(0, 100) + "...";
+
+      const outgoingEdge = edges.find(e => e.source === node_id);
+      if (outgoingEdge) nextNodeId = outgoingEdge.target;
+    }
+
+    // 5. Log Execution
+    // NOTA: automation_executions NÃO tem coluna client_id — incluí-la fazia
+    // TODO registro de execução falhar silenciosamente.
+    const { error: execLogError } = await supabase.from("automation_executions").insert({
+      tenant_id: lead.tenant_id,
+      automation_id,
+      lead_id,
+      node_id,
+      node_type: nodeType,
+      input: { context: leadContext },
+      output: { ...outputData, run_id },
+      status: outputData.error ? 'failed' : 'success'
+    });
+    if (execLogError) console.error("Failed to log automation_execution:", execLogError.message);
+
+    // 6. Atualiza o run com o estado atual
+    if (run_id && !isWaiting) {
+      const isTerminal = !nextNodeId; // sem próximo nó = fim do fluxo
+      await supabase
+        .from("automation_runs")
+        .update({
+          current_node_id: nextNodeId ?? node_id,
+          status: outputData.error
+            ? "failed"
+            : isTerminal
+            ? "completed"
+            : "running",
+          finished_at: isTerminal || outputData.error ? new Date().toISOString() : null,
+          error: outputData.error ?? null,
+          steps_executed: stepsExecuted,
+          context: leadContext,
+        })
+        .eq("id", run_id);
+    }
+
+    // 7. Invoke Next Node (if not waiting for delay/reply)
+    if (nextNodeId && !isWaiting) {
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/automation-engine`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`
+        },
+        body: JSON.stringify({
+          tenant_id: lead.tenant_id,
+          automation_id,
+          lead_id,
+          node_id: nextNodeId,
+          context: leadContext,
+          run_id,
+        })
+      }).catch(err => console.error("Async trigger error:", err));
+    }
+
+    return new Response(JSON.stringify({ success: true, nextNodeId, isWaiting, run_id }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error: any) {
+    console.error("Automation Error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
+  }
+});
+
+async function recordOutboundMessage(
+  supabase: any,
+  lead: any,
+  channel: string,
+  text: string,
+  phone: string,
+  extra: { media_url?: string; type?: string } = {}
+) {
+  const { data: existingConv } = await supabase.from("conversations")
+    .select("id")
+    .eq("client_id", lead.client_id)
+    .eq("channel", channel)
+    .ilike("metadata->>phone", `%${phone.slice(-8)}%`)
+    .maybeSingle();
+
+  let convId = existingConv?.id;
+  if (!convId) {
+    const { data: newConv } = await supabase.from("conversations").insert({
+      client_id: lead.client_id,
+      lead_id: lead.id,
+      channel,
+      status: "open",
+      last_message: text,
+      last_message_at: new Date().toISOString(),
+      metadata: { phone },
+      tenant_id: lead.tenant_id
+    }).select("id").single();
+    convId = newConv?.id;
+  } else {
+    await supabase.from("conversations").update({
+      last_message: text,
+      last_message_at: new Date().toISOString(),
+    }).eq("id", convId);
+  }
+
+  if (convId) {
+    const isMedia = !!extra.media_url;
+    const messageType = isMedia
+      ? (extra.type === "video" || extra.type === "document" ? "file" : (extra.type ?? "image"))
+      : "text";
+    await supabase.from("messages").insert({
+      client_id: lead.client_id,
+      conversation_id: convId,
+      content: isMedia ? extra.media_url : text,
+      type: messageType,
+      direction: "outbound",
+      sender_name: "Automação",
+      tenant_id: lead.tenant_id,
+      metadata: {
+        channel,
+        auto_generated: true,
+        ...(isMedia ? { media_url: extra.media_url, original_type: extra.type } : {}),
+      },
+    });
+  }
+}

@@ -1,0 +1,137 @@
+name: CI + Deploy Edge Functions
+
+# Frontend em produção é servido pela VERCEL (deploy automático no push para
+# main via integração GitHub↔Vercel). Este workflow cuida de:
+#   1. CI do frontend (lint + testes + build) como gate de qualidade
+#   2. Deploy das edge functions alteradas para o Supabase Cloud
+# O antigo job deploy-vps (entrega do dist via SSH para a VPS) foi removido em
+# 2026-07-19: estava quebrado (timeout SSH) e obsoleto — a VPS não serve mais
+# o frontend (ver deploy/nginx.conf e totum-state.md).
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      functions: ${{ steps.filter.outputs.functions }}
+      functions_list: ${{ steps.list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'src/**'
+              - 'public/**'
+              - 'index.html'
+              - 'vite.config.ts'
+              - 'tailwind.config.ts'
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+            functions:
+              - 'supabase/functions/**'
+
+      - name: Compute list of edge functions to deploy
+        id: list
+        if: steps.filter.outputs.functions == 'true'
+        run: |
+          BASE="${{ github.event.before }}"
+          HEAD="${{ github.sha }}"
+          if [ "$BASE" = "0000000000000000000000000000000000000000" ] || [ -z "$BASE" ]; then
+            BASE="$HEAD~1"
+          fi
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD" -- supabase/functions/ 2>/dev/null || true)
+          # _shared/ afeta todas — se mudou, redeploya tudo
+          if echo "$CHANGED" | grep -q '^supabase/functions/_shared/'; then
+            FNS=$(ls supabase/functions/ | grep -v '^_' | tr '\n' ' ')
+            echo "→ _shared mudou, redeployando todas"
+          else
+            FNS=$(echo "$CHANGED" | sed -nE 's|^supabase/functions/([^/]+)/.*|\1|p' | sort -u | grep -v '^_' | tr '\n' ' ')
+          fi
+          echo "list=$FNS" >> "$GITHUB_OUTPUT"
+          echo "Functions to deploy: $FNS"
+
+  deploy-functions:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.functions == 'true' && needs.detect-changes.outputs.functions_list != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy changed edge functions (parallel)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          FNS="${{ needs.detect-changes.outputs.functions_list }}"
+          PROJECT_REF="xusdhzwfkzufupjwbebt"
+          echo "$FNS" | tr ' ' '\n' | grep -v '^$' | xargs -P 5 -I{} \
+            supabase functions deploy {} --use-api --project-ref "$PROJECT_REF"
+
+  ci:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci --include=dev
+
+      - name: Lint (0 errors exigidos; warnings do baseline tolerados)
+        run: npm run lint
+
+      - name: Testes (vitest)
+        run: npm run test
+
+      - name: Build de verificação
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_META_APP_ID: ${{ secrets.VITE_META_APP_ID }}
+          VITE_META_FB_PAGE_CONFIG_ID: ${{ secrets.VITE_META_FB_PAGE_CONFIG_ID }}
+          VITE_META_WHATSAPP_CONFIG_ID: ${{ secrets.VITE_META_WHATSAPP_CONFIG_ID }}
+          VITE_ROOT_DOMAIN: ${{ secrets.VITE_ROOT_DOMAIN }}
+
+      - name: Show bundle info
+        run: |
+          du -sh dist
+          ls dist/assets/index-*.js 2>/dev/null | head -1
+
+  summary:
+    needs: [detect-changes, deploy-functions, ci]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "## 🚀 Resumo" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Etapa | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Edge functions | ${{ needs.deploy-functions.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CI frontend (lint+test+build) | ${{ needs.ci.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend deploy | Vercel (automático via integração GitHub) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Functions changed: \`${{ needs.detect-changes.outputs.functions_list || '(none)' }}\`" >> $GITHUB_STEP_SUMMARY

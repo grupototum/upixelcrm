@@ -1,0 +1,148 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Building, Phone, Mail, User, Tag, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useSelection } from "@/contexts/SelectionContext";
+import type { Lead } from "@/types";
+import { formatPhone } from "@/lib/format-phone";
+
+/** 2.3: no máximo 3 pills; o resto vira "+N" com tooltip. */
+const MAX_VISIBLE_TAGS = 3;
+
+export function SortableLeadCard({ lead, onClick, tagColors }: {
+  lead: Lead;
+  onClick: () => void;
+  /** name → cor. Buscado uma vez no board; useTags por card faria 1 fetch por lead. */
+  tagColors?: Record<string, string>;
+}) {
+  const navigate = useNavigate();
+  const { selectionMode, isSelected, toggleLead } = useSelection();
+  const selected = isSelected(lead.id);
+
+  // Em modo de seleção, desativa DnD: o card vira clique-pra-selecionar.
+  // Passamos disabled:true pro useSortable — isso já neutraliza listeners + attributes.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: lead.id,
+    data: { type: "lead", lead },
+    disabled: selectionMode,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (selectionMode) {
+      e.stopPropagation();
+      toggleLead(lead.id);
+      return;
+    }
+    onClick();
+  };
+
+  return (
+    // data-dnd-card: marca a área que o useDragScroll deve ignorar, para
+    // arrastar um card não panorâmicar o board junto (2.4).
+    <div ref={setNodeRef} data-dnd-card style={style} {...(selectionMode ? {} : attributes)} {...(selectionMode ? {} : listeners)}>
+      <div
+        onClick={handleCardClick}
+        className={`bg-card ghost-border rounded-xl p-3 hover:shadow-sm transition-all group ${
+          selectionMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
+        } ${selected ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "hover:border-[hsl(var(--border-strong))]"}`}
+      >
+        {selectionMode && (
+          <div className="flex items-center mb-2">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => toggleLead(lead.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4"
+            />
+            <span className="text-[10px] text-muted-foreground ml-2">
+              {selected ? "Selecionado" : "Clique pra selecionar"}
+            </span>
+          </div>
+        )}
+        <div className="flex items-start justify-between mb-1.5">
+          <h4 className="text-sm font-medium text-foreground truncate flex-1">{lead.name}</h4>
+          <div className="shrink-0 flex items-center gap-1.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/automations", { state: { tab: "time_actions" } });
+              }}
+              className="text-muted-foreground hover:text-accent p-0.5"
+              title="Ações de Tempo"
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+        {/* 2.3: a linha de empresa saiu do card. Cada linha abaixo só renderiza
+            se o campo existir — nada de espaço reservado para campo vazio. */}
+        {(lead.phone || lead.email) && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+            {lead.phone
+              ? <><Phone className="h-3 w-3" /> {formatPhone(lead.phone)}</>
+              : <><Mail className="h-3 w-3" /> {lead.email}</>}
+          </p>
+        )}
+        {lead.segmento && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+            <Building className="h-3 w-3" /> {lead.segmento}
+          </p>
+        )}
+        {lead.value && (
+          <p className="text-xs font-semibold text-primary mb-1.5">
+            R$ {lead.value.toLocaleString("pt-BR")}
+          </p>
+        )}
+        {lead.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-1.5">
+            {lead.tags.slice(0, MAX_VISIBLE_TAGS).map((tag) => {
+              const color = tagColors?.[tag];
+              return (
+                <span
+                  key={tag}
+                  // Sem cor cadastrada, mantém o estilo antigo em vez de inventar uma.
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-0.5 ${
+                    color ? "text-white" : "bg-primary/10 text-primary"
+                  }`}
+                  style={color ? { backgroundColor: color } : undefined}
+                >
+                  <Tag className="h-2.5 w-2.5" /> {tag}
+                </span>
+              );
+            })}
+            {lead.tags.length > MAX_VISIBLE_TAGS && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground"
+                title={lead.tags.slice(MAX_VISIBLE_TAGS).join(", ")}
+              >
+                +{lead.tags.length - MAX_VISIBLE_TAGS}
+              </span>
+            )}
+          </div>
+        )}
+        {lead.responsible_id && (
+          <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground">
+            <User className="h-3 w-3" /> {lead.responsible_id}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function DragOverlayCard({ lead }: { lead: Lead }) {
+  return (
+    <div className="bg-card border-2 border-primary rounded-xl p-3 shadow-lg w-72 rotate-2">
+      <h4 className="text-sm font-medium text-foreground truncate">{lead.name}</h4>
+      {lead.company && <p className="text-xs text-muted-foreground mt-1">{lead.company}</p>}
+    </div>
+  );
+}

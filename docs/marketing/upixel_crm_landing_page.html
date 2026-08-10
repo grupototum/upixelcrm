@@ -1,0 +1,1452 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --u-dark:#0A0A0F;
+  --u-surface:#101018;
+  --u-card:#16161F;
+  --u-border:#2A2A3A;
+  --u-accent:#4F6EFF;
+  --u-accent2:#00D4A0;
+  --u-accent3:#FF6B4A;
+  --u-text:#F0EFF8;
+  --u-muted:#8884A0;
+  --u-subtle:#55536A;
+}
+
+.lp{
+  background:var(--u-dark);
+  color:var(--u-text);
+  font-family:'DM Sans',sans-serif;
+  font-size:16px;
+  line-height:1.65;
+  overflow-x:hidden;
+}
+
+h1,h2,h3,h4{font-family:'Syne',sans-serif;line-height:1.15}
+
+.tag{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(79,110,255,.12);
+  border:1px solid rgba(79,110,255,.3);
+  color:var(--u-accent);
+  font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 14px;border-radius:100px;
+  margin-bottom:1.5rem;
+}
+.badge-green{background:rgba(0,212,160,.1);border-color:rgba(0,212,160,.3);color:var(--u-accent2)}
+.badge-orange{background:rgba(255,107,74,.08);border-color:rgba(255,107,74,.3);color:var(--u-accent3)}
+
+/* NAV */
+.nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 32px;
+  max-width:1100px;margin:0 auto;
+}
+.nav-logo{
+  font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;
+  background:linear-gradient(135deg,#4F6EFF,#00D4A0);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.nav-links{display:flex;gap:28px}
+.nav-links a{font-size:.87rem;color:var(--u-muted);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--u-text)}
+
+/* HERO */
+.hero{
+  padding:100px 0 60px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.hero-network-bg{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:900px;height:600px;
+  opacity:.12;
+  pointer-events:none;
+}
+.hero::before{
+  content:'';
+  position:absolute;top:-80px;left:50%;transform:translateX(-50%);
+  width:700px;height:500px;
+  background:radial-gradient(ellipse at center, rgba(79,110,255,.2) 0%, transparent 70%);
+  pointer-events:none;
+}
+.hero-inner{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:0 24px}
+.hero h1{
+  font-size:clamp(2.6rem,5vw,4.4rem);
+  font-weight:800;
+  letter-spacing:-.03em;
+  max-width:800px;margin:0 auto 1.5rem;
+}
+.hero h1 .grad{
+  background:linear-gradient(135deg,#4F6EFF,#00D4A0);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero p{
+  font-size:1.15rem;color:var(--u-muted);
+  max-width:600px;margin:0 auto 2.5rem;
+  font-weight:300;
+}
+.cta-row{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.btn-primary{
+  background:var(--u-accent);color:#fff;
+  border:none;padding:14px 32px;
+  border-radius:10px;font-size:15px;font-weight:500;
+  cursor:pointer;
+  transition:opacity .2s,transform .15s;
+  font-family:'DM Sans',sans-serif;
+}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-ghost{
+  background:transparent;
+  color:var(--u-text);
+  border:1px solid var(--u-border);
+  padding:14px 28px;border-radius:10px;
+  font-size:15px;font-weight:400;cursor:pointer;
+  transition:border-color .2s,background .2s;
+  font-family:'DM Sans',sans-serif;
+}
+.btn-ghost:hover{border-color:var(--u-accent);background:rgba(79,110,255,.06)}
+.social-proof{
+  margin-top:1.5rem;display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;
+}
+.sp-item{
+  display:flex;align-items:center;gap:8px;
+  color:var(--u-muted);font-size:13px;
+}
+.sp-dot{width:6px;height:6px;border-radius:50%;background:var(--u-accent2)}
+
+/* DOCK TABS */
+.dock-wrap{
+  margin:2.5rem auto 0;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.dock-label{font-size:.78rem;color:var(--u-subtle);letter-spacing:.06em;text-transform:uppercase}
+.dock-bar{
+  display:flex;gap:10px;justify-content:center;
+  padding:14px 22px;
+  background:rgba(22,22,31,.85);
+  backdrop-filter:blur(14px);
+  border-radius:22px;
+  border:1px solid var(--u-border);
+}
+.dock-item{
+  position:relative;
+  cursor:default;
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+}
+.dock-item:hover{transform:scale(1.25) translateY(-8px)}
+.dock-item:hover .dock-tip{opacity:1;transform:translateX(-50%) translateY(0)}
+.dock-icon{
+  width:48px;height:48px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+}
+.di-wpp{background:linear-gradient(135deg,#25D366,#128C7E)}
+.di-ig{background:linear-gradient(135deg,#E4405F,#833AB4)}
+.di-fb{background:linear-gradient(135deg,#1877F2,#0056B3)}
+.di-gm{background:linear-gradient(135deg,#EA4335,#FBBC05)}
+.di-chat{background:linear-gradient(135deg,var(--u-accent3),#cc4a2a)}
+.di-msn{background:linear-gradient(135deg,#00B2FF,#006AFF)}
+.dock-tip{
+  position:absolute;
+  top:-34px;left:50%;
+  transform:translateX(-50%) translateY(4px);
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  padding:3px 10px;
+  border-radius:6px;font-size:10px;white-space:nowrap;
+  opacity:0;transition:opacity .2s,transform .2s;
+  pointer-events:none;
+}
+
+/* SECTION */
+.section{padding:80px 24px;max-width:1060px;margin:0 auto}
+.section-sm{padding:60px 24px;max-width:1060px;margin:0 auto}
+.section-header{text-align:center;margin-bottom:3.5rem}
+.section-header h2{font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:700;letter-spacing:-.025em;margin-bottom:.75rem}
+.section-header p{color:var(--u-muted);font-size:1rem;max-width:520px;margin:0 auto;font-weight:300}
+
+/* DIVIDER */
+.divider{border:none;border-top:1px solid var(--u-border);margin:0 24px}
+
+/* STATS */
+.stats-bar{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:16px;padding:40px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:32px;
+  text-align:center;
+}
+.stat-n{
+  font-family:'Syne',sans-serif;
+  font-size:2.5rem;font-weight:800;
+  background:linear-gradient(135deg,#4F6EFF,#00D4A0);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1;margin-bottom:6px;
+}
+.stat-l{font-size:.85rem;color:var(--u-muted)}
+
+/* PAIN */
+.pain-narrative{
+  background:var(--u-card);
+  border:1px solid rgba(255,107,74,.25);
+  border-radius:20px;
+  padding:40px 48px;
+  position:relative;overflow:hidden;
+  margin-bottom:2rem;
+}
+.pain-narrative::before{
+  content:'';
+  position:absolute;inset:0;
+  background-image:radial-gradient(circle,rgba(255,107,74,.12) 1px,transparent 1px);
+  background-size:22px 22px;
+  opacity:.35;
+}
+.pain-narrative-inner{position:relative}
+.pain-narrative h3{
+  font-size:clamp(1.4rem,3vw,2.2rem);font-weight:700;
+  margin-bottom:1rem;letter-spacing:-.02em;
+}
+.pain-narrative h3 span{
+  background:linear-gradient(135deg,var(--u-accent3),#ff9a4a);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.pain-narrative p{color:var(--u-muted);font-size:1.05rem;max-width:560px;font-weight:300;line-height:1.75}
+.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:1.5rem}
+.pain-card{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:14px;padding:22px;
+  position:relative;overflow:hidden;
+}
+.pain-card::before{
+  content:'✗';
+  position:absolute;top:14px;right:14px;
+  color:rgba(255,107,74,.3);font-size:20px;font-weight:700;
+}
+.pain-card h4{font-size:.93rem;font-weight:600;margin-bottom:.45rem;font-family:'Syne',sans-serif}
+.pain-card p{font-size:.86rem;color:var(--u-muted);line-height:1.6}
+
+/* SCREENSHOT PLACEHOLDER */
+.ss-placeholder{
+  aspect-ratio:16/10;
+  background:linear-gradient(135deg,rgba(79,110,255,.06),rgba(0,212,160,.04));
+  border:2px dashed var(--u-border);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+  margin-bottom:1.25rem;
+}
+.ss-placeholder::before{
+  content:'';
+  position:absolute;inset:0;
+  background-image:radial-gradient(circle,var(--u-border) 1px,transparent 1px);
+  background-size:18px 18px;
+  opacity:.3;
+}
+.ss-placeholder-inner{
+  position:relative;text-align:center;
+  color:var(--u-subtle);
+}
+.ss-placeholder-inner svg{width:36px;height:36px;opacity:.5;margin:0 auto 8px;display:block}
+.ss-placeholder-inner span{display:block;font-size:.78rem;font-weight:500;color:var(--u-muted)}
+.ss-placeholder-inner small{display:block;font-size:.68rem;opacity:.6;margin-top:3px}
+.ss-placeholder.ratio-hero{aspect-ratio:16/9}
+.ss-placeholder.ratio-sq{aspect-ratio:1/1;border-radius:50%;width:60px;height:60px;border:2px dashed var(--u-border);flex-shrink:0}
+
+/* FEATURES GRID */
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.feat-card{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:16px;padding:0;overflow:hidden;
+  transition:border-color .25s,transform .25s,box-shadow .25s;
+}
+.feat-card:hover{
+  border-color:rgba(79,110,255,.4);
+  transform:translateY(-4px);
+  box-shadow:0 12px 40px rgba(0,0,0,.4);
+}
+.feat-card:hover .ss-placeholder img,
+.feat-card:hover .ss-placeholder{filter:brightness(1.06)}
+.feat-card-body{padding:22px 22px 24px}
+.feat-card h3{font-size:1.05rem;font-weight:600;margin-bottom:.45rem}
+.feat-card p{font-size:.87rem;color:var(--u-muted);line-height:1.65;margin-bottom:.85rem}
+.feat-card ul{padding-left:0;list-style:none}
+.feat-card ul li{
+  font-size:.83rem;color:var(--u-muted);padding:3px 0 3px 1.2rem;position:relative;
+}
+.feat-card ul li::before{
+  content:'→';
+  position:absolute;left:0;color:var(--u-accent);font-size:.78rem;
+}
+
+/* USE CASES */
+.use-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.use-card{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:16px;padding:28px;
+  border-left:4px solid var(--u-accent);
+  transition:box-shadow .25s;
+}
+.use-card.team{border-left-color:var(--u-accent2)}
+.use-card.mgr{border-left-color:var(--u-accent3)}
+.use-card:hover{box-shadow:0 0 0 1px rgba(79,110,255,.2),0 8px 30px rgba(0,0,0,.3)}
+.use-card.team:hover{box-shadow:0 0 0 1px rgba(0,212,160,.2),0 8px 30px rgba(0,0,0,.3)}
+.use-card.mgr:hover{box-shadow:0 0 0 1px rgba(255,107,74,.2),0 8px 30px rgba(0,0,0,.3)}
+.use-icon{font-size:28px;margin-bottom:1rem;display:block}
+.use-card h3{font-size:1rem;font-weight:700;margin-bottom:1rem;text-transform:uppercase;letter-spacing:.05em;font-size:.78rem;color:var(--u-muted)}
+.use-card ul{list-style:none;padding:0;margin-bottom:1.25rem}
+.use-card ul li{
+  font-size:.875rem;padding:6px 0 6px 1.5rem;
+  position:relative;border-bottom:1px solid rgba(255,255,255,.04);
+}
+.use-card ul li::before{
+  content:'✓';position:absolute;left:0;
+  font-weight:700;font-size:.8rem;
+}
+.use-card.sales ul li::before{color:var(--u-accent)}
+.use-card.team ul li::before{color:var(--u-accent2)}
+.use-card.mgr ul li::before{color:var(--u-accent3)}
+
+/* DOT PATTERN QUOTE */
+.quote-block{
+  position:relative;
+  padding:22px 20px;
+  border-radius:14px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.06);
+  overflow:hidden;
+  margin-top:1.25rem;
+}
+.quote-block::before{
+  content:'';
+  position:absolute;inset:0;
+  background-image:radial-gradient(circle,var(--u-border) 1px,transparent 1px);
+  background-size:16px 16px;
+  opacity:.25;
+}
+.quote-text{
+  position:relative;
+  font-size:.9rem;font-weight:300;
+  line-height:1.6;color:var(--u-muted);
+  font-style:italic;
+}
+.quote-text .qh{
+  font-weight:700;font-style:normal;
+  background:linear-gradient(135deg,var(--u-accent),var(--u-accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+
+/* TESTIMONIALS / WHATSAPP BUBBLES */
+.testi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.wa-card{
+  background:var(--u-card);
+  border:1px solid var(--u-border);
+  border-radius:16px;padding:20px;
+}
+.wa-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--u-border)}
+.wa-avatar{
+  width:42px;height:42px;border-radius:50%;
+  background:linear-gradient(135deg,var(--u-accent),var(--u-accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:#fff;
+  flex-shrink:0;
+}
+.wa-name{font-size:.88rem;font-weight:600}
+.wa-info{font-size:.76rem;color:var(--u-muted)}
+.wa-msgs{display:flex;flex-direction:column;gap:8px}
+.wa-bubble{
+  max-width:82%;
+  padding:9px 13px;
+  border-radius:12px;
+  font-size:.83rem;line-height:1.55;
+  position:relative;
+}
+.wa-bubble.recv{
+  background:#1E1E2A;
+  border:1px solid var(--u-border);
+  border-radius:4px 12px 12px 12px;
+  align-self:flex-start;
+}
+.wa-bubble.sent{
+  background:rgba(37,211,102,.12);
+  border:1px solid rgba(37,211,102,.2);
+  border-radius:12px 4px 12px 12px;
+  align-self:flex-end;
+}
+.wa-bubble .wa-time{
+  font-size:.65rem;color:var(--u-subtle);
+  display:block;text-align:right;margin-top:4px;
+}
+.wa-bubble.sent .wa-time{color:rgba(37,211,102,.6)}
+
+/* DEMO BANNER (UPGRADE BANNER STYLE) */
+.demo-banner{
+  position:relative;
+  background:linear-gradient(135deg,rgba(79,110,255,.13),rgba(0,212,160,.08));
+  border:1px solid rgba(79,110,255,.35);
+  border-radius:22px;
+  padding:56px 48px;
+  text-align:center;
+  overflow:hidden;
+}
+.demo-banner::before{
+  content:'';
+  position:absolute;top:-100px;left:50%;transform:translateX(-50%);
+  width:600px;height:400px;
+  background:radial-gradient(ellipse at center,rgba(79,110,255,.18) 0%,transparent 70%);
+  pointer-events:none;
+}
+.float-icons{position:absolute;inset:0;pointer-events:none}
+.float-icon{
+  position:absolute;
+  font-size:26px;opacity:.22;
+  animation:floatY 6s ease-in-out infinite;
+}
+.float-icon:nth-child(1){top:18%;left:8%;animation-delay:0s}
+.float-icon:nth-child(2){top:25%;right:12%;animation-delay:1.5s}
+.float-icon:nth-child(3){bottom:22%;left:18%;animation-delay:3s}
+.float-icon:nth-child(4){bottom:18%;right:8%;animation-delay:4.5s}
+.float-icon:nth-child(5){top:50%;left:5%;animation-delay:2s}
+.float-icon:nth-child(6){top:45%;right:5%;animation-delay:3.5s}
+@keyframes floatY{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  50%{transform:translateY(-18px) rotate(8deg)}
+}
+.demo-banner-inner{position:relative}
+.demo-banner h2{font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:800;letter-spacing:-.025em;margin-bottom:.75rem}
+.demo-banner p{color:var(--u-muted);max-width:500px;margin:0 auto 2rem;font-size:1rem;font-weight:300;line-height:1.7}
+.btn-pulse{animation:pulseGlow 2.2s infinite}
+@keyframes pulseGlow{
+  0%,100%{box-shadow:0 0 0 0 rgba(79,110,255,.45)}
+  50%{box-shadow:0 0 28px 10px rgba(79,110,255,.18)}
+}
+.demo-guarantees{
+  display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;
+  margin-top:1.5rem;font-size:.82rem;color:var(--u-subtle);
+}
+.demo-guarantees span::before{content:'✓ ';color:var(--u-accent2);font-weight:700}
+
+/* HOW STEPS */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;position:relative}
+.step{text-align:center;padding:32px 20px;position:relative}
+.step:not(:last-child)::after{
+  content:'';
+  position:absolute;top:42px;right:0;
+  width:1px;height:60px;
+  background:var(--u-border);
+}
+.step-num{
+  width:52px;height:52px;border-radius:50%;
+  background:rgba(79,110,255,.1);
+  border:1.5px solid rgba(79,110,255,.35);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1rem;
+  font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;
+  color:var(--u-accent);
+}
+.step h4{font-size:.95rem;font-weight:600;margin-bottom:.4rem}
+.step p{font-size:.84rem;color:var(--u-muted)}
+
+/* INTEGRATIONS */
+.integ-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.integ-badge{
+  background:var(--u-card);border:1px solid var(--u-border);
+  border-radius:10px;padding:14px 10px;
+  text-align:center;font-size:.82rem;color:var(--u-muted);
+  transition:border-color .2s,color .2s;
+}
+.integ-badge:hover{border-color:var(--u-accent);color:var(--u-text)}
+
+/* PRICING */
+.pricing-tabs{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--u-card);border:1px solid var(--u-border);
+  border-radius:100px;padding:6px;
+  width:fit-content;margin:0 auto 2.5rem;
+}
+.pricing-tab{
+  padding:8px 20px;border-radius:100px;
+  font-size:.84rem;font-weight:500;cursor:pointer;
+  border:none;background:transparent;color:var(--u-muted);
+  transition:all .2s;font-family:'DM Sans',sans-serif;
+}
+.pricing-tab.active{background:var(--u-accent);color:#fff}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;align-items:start}
+.plan{
+  background:var(--u-card);border:1px solid var(--u-border);
+  border-radius:18px;padding:32px 28px;
+}
+.plan.featured{
+  border-color:rgba(79,110,255,.6);
+  background:rgba(79,110,255,.06);
+  position:relative;
+}
+.plan-popular{
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  background:var(--u-accent);color:#fff;
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 16px;border-radius:100px;white-space:nowrap;
+}
+.plan-name{font-size:.85rem;font-weight:500;color:var(--u-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
+.plan-price{
+  font-family:'Syne',sans-serif;
+  font-size:2.6rem;font-weight:800;
+  letter-spacing:-.04em;margin-bottom:.25rem;
+}
+.plan-price span{font-size:.95rem;font-weight:400;color:var(--u-muted)}
+.plan-price .plan-alt{display:none;font-size:1rem;font-weight:400;color:var(--u-accent2)}
+.plan-desc{font-size:.87rem;color:var(--u-muted);margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--u-border)}
+.plan ul{list-style:none;margin-bottom:2rem}
+.plan ul li{
+  font-size:.875rem;padding:7px 0 7px 1.6rem;
+  position:relative;border-bottom:1px solid rgba(255,255,255,.04);
+}
+.plan ul li::before{content:'✓';position:absolute;left:0;color:var(--u-accent2);font-size:.85rem;font-weight:600}
+.plan ul li.muted{color:var(--u-subtle)}
+.plan ul li.muted::before{content:'—';color:var(--u-subtle)}
+.plan-meta{font-size:.8rem;color:var(--u-subtle);margin-bottom:1.5rem}
+.plan-meta strong{color:var(--u-muted)}
+.btn-plan{
+  width:100%;padding:13px;border-radius:10px;
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;
+  cursor:pointer;transition:all .2s;border:none;
+}
+.btn-plan.default{background:var(--u-border);color:var(--u-text)}
+.btn-plan.default:hover{background:#3A3A50}
+.btn-plan.accent{background:var(--u-accent);color:#fff}
+.btn-plan.accent:hover{opacity:.88;transform:translateY(-1px)}
+.pricing-note{text-align:center;margin-top:1.5rem;font-size:.84rem;color:var(--u-subtle)}
+.pricing-note a{color:var(--u-accent);text-decoration:none}
+
+/* COMPARE */
+.compare-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.compare-table th{
+  padding:14px 16px;text-align:left;
+  font-family:'Syne',sans-serif;font-size:.85rem;font-weight:600;
+  color:var(--u-muted);border-bottom:1px solid var(--u-border);
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.compare-table th:not(:first-child){text-align:center}
+.compare-table td{padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--u-muted);font-size:.875rem}
+.compare-table td.feat-name{color:var(--u-text);font-weight:400}
+.compare-table td:not(:first-child){text-align:center}
+.compare-table td.yes{color:var(--u-accent2);font-weight:600}
+.compare-table td.no{color:var(--u-subtle)}
+.compare-table td.partial{color:var(--u-accent3)}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-wrap{background:var(--u-card);border:1px solid var(--u-border);border-radius:16px;overflow:hidden}
+.compare-table th.upixel{color:var(--u-accent)}
+
+/* FAQ */
+.faq-list{display:flex;flex-direction:column;gap:12px}
+.faq-item{background:var(--u-card);border:1px solid var(--u-border);border-radius:12px;padding:20px 24px;cursor:pointer}
+.faq-q{font-size:.95rem;font-weight:500;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.faq-a{font-size:.875rem;color:var(--u-muted);margin-top:12px;line-height:1.7;display:none}
+.faq-item.open .faq-a{display:block}
+.faq-item.open .faq-toggle{transform:rotate(45deg)}
+.faq-toggle{color:var(--u-accent);font-size:1.4rem;line-height:1;flex-shrink:0;transition:transform .2s}
+
+/* CTA FINAL */
+.cta-block{
+  background:var(--u-card);border:1px solid rgba(79,110,255,.3);
+  border-radius:22px;padding:64px 40px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.cta-block::before{
+  content:'';
+  position:absolute;top:-100px;left:50%;transform:translateX(-50%);
+  width:600px;height:400px;
+  background:radial-gradient(ellipse at center,rgba(79,110,255,.15) 0%,transparent 70%);
+  pointer-events:none;
+}
+.cta-block h2{font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:800;margin-bottom:1rem;letter-spacing:-.025em;position:relative}
+.cta-block p{color:var(--u-muted);max-width:460px;margin:0 auto 2.5rem;font-size:1rem;font-weight:300;position:relative}
+.guarantee{margin-top:1.5rem;font-size:.82rem;color:var(--u-subtle)}
+
+/* FOOTER */
+.footer{
+  border-top:1px solid var(--u-border);
+  padding:40px 24px;text-align:center;
+  color:var(--u-subtle);font-size:.84rem;
+  max-width:1060px;margin:0 auto;
+}
+
+/* FAB */
+.fab-demo{
+  position:fixed;bottom:24px;right:24px;z-index:1000;
+  opacity:0;transform:translateY(20px);
+  transition:opacity .4s,transform .4s;
+  pointer-events:none;
+}
+.fab-demo.visible{opacity:1;transform:translateY(0);pointer-events:auto}
+.fab-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:14px 22px;
+  background:linear-gradient(135deg,var(--u-accent),#6a82ff);
+  color:#fff;border:none;border-radius:50px;
+  font-weight:600;font-size:.9rem;cursor:pointer;
+  box-shadow:0 4px 20px rgba(79,110,255,.45);
+  transition:transform .2s,box-shadow .2s;
+  font-family:'DM Sans',sans-serif;
+}
+.fab-btn:hover{transform:scale(1.05);box-shadow:0 6px 30px rgba(79,110,255,.55)}
+
+/* NETWORK SVG ANIMATIONS */
+.conn-line{
+  stroke:url(#netGrad);stroke-width:1.5;fill:none;
+  stroke-dasharray:8 6;
+  animation:dataFlow 2.5s linear infinite;
+}
+.conn-line:nth-child(2){animation-duration:3s;animation-delay:-.5s}
+.conn-line:nth-child(3){animation-duration:2.8s;animation-delay:-1s}
+.conn-line:nth-child(4){animation-duration:3.2s;animation-delay:-.8s}
+.conn-line:nth-child(5){animation-duration:2.6s;animation-delay:-1.5s}
+.conn-line:nth-child(6){animation-duration:3.4s;animation-delay:-2s}
+@keyframes dataFlow{to{stroke-dashoffset:-42}}
+.net-node{
+  fill:var(--u-accent);
+  animation:nodePulse 3s ease-in-out infinite;
+}
+.net-node:nth-child(2){animation-delay:.5s;fill:#25D366}
+.net-node:nth-child(3){animation-delay:1s;fill:#E4405F}
+.net-node:nth-child(4){animation-delay:1.5s;fill:#1877F2}
+.net-node:nth-child(5){animation-delay:2s;fill:var(--u-accent3)}
+.net-node:nth-child(6){animation-delay:2.5s;fill:var(--u-accent2)}
+@keyframes nodePulse{
+  0%,100%{opacity:.7;r:10}
+  50%{opacity:1;r:13}
+}
+.net-center{fill:url(#centerGrad);filter:drop-shadow(0 0 12px rgba(79,110,255,.5))}
+
+/* SCROLL ANIMATION */
+.fade-up{
+  opacity:0;transform:translateY(40px);
+  transition:opacity .8s ease,transform .8s ease;
+}
+.fade-up.visible{opacity:1;transform:translateY(0)}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .nav-links{display:none}
+  .hero{padding:70px 20px 50px}
+  .hero h1{font-size:clamp(2rem,7vw,3rem)}
+  .dock-bar{gap:6px;padding:12px 16px}
+  .dock-icon{width:40px;height:40px;font-size:18px;border-radius:11px}
+  .pain-narrative{padding:28px 24px}
+  .demo-banner{padding:40px 24px}
+  .float-icon{font-size:18px}
+  .steps::after{display:none}
+  .step:not(:last-child)::after{display:none}
+  .stats-bar{padding:28px 20px;gap:24px}
+  .fab-btn span.fab-text{display:none}
+  .fab-btn{padding:14px}
+  .pricing-tabs{flex-wrap:wrap}
+}
+@media(max-width:480px){
+  .demo-guarantees{flex-direction:column;gap:8px}
+}
+
+/* PREFERS REDUCED MOTION */
+@media(prefers-reduced-motion:reduce){
+  .conn-line,.net-node,.float-icon,.btn-pulse,
+  .fade-up{animation:none!important;transition:none!important;opacity:1!important;transform:none!important}
+}
+</style>
+
+<div class="lp" role="main">
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">uPixel CRM — Plataforma de CRM, automações e comunicação omnichannel para times de vendas</h2>
+
+<!-- NAV -->
+<nav style="position:sticky;top:0;z-index:100;background:rgba(10,10,15,.92);backdrop-filter:blur(12px);border-bottom:1px solid #2A2A3A">
+  <div class="nav">
+    <div class="nav-logo">uPixel</div>
+    <div class="nav-links">
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#para-quem">Para quem</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <button class="btn-primary" style="padding:10px 22px;font-size:13px" onclick="sendPrompt('Quero começar meu teste grátis de 14 dias no uPixel CRM')">Teste grátis →</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <!-- SVG Network Background (CPU Architecture style) -->
+  <svg class="hero-network-bg" viewBox="0 0 900 600" aria-hidden="true">
+    <defs>
+      <linearGradient id="netGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" style="stop-color:#4F6EFF;stop-opacity:1"/>
+        <stop offset="100%" style="stop-color:#00D4A0;stop-opacity:1"/>
+      </linearGradient>
+      <radialGradient id="centerGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" style="stop-color:#4F6EFF;stop-opacity:1"/>
+        <stop offset="100%" style="stop-color:#00D4A0;stop-opacity:1"/>
+      </radialGradient>
+    </defs>
+    <!-- Connection lines from center (450,300) to nodes -->
+    <path class="conn-line" d="M450,300 L160,120"/>
+    <path class="conn-line" d="M450,300 L740,120"/>
+    <path class="conn-line" d="M450,300 L100,300"/>
+    <path class="conn-line" d="M450,300 L800,300"/>
+    <path class="conn-line" d="M450,300 L200,460"/>
+    <path class="conn-line" d="M450,300 L700,460"/>
+    <!-- Outer nodes -->
+    <circle class="net-node" cx="160" cy="120" r="10"/>
+    <circle class="net-node" cx="740" cy="120" r="10"/>
+    <circle class="net-node" cx="100" cy="300" r="10"/>
+    <circle class="net-node" cx="800" cy="300" r="10"/>
+    <circle class="net-node" cx="200" cy="460" r="10"/>
+    <circle class="net-node" cx="700" cy="460" r="10"/>
+    <!-- Center hub -->
+    <circle class="net-center" cx="450" cy="300" r="36"/>
+    <text x="450" y="307" text-anchor="middle" fill="white" font-size="22" font-family="sans-serif">💬</text>
+  </svg>
+
+  <div class="hero-inner">
+    <div class="tag"><span>🚀</span> Plataforma de vendas #1</div>
+    <h1>Nunca mais perca cliente por <span class="grad">falta de resposta.</span></h1>
+    <p>O uPixel responde na hora, manda follow-up automático e lembra de cada lead no WhatsApp, Instagram e onde mais seu cliente estiver!</p>
+    <div class="cta-row">
+      <button class="btn-primary btn-pulse" style="font-size:16px;padding:16px 34px" onclick="sendPrompt('Quero começar meu teste grátis de 14 dias no uPixel CRM agora')">🔥 Teste grátis!</button>
+      <button class="btn-ghost" onclick="sendPrompt('Quero ver uma demonstração do uPixel CRM')">Ver demonstração →</button>
+    </div>
+    <div class="social-proof">
+      <div class="sp-item"><div class="sp-dot"></div>Sem cartão de crédito</div>
+      <div class="sp-item"><div class="sp-dot"></div>Cancela quando quiser</div>
+      <div class="sp-item"><div class="sp-dot"></div>Setup em 5 minutos</div>
+    </div>
+
+    <!-- DOCK TABS -->
+    <div class="dock-wrap">
+      <span class="dock-label">6 canais num único inbox</span>
+      <div class="dock-bar">
+        <div class="dock-item">
+          <div class="dock-icon di-wpp">📱</div>
+          <div class="dock-tip">WhatsApp</div>
+        </div>
+        <div class="dock-item">
+          <div class="dock-icon di-ig">📸</div>
+          <div class="dock-tip">Instagram</div>
+        </div>
+        <div class="dock-item">
+          <div class="dock-icon di-fb">👍</div>
+          <div class="dock-tip">Facebook</div>
+        </div>
+        <div class="dock-item">
+          <div class="dock-icon di-gm">✉️</div>
+          <div class="dock-tip">Gmail</div>
+        </div>
+        <div class="dock-item">
+          <div class="dock-icon di-chat">💬</div>
+          <div class="dock-tip">Webchat</div>
+        </div>
+        <div class="dock-item">
+          <div class="dock-icon di-msn">🗨️</div>
+          <div class="dock-tip">Messenger</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div style="max-width:1060px;margin:0 auto;padding:0 24px 80px">
+  <div class="stats-bar fade-up">
+    <div><div class="stat-n">50+</div><div class="stat-l">tipos de ação em automações</div></div>
+    <div><div class="stat-n">6</div><div class="stat-l">canais num único inbox</div></div>
+    <div><div class="stat-n">5x</div><div class="stat-l">mais leads convertidos</div></div>
+    <div><div class="stat-n">0</div><div class="stat-l">código necessário</div></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- DOR -->
+<div class="section fade-up" id="dor">
+  <div class="section-header">
+    <div class="tag badge-orange">O problema</div>
+    <h2>Quantos clientes você perdeu essa semana sem saber?</h2>
+  </div>
+
+  <div class="pain-narrative">
+    <div class="pain-narrative-inner">
+      <h3>O cliente mandou mensagem. Você demorou <span>3 horas</span> pra responder.</h3>
+      <p>Ele já tinha fechado com o concorrente. Isso acontece todo dia e você nem fica sabendo.</p>
+    </div>
+  </div>
+
+  <!-- Placeholder: inbox vazio / notificação perdida -->
+  <div class="ss-placeholder" style="margin-bottom:2rem">
+    <div class="ss-placeholder-inner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      <span>Screenshot: Inbox vazio / Notificação perdida</span>
+      <small>Substituir por print do sistema</small>
+    </div>
+  </div>
+
+  <div class="pain-grid">
+    <div class="pain-card">
+      <h4>Resposta lenta mata a venda</h4>
+      <p>Leads que esperam mais de 5 minutos têm 80% menos chance de fechar. Seu time está sempre no timing errado.</p>
+    </div>
+    <div class="pain-card">
+      <h4>Follow-up depende da memória</h4>
+      <p>A maioria das vendas acontece no 5º contato. Mas ninguém lembra do lead que sumiu há 3 dias.</p>
+    </div>
+    <div class="pain-card">
+      <h4>Mensagens espalhadas em todo lugar</h4>
+      <p>WhatsApp no celular, Instagram no computador, Gmail na outra aba. Você perde o fio da conversa todo dia.</p>
+    </div>
+    <div class="pain-card">
+      <h4>Sem visibilidade do que está acontecendo</h4>
+      <p>Você não sabe quantos leads estão parados, qual vendedor está respondendo e o que está funcionando.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FUNCIONALIDADES -->
+<div class="section fade-up" id="funcionalidades">
+  <div class="section-header">
+    <div class="tag">A solução</div>
+    <h2>O que o uPixel faz por você</h2>
+    <p>Cada funcionalidade resolve uma dor real. Nada de feature inútil.</p>
+  </div>
+  <div class="feat-grid">
+
+    <!-- 1 -->
+    <div class="feat-card">
+      <div class="ss-placeholder">
+        <div class="ss-placeholder-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          <span>Inbox com múltiplos canais</span>
+          <small>Substituir por print do sistema</small>
+        </div>
+      </div>
+      <div class="feat-card-body">
+        <h3>Todas as mensagens em um só lugar</h3>
+        <p>WhatsApp, Instagram, Facebook, Gmail e mais, tudo em uma única tela. Nenhuma mensagem some. Nenhum cliente fica sem resposta.</p>
+        <ul>
+          <li>Zero perda de mensagem</li>
+          <li>Inbox unificado de todos os canais</li>
+          <li>Responde de qualquer canal em segundos</li>
+          <li>Notificações inteligentes por prioridade</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="feat-card">
+      <div class="ss-placeholder">
+        <div class="ss-placeholder-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          <span>Resposta automática fora de horário</span>
+          <small>Substituir por print do sistema</small>
+        </div>
+      </div>
+      <div class="feat-card-body">
+        <h3>Resposta automática</h3>
+        <p>O sistema responde na hora, de madrugada, no domingo, no seu dia de folga. Você configura o que ele fala uma vez.</p>
+        <ul>
+          <li>24/7 sem pausa</li>
+          <li>Respostas personalizadas por canal</li>
+          <li>Fora de horário coberto automaticamente</li>
+          <li>Nenhum lead esfriando enquanto você descansa</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="feat-card">
+      <div class="ss-placeholder">
+        <div class="ss-placeholder-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Fluxos de follow-up automático</span>
+          <small>Substituir por print do sistema</small>
+        </div>
+      </div>
+      <div class="feat-card-body">
+        <h3>Follow-up que nunca esquece</h3>
+        <p>A maioria das vendas acontece no 5º contato. Lead sumiu? O sistema manda mensagem no dia seguinte. E no dia depois. No ritmo que você definir.</p>
+        <ul>
+          <li>Sequência automática configurável</li>
+          <li>Nenhum lead esquecido jamais</li>
+          <li>Ritmo e canal definidos por você</li>
+          <li>Mais conversões com menos esforço</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="feat-card">
+      <div class="ss-placeholder">
+        <div class="ss-placeholder-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          <span>Função de disparo em massa</span>
+          <small>Substituir por print do sistema</small>
+        </div>
+      </div>
+      <div class="feat-card-body">
+        <h3>Disparo pra toda sua base com um clique</h3>
+        <p>Promoção, lançamento, novidade. Você escreve a mensagem, escolhe quem recebe e dispara.</p>
+        <ul>
+          <li>Segmentação por lista, tag ou comportamento</li>
+          <li>Anti-bloqueio com throttling inteligente</li>
+          <li>Agendamento de campanhas</li>
+          <li>Relatório de entrega em tempo real</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="feat-card">
+      <div class="ss-placeholder">
+        <div class="ss-placeholder-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"/></svg>
+          <span>IA respondendo com base de conhecimento</span>
+          <small>Substituir por print do sistema</small>
+        </div>
+      </div>
+      <div class="feat-card-body">
+        <h3>IA que conhece seu negócio</h3>
+        <p>Você ensina o sistema sobre seus produtos, preços e perguntas frequentes. Ele responde por você com as suas informações, do seu jeito.</p>
+        <ul>
+          <li>Respostas no seu tom e linguagem</li>
+          <li>Aprende todo o seu catálogo</li>
+          <li>FAQ automático 24/7</li>
+          <li>Se atualiza conforme seu negócio cresce</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="feat-card">
+      <div class="ss-placeholder">
+        <div class="ss-placeholder-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <span>Funil visual / Pipeline de leads</span>
+          <small>Substituir por print do sistema</small>
+        </div>
+      </div>
+      <div class="feat-card-body">
+        <h3>Você sabe exatamente onde está cada cliente</h3>
+        <p>Funil visual, histórico completo, próximo passo definido. Em 30 segundos você enxerga toda sua operação.</p>
+        <ul>
+          <li>Funil visual drag-and-drop</li>
+          <li>Histórico completo de cada contato</li>
+          <li>Próximos passos definidos automaticamente</li>
+          <li>Visão 360° de toda a operação</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="feat-card">
+      <div class="ss-placeholder">
+        <div class="ss-placeholder-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span>Dashboard de relatórios e analytics</span>
+          <small>Substituir por print do sistema</small>
+        </div>
+      </div>
+      <div class="feat-card-body">
+        <h3>Relatórios que mostram onde está o dinheiro</h3>
+        <p>Qual canal traz mais cliente? Qual mensagem converte mais? Onde os leads somem? O uPixel te mostra tudo!</p>
+        <ul>
+          <li>Canal que mais converte por período</li>
+          <li>Mensagem vencedora identificada</li>
+          <li>Onde os leads somem no funil</li>
+          <li>ROI calculado por campanha</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- DEMO / APRESENTAÇÃO (high priority section) -->
+<div class="section fade-up">
+  <div class="demo-banner">
+    <div class="float-icons">
+      <span class="float-icon">📅</span>
+      <span class="float-icon">⚡</span>
+      <span class="float-icon">📈</span>
+      <span class="float-icon">💬</span>
+      <span class="float-icon">🔔</span>
+      <span class="float-icon">🎯</span>
+    </div>
+    <div class="demo-banner-inner">
+      <div class="tag" style="margin:0 auto 1.25rem;display:inline-flex">📅 Apresentação gratuita</div>
+      <h2>Quer ver o uPixel funcionando na prática?</h2>
+      <p>Agende uma apresentação gratuita de 15 minutos com um especialista. Vamos mostrar EXATAMENTE como o uPixel resolve o problema da sua operação.</p>
+      <button class="btn-primary btn-pulse" style="font-size:16px;padding:16px 36px" onclick="sendPrompt('Quero agendar uma apresentação gratuita do uPixel CRM com um especialista')">📅 Agendar apresentação gratuita</button>
+      <div class="demo-guarantees">
+        <span>Sem compromisso</span>
+        <span>Personalizado para seu negócio</span>
+        <span>Ao vivo com especialista</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- USE CASES -->
+<div class="section fade-up" id="para-quem">
+  <div class="section-header">
+    <div class="tag">Para quem é</div>
+    <h2>Como o uPixel pode ajudar?</h2>
+    <p>Para cada papel, uma solução diferente. Todos no mesmo sistema.</p>
+  </div>
+  <div class="use-grid">
+
+    <!-- Vendas -->
+    <div class="use-card sales">
+      <span class="use-icon">🎯</span>
+      <h3>uPixel para vendas</h3>
+      <ul>
+        <li>Responde o lead na hora que ele chega</li>
+        <li>Follow-up automático sem depender de memória</li>
+        <li>Lembra de cada cliente no momento certo</li>
+        <li>Você só entra na conversa pra fechar</li>
+      </ul>
+      <div class="quote-block">
+        <p class="quote-text">"O vendedor que usa o uPixel atende <span class="qh">3x mais leads</span> ao mesmo tempo."</p>
+      </div>
+    </div>
+
+    <!-- Equipes -->
+    <div class="use-card team">
+      <span class="use-icon">👥</span>
+      <h3>uPixel para equipes</h3>
+      <ul>
+        <li>Todas as mensagens num inbox compartilhado</li>
+        <li>Cada atendimento atribuído a uma pessoa</li>
+        <li>Histórico completo visível pra todo o time</li>
+        <li>Quando alguém sai, nada vai junto</li>
+      </ul>
+      <div class="quote-block">
+        <p class="quote-text">"Novo no time? Em <span class="qh">10 minutos</span> já sabe o histórico de cada cliente."</p>
+      </div>
+    </div>
+
+    <!-- Gerentes -->
+    <div class="use-card mgr">
+      <span class="use-icon">📊</span>
+      <h3>uPixel para gerentes</h3>
+      <ul>
+        <li>Funil visual atualizado ao vivo</li>
+        <li>Ranking de desempenho por vendedor</li>
+        <li>Alertas automáticos quando algo sai do padrão</li>
+        <li>Relatórios prontos sem montar planilha</li>
+      </ul>
+      <div class="quote-block">
+        <p class="quote-text">"Em <span class="qh">30 segundos</span> você sabe o que está funcionando e o que não está."</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- DEPOIMENTOS (WhatsApp Bubbles) -->
+<div class="section fade-up">
+  <div class="section-header">
+    <div class="tag badge-green">Quem usa, recomenda</div>
+    <h2>O que dizem quem já usa</h2>
+  </div>
+  <div class="testi-grid">
+
+    <!-- Chat 01 -->
+    <div class="wa-card">
+      <div class="wa-header">
+        <div class="wa-avatar">M</div>
+        <div>
+          <div class="wa-name">Marcos</div>
+          <div class="wa-info">Clínica · São Paulo, SP</div>
+        </div>
+      </div>
+      <div class="wa-msgs">
+        <div class="wa-bubble recv">
+          Cara, que ferramenta boa essa. Faz 2 semanas que a gente configurou e já notei diferença. Paciente manda mensagem de noite e já recebe resposta na hora.
+          <span class="wa-time">14:32 ✓✓</span>
+        </div>
+        <div class="wa-bubble sent">
+          Bom demaaais Marcos! E como tem sido pra equipe?
+          <span class="wa-time">14:33 ✓✓</span>
+        </div>
+        <div class="wa-bubble recv">
+          A menina da recepção gostou, ficou bem mais organizado agora 👏👏
+          <span class="wa-time">14:35 ✓✓</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat 02 -->
+    <div class="wa-card">
+      <div class="wa-header">
+        <div class="wa-avatar" style="background:linear-gradient(135deg,#E4405F,#833AB4)">C</div>
+        <div>
+          <div class="wa-name">Camila</div>
+          <div class="wa-info">Loja online · Curitiba, PR</div>
+        </div>
+      </div>
+      <div class="wa-msgs">
+        <div class="wa-bubble recv">
+          Gente, esse mês eu fechei 34 vendas só de direct no Instagram. Antes eu não tinha tempo pra ver tudo, fico só pensando quantas vendas eu já perdi 🥲
+          <span class="wa-time">10:18 ✓✓</span>
+        </div>
+        <div class="wa-bubble sent">
+          Isso é incrível! E você gerencia tudo pelo uPixel?
+          <span class="wa-time">10:20 ✓✓</span>
+        </div>
+        <div class="wa-bubble recv">
+          Sim! Tudo num lugar só. Não perco mais nada 🔥
+          <span class="wa-time">10:21 ✓✓</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat 03 -->
+    <div class="wa-card">
+      <div class="wa-header">
+        <div class="wa-avatar" style="background:linear-gradient(135deg,#00D4A0,#00a37a)">T</div>
+        <div>
+          <div class="wa-name">Thiago</div>
+          <div class="wa-info">Consultoria · Belo Horizonte, MG</div>
+        </div>
+      </div>
+      <div class="wa-msgs">
+        <div class="wa-bubble recv">
+          Ontem fiz uma venda de R$3500 por causa do follow up. Cliente sumiu mas configurei pra mandar mensagem todos os dias. Consegui reunir com o cara e fechamos!!!
+          <span class="wa-time">09:14 ✓✓</span>
+        </div>
+        <div class="wa-bubble sent">
+          Notícia boaa demais Thiago! Vamos pra cima!
+          <span class="wa-time">09:15 ✓✓</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- COMO FUNCIONA -->
+<div class="section fade-up">
+  <div class="section-header">
+    <div class="tag">Como funciona</div>
+    <h2>Ativo em minutos, não em semanas</h2>
+  </div>
+  <div style="background:var(--u-card);border:1px solid var(--u-border);border-radius:16px;overflow:hidden">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h4>Crie sua conta</h4>
+        <p>Setup guiado. Sem instalar nada. 100% na nuvem.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h4>Conecte seus canais</h4>
+        <p>WhatsApp via QR Code, Instagram, Gmail em poucos cliques.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h4>Importe seus leads</h4>
+        <p>CSV, via API ou migre do Kommo automaticamente.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h4>Ative as automações</h4>
+        <p>Templates prontos ou crie o seu no builder visual drag-and-drop.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INTEGRAÇÕES -->
+<div class="section-sm fade-up">
+  <div class="section-header">
+    <h2>Integra com o que você já usa</h2>
+  </div>
+  <div class="integ-grid">
+    <div class="integ-badge">WhatsApp Business</div>
+    <div class="integ-badge">Evolution API</div>
+    <div class="integ-badge">Instagram DM</div>
+    <div class="integ-badge">Gmail</div>
+    <div class="integ-badge">Facebook Messenger</div>
+    <div class="integ-badge">Zapier</div>
+    <div class="integ-badge">Make (Integromat)</div>
+    <div class="integ-badge">Google Calendar</div>
+    <div class="integ-badge">Google Sheets</div>
+    <div class="integ-badge">Stripe</div>
+    <div class="integ-badge">MercadoPago</div>
+    <div class="integ-badge">Hotmart</div>
+    <div class="integ-badge">Kommo</div>
+    <div class="integ-badge">RD Station</div>
+    <div class="integ-badge">HubSpot</div>
+    <div class="integ-badge">SendGrid</div>
+    <div class="integ-badge">AWS SES</div>
+    <div class="integ-badge">Supabase</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- COMPARATIVO -->
+<div class="section fade-up">
+  <div class="section-header">
+    <div class="tag">Comparativo</div>
+    <h2>Por que uPixel e não as outras opções?</h2>
+  </div>
+  <div class="compare-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th style="width:36%">Recurso</th>
+          <th class="upixel">uPixel</th>
+          <th>Kommo</th>
+          <th>Zendesk</th>
+          <th>Solução caseira</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="feat-name">WhatsApp nativo e estável</td><td class="yes">✓</td><td class="partial">Parcial</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Resposta automática 24/7</td><td class="yes">✓</td><td class="no">✗</td><td class="partial">Básico</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Follow-up automático</td><td class="yes">✓</td><td class="partial">Limitado</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Disparos em massa anti-bloqueio</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="partial">Complexo</td></tr>
+        <tr><td class="feat-name">IA com RAG contextual</td><td class="yes">✓</td><td class="no">✗</td><td class="partial">Básico</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Multi-canal unificado (6 canais)</td><td class="yes">✓</td><td class="partial">Alguns</td><td class="yes">✓</td><td class="no">✗</td></tr>
+        <tr><td class="feat-name">Preço acessível para PMEs</td><td class="yes">✓</td><td class="no">$$$</td><td class="no">$$$</td><td class="partial">Custo oculto</td></tr>
+        <tr><td class="feat-name">LGPD + suporte em PT-BR</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- PLANOS -->
+<div class="section fade-up" id="planos">
+  <div class="section-header">
+    <div class="tag">Planos</div>
+    <h2>Seu período de teste acabou,<br>mas seus leads não esperam!</h2>
+    <p>Escolha o plano certo para sua operação. Cancele quando quiser.</p>
+  </div>
+
+  <!-- Pricing toggle -->
+  <div class="pricing-tabs" id="pricingTabs">
+    <button class="pricing-tab active" data-period="mensal" onclick="setPeriod('mensal')">Mensal</button>
+    <button class="pricing-tab" data-period="trimestral" onclick="setPeriod('trimestral')">Trimestral <small style="color:var(--u-accent2);font-size:.7em">−10%</small></button>
+    <button class="pricing-tab" data-period="semestral" onclick="setPeriod('semestral')">Semestral <small style="color:var(--u-accent2);font-size:.7em">−15%</small></button>
+    <button class="pricing-tab" data-period="anual" onclick="setPeriod('anual')">Anual <small style="color:var(--u-accent2);font-size:.7em">−20%</small></button>
+  </div>
+
+  <div class="pricing-grid">
+    <!-- STARTER -->
+    <div class="plan">
+      <div class="plan-name">Starter</div>
+      <div class="plan-price" id="price-starter">R$ 149 <span>/mês</span></div>
+      <div class="plan-meta"><strong>2 usuários</strong> · <strong>2.000 leads</strong></div>
+      <div class="plan-desc">Para quem está começando ou tem operação pequena</div>
+      <ul>
+        <li>Inbox unificado (WPP + IG + FB)</li>
+        <li>CRM básico + Pipeline</li>
+        <li>Respostas automáticas</li>
+        <li>Relatórios básicos</li>
+        <li class="muted">Disparos em massa</li>
+        <li class="muted">Automações avançadas</li>
+        <li class="muted">IA / Alexandria</li>
+      </ul>
+      <button class="btn-plan default" onclick="sendPrompt('Quero assinar o plano Starter do uPixel CRM')">Assinar o Starter →</button>
+    </div>
+
+    <!-- PRO -->
+    <div class="plan featured">
+      <div class="plan-popular">Mais popular</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price" id="price-pro">R$ 297 <span>/mês</span></div>
+      <div class="plan-meta"><strong>6 usuários</strong> · <strong>10.000 leads</strong></div>
+      <div class="plan-desc">Para operações comerciais ativas com time de vendas</div>
+      <ul>
+        <li>Tudo do Starter</li>
+        <li>Disparos em massa ilimitados</li>
+        <li>Automações visuais completas</li>
+        <li>IA + Alexandria (RAG)</li>
+        <li>API REST pública</li>
+        <li>Relatórios avançados + export CSV</li>
+        <li>Suporte prioritário</li>
+      </ul>
+      <button class="btn-plan accent btn-pulse" onclick="sendPrompt('Quero assinar o plano Pro do uPixel CRM')">Assinar o Pro →</button>
+    </div>
+
+    <!-- BUSINESS -->
+    <div class="plan">
+      <div class="plan-name">Business</div>
+      <div class="plan-price" id="price-business">R$ 397 <span>/mês</span></div>
+      <div class="plan-meta"><strong>10+ usuários</strong> · <strong>50.000 leads</strong></div>
+      <div class="plan-desc">Para operações grandes, agências e white-label</div>
+      <ul>
+        <li>Tudo do Pro</li>
+        <li>Tudo ilimitado</li>
+        <li>White-label completo</li>
+        <li>SLA garantido</li>
+        <li>Suporte dedicado</li>
+        <li>Multi-tenant avançado</li>
+        <li>Onboarding personalizado</li>
+      </ul>
+      <button class="btn-plan default" onclick="sendPrompt('Quero assinar o plano Business do uPixel CRM')">Assinar o Business →</button>
+    </div>
+  </div>
+
+  <div class="pricing-note">
+    Ficou com alguma dúvida? <a href="#" onclick="sendPrompt('Tenho dúvidas sobre os planos do uPixel CRM. Pode me ajudar?');return false">Falar com o assistente →</a>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FAQ -->
+<div class="section fade-up" id="faq">
+  <div class="section-header">
+    <div class="tag">FAQ</div>
+    <h2>Perguntas frequentes</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">O uPixel funciona com WhatsApp pessoal ou precisa do WhatsApp Business?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">O uPixel suporta ambos: Evolution API (conecta qualquer número via QR Code, inclusive pessoal) e a Meta Official API (WhatsApp Business com CNPJ). Você escolhe o modelo conforme sua operação e volume.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Em quanto tempo vou ver resultado?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">A maioria dos clientes reporta diferença na primeira semana — especialmente nas respostas automáticas e no follow-up. Leads que antes esfriavam passam a receber atenção imediata, e isso se traduz em mais conversões rapidamente.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Posso migrar minha base do Kommo para o uPixel?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">Sim. O uPixel tem compatibilidade nativa com Kommo: importação via JSON, mapeamento automático de triggers e ações, e migração zero-downtime. Você não perde histórico nem configurações.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">O sistema pode ser bloqueado pelo WhatsApp por uso de disparos?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">O uPixel inclui sistema anti-bloqueio com throttling configurável, intervalo aleatório entre envios, rotação de instâncias e detecção automática de números inválidos. Para máxima segurança, recomendamos a Meta Official API com templates aprovados.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Preciso de um developer para usar as automações?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">Não. O builder de automações é completamente drag-and-drop. Você cria fluxos com IF/ELSE, loops, delays e integrações de API sem escrever uma linha de código. Há também templates prontos para os casos de uso mais comuns.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Como funciona o período de teste?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">14 dias com acesso completo ao plano Pro, sem precisar de cartão de crédito. Após o período, você escolhe o plano mais adequado ou cancela sem custo algum.</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- CTA FINAL (Upgrade Banner style) -->
+<div class="section fade-up">
+  <div class="demo-banner" style="background:linear-gradient(135deg,rgba(0,212,160,.1),rgba(79,110,255,.12));border-color:rgba(0,212,160,.3)">
+    <div class="float-icons">
+      <span class="float-icon">🔥</span>
+      <span class="float-icon">⚡</span>
+      <span class="float-icon">💬</span>
+      <span class="float-icon">📱</span>
+      <span class="float-icon">📈</span>
+      <span class="float-icon">🎯</span>
+    </div>
+    <div class="demo-banner-inner">
+      <div class="tag badge-green" style="margin:0 auto 1.25rem;display:inline-flex">Comece hoje</div>
+      <h2>Teste grátis por 14 dias</h2>
+      <p>Descubra como o uPixel transforma seu WhatsApp e redes sociais na sua maior fonte de clientes!</p>
+      <button class="btn-primary btn-pulse" style="font-size:16px;padding:16px 40px" onclick="sendPrompt('Quero começar meu teste gratuito de 14 dias no uPixel CRM agora')">🔥 Começar agora →</button>
+      <div class="demo-guarantees">
+        <span>Sem cartão de crédito</span>
+        <span>Cancela quando quiser</span>
+        <span>Setup em 5 minutos</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>© 2025 uPixel CRM — Tecnologia de vendas para times que levam resultado a sério.</p>
+  <p style="margin-top:8px">Desenvolvido com Supabase · TypeScript · React · Edge Functions</p>
+</div>
+
+</div><!-- .lp -->
+
+<!-- FAB - Floating Action Button -->
+<div class="fab-demo" id="fabDemo">
+  <button class="fab-btn" onclick="sendPrompt('Quero agendar uma apresentação gratuita do uPixel CRM')">
+    <span>📅</span>
+    <span class="fab-text">Apresentação gratuita</span>
+  </button>
+</div>
+
+<script>
+// FAQ accordion (close others on open)
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.faq-item').forEach(other => {
+      if(other !== this) other.classList.remove('open');
+    });
+  });
+});
+
+// FAB visibility after 30% scroll
+window.addEventListener('scroll', function() {
+  const scrollPct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+  document.getElementById('fabDemo').classList.toggle('visible', scrollPct > 30);
+}, { passive: true });
+
+// Scroll fade-up animation
+const fadeObserver = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
+    if(entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      fadeObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.12 });
+document.querySelectorAll('.fade-up').forEach(function(el) {
+  fadeObserver.observe(el);
+});
+
+// Pricing period toggle
+var prices = {
+  starter:  { mensal: 149, trimestral: 134, semestral: 127, anual: 119 },
+  pro:      { mensal: 297, trimestral: 267, semestral: 252, anual: 238 },
+  business: { mensal: 397, trimestral: 357, semestral: 337, anual: 318 }
+};
+
+function setPeriod(period) {
+  document.querySelectorAll('.pricing-tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.period === period);
+  });
+  var suffix = period === 'mensal' ? '/mês' : '/mês*';
+  ['starter','pro','business'].forEach(function(plan) {
+    var el = document.getElementById('price-' + plan);
+    el.innerHTML = 'R$ ' + prices[plan][period] + ' <span>' + suffix + '</span>';
+  });
+  var note = document.querySelector('.pricing-note');
+  if(period !== 'mensal') {
+    note.innerHTML = '* Cobrado ' + {trimestral:'trimestralmente',semestral:'semestralmente',anual:'anualmente'}[period] + '. <a href="#" onclick="sendPrompt(\'Tenho dúvidas sobre os planos do uPixel CRM\');return false">Falar com o assistente →</a>';
+  } else {
+    note.innerHTML = 'Ficou com alguma dúvida? <a href="#" onclick="sendPrompt(\'Tenho dúvidas sobre os planos do uPixel CRM\');return false">Falar com o assistente →</a>';
+  }
+}
+</script>

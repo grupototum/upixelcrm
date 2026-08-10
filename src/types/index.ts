@@ -1,0 +1,214 @@
+import type { Node, Edge } from 'reactflow';
+
+export interface Client {
+  id: string;
+  name: string;
+}
+
+export interface User {
+  id: string;
+  client_id: string;
+  name: string;
+  email: string;
+  role: "supervisor" | "atendente" | "vendedor" | "master";
+  avatar?: string;
+}
+
+export interface Pipeline {
+  id: string;
+  client_id: string;
+  name: string;
+  columns: PipelineColumn[];
+}
+
+export interface PipelineColumn {
+  id: string;
+  pipeline_id: string;
+  name: string;
+  order: number;
+  color?: string;
+  /** 2.7: o que significa um lead estar nesta etapa. Máx 300 caracteres. */
+  description?: string;
+}
+
+export interface Lead {
+  id: string;
+  client_id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  company?: string;
+  position?: string;
+  city?: string;
+  notes?: string;
+  notes_local?: string;
+  custom_fields?: Record<string, any>;
+  origin?: string;
+  tags: string[];
+  column_id: string;
+  responsible_id?: string;
+  value?: number;
+  segmento?: string;
+  faturamento_mensal?: number;
+  category?: "lead" | "partner" | "collaborator";
+  // UTM & ads attribution
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  ad_campaign_id?: string;
+  ad_adset_id?: string;
+  ad_id?: string;
+  fbclid?: string;
+  gclid?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Task {
+  id: string;
+  client_id: string;
+  lead_id?: string;
+  title: string;
+  description?: string;
+  status: "pending" | "completed" | "overdue";
+  priority?: "low" | "medium" | "high" | "urgent";
+  due_date?: string;
+  assigned_to?: string;
+  created_at: string;
+  /** 2.6: desfecho registrado na conclusão. */
+  result?: string;
+  completed_at?: string;
+  completed_by?: string;
+}
+
+export interface Automation {
+  id: string;
+  client_id: string;
+  pipeline_id?: string;
+  column_id?: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  trigger: AutomationTrigger;
+  actions: AutomationAction[];
+  exceptions: AutomationException[];
+}
+
+export interface ComplexAutomation {
+  id: string;
+  client_id: string;
+  name: string;
+  status: string;
+  trigger_type?: string;
+  nodes: Node[];
+  edges: Edge[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type AutomationTrigger = {
+  type: "card_entered" | "time_in_column" | "stage_changed";
+  config?: Record<string, unknown>;
+};
+
+export type AutomationAction = {
+  id?: string;
+  type: "add_tag" | "remove_tag" | "move_column" | "create_task" | "send_message" | "send_template" | "add_ai_agent";
+  config?: Record<string, unknown>;
+  comingSoon?: boolean;
+};
+
+export type AutomationException = {
+  id?: string;
+  type: "has_tag" | "no_tag";
+  config?: Record<string, unknown>;
+};
+
+export interface Tag {
+  id: string;
+  client_id: string;
+  name: string;
+  color: string;
+}
+
+export type CustomFieldType =
+  | 'text' | 'textarea' | 'number' | 'select' | 'multi_select'
+  | 'date' | 'datetime' | 'checkbox' | 'link' | 'radio';
+
+export interface CustomFieldDefinition {
+  id: string;
+  tenant_id: string;
+  name: string;
+  slug: string;
+  field_type: CustomFieldType;
+  options: Array<{ label: string; value: string }>;
+  is_required: boolean;
+  visible_pipelines: string[];
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TagMeta {
+  id: string;
+  tenant_id: string;
+  name: string;
+  color: string;
+  category: string;
+  created_at: string;
+}
+
+export interface TimelineEvent {
+  id: string;
+  lead_id: string;
+  type: "message" | "stage_change" | "note" | "task" | "automation" | "call" | "field_changed";
+  content: string;
+  created_at: string;
+  user_name?: string;
+}
+
+export interface InboxThread {
+  id: string;
+  client_id: string;
+  lead_id: string;
+  lead_name: string;
+  lead_avatar?: string;
+  channel: "whatsapp" | "instagram" | "email" | "webchat";
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+  status: "open" | "archived";
+}
+
+export interface InboxMessage {
+  id: string;
+  thread_id: string;
+  content: string;
+  type: "text" | "audio" | "image" | "file";
+  direction: "inbound" | "outbound";
+  created_at: string;
+  sender_name?: string;
+}
+
+export interface ApiKey {
+  id: string;
+  client_id: string;
+  name: string;
+  token_preview: string;
+  last_used_at?: string;
+  created_at: string;
+  active: boolean;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  client_id: string;
+  url: string;
+  description?: string;
+  events: string[];
+  secret: string;
+  active: boolean;
+  created_at: string;
+}

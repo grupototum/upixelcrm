@@ -124,7 +124,7 @@
 - **Obtido:** `if (!id) return;` dentro do effect — `loading` nunca vira `false` se id é undefined → spinner infinito.
 - **Sugestão de fix:** `if (!id) { navigate('/automations?tab=bots'); return; }` antes do effect ou setar `loading=false`.
 
-#### BUG-011 — Deleção de contato sem confirmação
+#### BUG-011 — Deleção de contato sem confirmação ✅ RESOLVIDO (AlertDialog já implementado)
 - **Tela:** CRM → Contatos
 - **Arquivo:** `src/pages/ContactsPage.tsx:51-58, 151-153`
 - **Fluxo:** Item "Excluir" do dropdown chama `deleteLead` diretamente.
@@ -136,19 +136,19 @@
 
 ### 🟡 MÉDIOS
 
-#### BUG-012 — Navigate durante render no LoginPage
+#### BUG-012 — Navigate durante render no LoginPage ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Login
 - **Arquivo:** `src/pages/LoginPage.tsx:22-25`
 - **Obtido:** `if (isAuthenticated) { navigate("/", ...); return null; }` chamado no corpo do componente → warning React "Cannot update during render".
 - **Sugestão de fix:** mover para `useEffect`.
 
-#### BUG-013 — `catch {}` engole erro original no signup
+#### BUG-013 — `catch {}` engole erro original no signup ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Cadastro
 - **Arquivo:** `src/pages/SignupPage.tsx:162-169`
 - **Obtido:** `catch { ... setError("Erro inesperado..."); }` sem `(e)` nem log; depuração impossível em produção.
 - **Sugestão de fix:** `catch (e) { logger.error(e); ... }`.
 
-#### BUG-014 — Loading fake com `setTimeout` no CRM/Contacts
+#### BUG-014 — Loading fake com `setTimeout` no CRM/Contacts ✅ RESOLVIDO (2026-06-19)
 - **Tela:** CRM Pipeline / Contatos
 - **Arquivos:** `src/pages/CRMPage.tsx:95-98`, `src/pages/ContactsPage.tsx:31-34`
 - **Obtido:** `setTimeout(() => setIsLoading(false), 600)` — skeleton fake mesmo quando dados já estão carregados pelo `AppContext`.
@@ -160,7 +160,7 @@
 - **Obtido:** quando não há tasks pendentes, o `space-y-2` fica vazio (só o header "0 pendentes").
 - **Sugestão de fix:** adicionar `else <p>Nenhuma tarefa pendente</p>`.
 
-#### BUG-016 — `due_date` exibido cru
+#### BUG-016 — `due_date` exibido cru ✅ RESOLVIDO (2026-06-18)
 - **Tela:** Dashboard
 - **Arquivo:** `src/pages/DashboardPage.tsx:233`
 - **Obtido:** `{task.due_date}` impresso como string ISO, sem formatação.
@@ -190,31 +190,31 @@
 - **Obtido:** "Rate Card: Brasil" estático; sem locale do tenant.
 - **Sugestão de fix:** ler do perfil/tenant.
 
-#### BUG-021 — Botão da câmera no avatar sem handler
+#### BUG-021 — Botão da câmera no avatar sem handler ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Perfil
 - **Arquivo:** `src/pages/ProfilePage.tsx:54-56`
 - **Obtido:** botão de câmera sobre avatar sem `onClick` — usuário tenta trocar foto e nada acontece.
 - **Sugestão de fix:** abrir input file ou esconder botão.
 
-#### BUG-022 — Atalhos "Notificações" e "Idioma e Região" sem onClick
+#### BUG-022 — Atalhos "Notificações" e "Idioma e Região" sem onClick ✅ RESOLVIDO (removidos)
 - **Tela:** Perfil
 - **Arquivo:** `src/pages/ProfilePage.tsx:70-75`
 - **Obtido:** dois itens de menu lateral sem handler — UX confusa.
 - **Sugestão de fix:** rotear para anchors da própria página ou esconder.
 
-#### BUG-023 — `setProjectId` dead state
+#### BUG-023 — `setProjectId` dead state ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Integrações
 - **Arquivo:** `src/pages/IntegrationsPage.tsx:51,82`
 - **Obtido:** `projectId` é setado mas nunca lido no JSX.
 - **Sugestão de fix:** remover ou usar.
 
-#### BUG-024 — CRMPage `deleteLead` chamado sem confirmação em alguns pontos
+#### BUG-024 — CRMPage `deleteLead` chamado sem confirmação em alguns pontos ✅ RESOLVIDO (BulkActionsBar e InboxPage têm AlertDialog)
 - **Tela:** CRM Pipeline
 - **Arquivo:** `src/pages/CRMPage.tsx:62`
 - **Obtido:** `deleteLead` destruturado e passado adiante; cards do Kanban podem chamar destrutivo sem AlertDialog em todos os pontos (verificar `KanbanColumn`/`SortableLeadCard`).
 - **Sugestão de fix:** envolver via wrapper que sempre pede confirmação.
 
-#### BUG-025 — "Nova Tarefa" do LeadProfile sem validação de data
+#### BUG-025 — "Nova Tarefa" do LeadProfile sem validação de data ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Perfil do Lead
 - **Arquivo:** `src/pages/LeadProfilePage.tsx:651-653`
 - **Obtido:** input `type=date` sem `min` — aceita datas passadas.
@@ -224,36 +224,36 @@
 
 ### 🟢 LEVES
 
-#### BUG-026 — Show/hide password sem aria-label
+#### BUG-026 — Show/hide password sem aria-label ✅ RESOLVIDO (2026-06-18)
 - **Tela:** Login
 - **Arquivo:** `src/pages/LoginPage.tsx:94-102`
 - **Sugestão de fix:** `aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}`.
 
-#### BUG-027 — Pluralização errada "integraçãoões"
+#### BUG-027 — Pluralização errada "integraçãoões" ✅ RESOLVIDO (2026-06-18)
 - **Tela:** Integrações
 - **Arquivo:** `src/pages/IntegrationsPage.tsx:125`
 - **Obtido:** `integração{activeCount !== 1 ? "ões" : ""} ativa{activeCount !== 1 ? "s" : ""}` → quando há mais de 1 fica "integraçãoões".
 - **Sugestão de fix:** trocar por `{activeCount !== 1 ? "integrações ativas" : "integração ativa"}`.
 
-#### BUG-028 — ChevronRight redefinido localmente
+#### BUG-028 — ChevronRight redefinido localmente ✅ RESOLVIDO (2026-06-18)
 - **Tela:** CRM Contatos
 - **Arquivo:** `src/pages/ContactsPage.tsx:210-227`
 - **Obtido:** função `ChevronRight` redefinida apesar de `lucide-react` já fornecer o ícone.
 - **Sugestão de fix:** `import { ChevronRight } from 'lucide-react'`.
 
-#### BUG-029 — `Index.tsx` placeholder do Lovable abandonado
+#### BUG-029 — `Index.tsx` placeholder do Lovable abandonado ✅ RESOLVIDO (já deletado)
 - **Tela:** —
 - **Arquivo:** `src/pages/Index.tsx`
 - **Obtido:** arquivo inteiro é placeholder ("IMPORTANT: Fully REPLACE this") com `<img src="/placeholder.svg" />`. Não está roteado, mas confunde manutenção.
 - **Sugestão de fix:** deletar.
 
-#### BUG-030 — Dead code em BotBuilderPage
+#### BUG-030 — Dead code em BotBuilderPage ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Bot Builder
 - **Arquivo:** `src/pages/BotBuilderPage.tsx:21-70`
 - **Obtido:** componente `BuilderInner` definido e nunca usado; `void handleSave; void handleToggle` para silenciar lint.
 - **Sugestão de fix:** remover.
 
-#### BUG-031 — Emoji decorativo em produção
+#### BUG-031 — Emoji decorativo em produção ✅ RESOLVIDO (2026-06-18)
 - **Tela:** WhatsApp Disparos
 - **Arquivo:** `src/pages/WhatsAppBroadcastPage.tsx:28`
 - **Obtido:** título "Aumente seu ROI com Envios Oficiais 🚀". CLAUDE.md proíbe emojis nesta base.
@@ -265,13 +265,13 @@
 - **Obtido:** banner "Automações avançadas em breve" abaixo da lista funcional confunde o usuário.
 - **Sugestão de fix:** colocar em accordion ou seção separada.
 
-#### BUG-033 — Subtítulo dos KPIs no Dashboard inconsistente com 0 leads
+#### BUG-033 — Subtítulo dos KPIs no Dashboard inconsistente com 0 leads ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Dashboard
 - **Arquivo:** `src/pages/DashboardPage.tsx:50-51`
 - **Obtido:** `"—"` aparece quando não há leads; inconsistente entre cards (alguns mostram `0 últimos 30d`).
 - **Sugestão de fix:** padronizar para "0%".
 
-#### BUG-034 — `formatRelativeTime` aceita datas futuras silenciosamente
+#### BUG-034 — `formatRelativeTime` aceita datas futuras silenciosamente ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Dashboard
 - **Arquivo:** `src/pages/DashboardPage.tsx:245-254`
 - **Obtido:** Se `diff` for negativo (data futura), cai em "Agora" sem tratamento.
@@ -426,13 +426,13 @@
 - **Obtido:** Mesmo padrão N+1 / fetch-all do R-001 para tasks
 - **Severidade:** 🟡
 
-#### R-005 — `/dashboard` retorna 404
+#### R-005 — `/dashboard` retorna 404 ✅ RESOLVIDO (2026-06-18)
 - **Tela:** rota `/dashboard`
 - **Esperado:** Mesma tela do Dashboard (`/`)
 - **Obtido:** Página 404 ("Oops! Page not found")
 - **Severidade:** 🟡 (URL bookmarcável esperada quebrada)
 
-#### R-007 — Botão "Em breve" no toolbar do Inbox
+#### R-007 — Botão "Em breve" no toolbar do Inbox ✅ RESOLVIDO (2026-06-19)
 - **Tela:** Inbox → painel de resposta
 - **Obtido:** Botão literalmente rotulado "Em breve", sem feedback ao clique
 - **Severidade:** 🟡
@@ -487,7 +487,7 @@
 - **Tela:** Reports
 - **Severidade:** 🟡
 
-#### R-032 — Copy "Seu período de teste acabou" pra visitante deslogado
+#### R-032 — Copy "Seu período de teste acabou" pra visitante deslogado ✅ RESOLVIDO (copy removido)
 - **Tela:** Landing
 - **Obtido:** Texto na seção PLANOS afirma "Seu período de teste acabou, mas seus leads não esperam!" — exibido para visitante sem cookie, sem trial, sem conta
 - **Severidade:** 🟡
@@ -496,7 +496,7 @@
 
 ### 🟢 LEVES
 
-#### R-006 — Página 404 em inglês
+#### R-006 — Página 404 em inglês ✅ RESOLVIDO (2026-06-18)
 - **Tela:** rota inexistente
 - **Obtido:** "Oops! Page not found", "Return to Home" enquanto resto do app é PT-BR
 - **Severidade:** 🟢
@@ -506,7 +506,7 @@
 - **Obtido:** ~16 botões (cards de conversa, ícones do header e do toolbar) sem `aria-label`
 - **Severidade:** 🟢
 
-#### R-018 — Typo "11 automaçãoões"
+#### R-018 — Typo "11 automaçãoões" ✅ RESOLVIDO (pluralização correta no código atual)
 - **Tela:** Automações (cabeçalho da contagem)
 - **Obtido:** Sufixo duplicado: "automaç**ãoões**"
 - **Severidade:** 🟢

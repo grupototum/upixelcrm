@@ -1,0 +1,118 @@
+import { logger } from "@/lib/logger";
+import { getCurrentSession } from "@/lib/auth-session";
+import { useState, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { getProfileClientId } from "@/services/users";
+import { listIntegrations } from "@/services/integrations";
+
+export interface InstagramConfig {
+  configured: boolean;
+  status: "disconnected" | "connected" | "error";
+  ig_account_id: string;
+  access_token: string;
+  webhook_verify_token: string;
+}
+
+export function useInstagramIntegration() {
+  const [config, setConfig] = useState<InstagramConfig>({
+    configured: false,
+    status: "disconnected",
+    ig_account_id: "",
+    access_token: "",
+    webhook_verify_token: "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      const session = await getCurrentSession();
+      if (!session) return;
+
+      const clientId = await getProfileClientId(session.user.id);
+      if (!clientId) return;
+
+      const rows = await listIntegrations(clientId, "instagram");
+      const data = rows[0];
+
+      if (data) {
+        setConfig({
+          configured: true,
+          status: data.status as any || "disconnected",
+          ig_account_id: (data.config as any)?.ig_account_id || "",
+          access_token: (data.config as any)?.access_token || "",
+          webhook_verify_token: (data.config as any)?.webhook_verify_token || "",
+        });
+      }
+    } catch (err) {
+      logger.error(err);
+    }
+  }, []);
+
+  const saveConfig = async (ig_account_id: string, access_token: string, webhook_verify_token: string) => {
+    setLoading(true);
+    try {
+      const session = await getCurrentSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const url = `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=save-config`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ ig_account_id, access_token, webhook_verify_token }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save config.");
+      }
+
+      toast.success("Credenciais salvas com sucesso!");
+      await fetchConfig();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar credenciais.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setLoading(true);
+    try {
+      const session = await getCurrentSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const url = `https://${projectId}.supabase.co/functions/v1/instagram-proxy?action=disconnect`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to disconnect.");
+      }
+
+      toast.success("Integração desconectada.");
+      await fetchConfig();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao desconectar.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  return { config, loading, saveConfig, fetchConfig, disconnect };
+}

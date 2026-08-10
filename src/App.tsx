@@ -9,6 +9,7 @@ import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Eager: telas de entrada (raiz, login, dashboard) e fallbacks — evita flash de loading.
 import DashboardPage from "./pages/DashboardPage";
@@ -18,6 +19,8 @@ import LandingPage from "./pages/LandingPage";
 import LandingPageEN from "./pages/LandingPageEN";
 import SignupPage from "./pages/SignupPage";
 import TenantNotFoundPage from "./pages/TenantNotFoundPage";
+import WorkspaceLoginPage from "./pages/WorkspaceLoginPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 
 // Lazy: páginas internas — code-split por rota.
 const InboxPage = lazy(() => import("./pages/InboxPage"));
@@ -27,8 +30,10 @@ const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
 const IntelligencePage = lazy(() => import("./pages/IntelligencePage"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const SLAPage = lazy(() => import("./pages/SLAPage"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
 const ImportPage = lazy(() => import("./pages/ImportPage"));
+const ImportHistoryPage = lazy(() => import("./pages/ImportHistoryPage"));
 const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
 const UsersPage = lazy(() => import("./pages/UsersPage"));
 const LeadProfilePage = lazy(() => import("./pages/LeadProfilePage"));
@@ -55,7 +60,6 @@ const MasterIntegrationsPage = lazy(() => import("./pages/MasterIntegrationsPage
 // Privacy Policy / Terms / Data Deletion Status são servidos como HTML estático
 // pelo nginx (public/privacy-policy/index.html, etc.) — Meta crawler precisa
 // de HTML sem JS pra validar App Review.
-import { getTenantUrl } from "@/utils/tenant";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 import { useAutomationWorker } from "./hooks/useAutomationWorker";
 
@@ -67,19 +71,20 @@ function RouteFallback() {
   );
 }
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+    },
+    mutations: { retry: 1 },
+  },
+});
 
 function AutomationWorkerRunner() {
   useAutomationWorker();
-  return null;
-}
-
-function RedirectToMasterLogin() {
-  // Acessar /login na raiz manda o usuário pro app do tenant master,
-  // que é onde o formulário de login realmente existe.
-  if (typeof window !== "undefined") {
-    window.location.replace(`${getTenantUrl("master")}/login`);
-  }
   return null;
 }
 
@@ -109,9 +114,10 @@ function AppRoutes() {
           <Route path="/signup" element={<Navigate to="/cadastro" replace />} />
           <Route path="/sign-up" element={<Navigate to="/cadastro" replace />} />
           <Route path="/register" element={<Navigate to="/cadastro" replace />} />
-          {/* /login no domínio raiz não tem formulário próprio: manda pro tenant master,
-              que é onde o usuário admin entra. Tenants de cliente acessam pelo próprio subdomínio. */}
-          <Route path="/login" element={<RedirectToMasterLogin />} />
+          {/* /login no domínio raiz não tem tenant no contexto: mostra uma página
+              orientando a pessoa a acessar pelo subdomínio da própria empresa
+              (com atalho pra digitar o workspace e ir direto). */}
+          <Route path="/login" element={<WorkspaceLoginPage />} />
           {/* Páginas legais (/privacy-policy, /terms-of-service, /data-deletion-status)
               são HTMLs estáticos servidos pelo nginx — não passam pelo React. */}
           <Route path="/en" element={<LandingPageEN />} />
@@ -135,7 +141,10 @@ function AppRoutes() {
               <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                {/* /dashboard é URL bookmarcável esperada — redireciona pra raiz */}
+                <Route path="/dashboard" element={<Navigate to="/" replace />} />
                 <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
                 <Route path="/leads/:id" element={<ProtectedRoute><LeadProfilePage /></ProtectedRoute>} />
@@ -147,6 +156,7 @@ function AppRoutes() {
                 <Route path="/intelligence" element={<ProtectedRoute requiredPermission="intelligence.view"><IntelligencePage /></ProtectedRoute>} />
                 <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><ReportsPage /></ProtectedRoute>} />
+                <Route path="/sla" element={<ProtectedRoute requiredPermission="reports.view"><SLAPage /></ProtectedRoute>} />
                 <Route path="/integrations" element={<ProtectedRoute requiredPermission="settings.view"><IntegrationsPage /></ProtectedRoute>} />
                 <Route path="/google" element={<ProtectedRoute><GooglePage /></ProtectedRoute>} />
                 {/* WhatsApp tem 3 entradas — todas usam os MESMOS componentes
@@ -160,6 +170,7 @@ function AppRoutes() {
                 <Route path="/auth/facebook/callback" element={<ProtectedRoute><FacebookOAuthCallbackPage /></ProtectedRoute>} />
                 <Route path="/whatsapp/broadcast" element={<ProtectedRoute><WhatsAppBroadcastPage /></ProtectedRoute>} />
                 <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
+                <Route path="/import/history" element={<ProtectedRoute><ImportHistoryPage /></ProtectedRoute>} />
                 <Route path="/duplicates" element={<ProtectedRoute><DuplicatesPage /></ProtectedRoute>} />
                 <Route path="/users" element={<ProtectedRoute requiredPermission="users.view"><UsersPage /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
@@ -185,11 +196,13 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <ThemeProvider>
-    <TenantProvider>
-      <AppRoutes />
-    </TenantProvider>
-  </ThemeProvider>
+  <ErrorBoundary>
+    <ThemeProvider>
+      <TenantProvider>
+        <AppRoutes />
+      </TenantProvider>
+    </ThemeProvider>
+  </ErrorBoundary>
 );
 
 export default App;

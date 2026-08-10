@@ -1,0 +1,145 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { getCurrentSession } from "@/lib/auth-session";
+import { toast } from "sonner";
+
+interface GoogleStatus {
+  connected: boolean;
+  email: string | null;
+  name: string | null;
+  loading: boolean;
+  credentialsConfigured: boolean;
+}
+
+export function useGoogleIntegration() {
+  const [status, setStatus] = useState<GoogleStatus>({
+    connected: false,
+    email: null,
+    name: null,
+    loading: true,
+    credentialsConfigured: false,
+  });
+
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+  const invokeFunction = useCallback(async (action: string, body?: Record<string, unknown>, extraParams?: Record<string, string>) => {
+    const session = await getCurrentSession();
+    if (!session) throw new Error("Not authenticated");
+
+    const params = new URLSearchParams({ action, ...extraParams });
+    const url = `https://${projectId}.supabase.co/functions/v1/google-oauth?${params}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Request failed");
+    }
+    return res.json();
+  }, [projectId]);
+
+  const checkStatus = useCallback(async () => {
+    try {
+      const data = await invokeFunction("status");
+      setStatus({
+        connected: data.connected,
+        email: data.email,
+        name: data.name,
+        loading: false,
+        credentialsConfigured: data.credentials_configured ?? false,
+      });
+    } catch {
+      setStatus(s => ({ ...s, loading: false }));
+    }
+  }, [invokeFunction]);
+
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    if (code && window.location.pathname === "/google") {
+      window.history.replaceState({}, "", "/google");
+
+      (async () => {
+        try {
+          toast.loading("Finalizando conexão com Google...");
+          const redirectUri = `${window.location.origin}/google`;
+          const data = await invokeFunction("callback", { code, redirect_uri: redirectUri });
+          toast.dismiss();
+          toast.success(`Google conectado: ${data.email}`);
+          setStatus(s => ({ ...s, connected: true, email: data.email, name: data.name, loading: false }));
+        } catch (err: any) {
+          toast.dismiss();
+          toast.error(`Erro ao conectar: ${err.message}`);
+        }
+      })();
+    }
+  }, [invokeFunction]);
+
+  const saveCredentials = useCallback(async (googleClientId: string, googleClientSecret: string) => {
+    await invokeFunction("save-credentials", {
+      google_client_id: googleClientId,
+      google_client_secret: googleClientSecret,
+    });
+    setStatus(s => ({ ...s, credentialsConfigured: true }));
+  }, [invokeFunction]);
+
+  const connect = useCallback(async (opts?: { includeAds?: boolean }) => {
+    try {
+      const redirectUri = `${window.location.origin}/google`;
+      // Lê ?adwords=1 da URL atual como fallback — assim GoogleAdsPage pode
+      // simplesmente navegar pra /google?adwords=1 sem precisar passar opts.
+      const params = new URLSearchParams(window.location.search);
+      const includeAds = opts?.includeAds ?? params.get("adwords") === "1";
+      const data = await invokeFunction("auth-url", {
+        redirect_uri: redirectUri,
+        ...(includeAds ? { include_ads: true } : {}),
+      });
+      window.location.href = data.url;
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  }, [invokeFunction]);
+
+  const disconnect = useCallback(async () => {
+    try {
+      await invokeFunction("disconnect");
+      setStatus(s => ({ ...s, connected: false, email: null, name: null, loading: false }));
+      toast.info("Conta Google desconectada.");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  }, [invokeFunction]);
+
+  const fetchGmailList = useCallback(() => invokeFunction("gmail-list"), [invokeFunction]);
+  const fetchEmailMessage = useCallback((id: string) => invokeFunction("gmail-get", undefined, { id }), [invokeFunction]);
+  const fetchCalendarList = useCallback(() => invokeFunction("calendar-list"), [invokeFunction]);
+  const fetchDriveList = useCallback(() => invokeFunction("drive-list"), [invokeFunction]);
+  const sendEmail = useCallback((to: string, subject: string, body: string) =>
+    invokeFunction("gmail-send", { to, subject, body }), [invokeFunction]);
+
+  return {
+    ...status,
+    connect,
+    disconnect,
+    saveCredentials,
+    fetchGmailList,
+    fetchEmailMessage,
+    fetchCalendarList,
+    fetchDriveList,
+    sendEmail,
+    refresh: checkStatus,
+  };
+}

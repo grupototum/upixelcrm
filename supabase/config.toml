@@ -17,5 +17,12 @@ verify_jwt = false
 [functions.whatsapp-cloud-webhook]
 verify_jwt = false
 
+# PC-031: faltava aqui — sem a entrada, o default exige JWT e a Meta não
+# consegue chamar a função, deixando a integração do Messenger morta.
+# Seguro: a função valida X-Hub-Signature-256 por conta própria
+# (facebook-messenger-webhook/index.ts:24,94).
+[functions.facebook-messenger-webhook]
+verify_jwt = false
+
 [functions.data-deletion-callback]
 verify_jwt = false
