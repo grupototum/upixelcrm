@@ -627,7 +627,8 @@ async function upsertConversationAndMessage(
   adminClient: any, clientId: string, phone: string, senderName: string,
   finalContent: string, msgType: string, msgMeta: Record<string, unknown>,
   channel: string, config: Record<string, any>, messageId?: string,
-  integrationId?: string
+  integrationId?: string,
+  direction: "inbound" | "outbound" = "inbound"
 ) {
   const displayText = buildDisplayText(msgType, finalContent, msgMeta);
 
@@ -662,7 +663,7 @@ async function upsertConversationAndMessage(
 
   const msgPayload = {
     client_id: clientId, conversation_id: convId, content: finalContent, type: msgType,
-    direction: "inbound", sender_name: senderName,
+    direction, sender_name: senderName,
     metadata: { whatsapp_message_id: messageId, ...msgMeta },
   };
   const { error: msgError } = await safeInsertMessage(adminClient, msgPayload);
@@ -703,7 +704,13 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   const instanceName = body.instance;
   const messageData = body.data;
 
-  if (!messageData || messageData.key?.fromMe) return { ok: true, skipped: "own_message" };
+  if (!messageData) return { ok: true, skipped: "empty_payload" };
+
+  // 2.1: mensagens enviadas pelo próprio número (fromMe) eram descartadas aqui,
+  // então o que era mandado pelo celular não aparecia no inbox. Agora são
+  // gravadas como outbound. Elas NÃO disparam automação nem bot — senão a
+  // resposta do próprio bot voltaria como fromMe e se realimentaria em loop.
+  const isFromMe = !!messageData.key?.fromMe;
 
   const remoteJid = messageData.key?.remoteJid || "";
   const isGroup = remoteJid.endsWith("@g.us");
@@ -773,7 +780,9 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   const integrationId = match.id as string;
   const matchConfig = (match.config || {}) as Record<string, any>;
   const phone = remoteJid.replace("@s.whatsapp.net", "");
-  const senderName = messageData.pushName || phone;
+  // Em fromMe o remoteJid é o DESTINATÁRIO e o pushName é o nome do próprio
+  // número conectado — usá-lo como sender_name renomearia o lead.
+  const senderName = isFromMe ? "Você" : (messageData.pushName || phone);
 
   const { content, type: msgType, metadata: msgMeta } = extractMessageContent(messageData);
 
@@ -787,8 +796,13 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
 
   const convId = await upsertConversationAndMessage(
     adminClient, clientId, phone, senderName, finalContent, msgType, msgMeta,
-    "whatsapp", matchConfig, messageData.key?.id, integrationId
+    "whatsapp", matchConfig, messageData.key?.id, integrationId,
+    isFromMe ? "outbound" : "inbound"
   );
+
+  // 2.1: mensagem própria entra no histórico, mas não aciona nada — evita o
+  // loop bot→fromMe→bot e impede que uma resposta do operador reinicie o fluxo.
+  if (isFromMe) return { ok: true, convId, direction: "outbound" };
 
   // Trigger Automations
   if (convId) {
