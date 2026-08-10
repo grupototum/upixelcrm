@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { callerKey, checkRateLimit, limitFromEnv, tooManyRequests } from "../_shared/rateLimit.ts";
 
 // PC-026: a rota Meta Official aceitava qualquer payload sem validar procedência.
 // `verify_jwt = false` + integration_id/instance_name enumeráveis significavam que
@@ -1049,6 +1050,18 @@ Deno.serve(async (req) => {
     const integrationIdFromUrl = url.searchParams.get("integration_id");
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // PC-029: teto por chamador. Default alto de propósito — inbound de WhatsApp
+    // tem picos legítimos, e a checagem falha aberta se o banco não responder.
+    const rl = await checkRateLimit(
+      adminClient,
+      `whatsapp-webhook:${callerKey(req)}`,
+      limitFromEnv("RATE_LIMIT_WHATSAPP_WEBHOOK", 600),
+    );
+    if (!rl.allowed) {
+      console.warn(`[rate-limit] whatsapp-webhook bloqueou ${callerKey(req)} (${rl.hits}/${rl.limit})`);
+      return tooManyRequests(corsHeaders);
+    }
 
     // Detect format: Meta Official API has "object": "whatsapp_business_account"
     if (body.object === "whatsapp_business_account") {

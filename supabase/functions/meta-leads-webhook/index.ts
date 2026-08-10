@@ -11,6 +11,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { callerKey, checkRateLimit, limitFromEnv, tooManyRequests } from "../_shared/rateLimit.ts";
 
 const META_API = "https://graph.facebook.com/v20.0";
 const META_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
@@ -45,6 +46,17 @@ async function verifyMetaSignature(rawBody: string, signatureHeader: string | nu
 }
 
 Deno.serve(async (req) => {
+  // PC-029: teto por chamador. Falha aberta se o banco não responder.
+  const rl = await checkRateLimit(
+    admin,
+    `meta-leads-webhook:${callerKey(req)}`,
+    limitFromEnv("RATE_LIMIT_META_LEADS_WEBHOOK", 300),
+  );
+  if (!rl.allowed) {
+    console.warn(`[rate-limit] meta-leads-webhook bloqueou ${callerKey(req)} (${rl.hits}/${rl.limit})`);
+    return tooManyRequests(corsHeaders);
+  }
+
   // Meta verification handshake (GET)
   if (req.method === "GET") {
     const url = new URL(req.url);
