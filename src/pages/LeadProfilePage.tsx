@@ -54,6 +54,8 @@ interface LeadNote {
   content: string;
   created_at: string;
   user_name: string;
+  /** 2.5: só existe depois da primeira edição — marca a nota como "editado". */
+  updated_at?: string;
 }
 
 export default function LeadProfilePage() {
@@ -71,6 +73,9 @@ export default function LeadProfilePage() {
   const [activeTab, setActiveTab] = useState("dados");
   const [newNote, setNewNote] = useState("");
   const [noteToDelete, setNoteToDelete] = useState<LeadNote | null>(null);
+  // 2.5: edição inline — id da nota aberta e rascunho do texto.
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteDraft, setEditingNoteDraft] = useState("");
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
@@ -159,6 +164,36 @@ export default function LeadProfilePage() {
     await addTimelineEvent({ lead_id: id, type: "note", content: `Nota adicionada: "${newNote.slice(0, 50)}..."`, user_name: "Você" });
     setNewNote("");
   }, [newNote, id, lead, leadNotes, addTimelineEvent, updateLead]);
+
+  const handleStartEditNote = useCallback((note: LeadNote) => {
+    setEditingNoteId(note.id);
+    setEditingNoteDraft(note.content);
+  }, []);
+
+  const handleCancelEditNote = useCallback(() => {
+    setEditingNoteId(null);
+    setEditingNoteDraft("");
+  }, []);
+
+  const handleSaveNote = useCallback(async () => {
+    const trimmed = editingNoteDraft.trim();
+    if (!editingNoteId || !trimmed || !lead) return;
+    const original = leadNotes.find((n) => n.id === editingNoteId);
+    // Sem mudança real, não grava nem marca como editado.
+    if (!original || original.content === trimmed) { handleCancelEditNote(); return; }
+
+    const updated = leadNotes.map((n) =>
+      n.id === editingNoteId ? { ...n, content: trimmed, updated_at: new Date().toISOString() } : n
+    );
+    await updateLead(lead.id, { notes_local: JSON.stringify(updated) });
+    await addTimelineEvent({
+      lead_id: lead.id,
+      type: "note",
+      content: `Nota editada: "${trimmed.slice(0, 50)}..."`,
+      user_name: "Você",
+    });
+    handleCancelEditNote();
+  }, [editingNoteId, editingNoteDraft, lead, leadNotes, updateLead, addTimelineEvent, handleCancelEditNote]);
 
   const handleDeleteNote = useCallback(async () => {
     if (!noteToDelete || !id || !lead) return;
@@ -606,16 +641,56 @@ export default function LeadProfilePage() {
               <div className="space-y-3">
                 {leadNotes.map((note) => (
                   <div key={note.id} className="bg-card border border-border rounded-lg p-4 group relative">
-                    <button
-                      type="button"
-                      onClick={() => setNoteToDelete(note)}
-                      className="absolute top-3 right-3 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                      aria-label="Excluir nota"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                    <p className="text-sm text-foreground whitespace-pre-wrap pr-6">{note.content}</p>
-                    <p className="text-[10px] text-muted-foreground mt-2">{note.user_name} · {formatDateTime(note.created_at)}</p>
+                    {editingNoteId === note.id ? (
+                      /* 2.5: edição inline — textarea no lugar do texto. */
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editingNoteDraft}
+                          onChange={(e) => setEditingNoteDraft(e.target.value)}
+                          className="text-xs min-h-[80px] resize-none"
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="ghost" className="text-xs" onClick={handleCancelEditNote}>
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="text-xs"
+                            disabled={!editingNoteDraft.trim() || editingNoteDraft.trim() === note.content}
+                            onClick={handleSaveNote}
+                          >
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditNote(note)}
+                            className="text-muted-foreground hover:text-foreground"
+                            aria-label="Editar nota"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNoteToDelete(note)}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Excluir nota"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap pr-12">{note.content}</p>
+                        <p className="text-[10px] text-muted-foreground mt-2">
+                          {note.user_name} · {formatDateTime(note.created_at)}
+                          {note.updated_at && <span className="ml-1 italic">(editado)</span>}
+                        </p>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
