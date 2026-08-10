@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
+import { useTags } from "@/hooks/useTags";
 import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
 import { BulkActionsBar } from "@/components/crm/BulkActionsBar";
 import { Plus, Search, X, ChevronDown, LayoutGrid, Upload, CheckSquare } from "lucide-react";
@@ -128,6 +129,14 @@ function CRMPageInner() {
     setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn, reorderColumns,
     addLead, updateLead, deleteLead, moveLead
   } = useAppState();
+
+  // 2.3: resolvido uma vez aqui e passado pros cards — useTags dentro do
+  // SortableLeadCard dispararia um fetch por lead.
+  const { tags: tagMetas } = useTags();
+  const tagColors = useMemo(
+    () => Object.fromEntries(tagMetas.map((t) => [t.name, t.color])),
+    [tagMetas]
+  );
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -546,6 +555,7 @@ function CRMPageInner() {
                   }}
                   onMoveLead={moveLead}
                   onImportLeads={(colId) => setImportDialog({ open: true, columnId: colId })}
+                  tagColors={tagColors}
                 />
               );
             })}

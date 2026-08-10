@@ -5,8 +5,17 @@ import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSelection } from "@/contexts/SelectionContext";
 import type { Lead } from "@/types";
+import { formatPhone } from "@/lib/format-phone";
 
-export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+/** 2.3: no máximo 3 pills; o resto vira "+N" com tooltip. */
+const MAX_VISIBLE_TAGS = 3;
+
+export function SortableLeadCard({ lead, onClick, tagColors }: {
+  lead: Lead;
+  onClick: () => void;
+  /** name → cor. Buscado uma vez no board; useTags por card faria 1 fetch por lead. */
+  tagColors?: Record<string, string>;
+}) {
   const navigate = useNavigate();
   const { selectionMode, isSelected, toggleLead } = useSelection();
   const selected = isSelected(lead.id);
@@ -71,14 +80,18 @@ export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () =>
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
-        {lead.company && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-            <Building className="h-3 w-3" /> {lead.company}
-          </p>
-        )}
+        {/* 2.3: a linha de empresa saiu do card. Cada linha abaixo só renderiza
+            se o campo existir — nada de espaço reservado para campo vazio. */}
         {(lead.phone || lead.email) && (
           <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-            {lead.phone ? <><Phone className="h-3 w-3" /> {lead.phone}</> : <><Mail className="h-3 w-3" /> {lead.email}</>}
+            {lead.phone
+              ? <><Phone className="h-3 w-3" /> {formatPhone(lead.phone)}</>
+              : <><Mail className="h-3 w-3" /> {lead.email}</>}
+          </p>
+        )}
+        {lead.segmento && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+            <Building className="h-3 w-3" /> {lead.segmento}
           </p>
         )}
         {lead.value && (
@@ -88,11 +101,29 @@ export function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () =>
         )}
         {lead.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-1.5">
-            {lead.tags.map((tag) => (
-              <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary flex items-center gap-0.5">
-                <Tag className="h-2.5 w-2.5" /> {tag}
+            {lead.tags.slice(0, MAX_VISIBLE_TAGS).map((tag) => {
+              const color = tagColors?.[tag];
+              return (
+                <span
+                  key={tag}
+                  // Sem cor cadastrada, mantém o estilo antigo em vez de inventar uma.
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-0.5 ${
+                    color ? "text-white" : "bg-primary/10 text-primary"
+                  }`}
+                  style={color ? { backgroundColor: color } : undefined}
+                >
+                  <Tag className="h-2.5 w-2.5" /> {tag}
+                </span>
+              );
+            })}
+            {lead.tags.length > MAX_VISIBLE_TAGS && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground"
+                title={lead.tags.slice(MAX_VISIBLE_TAGS).join(", ")}
+              >
+                +{lead.tags.length - MAX_VISIBLE_TAGS}
               </span>
-            ))}
+            )}
           </div>
         )}
         {lead.responsible_id && (
