@@ -65,6 +65,7 @@ interface IntegrationRow {
 // Baixa mídia da Meta CDN e armazena no Supabase Storage.
 async function downloadAndStoreMedia(
   adminClient: any, accessToken: string, mediaId: string, mimeType: string,
+  clientId: string,
 ): Promise<string | null> {
   try {
     // 1) Pede a URL temporária da mídia
@@ -90,15 +91,16 @@ async function downloadAndStoreMedia(
       "video/mp4": "mp4", "application/pdf": "pdf",
     };
     const ext = extMap[cleanMime] ?? "bin";
-    const fileName = `wac_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    // PC-038: prefixo por tenant — habilita policy de storage por client_id.
+    const fileName = `${clientId}/wac_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const { error } = await adminClient.storage.from("whatsapp_media").upload(fileName, buffer, {
       contentType: cleanMime, upsert: false,
     });
     if (error) return null;
 
-    const { data } = adminClient.storage.from("whatsapp_media").getPublicUrl(fileName);
-    return data.publicUrl;
+    // PC-038: devolve o PATH do objeto — quem renderiza assina na hora.
+    return fileName;
   } catch {
     return null;
   }
@@ -330,7 +332,7 @@ Deno.serve(async (req) => {
             const mediaId = mediaPayload?.id;
             const mime = mediaPayload?.mime_type ?? "";
             if (mediaId) {
-              const publicUrl = await downloadAndStoreMedia(adminClient, accessToken, mediaId, mime);
+              const publicUrl = await downloadAndStoreMedia(adminClient, accessToken, mediaId, mime, clientId);
               content = publicUrl ?? "";
               meta.media_url = publicUrl;
               meta.mime_type = mime;
@@ -391,7 +393,7 @@ Deno.serve(async (req) => {
             const mediaId = mediaPayload?.id;
             const mime = mediaPayload?.mime_type ?? "";
             if (mediaId) {
-              const publicUrl = await downloadAndStoreMedia(adminClient, accessToken, mediaId, mime);
+              const publicUrl = await downloadAndStoreMedia(adminClient, accessToken, mediaId, mime, clientId);
               content = publicUrl ?? "";
               meta.media_url = publicUrl;
               meta.mime_type = mime;

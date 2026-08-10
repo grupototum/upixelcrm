@@ -111,6 +111,42 @@ function resolveMediaContent(content: string, type: string, metadata: Record<str
   return content;
 }
 
+// PC-038: `media_url` passou a guardar o PATH do objeto no bucket (`{clientId}/arquivo`),
+// não uma URL. A URL assinada é gerada aqui, na renderização, e vive 1h.
+// Mídia antiga gravada como URL pública (http…) continua passando direto — a migração
+// do histórico é o passo (b), fora deste escopo.
+const SIGNED_TTL_SECONDS = 3600;
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+async function signMediaPath(value: string): Promise<string> {
+  if (!value || /^https?:\/\//i.test(value) || value.startsWith("[")) return value;
+
+  const cached = signedUrlCache.get(value);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+
+  const { data, error } = await supabase.storage
+    .from("whatsapp_media")
+    .createSignedUrl(value, SIGNED_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    logger.error("Storage sign error:", error);
+    return value;
+  }
+
+  // Renova com folga de 60s para não entregar URL prestes a expirar.
+  signedUrlCache.set(value, {
+    url: data.signedUrl,
+    expiresAt: Date.now() + (SIGNED_TTL_SECONDS - 60) * 1000,
+  });
+  return data.signedUrl;
+}
+
+async function signMessageMedia(msg: Message): Promise<Message> {
+  const isMedia = ["image", "audio", "video", "file", "sticker"].includes(msg.type);
+  if (!isMedia) return msg;
+  return { ...msg, content: await signMediaPath(msg.content) };
+}
+
 function sortByCreatedAt(list: Message[]): Message[] {
   return [...list].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -250,17 +286,18 @@ export function useInbox(onLeadCreated?: () => void) {
       return true;
     });
     console.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
-    setMessages(dedupedRows.map(m => {
+    // PC-038: assina os paths de mídia antes de entregar pra UI.
+    setMessages(await Promise.all(dedupedRows.map(m => {
       const meta = (m.metadata || {}) as Record<string, any>;
-      return {
+      return signMessageMedia({
         ...m,
         content: resolveMediaContent(m.content, m.type, meta),
         channel: channelMap[m.conversation_id],
         metadata: meta,
         is_private: meta?.is_private || false,
         content_type: meta?.content_type || "text",
-      };
-    }));
+      });
+    })));
 
     // Mark all as read (erro ignorado como no original)
     await markConversationsRead(convIds).catch(() => {});
@@ -277,8 +314,10 @@ export function useInbox(onLeadCreated?: () => void) {
   // Upload file to Supabase Storage
   const uploadFile = async (file: File) => {
     const fileExt = file.name.split('.').pop() || 'bin';
+    // PC-038: prefixo por tenant — habilita policy de storage por client_id.
+    if (!clientId) throw new Error('Upload sem tenant resolvido: clientId ausente.');
     const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const filePath = `${clientId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('whatsapp_media')
@@ -293,11 +332,9 @@ export function useInbox(onLeadCreated?: () => void) {
       throw new Error(`Falha no upload: ${uploadError.message}`);
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('whatsapp_media')
-      .getPublicUrl(filePath);
-
-    return publicUrl;
+    // PC-038: devolve o PATH do objeto, não uma URL. A assinatura acontece na
+    // renderização (signMediaPath) — URL assinada gravada no banco expiraria.
+    return filePath;
   };
 
   // Detect media type from file
@@ -809,14 +846,15 @@ export function useInbox(onLeadCreated?: () => void) {
 
         if (conv?.lead_id === selectedLeadId) {
           const meta = (newMsg.metadata || {}) as Record<string, any>;
-          const incomingMsg: Message = {
+          // PC-038: assina o path da mídia antes de inserir na lista.
+          const incomingMsg: Message = await signMessageMedia({
             ...newMsg,
             content: resolveMediaContent(newMsg.content, newMsg.type, meta),
             channel: conv.channel,
             metadata: meta,
             is_private: meta?.is_private || false,
             content_type: meta?.content_type || "text",
-          };
+          });
 
           setMessages(prev => {
             // Dedup robusto: também detecta caso prev já tenha qualquer msg

@@ -163,7 +163,8 @@ function extractOfficialMessageContent(msg: any): MediaInfo {
 
 // ─── Download media from Evolution API and upload to Storage ───
 async function downloadAndStoreMedia(
-  adminClient: any, config: Record<string, any>, messageData: any, msgType: string, mimetype: string
+  adminClient: any, config: Record<string, any>, messageData: any, msgType: string, mimetype: string,
+  clientId: string
 ): Promise<string | null> {
   try {
     const { api_url: apiUrl, api_key: apiKey, instance_name: instanceName } = config;
@@ -189,22 +190,27 @@ async function downloadAndStoreMedia(
     };
     const cleanMime = (mimetype || "application/octet-stream").split(";")[0].trim();
     const ext = extMap[mimetype] || extMap[cleanMime] || "bin";
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    // PC-038: prefixo por tenant — sem ele o objeto fica na raiz do bucket e nenhuma
+    // policy de storage consegue distinguir de quem é o arquivo.
+    const fileName = `${clientId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
     const binary = atob(base64Data);
     const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
     const { error: uploadError } = await adminClient.storage.from("whatsapp_media").upload(fileName, bytes, { contentType: cleanMime, upsert: false });
     if (uploadError) { console.error("Storage upload error:", uploadError); return null; }
 
-    const { data: { publicUrl } } = adminClient.storage.from("whatsapp_media").getPublicUrl(fileName);
-    console.log("Media uploaded:", publicUrl);
-    return publicUrl;
+    // PC-038: devolve o PATH do objeto, não uma URL. Quem renderiza assina na hora
+    // (useInbox.signMediaPath) — URL assinada gravada no banco expiraria em 1h e
+    // quebraria a mídia de forma permanente.
+    console.log("Media uploaded:", fileName);
+    return fileName;
   } catch (err) { console.error("Error downloading/storing media:", err); return null; }
 }
 
 // ─── Download media from Meta Graph API and upload to Storage ───
 async function downloadOfficialMedia(
-  adminClient: any, mediaId: string, accessToken: string, mimetype: string
+  adminClient: any, mediaId: string, accessToken: string, mimetype: string,
+  clientId: string
 ): Promise<string | null> {
   try {
     // Step 1: Get media URL from Graph API
@@ -231,14 +237,15 @@ async function downloadOfficialMedia(
       "video/mp4": "mp4", "application/pdf": "pdf",
     };
     const ext = extMap[cleanMime] || "bin";
-    const fileName = `official_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    // PC-038: prefixo por tenant (ver downloadAndStoreMedia).
+    const fileName = `${clientId}/official_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
     const { error: uploadError } = await adminClient.storage.from("whatsapp_media").upload(fileName, bytes, { contentType: cleanMime, upsert: false });
     if (uploadError) { console.error("Storage upload error:", uploadError); return null; }
 
-    const { data: { publicUrl } } = adminClient.storage.from("whatsapp_media").getPublicUrl(fileName);
-    console.log("Official media uploaded:", publicUrl);
-    return publicUrl;
+    // PC-038: devolve o PATH do objeto — ver downloadAndStoreMedia.
+    console.log("Official media uploaded:", fileName);
+    return fileName;
   } catch (err) { console.error("Error downloading official media:", err); return null; }
 }
 
@@ -815,7 +822,7 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   const isMedia = ["image", "audio", "video", "file"].includes(msgType);
   if (isMedia) {
     const mimetype = (msgMeta.mimetype as string) || "application/octet-stream";
-    const publicUrl = await downloadAndStoreMedia(adminClient, matchConfig, messageData, msgType, mimetype);
+    const publicUrl = await downloadAndStoreMedia(adminClient, matchConfig, messageData, msgType, mimetype, clientId);
     if (publicUrl) { finalContent = publicUrl; msgMeta.media_url = publicUrl; }
   }
 
@@ -924,7 +931,7 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
         const mediaId = msgMeta.media_id as string | undefined;
         if (mediaId && accessToken) {
           const mimetype = (msgMeta.mimetype as string) || "application/octet-stream";
-          const publicUrl = await downloadOfficialMedia(adminClient, mediaId, accessToken, mimetype);
+          const publicUrl = await downloadOfficialMedia(adminClient, mediaId, accessToken, mimetype, clientId);
           if (publicUrl) { finalContent = publicUrl; msgMeta.media_url = publicUrl; }
         }
 

@@ -54,7 +54,7 @@ async function sendPushNotification(
   }
 }
 
-async function downloadMetaMedia(adminClient: any, downloadUrl: string, mimetype: string): Promise<string | null> {
+async function downloadMetaMedia(adminClient: any, downloadUrl: string, mimetype: string, clientId: string): Promise<string | null> {
   try {
     const mediaRes = await fetch(downloadUrl);
     if (!mediaRes.ok) return null;
@@ -68,13 +68,14 @@ async function downloadMetaMedia(adminClient: any, downloadUrl: string, mimetype
       "video/mp4": "mp4", "application/pdf": "pdf",
     };
     const ext = extMap[cleanMime] || "bin";
-    const fileName = `ig_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    // PC-038: prefixo por tenant — habilita policy de storage por client_id.
+    const fileName = `${clientId}/ig_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
     const { error: uploadError } = await adminClient.storage.from("whatsapp_media").upload(fileName, bytes, { contentType: cleanMime, upsert: false });
     if (uploadError) return null;
 
-    const { data: { publicUrl } } = adminClient.storage.from("whatsapp_media").getPublicUrl(fileName);
-    return publicUrl;
+    // PC-038: devolve o PATH do objeto — quem renderiza assina na hora.
+    return fileName;
   } catch (err) { return null; }
 }
 
@@ -474,7 +475,7 @@ Deno.serve(async (req) => {
           }
           const url = attach.payload?.url;
           if (url) {
-            const publicUrl = await downloadMetaMedia(adminClient, url, "application/octet-stream");
+            const publicUrl = await downloadMetaMedia(adminClient, url, "application/octet-stream", clientId);
             content = publicUrl || url;
             meta.media_url = content;
           }
