@@ -281,6 +281,32 @@ async function findOrCreateLead(
         if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
       });
       await adminClient.from("leads").update({ tags: mergedTags, notes: mergedNotes }).eq("id", primaryLead.id);
+
+      // PC-034: o merge apaga leads sem deixar rastro. Registra antes de deletar —
+      // se o insert do audit falhar, o delete NÃO acontece (exclusão de dados é
+      // No-Fly Zone; melhor um lead duplicado do que uma exclusão invisível).
+      const auditPayload = duplicates.map((d: any) => ({
+        id: d.id, phone: d.phone, tags: d.tags, notes: d.notes, created_at: d.created_at,
+      }));
+      const { error: auditError } = await adminClient.from("audit_log").insert({
+        user_id: null,
+        user_name: "whatsapp-webhook",
+        action: "lead_merge_delete_duplicates",
+        details: {
+          client_id: clientId,
+          primary_lead_id: primaryLead.id,
+          deleted_lead_ids: duplicateIds,
+          deleted_leads: auditPayload,
+          matched_phone: phone,
+        },
+      });
+
+      if (auditError) {
+        console.error("[PC-034] audit_log falhou — merge abortado, duplicatas preservadas:", auditError);
+        return primaryLead.id;
+      }
+
+      console.log(`[audit] merge de leads: ${duplicateIds.length} duplicata(s) removida(s) para ${primaryLead.id} (client ${clientId})`);
       await adminClient.from("leads").delete().in("id", duplicateIds);
     }
     return primaryLead.id;
