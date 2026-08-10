@@ -10,12 +10,21 @@ import { formatPhone } from "@/lib/format-phone";
 /** 2.3: no máximo 3 pills; o resto vira "+N" com tooltip. */
 const MAX_VISIBLE_TAGS = 3;
 
-export function SortableLeadCard({ lead, onClick, tagColors }: {
+export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug }: {
   lead: Lead;
   onClick: () => void;
   /** name → cor. Buscado uma vez no board; useTags por card faria 1 fetch por lead. */
   tagColors?: Record<string, string>;
+  /** Slug do campo customizado "Segmento", quando existir (fallback abaixo). */
+  segmentoFieldSlug?: string;
 }) {
+  // Alguns tenants guardam "Segmento" como campo customizado em vez da coluna
+  // nativa leads.segmento (import legado, por ex.) — cai pro customizado
+  // quando a coluna nativa vem vazia. Só aceita string: campo customizado
+  // pode ser multi_select (array) ou checkbox (boolean), que não cabem
+  // numa linha de resumo do card.
+  const customSegmento = segmentoFieldSlug ? lead.custom_fields?.[segmentoFieldSlug] : undefined;
+  const segmento = lead.segmento || (typeof customSegmento === "string" ? customSegmento : undefined);
   const navigate = useNavigate();
   const { selectionMode, isSelected, toggleLead } = useSelection();
   const selected = isSelected(lead.id);
@@ -91,9 +100,9 @@ export function SortableLeadCard({ lead, onClick, tagColors }: {
               : <><Mail className="h-3 w-3" /> {lead.email}</>}
           </p>
         )}
-        {lead.segmento && (
+        {segmento && (
           <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-            <Building className="h-3 w-3" /> {lead.segmento}
+            <Building className="h-3 w-3" /> {segmento}
           </p>
         )}
         {lead.value && (

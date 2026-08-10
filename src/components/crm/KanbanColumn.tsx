@@ -33,9 +33,11 @@ interface KanbanColumnProps {
   onImportLeads?: (columnId: string) => void;
   /** 2.3: mapa name → cor das etiquetas, resolvido uma vez no board. */
   tagColors?: Record<string, string>;
+  /** Slug do campo customizado "Segmento", quando existir (fallback do card). */
+  segmentoFieldSlug?: string;
 }
 
-export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads, tagColors }: KanbanColumnProps) {
+export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads, tagColors, segmentoFieldSlug }: KanbanColumnProps) {
   // useDroppable pra leads entrarem na coluna (mantido).
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id, data: { type: "column", columnId: column.id } });
 
@@ -223,7 +225,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                       paddingBottom: "8px",
                     }}
                   >
-                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} />
+                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} />
                   </div>
                 );
               })}
@@ -233,7 +235,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                Preserves the original space-y-2 layout and DnD behaviour exactly. */
             <div className="space-y-2">
               {leads.map((lead) => (
-                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} />
+                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} />
               ))}
             </div>
           )}

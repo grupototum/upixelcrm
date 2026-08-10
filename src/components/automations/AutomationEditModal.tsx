@@ -67,6 +67,7 @@ export function AutomationEditModal({ automation, open, onClose }: AutomationEdi
       actions,
     });
     setDirty(false);
+    onClose();
   };
 
   const handleClose = () => {
