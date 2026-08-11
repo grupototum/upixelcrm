@@ -9,24 +9,27 @@ import type { CustomFieldDefinition, Lead, TagMeta } from "@/types";
 // toast, estado e regras de UI ficam nos hooks/componentes.
 
 // ---- tags ----
-// tags.client_id existe no banco mas não nos tipos gerados (schema drift)
+// tags é escopada por tenant_id (UUID) — client_id foi removida da tabela
+// numa migração de schema que não passou pelo repo (drift). RLS já reforça
+// tenant_id = profiles.tenant_id; o filtro aqui é defesa em profundidade,
+// igual ao resto do código.
 
-export async function listTags(clientId: string): Promise<TagMeta[]> {
+export async function listTags(tenantId: string): Promise<TagMeta[]> {
   const { data, error } = await untypedFrom("tags")
     .select("*")
-    .eq("client_id", clientId)
+    .eq("tenant_id", tenantId)
     .order("name", { ascending: true });
   if (error) throw error;
   return (data as unknown as TagMeta[]) || [];
 }
 
 export async function createTag(
-  clientId: string,
+  tenantId: string,
   params: { name: string; color?: string; category?: string }
 ): Promise<TagMeta> {
   const { data, error } = await untypedFrom("tags")
     .insert({
-      client_id: clientId,
+      tenant_id: tenantId,
       name: params.name,
       color: params.color || "#6366f1",
       category: params.category || "general",

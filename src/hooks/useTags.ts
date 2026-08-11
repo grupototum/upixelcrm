@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { TagMeta } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolveClientId, isValidUuid } from "@/lib/tenant-utils";
 
 export function useTags() {
   const [tags, setTags] = useState<TagMeta[]>([]);
@@ -11,10 +12,12 @@ export function useTags() {
 
   const { tenant } = useTenant();
   const { user } = useAuth();
-  const clientId = tenant?.id ?? user?.client_id;
+  // tags.tenant_id é UUID — sentinela "master" ou client_id legado não-UUID
+  // quebrariam a query (400 de cast), por isso o guard isValidUuid abaixo.
+  const clientId = resolveClientId(tenant?.id, user?.client_id);
 
   const fetchTags = useCallback(async () => {
-    if (!clientId) { setLoading(false); return; }
+    if (!isValidUuid(clientId)) { setLoading(false); return; }
     setLoading(true);
     try {
       const data = await leadsRepo.listTags(clientId);
@@ -32,7 +35,7 @@ export function useTags() {
 
   const createTag = useCallback(
     async (params: { name: string; color?: string; category?: string }) => {
-      if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
+      if (!isValidUuid(clientId)) { toast.error("Sem contexto de cliente."); return null; }
       try {
         const data = await leadsRepo.createTag(clientId, params);
         toast.success(`Tag "${params.name}" criada!`);
