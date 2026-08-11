@@ -57,6 +57,7 @@ import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 import { FilterPopover, EMPTY_FILTERS, type CRMFilters } from "@/components/crm/FilterPopover";
+import { SavedViewsMenu } from "@/components/crm/SavedViewsMenu";
 import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopover";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -493,6 +494,7 @@ function CRMPageInner() {
             onFiltersChange={setCrmFilters}
             availableTags={availableTags}
           />
+          <SavedViewsMenu filters={crmFilters} onApply={setCrmFilters} />
           <ColumnVisibilityPopover
             columns={pipelineColumns}
             hiddenColumnIds={hiddenColumnIds}

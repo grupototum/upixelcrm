@@ -13,6 +13,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { isDuplicateMessage } from "../_shared/messageDedup.ts";
 
 const WA_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
 
@@ -315,6 +316,13 @@ Deno.serve(async (req) => {
 
         // Processar mensagens recebidas
         for (const msg of (value.messages ?? [])) {
+          // Idempotência: mesma proteção que os echoes já tinham. Sem ela, a
+          // reentrega da Meta duplicava a mensagem inbound.
+          if (await isDuplicateMessage(adminClient, "meta_message_id", msg.id)) {
+            console.log("Duplicate cloud message ignored:", msg.id);
+            continue;
+          }
+
           const from = msg.from; // já vem normalizado pela Meta
           const senderName = value.contacts?.[0]?.profile?.name ?? from;
           let msgType = "text";

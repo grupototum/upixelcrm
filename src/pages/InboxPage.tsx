@@ -11,6 +11,7 @@ import {
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
   Instagram, Merge, Trash2, AlertCircle,
   PanelRightClose, PanelRightOpen, ArrowLeft, List, MessageSquareDot,
+  RefreshCw, ChevronUp,
 } from "lucide-react";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
 import {
@@ -690,6 +691,22 @@ export default function InboxPage() { // force HMR reset
                   </div>
                 ) : (
                   <>
+                    {inbox.hasMoreMessages && (
+                      <div className="flex justify-center pb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1.5"
+                          onClick={() => inbox.loadOlderMessages()}
+                          disabled={inbox.loadingOlder}
+                        >
+                          {inbox.loadingOlder
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <ChevronUp className="h-3 w-3" />}
+                          Carregar mensagens anteriores
+                        </Button>
+                      </div>
+                    )}
                     {inbox.messages.map((msg, i) => {
                       const isOutbound = msg.direction === "outbound";
                       const prevMsg = i > 0 ? inbox.messages[i - 1] : null;
@@ -947,9 +964,16 @@ export default function InboxPage() { // force HMR reset
                                   </span>
                                   {isOutbound && !msg.is_private && (
                                     <div className="flex items-center ml-0.5">
-                                      {msg.metadata?.status === "read" ? (
+                                      {/* `delivery_status` é o campo que os webhooks realmente gravam;
+                                          `status` era lido aqui e nunca existia, então todo outbound
+                                          mostrava um único ✓ para sempre. */}
+                                      {msg.metadata?.failed ? (
+                                        <AlertCircle className="h-3 w-3 text-destructive" />
+                                      ) : msg.metadata?.pending ? (
+                                        <Clock className="h-3 w-3 opacity-60" />
+                                      ) : (msg.metadata?.delivery_status ?? msg.metadata?.status) === "read" ? (
                                         <CheckCheck className="h-3 w-3 text-primary" />
-                                      ) : msg.metadata?.status === "delivered" ? (
+                                      ) : (msg.metadata?.delivery_status ?? msg.metadata?.status) === "delivered" ? (
                                         <CheckCheck className="h-3 w-3 opacity-60" />
                                       ) : (
                                         <Check className="h-3 w-3 opacity-60" />
@@ -957,6 +981,16 @@ export default function InboxPage() { // force HMR reset
                                     </div>
                                   )}
                                 </div>
+
+                                {msg.metadata?.failed && (
+                                  <button
+                                    onClick={() => inbox.retryMessage(msg.id)}
+                                    className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-destructive hover:underline"
+                                  >
+                                    <RefreshCw className="h-2.5 w-2.5" />
+                                    Não enviada — tentar de novo
+                                  </button>
+                                )}
                               </div>
                             </div>
 

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { isDuplicateMessage } from "../_shared/messageDedup.ts";
 
 const IG_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
 
@@ -427,11 +428,19 @@ Deno.serve(async (req) => {
 
     for (const entry of body.entry || []) {
       const igAccountId = entry.id; // Receiver IG Account
-      // Find matching instagam integration
-      const { data: integrations } = await adminClient.from("integrations").select("client_id, config")
-        .eq("provider", "instagram").eq("status", "connected").limit(10);
-      const match = (integrations || []).find((i: any) => (i.config as any)?.ig_account_id === igAccountId);
-      if (!match) continue;
+      // Filtro no SQL, não em JS. O `.limit(10)` + `.find()` anterior era um
+      // teto rígido de 10 integrações Instagram no sistema inteiro: do 11º
+      // tenant em diante as DMs sumiam sem log nem erro.
+      const { data: match } = await adminClient.from("integrations")
+        .select("client_id, config")
+        .eq("provider", "instagram")
+        .eq("status", "connected")
+        .eq("config->>ig_account_id", igAccountId)
+        .maybeSingle();
+      if (!match) {
+        console.log("No connected Instagram integration for ig_account_id:", igAccountId);
+        continue;
+      }
 
       const clientId = match.client_id;
       const config = match.config as any;
@@ -447,6 +456,13 @@ Deno.serve(async (req) => {
 
       for (const messaging of entry.messaging || []) {
         if (!messaging.message) continue;
+
+        // Idempotência: a Meta reentrega o evento quando não recebe 200 a tempo.
+        // Checa antes do download de mídia do anexo.
+        if (await isDuplicateMessage(adminClient, "meta_message_id", messaging.message.mid)) {
+          console.log("Duplicate IG message ignored:", messaging.message.mid);
+          continue;
+        }
 
         const isEcho = messaging.message.is_echo || false;
         
