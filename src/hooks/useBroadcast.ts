@@ -48,8 +48,6 @@ export interface BroadcastOptions {
   campaignId?: string;
   /** Delay in ms between each message. Defaults to random 3–8 s. */
   delayMs?: number | "random" | { minMs: number; maxMs: number };
-  maxRetries?: number;
-  onProgress?: (sent: number, total: number, currentName?: string) => void;
 }
 
 // Meta 2024 Category-based Pricing for Brazil (Approx in Credits: 1 Credit = R$ 0,50)
@@ -194,8 +192,8 @@ export function useBroadcast() {
     route: BroadcastRoute,
     messageText: string,
     template?: Template,
-    maxRetries = 2,
   ): Promise<{ ok: boolean; error?: string }> => {
+    const maxRetries = 2;
     let attempt = 0;
     while (attempt <= maxRetries) {
       try {
@@ -282,11 +280,10 @@ export function useBroadcast() {
     try {
       for (let i = 0; i < leads.length; i++) {
         const lead = leads[i];
-        options.onProgress?.(i, leads.length, lead.name);
         setProgress({ sent: i, total: leads.length });
 
         const personalizedText = interpolate(messageText, lead);
-        const result = await dispatchOne(lead, route, personalizedText, template, options.maxRetries ?? 2);
+        const result = await dispatchOne(lead, route, personalizedText, template);
 
         // Log to campaign_dispatch_logs (erro aqui é ignorado hoje — comportamento preservado)
         await logCampaignDispatch({

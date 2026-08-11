@@ -2096,75 +2096,44 @@ export type Database = {
         }
         Relationships: []
       }
-      sequence_enrollments: {
+      saved_views: {
         Row: {
           client_id: string
-          completed_at: string | null
           created_at: string
-          current_step: number
+          filters: Json
           id: string
-          last_error: string | null
-          lead_id: string
-          next_run_at: string | null
-          sequence_id: string
-          started_at: string
-          status: string
+          is_shared: boolean
+          name: string
+          scope: string
           tenant_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           client_id: string
-          completed_at?: string | null
           created_at?: string
-          current_step?: number
+          filters?: Json
           id?: string
-          last_error?: string | null
-          lead_id: string
-          next_run_at?: string | null
-          sequence_id: string
-          started_at?: string
-          status?: string
+          is_shared?: boolean
+          name: string
+          scope?: string
           tenant_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           client_id?: string
-          completed_at?: string | null
           created_at?: string
-          current_step?: number
+          filters?: Json
           id?: string
-          last_error?: string | null
-          lead_id?: string
-          next_run_at?: string | null
-          sequence_id?: string
-          started_at?: string
-          status?: string
+          is_shared?: boolean
+          name?: string
+          scope?: string
           tenant_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "sequence_enrollments_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "leads"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sequence_enrollments_sequence_id_fkey"
-            columns: ["sequence_id"]
-            isOneToOne: false
-            referencedRelation: "message_sequences"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sequence_enrollments_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       tags: {
         Row: {
@@ -2206,7 +2175,6 @@ export type Database = {
           assigned_to: string | null
           client_id: string
           completed_at: string | null
-          completed_by: string | null
           created_at: string
           description: string | null
           due_date: string | null
@@ -2221,7 +2189,6 @@ export type Database = {
           assigned_to?: string | null
           client_id?: string
           completed_at?: string | null
-          completed_by?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
@@ -2236,7 +2203,6 @@ export type Database = {
           assigned_to?: string | null
           client_id?: string
           completed_at?: string | null
-          completed_by?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
@@ -2341,47 +2307,6 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      webhook_deliveries: {
-        Row: {
-          created_at: string
-          endpoint_id: string | null
-          event_type: string
-          id: string
-          payload: Json
-          response_body: string | null
-          response_status: number | null
-          success: boolean
-        }
-        Insert: {
-          created_at?: string
-          endpoint_id?: string | null
-          event_type: string
-          id?: string
-          payload: Json
-          response_body?: string | null
-          response_status?: number | null
-          success: boolean
-        }
-        Update: {
-          created_at?: string
-          endpoint_id?: string | null
-          event_type?: string
-          id?: string
-          payload?: Json
-          response_body?: string | null
-          response_status?: number | null
-          success?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "webhook_deliveries_endpoint_id_fkey"
-            columns: ["endpoint_id"]
-            isOneToOne: false
-            referencedRelation: "webhook_endpoints"
             referencedColumns: ["id"]
           },
         ]

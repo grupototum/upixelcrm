@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import * as alexandriaRepo from "@/services/alexandria";
 import { toast } from "sonner";
-import { generateDocumentEmbeddings } from "@/services/embeddingService";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -160,7 +159,7 @@ export function KnowledgeBaseTab() {
   const handleGenerateEmbeddings = async (id: string) => {
     setEmbeddingStatus(prev => ({ ...prev, [id]: "loading" }));
     try {
-      const result = await generateDocumentEmbeddings(id);
+      const result = await alexandriaRepo.generateDocumentEmbeddings(id);
       setEmbeddingStatus(prev => ({ ...prev, [id]: "done" }));
       toast.success(`Embeddings gerados: ${result.chunks} chunk(s)`);
     } catch (err: any) {

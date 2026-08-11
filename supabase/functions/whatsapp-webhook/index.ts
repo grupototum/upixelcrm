@@ -3,40 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isDuplicateMessage } from "../_shared/messageDedup.ts";
 import { callerKey, checkRateLimit, limitFromEnv, tooManyRequests } from "../_shared/rateLimit.ts";
+import { verifyMetaSignature } from "../_shared/verifyMetaSignature.ts";
+import { downloadAndStoreMetaMedia, resolveGraphMediaUrl } from "../_shared/downloadMetaMedia.ts";
 
 // PC-026: a rota Meta Official aceitava qualquer payload sem validar procedência.
 // `verify_jwt = false` + integration_id/instance_name enumeráveis significavam que
 // qualquer um podia injetar mensagens em qualquer tenant. Mesmo padrão já usado em
 // whatsapp-cloud-webhook e facebook-messenger-webhook.
 const WA_APP_SECRET = Deno.env.get("WHATSAPP_APP_SECRET") ?? Deno.env.get("META_APP_SECRET") ?? "";
-
-async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  if (!WA_APP_SECRET) {
-    console.error("[whatsapp-webhook] WHATSAPP_APP_SECRET/META_APP_SECRET not configured");
-    return false;
-  }
-  if (!signatureHeader?.startsWith("sha256=")) return false;
-
-  const expected = signatureHeader.slice("sha256=".length);
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(WA_APP_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  // Comparação em tempo constante — evita timing oracle sobre a assinatura.
-  if (computed.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
-}
 
 // ─── Push notification helper ───
 async function sendPushNotification(
@@ -229,41 +203,9 @@ async function downloadOfficialMedia(
   adminClient: any, mediaId: string, accessToken: string, mimetype: string,
   clientId: string
 ): Promise<string | null> {
-  try {
-    // Step 1: Get media URL from Graph API
-    const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!metaRes.ok) { console.error("Failed to get media URL from Meta:", metaRes.status); return null; }
-    const metaData = await metaRes.json();
-    const downloadUrl = metaData.url;
-    if (!downloadUrl) return null;
-
-    // Step 2: Download the media binary
-    const mediaRes = await fetch(downloadUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!mediaRes.ok) { console.error("Failed to download media from Meta:", mediaRes.status); return null; }
-    const arrayBuffer = await mediaRes.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-
-    const cleanMime = (mimetype || "application/octet-stream").split(";")[0].trim();
-    const extMap: Record<string, string> = {
-      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-      "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac",
-      "video/mp4": "mp4", "application/pdf": "pdf",
-    };
-    const ext = extMap[cleanMime] || "bin";
-    // PC-038: prefixo por tenant (ver downloadAndStoreMedia).
-    const fileName = `${clientId}/official_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
-
-    const { error: uploadError } = await adminClient.storage.from("whatsapp_media").upload(fileName, bytes, { contentType: cleanMime, upsert: false });
-    if (uploadError) { console.error("Storage upload error:", uploadError); return null; }
-
-    // PC-038: devolve o PATH do objeto — ver downloadAndStoreMedia.
-    console.log("Official media uploaded:", fileName);
-    return fileName;
-  } catch (err) { console.error("Error downloading official media:", err); return null; }
+  const resolved = await resolveGraphMediaUrl(mediaId, accessToken, "https://graph.facebook.com/v21.0");
+  if (!resolved) { console.error("Failed to get media URL from Meta for mediaId:", mediaId); return null; }
+  return downloadAndStoreMetaMedia(adminClient, resolved.url, mimetype, clientId, "official", accessToken);
 }
 
 // ─── Find or create lead ───
@@ -1185,7 +1127,7 @@ Deno.serve(async (req) => {
     if (body.object === "whatsapp_business_account") {
       // PC-026: só a rota Meta assina o payload. A rota Evolution segue sem HMAC
       // (Evolution não envia X-Hub-Signature-256) e não passa por aqui.
-      const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+      const sigOk = await verifyMetaSignature(rawBody, req.headers.get("x-hub-signature-256"), WA_APP_SECRET, "whatsapp-webhook");
       if (!sigOk) {
         console.warn("[whatsapp-webhook] Invalid X-Hub-Signature-256 — payload rejeitado");
         return new Response("Forbidden", { status: 403, headers: corsHeaders });
