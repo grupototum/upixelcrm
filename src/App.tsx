@@ -56,6 +56,7 @@ const MetaAdsPage = lazy(() => import("./pages/MetaAdsPage"));
 const GoogleAdsPage = lazy(() => import("./pages/GoogleAdsPage"));
 const DatabaseBackupPage = lazy(() => import("./pages/DatabaseBackupPage"));
 const MasterIntegrationsPage = lazy(() => import("./pages/MasterIntegrationsPage"));
+const NovidadesPage = lazy(() => import("./pages/NovidadesPage"));
 
 // Privacy Policy / Terms / Data Deletion Status são servidos como HTML estático
 // pelo nginx (public/privacy-policy/index.html, etc.) — Meta crawler precisa
@@ -183,6 +184,7 @@ function AppRoutes() {
                 <Route path="/google-ads" element={<ProtectedRoute><GoogleAdsPage /></ProtectedRoute>} />
                 <Route path="/database" element={<ProtectedRoute requiredPermission="settings.view"><DatabaseBackupPage /></ProtectedRoute>} />
                 <Route path="/master/integrations" element={<ProtectedRoute><MasterIntegrationsPage /></ProtectedRoute>} />
+                <Route path="/novidades" element={<ProtectedRoute><NovidadesPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </Suspense>

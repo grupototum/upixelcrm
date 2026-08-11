@@ -9,7 +9,6 @@ export async function getDashboardKpis(clientId?: string): Promise<unknown> {
   // Passa o client_id do tenant atual (subdomínio) para o dashboard escopar
   // pelos dados que o usuário está de fato visualizando. Sem o param, a função
   // cai no client_id do perfil logado (comportamento antigo).
-  // @ts-expect-error — função existe no banco mas não no tipo gerado
   const { data, error } = await supabase.rpc("dashboard_kpis", clientId ? { p_client_id: clientId } : {});
   if (error) throw error;
   return data;

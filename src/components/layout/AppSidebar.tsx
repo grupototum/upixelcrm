@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
-  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText, Clock, Upload,
+  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText, Clock, Upload, Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -314,6 +314,17 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 space-y-1">
         {!collapsed && (
           <>
+            <Link
+              to="/novidades"
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
+                isLeafActive("/novidades", location.pathname)
+                  ? "bg-primary text-primary-foreground"
+                  : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
+              }`}
+            >
+              <Sparkles className="h-[18px] w-[18px]" />
+              <span>Novidades</span>
+            </Link>
             <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">
               <HelpCircle className="h-[18px] w-[18px]" />
               <span>Help</span>

@@ -791,6 +791,10 @@ Deno.serve(async (req) => {
       }
 
       if (convId) {
+        // Grava o id devolvido pela Evolution. É o que permite ao
+        // whatsapp-webhook descartar o eco `fromMe` desta mesma mensagem —
+        // sem isso, tudo que o CRM envia aparecia duas vezes no inbox.
+        const sentMessageId = (data as any)?.key?.id ?? null;
         await adminClient.from("messages").insert({
           client_id: clientId,
           conversation_id: convId,
@@ -798,7 +802,7 @@ Deno.serve(async (req) => {
           type: "text",
           direction: "outbound",
           sender_name: "Você",
-          metadata: { channel }
+          metadata: { channel, whatsapp_message_id: sentMessageId }
         });
         await adminClient.from("conversations").update({
           last_message: message,
@@ -916,7 +920,10 @@ Deno.serve(async (req) => {
           metadata: {
             media_url: mediaUrl,
             filename: fileName,
-            channel: mediaChannel
+            channel: mediaChannel,
+            // Mesmo motivo do send-message: sem o id da Evolution, o eco
+            // `fromMe` desta mídia entra de novo pelo webhook.
+            whatsapp_message_id: (data as any)?.key?.id ?? null,
           },
         };
         const insertResult = await adminClient.from("messages").insert(msgPayload);

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
 import { useTags } from "@/hooks/useTags";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import { useDragScroll } from "@/hooks/useDragScroll";
 import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
 import { BulkActionsBar } from "@/components/crm/BulkActionsBar";
@@ -56,6 +57,7 @@ import { LeadFormModal } from "@/components/crm/LeadFormModal";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 import { FilterPopover, EMPTY_FILTERS, type CRMFilters } from "@/components/crm/FilterPopover";
+import { SavedViewsMenu } from "@/components/crm/SavedViewsMenu";
 import { ColumnVisibilityPopover } from "@/components/crm/ColumnVisibilityPopover";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -141,6 +143,15 @@ function CRMPageInner() {
   const tagColors = useMemo(
     () => Object.fromEntries(tagMetas.map((t) => [t.name, t.color])),
     [tagMetas]
+  );
+
+  // Fallback do card: alguns tenants guardam "Segmento" como campo
+  // personalizado em vez da coluna nativa leads.segmento — o card cai pro
+  // campo customizado de mesmo nome quando a coluna nativa vem vazia.
+  const { definitions: customFieldDefs } = useCustomFields();
+  const segmentoFieldSlug = useMemo(
+    () => customFieldDefs.find((d) => d.name.trim().toLowerCase() === "segmento")?.slug,
+    [customFieldDefs]
   );
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -483,6 +494,7 @@ function CRMPageInner() {
             onFiltersChange={setCrmFilters}
             availableTags={availableTags}
           />
+          <SavedViewsMenu filters={crmFilters} onApply={setCrmFilters} />
           <ColumnVisibilityPopover
             columns={pipelineColumns}
             hiddenColumnIds={hiddenColumnIds}
@@ -561,6 +573,7 @@ function CRMPageInner() {
                   onMoveLead={moveLead}
                   onImportLeads={(colId) => setImportDialog({ open: true, columnId: colId })}
                   tagColors={tagColors}
+                  segmentoFieldSlug={segmentoFieldSlug}
                 />
               );
             })}
