@@ -2,37 +2,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { isDuplicateMessage } from "../_shared/messageDedup.ts";
+import { verifyMetaSignature } from "../_shared/verifyMetaSignature.ts";
+import { downloadAndStoreMetaMedia } from "../_shared/downloadMetaMedia.ts";
 
 const IG_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
-
-// ── HMAC do X-Hub-Signature-256 (mesmo padrão do facebook-messenger-webhook) ──
-async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  if (!IG_APP_SECRET) {
-    // Sem secret configurado, nega — nunca aceita silenciosamente.
-    console.error("[instagram-webhook] META_APP_SECRET/FACEBOOK_APP_SECRET not configured");
-    return false;
-  }
-  if (!signatureHeader?.startsWith("sha256=")) return false;
-
-  const expected = signatureHeader.slice("sha256=".length);
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(IG_APP_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  if (computed.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
-}
 
 async function sendPushNotification(
   adminClient: any,
@@ -56,28 +29,7 @@ async function sendPushNotification(
 }
 
 async function downloadMetaMedia(adminClient: any, downloadUrl: string, mimetype: string, clientId: string): Promise<string | null> {
-  try {
-    const mediaRes = await fetch(downloadUrl);
-    if (!mediaRes.ok) return null;
-    const arrayBuffer = await mediaRes.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-
-    const cleanMime = (mimetype || "application/octet-stream").split(";")[0].trim();
-    const extMap: Record<string, string> = {
-      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-      "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac",
-      "video/mp4": "mp4", "application/pdf": "pdf",
-    };
-    const ext = extMap[cleanMime] || "bin";
-    // PC-038: prefixo por tenant — habilita policy de storage por client_id.
-    const fileName = `${clientId}/ig_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
-
-    const { error: uploadError } = await adminClient.storage.from("whatsapp_media").upload(fileName, bytes, { contentType: cleanMime, upsert: false });
-    if (uploadError) return null;
-
-    // PC-038: devolve o PATH do objeto — quem renderiza assina na hora.
-    return fileName;
-  } catch (err) { return null; }
+  return downloadAndStoreMetaMedia(adminClient, downloadUrl, mimetype, clientId, "ig");
 }
 
 async function findOrCreateLead(
@@ -405,7 +357,7 @@ Deno.serve(async (req) => {
     const rawBody = await req.text();
 
     // Valida a assinatura da Meta ANTES de processar (rejeita eventos forjados).
-    const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+    const sigOk = await verifyMetaSignature(rawBody, req.headers.get("x-hub-signature-256"), IG_APP_SECRET, "instagram-webhook");
     if (!sigOk) {
       console.warn("[instagram-webhook] Invalid X-Hub-Signature-256");
       return new Response("Forbidden", { status: 403, headers: corsHeaders });

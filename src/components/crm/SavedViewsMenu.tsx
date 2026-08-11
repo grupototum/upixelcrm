@@ -10,12 +10,50 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { resolveClientId } from "@/lib/tenant-utils";
-import { createSavedView, deleteSavedView, listSavedViews, type SavedView } from "@/services/savedViews";
+import { supabase } from "@/integrations/supabase/client";
+import { untypedFrom } from "@/lib/supabase-untyped";
 import type { CRMFilters } from "./FilterPopover";
+
+interface SavedView {
+  id: string;
+  name: string;
+  filters: Record<string, unknown>;
+  is_shared: boolean;
+  user_id: string | null;
+}
 
 interface SavedViewsMenuProps {
   filters: CRMFilters;
   onApply: (f: CRMFilters) => void;
+}
+
+/** Views do CRM do tenant atual. RLS já filtra próprias + compartilhadas. */
+async function listSavedViews(clientId: string): Promise<SavedView[]> {
+  const { data, error } = await untypedFrom("saved_views")
+    .select("id, name, filters, is_shared, user_id")
+    .eq("client_id", clientId)
+    .eq("scope", "crm")
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data as SavedView[]) ?? [];
+}
+
+async function createSavedView(row: {
+  client_id: string;
+  tenant_id: string | null;
+  name: string;
+  filters: Record<string, unknown>;
+  is_shared: boolean;
+}): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser();
+  const { error } = await untypedFrom("saved_views")
+    .insert({ ...row, scope: "crm", user_id: auth.user?.id });
+  if (error) throw error;
+}
+
+async function deleteSavedView(id: string): Promise<void> {
+  const { error } = await untypedFrom("saved_views").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export function SavedViewsMenu({ filters, onApply }: SavedViewsMenuProps) {

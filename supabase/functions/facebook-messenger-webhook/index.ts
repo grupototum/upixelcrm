@@ -15,42 +15,11 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyMetaSignature } from "../_shared/verifyMetaSignature.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FB_APP_SECRET = Deno.env.get("FACEBOOK_APP_SECRET") ?? Deno.env.get("META_APP_SECRET") ?? "";
-
-// ── HMAC verification of X-Hub-Signature-256 ──────────────────────────────────
-async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  if (!FB_APP_SECRET) {
-    // If no secret is configured, deny — never silently accept.
-    console.error("[facebook-messenger-webhook] FACEBOOK_APP_SECRET not configured");
-    return false;
-  }
-  if (!signatureHeader?.startsWith("sha256=")) return false;
-
-  const expected = signatureHeader.slice("sha256=".length);
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(FB_APP_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  if (computed.length !== expected.length) return false;
-  // Timing-safe compare
-  let diff = 0;
-  for (let i = 0; i < computed.length; i++) {
-    diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return diff === 0;
-}
 
 serve(async (req: Request) => {
   const url = new URL(req.url);
@@ -91,7 +60,7 @@ serve(async (req: Request) => {
     const rawBody = await req.text();
 
     // Validate Meta signature BEFORE parsing/processing
-    const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+    const sigOk = await verifyMetaSignature(rawBody, req.headers.get("x-hub-signature-256"), FB_APP_SECRET, "facebook-messenger-webhook");
     if (!sigOk) {
       console.warn("[facebook-messenger-webhook] Invalid X-Hub-Signature-256");
       return new Response("Forbidden", { status: 403 });

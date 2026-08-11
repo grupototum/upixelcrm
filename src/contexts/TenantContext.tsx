@@ -1,29 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import * as tenantResolutionRepo from "@/services/tenant-resolution";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { getTenantSubdomain } from "@/utils/tenant";
 
-export interface Tenant {
-  id: string;
-  name: string;
-  subdomain: string;
-  plan: string;
-  owner_id: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  subdomain: string | null;
-  tenant_id: string | null;
-  owner_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export type Tenant = Tables<"tenants">;
+export type Organization = Tables<"organizations">;
 
 interface TenantContextType {
   tenant: Tenant | null;
@@ -60,18 +42,22 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     // Capturado após os guards acima — aqui é garantidamente string
     const sub: string = subdomain;
 
+    // Erros são engolidos de propósito — mesmo comportamento de sempre:
+    // qualquer falha de leitura é tratada como "não encontrado".
     async function resolve() {
       // 1. Tentar resolver como organization (subdomain na tabela organizations)
-      const orgData = await tenantResolutionRepo.getOrganizationBySubdomain(sub);
+      const { data: orgData } = await supabase
+        .from("organizations").select("*").eq("subdomain", sub).maybeSingle();
 
       if (orgData?.tenant_id) {
-        setOrganization(orgData as Organization);
+        setOrganization(orgData);
 
         // Resolver o tenant pai
-        const tenantData = await tenantResolutionRepo.getActiveTenantById(orgData.tenant_id);
+        const { data: tenantData } = await supabase
+          .from("tenants").select("*").eq("id", orgData.tenant_id).eq("is_active", true).maybeSingle();
 
         if (tenantData) {
-          setTenant(tenantData as Tenant);
+          setTenant(tenantData);
         } else {
           // Org existe mas tenant inativo
           setNotFound(true);
@@ -81,12 +67,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Fallback: resolver como tenant direto (retrocompatibilidade)
-      const tenantData = await tenantResolutionRepo.getActiveTenantBySubdomain(sub);
+      const { data: tenantData } = await supabase
+        .from("tenants").select("*").eq("subdomain", sub).eq("is_active", true).maybeSingle();
 
       if (!tenantData) {
         setNotFound(true);
       } else {
-        setTenant(tenantData as Tenant);
+        setTenant(tenantData);
       }
       setIsLoading(false);
     }

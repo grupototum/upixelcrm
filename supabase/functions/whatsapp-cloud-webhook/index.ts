@@ -14,36 +14,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isDuplicateMessage } from "../_shared/messageDedup.ts";
+import { verifyMetaSignature } from "../_shared/verifyMetaSignature.ts";
+import { downloadAndStoreMetaMedia, resolveGraphMediaUrl } from "../_shared/downloadMetaMedia.ts";
 
 const WA_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("FACEBOOK_APP_SECRET") ?? "";
-
-// ── HMAC do X-Hub-Signature-256 (mesmo padrão do facebook-messenger-webhook) ──
-async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  if (!WA_APP_SECRET) {
-    console.error("[whatsapp-cloud-webhook] META_APP_SECRET/FACEBOOK_APP_SECRET not configured");
-    return false;
-  }
-  if (!signatureHeader?.startsWith("sha256=")) return false;
-
-  const expected = signatureHeader.slice("sha256=".length);
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(WA_APP_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  if (computed.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
-}
 
 const GRAPH_API_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
@@ -68,43 +42,9 @@ async function downloadAndStoreMedia(
   adminClient: any, accessToken: string, mediaId: string, mimeType: string,
   clientId: string,
 ): Promise<string | null> {
-  try {
-    // 1) Pede a URL temporária da mídia
-    const metaRes = await fetch(`${GRAPH_BASE}/${mediaId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!metaRes.ok) return null;
-    const metaData = await metaRes.json();
-    const downloadUrl = metaData.url;
-    if (!downloadUrl) return null;
-
-    // 2) Baixa o binário
-    const fileRes = await fetch(downloadUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!fileRes.ok) return null;
-    const buffer = new Uint8Array(await fileRes.arrayBuffer());
-
-    const cleanMime = (mimeType || metaData.mime_type || "application/octet-stream").split(";")[0].trim();
-    const extMap: Record<string, string> = {
-      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-      "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac",
-      "video/mp4": "mp4", "application/pdf": "pdf",
-    };
-    const ext = extMap[cleanMime] ?? "bin";
-    // PC-038: prefixo por tenant — habilita policy de storage por client_id.
-    const fileName = `${clientId}/wac_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-    const { error } = await adminClient.storage.from("whatsapp_media").upload(fileName, buffer, {
-      contentType: cleanMime, upsert: false,
-    });
-    if (error) return null;
-
-    // PC-038: devolve o PATH do objeto — quem renderiza assina na hora.
-    return fileName;
-  } catch {
-    return null;
-  }
+  const resolved = await resolveGraphMediaUrl(mediaId, accessToken, GRAPH_BASE);
+  if (!resolved) return null;
+  return downloadAndStoreMetaMedia(adminClient, resolved.url, mimeType || resolved.mimeType || "", clientId, "wac", accessToken);
 }
 
 async function findOrCreateLead(
@@ -243,7 +183,7 @@ Deno.serve(async (req) => {
 
     // Valida a assinatura da Meta ANTES de processar; o anti-spoofing por
     // phone_number_id continua como defesa em profundidade.
-    const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+    const sigOk = await verifyMetaSignature(rawBody, req.headers.get("x-hub-signature-256"), WA_APP_SECRET, "whatsapp-cloud-webhook");
     if (!sigOk) {
       console.warn("[whatsapp-cloud-webhook] Invalid X-Hub-Signature-256");
       return new Response("Forbidden", { status: 403, headers: corsHeaders });
