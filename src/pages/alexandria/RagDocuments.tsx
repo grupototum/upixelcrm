@@ -16,8 +16,7 @@ import {
 import { toast } from "sonner";
 import { AnalyticsPanel } from "@/components/alexandria/AnalyticsPanel";
 import { RAGIntegrationStatus } from "@/components/alexandria/RAGIntegrationStatus";
-import { generateDocumentEmbeddings } from "@/services/embeddingService";
-import { searchSimilarDocuments, SearchResult } from "@/services/ragSearchService";
+import type { RagSearchResult } from "@/services/alexandria";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface LibraryDocument {
@@ -70,7 +69,7 @@ export default function BibliotecaPage() {
   // Search (RAG tab only)
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
+  const [searchResults, setSearchResults] = useState<RagSearchResult[] | null>(null);
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -124,7 +123,7 @@ export default function BibliotecaPage() {
   const handleGenerateEmbeddings = async (id: string) => {
     setEmbeddingStatus((prev) => ({ ...prev, [id]: "loading" }));
     try {
-      const result = await generateDocumentEmbeddings(id);
+      const result = await alexandriaRepo.generateDocumentEmbeddings(id);
       setEmbeddingStatus((prev) => ({ ...prev, [id]: "done" }));
       toast.success(`Embeddings gerados: ${result.chunks} chunk(s)`);
     } catch (err: any) {
@@ -137,7 +136,7 @@ export default function BibliotecaPage() {
     if (!searchQuery.trim()) return;
     setSearching(true);
     try {
-      const results = await searchSimilarDocuments(searchQuery.trim());
+      const results = await alexandriaRepo.searchSimilarDocuments(searchQuery.trim());
       setSearchResults(results);
       if (results.length === 0) toast.info("Nenhum resultado encontrado");
     } catch (err: any) {

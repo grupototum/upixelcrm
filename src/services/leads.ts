@@ -9,24 +9,27 @@ import type { CustomFieldDefinition, Lead, TagMeta } from "@/types";
 // toast, estado e regras de UI ficam nos hooks/componentes.
 
 // ---- tags ----
-// tags.client_id existe no banco mas não nos tipos gerados (schema drift)
+// tags é escopada por tenant_id (UUID) — client_id foi removida da tabela
+// numa migração de schema que não passou pelo repo (drift). RLS já reforça
+// tenant_id = profiles.tenant_id; o filtro aqui é defesa em profundidade,
+// igual ao resto do código.
 
-export async function listTags(clientId: string): Promise<TagMeta[]> {
+export async function listTags(tenantId: string): Promise<TagMeta[]> {
   const { data, error } = await untypedFrom("tags")
     .select("*")
-    .eq("client_id", clientId)
+    .eq("tenant_id", tenantId)
     .order("name", { ascending: true });
   if (error) throw error;
   return (data as unknown as TagMeta[]) || [];
 }
 
 export async function createTag(
-  clientId: string,
+  tenantId: string,
   params: { name: string; color?: string; category?: string }
 ): Promise<TagMeta> {
   const { data, error } = await untypedFrom("tags")
     .insert({
-      client_id: clientId,
+      tenant_id: tenantId,
       name: params.name,
       color: params.color || "#6366f1",
       category: params.category || "general",
@@ -200,6 +203,38 @@ export async function updateLead(id: string, updates: Record<string, unknown>): 
   if (error) throw error;
 }
 
+/** Edição em massa de um campo padrão (coluna real da tabela leads). */
+export async function bulkUpdateLeadStandardField(
+  ids: string[],
+  field: string,
+  value: unknown,
+): Promise<void> {
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { error } = await supabase
+      .from("leads")
+      .update({ [field]: value })
+      .in("id", ids.slice(i, i + CHUNK));
+    if (error) throw error;
+  }
+}
+
+/** Edição em massa de um campo customizado (merge no JSONB via RPC — evita
+ * sobrescrever custom_fields inteiro como um .update() direto faria). */
+export async function bulkUpdateLeadCustomField(
+  ids: string[],
+  slug: string,
+  value: string,
+): Promise<number> {
+  const { data, error } = await supabase.rpc("bulk_update_lead_custom_field" as any, {
+    p_lead_ids: ids,
+    p_slug: slug,
+    p_value: value,
+  });
+  if (error) throw error;
+  return (data as number) ?? 0;
+}
+
 /**
  * Reaponta conversas, tarefas e timeline dos leads em sourceIds para o lead
  * primário. ponytail: erros individuais são ignorados de propósito (mesmo
@@ -224,13 +259,18 @@ export async function reassignAndMergePrimary(
   sourceIds: string[],
   primaryId: string,
   mergedTags: string[],
-  mergedNotes: string
+  mergedNotes: string,
+  mergedNotesLocal?: string | null,
 ): Promise<PromiseSettledResult<unknown>[]> {
   return Promise.allSettled([
     supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
     supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
     supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
-    supabase.from("leads").update({ tags: mergedTags, notes: mergedNotes || null }).eq("id", primaryId),
+    supabase.from("leads").update({
+      tags: mergedTags,
+      notes: mergedNotes || null,
+      ...(mergedNotesLocal !== undefined ? { notes_local: mergedNotesLocal } : {}),
+    }).eq("id", primaryId),
   ]);
 }
 
@@ -243,6 +283,30 @@ export async function bulkDeleteLeadsLogOnly(ids: string[]): Promise<void> {
       console.error("Bulk delete failed:", error);
     }
   }
+}
+
+// ---- lead_duplicate_exceptions (grupo "ignorado" na tela de duplicatas) ----
+
+/** group_keys ignorados pelo tenant — antes vivia só em useState (evaporava no F5). */
+export async function listDismissedDuplicateGroupKeys(clientId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("lead_duplicate_exceptions")
+    .select("group_key")
+    .eq("client_id", clientId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.group_key);
+}
+
+export async function insertDuplicateException(
+  clientId: string,
+  tenantId: string | null,
+  groupKey: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("lead_duplicate_exceptions")
+    .insert({ client_id: clientId, tenant_id: tenantId, group_key: groupKey });
+  // 23505 = já ignorado antes (UNIQUE client_id+group_key) — não é erro de verdade.
+  if (error && error.code !== "23505") throw error;
 }
 
 // ---- findOrCreateLead / deleteLead / mergeLeads (usado pelo useInbox) ----
@@ -373,6 +437,54 @@ export async function listTimelineEvents(
   const { data, error } = await q.order("created_at", { ascending: false }).limit(100);
   if (error) throw error;
   return data ?? [];
+}
+
+/**
+ * Página de eventos da timeline de UM lead (cursor por created_at). O
+ * listTimelineEvents acima corta em 100 eventos POR TENANT INTEIRO — um
+ * lead ativo pode perder eventos antigos sem nenhum aviso. Esta função é
+ * escopada por lead_id, então "carregar mais" de fato busca o histórico
+ * completo do lead, não uma fatia arbitrária do tenant.
+ */
+export async function listLeadTimelineEventsPage(
+  leadId: string,
+  before?: string,
+  limit = 30,
+): Promise<Tables<"timeline_events">[]> {
+  let q = supabase.from("timeline_events").select("*").eq("lead_id", leadId);
+  if (before) q = q.lt("created_at", before);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export interface LeadTimelineMessage {
+  id: string;
+  content: string;
+  type: string;
+  direction: string;
+  sender_name: string | null;
+  created_at: string;
+}
+
+/**
+ * Mensagens do lead (via conversations.lead_id), pra exibir na timeline sem
+ * duplicar em timeline_events — gravar 1 evento por mensagem dobraria a
+ * escrita de todo o inbox só pra alimentar esta aba. União acontece no
+ * client (LeadProfilePage), não no banco.
+ */
+export async function listLeadMessagesForTimeline(
+  leadId: string,
+  limit = 50,
+): Promise<LeadTimelineMessage[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, content, type, direction, sender_name, created_at, conversations!inner(lead_id)")
+    .eq("conversations.lead_id", leadId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as unknown as LeadTimelineMessage[];
 }
 
 export async function countLeads(clientId: string, masterView = false): Promise<number> {

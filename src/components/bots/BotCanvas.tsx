@@ -12,7 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { listActiveAgents } from '@/services/users';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAppState } from '@/contexts/AppContext';
 
 import { BotStartNode } from './nodes/BotStartNode';
 import { BotMessageNode } from './nodes/BotMessageNode';
@@ -85,6 +89,16 @@ function Palette() {
 function ConfigPanel({ nodeId, onDelete }: { nodeId: string | null; onDelete: () => void }) {
   const { getNode, setNodes } = useReactFlow();
   const node = nodeId ? getNode(nodeId) : null;
+
+  const { user } = useAuth();
+  const { columns } = useAppState();
+  const clientId = user?.client_id ?? '';
+  const { data: agents = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['bot-config-agents', clientId],
+    queryFn: async () => (clientId ? listActiveAgents(clientId).catch(() => []) : []),
+    enabled: !!clientId,
+    staleTime: 60_000,
+  });
 
   const update = (patch: Record<string, unknown>) =>
     setNodes((ns) => ns.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...patch } } : n));
@@ -211,19 +225,56 @@ function ConfigPanel({ nodeId, onDelete }: { nodeId: string | null; onDelete: ()
                 <SelectContent>
                   <SelectItem value="tag" className="text-xs">Adicionar Tag</SelectItem>
                   <SelectItem value="move_stage" className="text-xs">Mover no Funil</SelectItem>
+                  <SelectItem value="transfer_human" className="text-xs">Transferir para Humano</SelectItem>
                   <SelectItem value="assign_agent" className="text-xs">Atribuir Agente</SelectItem>
                   <SelectItem value="end" className="text-xs">Encerrar Bot</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {d.action && d.action !== 'end' && (
+            {d.action === 'tag' && (
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">
-                  {d.action === 'tag' ? 'Nome da tag' : d.action === 'move_stage' ? 'ID da etapa' : 'ID do agente'}
-                </Label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nome da tag</Label>
                 <Input className="h-8 text-xs" value={(d.value as string) ?? ''}
                   onChange={(e) => update({ value: e.target.value })}
-                  placeholder={d.action === 'tag' ? 'qualificado' : 'id-da-etapa'} />
+                  placeholder="qualificado" />
+              </div>
+            )}
+
+            {/* Etapa e agente gravam em colunas UUID. Digitado à mão, um id
+                errado virava erro de FK engolido pelo engine — o fluxo seguia
+                como se a ação tivesse funcionado. */}
+            {d.action === 'move_stage' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Etapa do funil</Label>
+                <Select value={(d.value as string) ?? ''} onValueChange={(v) => update({ value: v })}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Selecione a etapa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columns.map((c) => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {(d.action === 'assign_agent' || d.action === 'transfer_human') && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Atendente</Label>
+                <Select value={(d.value as string) ?? ''} onValueChange={(v) => update({ value: v })}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Selecione o atendente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {agents.map((a) => (
+                      <SelectItem key={a.id} value={a.id} className="text-xs">{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[9px] text-muted-foreground">
+                  Encerra a sessão do bot e passa a conversa para o humano.
+                </p>
               </div>
             )}
           </>
@@ -255,11 +306,9 @@ function ConfigPanel({ nodeId, onDelete }: { nodeId: string | null; onDelete: ()
 interface BotCanvasProps {
   initialNodes?: Node[];
   initialEdges?: Edge[];
-  onNodesChange?: (nodes: Node[]) => void;
-  onEdgesChange?: (edges: Edge[]) => void;
 }
 
-export function BotCanvas({ initialNodes, initialEdges, onNodesChange, onEdgesChange }: BotCanvasProps) {
+export function BotCanvas({ initialNodes, initialEdges }: BotCanvasProps) {
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState(
     initialNodes?.length ? initialNodes : [defaultStartNode]
   );
@@ -267,20 +316,6 @@ export function BotCanvas({ initialNodes, initialEdges, onNodesChange, onEdgesCh
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, deleteElements, getNode } = useReactFlow();
-
-  const handleNodesChange: typeof onNodesChangeInternal = useCallback((changes) => {
-    onNodesChangeInternal(changes);
-  }, [onNodesChangeInternal]);
-
-  const handleEdgesChange: typeof onEdgesChangeInternal = useCallback((changes) => {
-    onEdgesChangeInternal(changes);
-  }, [onEdgesChangeInternal]);
-
-  // Propagate changes upward for saving
-  const getUpdatedNodes = useCallback(() => nodes, [nodes]);
-  const getUpdatedEdges = useCallback(() => edges, [edges]);
-  // Expose via ref hack not needed — parent reads via useReactFlow
-  void getUpdatedNodes; void getUpdatedEdges;
 
   const onConnect = useCallback((params: Connection | Edge) => {
     if (params.source === params.target) return;
@@ -324,8 +359,8 @@ export function BotCanvas({ initialNodes, initialEdges, onNodesChange, onEdgesCh
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
+          onNodesChange={onNodesChangeInternal}
+          onEdgesChange={onEdgesChangeInternal}
           onConnect={onConnect}
           onDrop={onDrop}
           onDragOver={onDragOver}
@@ -339,13 +374,6 @@ export function BotCanvas({ initialNodes, initialEdges, onNodesChange, onEdgesCh
           <Background color="hsl(var(--muted-foreground) / 0.2)" gap={16} size={1} />
           <Controls />
           <MiniMap style={{ borderRadius: 8, overflow: 'hidden' }} zoomable pannable />
-          <Panel position="top-center" className="flex gap-2 bg-card p-1.5 rounded-full border border-[hsl(var(--border-strong))]">
-            <Button variant="secondary" size="sm" className="gap-2 rounded-full px-4 text-xs h-8"
-              onClick={() => { onNodesChange?.(nodes); onEdgesChange?.(edges); }}>
-              <LayoutGrid className="w-3.5 h-3.5" />
-              Auto-organizar
-            </Button>
-          </Panel>
         </ReactFlow>
       </div>
       <ConfigPanel nodeId={selectedNodeId} onDelete={handleDelete} />

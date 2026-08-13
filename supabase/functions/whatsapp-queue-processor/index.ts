@@ -17,10 +17,20 @@ interface QueueItem {
 
 async function processQueueItem(adminClient: any, item: QueueItem): Promise<boolean> {
   try {
-    await adminClient
+    // Claim atômico: sem o `status = 'pending'` na condição, duas execuções
+    // concorrentes do cron (ou uma execução lenta sobreposta à seguinte)
+    // pegavam o mesmo item e processavam a mensagem duas vezes.
+    const { data: claimed } = await adminClient
       .from("whatsapp_message_queue")
-      .update({ status: "processing" })
-      .eq("id", item.id);
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .eq("id", item.id)
+      .eq("status", "pending")
+      .select("id");
+
+    if (!claimed || claimed.length === 0) {
+      console.log(`Queue item ${item.id} já reivindicado por outra execução`);
+      return true;
+    }
 
     const { data: conversation } = await adminClient
       .from("conversations")
@@ -105,6 +115,18 @@ Deno.serve(async (req) => {
 
     console.log("Starting WhatsApp queue processor...");
 
+    // Reaper: item que ficou em `processing` (a função morreu no meio) nunca
+    // mais era buscado — o SELECT só olha `pending`. 10 min é folgado o
+    // bastante para não competir com uma execução ainda viva.
+    const stuckBefore = new Date(Date.now() - 10 * 60_000).toISOString();
+    const { data: reaped } = await adminClient
+      .from("whatsapp_message_queue")
+      .update({ status: "pending", updated_at: new Date().toISOString() })
+      .eq("status", "processing")
+      .lt("updated_at", stuckBefore)
+      .select("id");
+    if (reaped?.length) console.warn(`Reaped ${reaped.length} item(ns) presos em processing`);
+
     const { data: queueItems, error: fetchError } = await adminClient
       .from("whatsapp_message_queue")
       .select("*")
@@ -112,7 +134,6 @@ Deno.serve(async (req) => {
       // Itens da rota SDR (route='sdr') são consumidos por um serviço externo
       // na VPS — o cron do salesbot só processa os seus próprios.
       .eq("route", "salesbot")
-      .lt("attempt_count", 5)
       .order("created_at", { ascending: true })
       .limit(100);
 
@@ -140,7 +161,9 @@ Deno.serve(async (req) => {
         batch.map((item) => processQueueItem(adminClient, item))
       );
       processedCount += results.length;
-      failedCount += results.filter(Boolean).length;
+      // `false` = falhou e ainda vai ser retentado. Contava-se `Boolean`, que
+      // é true no sucesso — o log de saúde reportava sucessos como falhas.
+      failedCount += results.filter((ok) => !ok).length;
     }
 
     console.log(`Processed: ${processedCount}, Failed: ${failedCount}`);

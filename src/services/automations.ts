@@ -228,11 +228,36 @@ export async function getBotForDuplicate(id: string) {
 export async function getBotFull(id: string) {
   const { data, error } = await supabase
     .from("bots")
-    .select("id, name, status, nodes, edges, trigger_type, trigger_value")
+    .select("id, name, status, nodes, edges, draft_nodes, draft_edges, published_at, trigger_type, trigger_value")
     .eq("id", id)
     .single();
   if (error) throw error;
   return data;
+}
+
+/** Salva o rascunho. Nunca toca no fluxo que o engine executa. */
+export async function saveBotDraft(id: string, nodes: unknown, edges: unknown): Promise<void> {
+  const { error } = await supabase
+    .from("bots")
+    .update({ draft_nodes: nodes as never, draft_edges: edges as never })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Promove o rascunho a publicado — só aqui a produção muda. */
+export async function publishBot(id: string, nodes: unknown, edges: unknown): Promise<void> {
+  const { error } = await supabase
+    .from("bots")
+    .update({
+      nodes: nodes as never,
+      edges: edges as never,
+      draft_nodes: null,
+      draft_edges: null,
+      status: "published",
+      published_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 // ---- instagram_auto_replies (funis do Instagram) ----

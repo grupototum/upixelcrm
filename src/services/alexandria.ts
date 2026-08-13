@@ -112,3 +112,35 @@ export async function uploadRagMediaFile(
 export function invokeAiChat(history: { role: string; content: string }[]): Promise<{ data: any; error: any }> {
   return supabase.functions.invoke("ai-chat", { body: { messages: history } }) as Promise<{ data: any; error: any }>;
 }
+
+// ---- edge rag-embed / rag-search ----
+
+export async function generateDocumentEmbeddings(documentId: string): Promise<{ success: boolean; chunks: number }> {
+  const { data, error } = await supabase.functions.invoke("rag-embed", {
+    body: { document_id: documentId },
+  });
+  if (error) throw new Error(error.message || "Failed to generate embeddings");
+  if (data?.error) throw new Error(data.error);
+  return { success: true, chunks: data?.chunks || 0 };
+}
+
+export interface RagSearchResult {
+  documentId: string;
+  title: string;
+  content: string;
+  similarity: number;
+  type: string;
+}
+
+export async function searchSimilarDocuments(
+  query: string,
+  limit = 5,
+  threshold = 0.3
+): Promise<RagSearchResult[]> {
+  const { data, error } = await supabase.functions.invoke("rag-search", {
+    body: { query, limit, threshold },
+  });
+  if (error) throw new Error(error.message || "Search failed");
+  if (data?.error) throw new Error(data.error);
+  return data?.results || [];
+}

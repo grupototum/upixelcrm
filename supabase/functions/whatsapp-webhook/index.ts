@@ -1,41 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { isDuplicateMessage } from "../_shared/messageDedup.ts";
 import { callerKey, checkRateLimit, limitFromEnv, tooManyRequests } from "../_shared/rateLimit.ts";
+import { verifyMetaSignature } from "../_shared/verifyMetaSignature.ts";
+import { downloadAndStoreMetaMedia, resolveGraphMediaUrl } from "../_shared/downloadMetaMedia.ts";
 
 // PC-026: a rota Meta Official aceitava qualquer payload sem validar procedência.
 // `verify_jwt = false` + integration_id/instance_name enumeráveis significavam que
 // qualquer um podia injetar mensagens em qualquer tenant. Mesmo padrão já usado em
 // whatsapp-cloud-webhook e facebook-messenger-webhook.
 const WA_APP_SECRET = Deno.env.get("WHATSAPP_APP_SECRET") ?? Deno.env.get("META_APP_SECRET") ?? "";
-
-async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  if (!WA_APP_SECRET) {
-    console.error("[whatsapp-webhook] WHATSAPP_APP_SECRET/META_APP_SECRET not configured");
-    return false;
-  }
-  if (!signatureHeader?.startsWith("sha256=")) return false;
-
-  const expected = signatureHeader.slice("sha256=".length);
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(WA_APP_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  // Comparação em tempo constante — evita timing oracle sobre a assinatura.
-  if (computed.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
-}
 
 // ─── Push notification helper ───
 async function sendPushNotification(
@@ -63,6 +38,21 @@ async function sendPushNotification(
     });
   } catch (err) {
     console.error("Push notification error (non-blocking):", err);
+  }
+}
+
+// No Deno Deploy o isolate pode ser encerrado assim que a Response é retornada,
+// matando qualquer Promise pendente. Sem isto, o bot e as automações disparados
+// em fire-and-forget no fim do webhook rodavam "às vezes" — falha
+// não-determinística e impossível de reproduzir localmente.
+declare const EdgeRuntime: { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+
+function runInBackground(promise: Promise<unknown>, label: string): void {
+  const guarded = promise.catch((err: unknown) =>
+    console.error(`[background:${label}]`, err)
+  );
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+    EdgeRuntime.waitUntil(guarded);
   }
 }
 
@@ -213,41 +203,9 @@ async function downloadOfficialMedia(
   adminClient: any, mediaId: string, accessToken: string, mimetype: string,
   clientId: string
 ): Promise<string | null> {
-  try {
-    // Step 1: Get media URL from Graph API
-    const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!metaRes.ok) { console.error("Failed to get media URL from Meta:", metaRes.status); return null; }
-    const metaData = await metaRes.json();
-    const downloadUrl = metaData.url;
-    if (!downloadUrl) return null;
-
-    // Step 2: Download the media binary
-    const mediaRes = await fetch(downloadUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!mediaRes.ok) { console.error("Failed to download media from Meta:", mediaRes.status); return null; }
-    const arrayBuffer = await mediaRes.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-
-    const cleanMime = (mimetype || "application/octet-stream").split(";")[0].trim();
-    const extMap: Record<string, string> = {
-      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-      "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac",
-      "video/mp4": "mp4", "application/pdf": "pdf",
-    };
-    const ext = extMap[cleanMime] || "bin";
-    // PC-038: prefixo por tenant (ver downloadAndStoreMedia).
-    const fileName = `${clientId}/official_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
-
-    const { error: uploadError } = await adminClient.storage.from("whatsapp_media").upload(fileName, bytes, { contentType: cleanMime, upsert: false });
-    if (uploadError) { console.error("Storage upload error:", uploadError); return null; }
-
-    // PC-038: devolve o PATH do objeto — ver downloadAndStoreMedia.
-    console.log("Official media uploaded:", fileName);
-    return fileName;
-  } catch (err) { console.error("Error downloading official media:", err); return null; }
+  const resolved = await resolveGraphMediaUrl(mediaId, accessToken, "https://graph.facebook.com/v21.0");
+  if (!resolved) { console.error("Failed to get media URL from Meta for mediaId:", mediaId); return null; }
+  return downloadAndStoreMetaMedia(adminClient, resolved.url, mimetype, clientId, "official", accessToken);
 }
 
 // ─── Find or create lead ───
@@ -351,17 +309,20 @@ async function findOrCreateLead(
   console.log("Created lead:", newLead.id);
 
   // Trigger automation for new lead
-  triggerAutomations(adminClient, clientId, "new_lead", newLead.id, { origin: "whatsapp" });
+  runInBackground(
+    triggerAutomations(adminClient, clientId, "new_lead", newLead.id, { origin: "whatsapp" }),
+    "triggerAutomations:new_lead",
+  );
 
   // Push notification for new lead (broadcast to all users of this client)
-  sendPushNotification(adminClient, {
+  runInBackground(sendPushNotification(adminClient, {
     title: "🆕 Novo Lead",
     body: `${senderName} entrou via WhatsApp`,
     tag: `lead-${newLead.id}`,
     type: "new_lead",
     target_client_id: clientId,
     lead_id: newLead.id,
-  });
+  }), "push:new_lead");
 
   return newLead.id;
 }
@@ -469,9 +430,14 @@ async function triggerAutomations(adminClient: any, clientId: string, eventType:
 
 // ─── Bot Engine ──────────────────────────────────────────────────────────────
 
-function interpolateVars(text: string, vars: Record<string, string>, phone: string): string {
+// O builder anuncia {{lead.name}} como variável disponível e sugere
+// "Olá {{lead.name}}, tudo bem?" no placeholder — mas o valor era substituído
+// por string vazia, produzindo "Olá , tudo bem?" em produção.
+function interpolateVars(
+  text: string, vars: Record<string, string>, phone: string, leadName = "",
+): string {
   return text
-    .replace(/\{\{lead\.name\}\}/g, "")
+    .replace(/\{\{lead\.name\}\}/g, leadName)
     .replace(/\{\{lead\.phone\}\}/g, phone)
     .replace(/\{\{([^}]+)\}\}/g, (_: string, k: string) => vars[k] ?? "");
 }
@@ -494,7 +460,7 @@ async function executeBotNodes(
   adminClient: any, sessionId: string,
   nodes: any[], edges: any[], startNodeId: string,
   variables: Record<string, string>, phone: string,
-  config: Record<string, any>, leadId: string
+  config: Record<string, any>, leadId: string, leadName = ""
 ): Promise<void> {
   let currentId = startNodeId;
   const vars = { ...variables };
@@ -506,15 +472,23 @@ async function executeBotNodes(
     const d = node.data ?? {};
 
     if (node.type === "bot_message") {
-      await sendBotMessage(config, phone, interpolateVars(d.text ?? "", vars, phone));
+      await sendBotMessage(config, phone, interpolateVars(d.text ?? "", vars, phone, leadName));
       const next = edges.find((e: any) => e.source === currentId);
       if (!next) break;
       currentId = next.target;
 
     } else if (node.type === "bot_question") {
-      await sendBotMessage(config, phone, interpolateVars(d.text ?? "", vars, phone));
+      await sendBotMessage(config, phone, interpolateVars(d.text ?? "", vars, phone, leadName));
+      // O timeout configurado no builder era ignorado: a sessão ficava `active`
+      // para sempre e, meses depois, uma mensagem qualquer do lead era lida como
+      // resposta a uma pergunta esquecida.
+      const timeoutHours = Number(d.timeout ?? 24);
+      const expiresAt = Number.isFinite(timeoutHours) && timeoutHours > 0
+        ? new Date(Date.now() + timeoutHours * 3600_000).toISOString()
+        : null;
       await adminClient.from("bot_sessions").update({
-        current_node_id: currentId, variables: vars, updated_at: new Date().toISOString(),
+        current_node_id: currentId, variables: vars,
+        expires_at: expiresAt, updated_at: new Date().toISOString(),
       }).eq("id", sessionId);
       return; // pause — wait for reply
 
@@ -547,8 +521,18 @@ async function executeBotNodes(
       if (d.action === "move_stage" && d.value) {
         await adminClient.from("leads").update({ column_id: d.value }).eq("id", leadId);
       }
-      if (d.action === "assign_agent" && d.value) {
+      // Handoff bot→humano. Antes, `assign_agent` só gravava o responsável e o
+      // fluxo continuava: a sessão seguia `active` e o bot continuava
+      // interceptando o cliente mesmo depois de "transferido" — não havia como
+      // o atendente assumir. Atribuir a um humano agora encerra a sessão.
+      if ((d.action === "assign_agent" || d.action === "transfer_human") && d.value) {
         await adminClient.from("leads").update({ responsible_id: d.value }).eq("id", leadId);
+      }
+      if (d.action === "assign_agent" || d.action === "transfer_human") {
+        await adminClient.from("bot_sessions")
+          .update({ status: "handed_off", updated_at: new Date().toISOString() })
+          .eq("id", sessionId);
+        return;
       }
       const next = edges.find((e: any) => e.source === currentId);
       if (!next) break;
@@ -564,15 +548,29 @@ async function executeBotNodes(
 
 async function runBotEngine(
   adminClient: any, clientId: string, leadId: string,
-  phone: string, config: Record<string, any>, incomingMessage: string
+  phone: string, config: Record<string, any>, incomingMessage: string,
+  leadName = ""
 ): Promise<void> {
   try {
-    // 1. Resume active session (lead just replied to a question)
+    // 1. Resume active session (lead just replied to a question).
+    // `limit(1)` em vez de maybeSingle puro: com sessões duplicadas o
+    // PostgREST devolvia erro, o código lia `session = null` e criava MAIS uma
+    // sessão pelo caminho de keyword — uma espiral. O índice único da migration
+    // impede novas duplicatas; isto protege as que já existirem.
     const { data: session } = await adminClient.from("bot_sessions")
-      .select("id, bot_id, current_node_id, variables")
-      .eq("lead_id", leadId).eq("status", "active").maybeSingle();
+      .select("id, bot_id, current_node_id, variables, expires_at")
+      .eq("lead_id", leadId).eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1).maybeSingle();
 
-    if (session) {
+    // Expiração lazy: mais barato que um cron e suficiente, já que a sessão só
+    // importa quando chega mensagem desse lead.
+    if (session?.expires_at && new Date(session.expires_at) < new Date()) {
+      await adminClient.from("bot_sessions")
+        .update({ status: "expired", updated_at: new Date().toISOString() })
+        .eq("id", session.id);
+      console.log("Bot session expired:", session.id);
+    } else if (session) {
       const { data: bot } = await adminClient.from("bots")
         .select("nodes, edges").eq("id", session.bot_id).single();
       if (!bot) return;
@@ -594,7 +592,23 @@ async function runBotEngine(
         return;
       }
 
-      await executeBotNodes(adminClient, session.id, bot.nodes, bot.edges, replyEdge.target, vars, phone, config, leadId);
+      // Lock otimista: só avança quem conseguir mover o ponteiro a partir do nó
+      // que leu. Duas mensagens em rajada (o caso comum no WhatsApp) chegam em
+      // duas invocações concorrentes da edge function — sem isto, ambas
+      // executavam o mesmo ramo e o cliente recebia a sequência duplicada.
+      const { data: claimed } = await adminClient.from("bot_sessions")
+        .update({ current_node_id: replyEdge.target, variables: vars, updated_at: new Date().toISOString() })
+        .eq("id", session.id)
+        .eq("status", "active")
+        .eq("current_node_id", session.current_node_id)
+        .select("id");
+
+      if (!claimed || claimed.length === 0) {
+        console.log("Bot session claim perdido (execução concorrente):", session.id);
+        return;
+      }
+
+      await executeBotNodes(adminClient, session.id, bot.nodes, bot.edges, replyEdge.target, vars, phone, config, leadId, leadName);
       return;
     }
 
@@ -607,17 +621,23 @@ async function runBotEngine(
       const keyword = (bot.trigger_value ?? "").toLowerCase();
       if (!keyword || !incomingMessage.toLowerCase().includes(keyword)) continue;
 
-      const { data: newSession } = await adminClient.from("bot_sessions").insert({
+      // O índice único parcial (uma sessão active por lead) faz este insert
+      // falhar quando outra invocação concorrente já abriu a sessão — é o
+      // comportamento desejado: a outra assume, esta desiste.
+      const { data: newSession, error: sessionError } = await adminClient.from("bot_sessions").insert({
         bot_id: bot.id, lead_id: leadId, client_id: clientId, status: "active", variables: {},
       }).select("id").single();
-      if (!newSession) continue;
+      if (sessionError || !newSession) {
+        if (sessionError) console.log("Sessão de bot já aberta por outra execução:", sessionError.code);
+        continue;
+      }
 
       const startNode = (bot.nodes as any[]).find((n: any) => n.type === "bot_start");
       if (!startNode) continue;
       const firstEdge = (bot.edges as any[]).find((e: any) => e.source === startNode.id);
       if (!firstEdge) continue;
 
-      await executeBotNodes(adminClient, newSession.id, bot.nodes, bot.edges, firstEdge.target, {}, phone, config, leadId);
+      await executeBotNodes(adminClient, newSession.id, bot.nodes, bot.edges, firstEdge.target, {}, phone, config, leadId, leadName);
       break;
     }
 
@@ -807,12 +827,15 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   }
 
   if (!match) {
-    const { data: integrations } = await adminClient.from("integrations").select("id, client_id, status, config")
-      .eq("provider", "whatsapp").limit(200);
-    match = ((integrations || []) as IntegrationRow[]).find((i) => {
-      const name = (i.config as Record<string, unknown> | null)?.instance_name;
-      return name === instanceName;
-    }) ?? null;
+    // Filtro no SQL: o scan com .limit(200) + .find() em JS carregava as
+    // integrações de todos os tenants e ignorava em silêncio qualquer uma
+    // além da 200ª.
+    const { data } = await adminClient.from("integrations").select("id, client_id, status, config")
+      .eq("provider", "whatsapp")
+      .eq("config->>instance_name", instanceName)
+      .limit(1)
+      .maybeSingle();
+    match = (data as IntegrationRow | null) ?? null;
   }
 
   if (!match) {
@@ -843,6 +866,14 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
     }
   }
 
+
+  // Idempotência: descarta reentrega da Evolution e o eco `fromMe` da mensagem
+  // que o próprio CRM acabou de enviar (o proxy grava o mesmo key.id).
+  // Antes do download de mídia — reentrega de vídeo custava um download inteiro.
+  if (await isDuplicateMessage(adminClient, "whatsapp_message_id", messageData.key?.id)) {
+    console.log("Duplicate message ignored:", messageData.key?.id);
+    return { ok: true, skipped: "duplicate" };
+  }
 
   const clientId = match.client_id;
   const integrationId = match.id as string;
@@ -889,30 +920,35 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
         });
         console.log("[sdr-route] enqueued", convId);
       } else {
-        triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, {
-          message: finalContent,
-          message_type: msgType,
-          channel: "whatsapp",
-        });
+        runInBackground(
+          triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, {
+            message: finalContent,
+            message_type: msgType,
+            channel: "whatsapp",
+          }),
+          "triggerAutomations",
+        );
 
         // Bot engine — only for text messages
         if (msgType === "text") {
-          runBotEngine(adminClient, clientId, conv.lead_id, phone, matchConfig, finalContent)
-            .catch((err: any) => console.error("Bot engine error (non-blocking):", err));
+          runInBackground(
+            runBotEngine(adminClient, clientId, conv.lead_id, phone, matchConfig, finalContent, senderName),
+            "runBotEngine",
+          );
         }
       }
 
       const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
       const targetUserId = lead?.responsible_id;
       if (targetUserId) {
-        sendPushNotification(adminClient, {
+        runInBackground(sendPushNotification(adminClient, {
           title: `💬 ${senderName}`,
           body: buildDisplayText(msgType, finalContent, msgMeta).slice(0, 100),
           tag: `msg-${convId}`,
           type: "new_message",
           target_user_id: targetUserId,
           lead_id: conv.lead_id,
-        });
+        }), "push:new_message");
       }
     }
   }
@@ -963,6 +999,13 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
       }
 
       for (const msg of value.messages) {
+        // Idempotência: a Meta reentrega o evento inteiro quando não recebe 200
+        // a tempo. Checa antes do download de mídia.
+        if (await isDuplicateMessage(adminClient, "whatsapp_message_id", msg.id)) {
+          console.log("Duplicate official message ignored:", msg.id);
+          continue;
+        }
+
         const senderPhone = msg.from;
         const senderName = contactsMap[senderPhone] || senderPhone;
 
@@ -985,23 +1028,26 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
         if (convId) {
           const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
           if (conv?.lead_id) {
-            triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, { 
-              message: finalContent, 
-              message_type: msgType, 
-              channel: "whatsapp_official" 
-            });
+            runInBackground(
+              triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, {
+                message: finalContent,
+                message_type: msgType,
+                channel: "whatsapp_official",
+              }),
+              "triggerAutomations:official",
+            );
 
             const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
             const targetUserId = lead?.responsible_id;
             if (targetUserId) {
-              sendPushNotification(adminClient, {
+              runInBackground(sendPushNotification(adminClient, {
                 title: `💬 ${senderName}`,
                 body: buildDisplayText(msgType, finalContent, msgMeta).slice(0, 100),
                 tag: `msg-${convId}`,
                 type: "new_message",
                 target_user_id: targetUserId,
                 lead_id: conv.lead_id,
-              });
+              }), "push:new_message_official");
             }
           }
         }
@@ -1081,7 +1127,7 @@ Deno.serve(async (req) => {
     if (body.object === "whatsapp_business_account") {
       // PC-026: só a rota Meta assina o payload. A rota Evolution segue sem HMAC
       // (Evolution não envia X-Hub-Signature-256) e não passa por aqui.
-      const sigOk = await verifySignature(rawBody, req.headers.get("x-hub-signature-256"));
+      const sigOk = await verifyMetaSignature(rawBody, req.headers.get("x-hub-signature-256"), WA_APP_SECRET, "whatsapp-webhook");
       if (!sigOk) {
         console.warn("[whatsapp-webhook] Invalid X-Hub-Signature-256 — payload rejeitado");
         return new Response("Forbidden", { status: 403, headers: corsHeaders });

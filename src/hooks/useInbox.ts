@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getCurrentSession } from "@/lib/auth-session";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/TenantContext";
@@ -15,6 +15,7 @@ import {
   listLeadBasicsByIds,
   listLeadConversationRefs,
   listMessagesByConversationIds,
+  MESSAGE_PAGE_SIZE,
   markConversationsRead,
   getConversationRef,
   getConversationCsatInfo,
@@ -158,6 +159,8 @@ export function useInbox(onLeadCreated?: () => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
@@ -285,6 +288,8 @@ export function useInbox(onLeadCreated?: () => void) {
       seenIds.add(m.id);
       return true;
     });
+    // Página cheia = provavelmente há histórico anterior.
+    setHasMoreMessages(dedupedRows.length >= MESSAGE_PAGE_SIZE);
     console.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
     // PC-038: assina os paths de mídia antes de entregar pra UI.
     setMessages(await Promise.all(dedupedRows.map(m => {
@@ -310,6 +315,46 @@ export function useInbox(onLeadCreated?: () => void) {
     setSelectedLeadId(id);
     loadMessages(id);
   }, [loadMessages]);
+
+  /** Busca a página anterior do histórico (o "carregar mais" da timeline). */
+  const loadOlderMessages = useCallback(async () => {
+    if (!clientId || !selectedLeadId || loadingOlder) return;
+    const oldest = messages.find(m => !String(m.id).startsWith("optimistic-"));
+    if (!oldest) return;
+
+    setLoadingOlder(true);
+    try {
+      const convs = await listLeadConversationRefs(clientId, selectedLeadId).catch(() => []);
+      if (!convs.length) return;
+      const channelMap = Object.fromEntries(convs.map(c => [c.id, c.channel]));
+      const older = await listMessagesByConversationIds(convs.map(c => c.id), oldest.created_at);
+
+      setHasMoreMessages(older.length >= MESSAGE_PAGE_SIZE);
+      if (!older.length) return;
+
+      const signed = await Promise.all(older.map(m => {
+        const meta = (m.metadata || {}) as Record<string, any>;
+        return signMessageMedia({
+          ...m,
+          content: resolveMediaContent(m.content, m.type, meta),
+          channel: channelMap[m.conversation_id],
+          metadata: meta,
+          is_private: meta?.is_private || false,
+          content_type: meta?.content_type || "text",
+        });
+      }));
+
+      setMessages(prev => {
+        const known = new Set(prev.map(m => m.id));
+        return sortByCreatedAt([...signed.filter(m => !known.has(m.id)), ...prev]);
+      });
+    } catch (err) {
+      logger.error("[loadOlderMessages]", err);
+      toast.error("Erro ao carregar mensagens anteriores.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [clientId, selectedLeadId, loadingOlder, messages]);
 
   // Upload file to Supabase Storage
   const uploadFile = async (file: File) => {
@@ -435,6 +480,18 @@ export function useInbox(onLeadCreated?: () => void) {
       toast.error(`Erro ao enviar: ${err.message}`);
     }
   }, [conversations]);
+
+  /**
+   * Reenvia uma mensagem que falhou. Antes, `failed: true` era estado terminal
+   * e invisível: a bolha era renderizada igual às demais e o atendente
+   * acreditava ter enviado — ao recarregar a página, a mensagem sumia.
+   */
+  const retryMessage = useCallback(async (messageId: string) => {
+    const msg = messages.find(m => m.id === messageId);
+    if (!msg || !selectedLeadId) return;
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    await sendWhatsAppMessage(selectedLeadId, msg.content, msg.conversation_id);
+  }, [messages, selectedLeadId, sendWhatsAppMessage]);
 
   // Send message with media (unified - WhatsApp, Instagram, or fallback for other channels)
   const sendWhatsAppMedia = useCallback(async (leadId: string, file: File, targetConversationId?: string) => {
@@ -832,17 +889,72 @@ export function useInbox(onLeadCreated?: () => void) {
   // Initial load
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
+  // O canal de realtime é assinado uma vez por tenant. O estado que o callback
+  // precisa vive em refs para que trocar de conversa NÃO derrube e refaça o
+  // WebSocket — o teardown/reassinatura abria uma janela em que a mensagem não
+  // chegava nem pelo fetch nem pelo stream.
+  const selectedLeadIdRef = useRef<string | null>(null);
+  const handlersRef = useRef({ loadConversations, loadMessages, findOrCreateLead });
+  // conversation_id → lead: evita um round-trip ao banco por mensagem recebida.
+  const convIndexRef = useRef(new Map<string, { lead_id: string; channel: string }>());
+
+  useEffect(() => {
+    selectedLeadIdRef.current = selectedLeadId;
+    handlersRef.current = { loadConversations, loadMessages, findOrCreateLead };
+  });
+
+  useEffect(() => {
+    const index = new Map<string, { lead_id: string; channel: string }>();
+    conversations.forEach((g) =>
+      g.source_conversations.forEach((sc) => index.set(sc.id, { lead_id: g.lead_id, channel: sc.channel }))
+    );
+    convIndexRef.current = index;
+  }, [conversations]);
+
+  // Recarrega a lista coalescendo rajadas: 5 mensagens chegando juntas viram
+  // um refetch, não cinco.
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleReload = useCallback(() => {
+    if (reloadTimerRef.current) return;
+    reloadTimerRef.current = setTimeout(() => {
+      reloadTimerRef.current = null;
+      handlersRef.current.loadConversations();
+    }, 700);
+  }, []);
+
+  // Reconexão: postgres_changes não faz replay do que passou enquanto o socket
+  // esteve caído, então só um refetch recupera. Throttle evita tempestade de
+  // requests; o jitter evita que N abas reconectando após um deploy batam no
+  // banco no mesmo instante.
+  const lastResyncRef = useRef(0);
+  const resync = useCallback(() => {
+    const now = Date.now();
+    if (now - lastResyncRef.current < 5000) return;
+    lastResyncRef.current = now;
+    setTimeout(() => {
+      handlersRef.current.loadConversations();
+      const lead = selectedLeadIdRef.current;
+      if (lead) handlersRef.current.loadMessages(lead);
+    }, Math.random() * 1000);
+  }, []);
+
   // Realtime subscription
   useEffect(() => {
-    if (!clientId || !selectedLeadId) return;
+    if (!clientId) return;
+    let firstSubscribe = true;
 
     const channel = supabase
       .channel(`inbox-realtime:${clientId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
+        const selectedLeadId = selectedLeadIdRef.current;
 
-        // Erro no lookup era ignorado no original (conv undefined) — preservado
-        const conv = await getConversationRef(newMsg.conversation_id, clientId).catch(() => null);
+        // Cache local primeiro; só consulta o banco para conversa desconhecida
+        // ou ainda sem lead (o branch de auto-assign precisa do valor real).
+        const cached = convIndexRef.current.get(newMsg.conversation_id);
+        const conv = cached && cached.lead_id !== "unassigned"
+          ? cached
+          : await getConversationRef(newMsg.conversation_id, clientId).catch(() => null);
 
         if (conv?.lead_id === selectedLeadId) {
           const meta = (newMsg.metadata || {}) as Record<string, any>;
@@ -922,7 +1034,7 @@ export function useInbox(onLeadCreated?: () => void) {
           if (!conv.lead_id) {
             const phone = (newMsg.metadata as any)?.phone;
             const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
-            const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
+            const leadId = await handlersRef.current.findOrCreateLead(phone, undefined, senderName || phone);
             if (leadId) {
               // Erro no update era ignorado no original — preservado
               await assignLeadToConversation(newMsg.conversation_id, leadId).catch(() => {});
@@ -935,20 +1047,32 @@ export function useInbox(onLeadCreated?: () => void) {
         // e o unread_count via markConversationsRead em loadMessages.
         // Chamar loadConversations() em todo INSERT causa re-fetch storm em produção.
         if (conv?.lead_id !== selectedLeadId) {
-          loadConversations();
+          scheduleReload();
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, async (payload) => {
         const updatedConv = payload.new as any;
         // Only process updates from this client
         if (updatedConv.client_id === clientId) {
-          loadConversations();
+          scheduleReload();
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          // A primeira assinatura não precisa de resync (o load inicial já
+          // rodou); as seguintes são reconexões e precisam.
+          if (!firstSubscribe) resync();
+          firstSubscribe = false;
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          logger.warn("[useInbox] realtime desconectado:", status);
+        }
+      });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [selectedLeadId, loadConversations, findOrCreateLead, clientId]);
+    return () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, scheduleReload, resync]);
 
   // Delete lead and its data
   const deleteLead = useCallback(async (leadId: string) => {
@@ -1022,6 +1146,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
   return {
     conversations, messages, selectedLeadId, loading,
+    hasMoreMessages, loadingOlder, loadOlderMessages, retryMessage,
     selectLead, sendMessage, createConversation,
     updateStatus, updatePriority, assignToAgent, updateLabels,
     snoozeConversation,

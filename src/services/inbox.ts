@@ -63,21 +63,39 @@ export async function listLeadConversationRefs(
   return data ?? [];
 }
 
-export async function listMessagesByConversationIds(convIds: string[]): Promise<Tables<"messages">[]> {
-  // Busca as 500 mais recentes (desc + limit) e devolve em ordem cronológica —
-  // antes baixava o histórico inteiro do lead a cada loadMessages.
-  const { data, error } = await supabase
+export const MESSAGE_PAGE_SIZE = 100;
+
+/**
+ * Página de mensagens em ordem cronológica. `before` é o `created_at` da
+ * mensagem mais antiga já carregada — passe-o para buscar o trecho anterior.
+ *
+ * Antes isto trazia as 500 mais recentes sem cursor: histórico acima disso era
+ * inacessível de forma permanente (não havia "carregar mais" em lugar nenhum).
+ */
+export async function listMessagesByConversationIds(
+  convIds: string[],
+  before?: string,
+): Promise<Tables<"messages">[]> {
+  let query = supabase
     .from("messages")
     .select("*")
     .in("conversation_id", convIds)
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(MESSAGE_PAGE_SIZE);
+  if (before) query = query.lt("created_at", before);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).reverse();
 }
 
 export async function markConversationsRead(convIds: string[]): Promise<void> {
   const { error } = await supabase.from("conversations").update({ unread_count: 0 }).in("id", convIds);
+  if (error) throw error;
+}
+
+/** Marca como não lida (ação em massa) — mesmo efeito visual de uma msg nova chegando. */
+export async function markConversationsUnread(convIds: string[]): Promise<void> {
+  const { error } = await supabase.from("conversations").update({ unread_count: 1 }).in("id", convIds);
   if (error) throw error;
 }
 

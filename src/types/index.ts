@@ -87,7 +87,6 @@ export interface Task {
   /** 2.6: desfecho registrado na conclusão. */
   result?: string;
   completed_at?: string;
-  completed_by?: string;
 }
 
 export interface Automation {

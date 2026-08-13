@@ -1,8 +1,10 @@
 import { logger } from "@/lib/logger";
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
+import * as leadsRepo from "@/services/leads";
 import { mockThreads, mockMessages } from "@/lib/mock-data";
 import { AddTagModal } from "@/components/crm/AddTagModal";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
@@ -163,6 +165,65 @@ export default function LeadProfilePage() {
     });
   }, [contextAutomations, column, id]);
   const leadTimeline = useMemo(() => timeline.filter((e) => e.lead_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [id, timeline]);
+
+  // listTimelineEvents (usado por `timeline` acima, via AppContext) corta em
+  // 100 eventos POR TENANT INTEIRO — um lead ativo perde histórico antigo
+  // sem aviso. "Carregar mais" busca páginas adicionais escopadas por
+  // lead_id, então não depende desse corte global.
+  const [olderEvents, setOlderEvents] = useState<TimelineEvent[]>([]);
+  const [loadingMoreTimeline, setLoadingMoreTimeline] = useState(false);
+  const [hasMoreTimeline, setHasMoreTimeline] = useState(true);
+  const TIMELINE_PAGE_SIZE = 30;
+
+  useEffect(() => {
+    // Reseta a paginação ao trocar de lead.
+    setOlderEvents([]);
+    setHasMoreTimeline(true);
+  }, [id]);
+
+  const handleLoadMoreTimeline = useCallback(async () => {
+    if (!id || loadingMoreTimeline || !hasMoreTimeline) return;
+    setLoadingMoreTimeline(true);
+    try {
+      const combined = [...leadTimeline, ...olderEvents];
+      const oldestSoFar = combined.length > 0
+        ? combined.reduce((min, e) => (e.created_at < min ? e.created_at : min), combined[0].created_at)
+        : undefined;
+      const page = await leadsRepo.listLeadTimelineEventsPage(id, oldestSoFar, TIMELINE_PAGE_SIZE);
+      setOlderEvents((prev) => [...prev, ...(page as unknown as TimelineEvent[])]);
+      setHasMoreTimeline(page.length === TIMELINE_PAGE_SIZE);
+    } catch (err) {
+      logger.error("[LeadProfilePage] loadMoreTimeline", err);
+    } finally {
+      setLoadingMoreTimeline(false);
+    }
+  }, [id, loadingMoreTimeline, hasMoreTimeline, leadTimeline, olderEvents]);
+
+  // Mensagens do lead, unidas na timeline SEM gravar 1 evento por mensagem em
+  // timeline_events — isso dobraria a escrita de todo o inbox só pra
+  // alimentar esta aba. A união acontece aqui, no client.
+  const { data: leadMessages = [] } = useQuery({
+    queryKey: ["lead-timeline-messages", id],
+    queryFn: () => leadsRepo.listLeadMessagesForTimeline(id!),
+    enabled: !!id && activeTab === "timeline",
+    staleTime: 60_000,
+  });
+
+  const mergedTimeline = useMemo<TimelineEvent[]>(() => {
+    const messageEvents: TimelineEvent[] = leadMessages.map((m) => ({
+      id: `msg_${m.id}`,
+      lead_id: id!,
+      type: "message",
+      content: m.type === "text" ? m.content : `[${m.type}] ${m.content}`.slice(0, 120),
+      created_at: m.created_at,
+      user_name: m.direction === "outbound" ? "Você" : (m.sender_name || "Lead"),
+    }));
+    const byId = new Map<string, TimelineEvent>();
+    [...leadTimeline, ...olderEvents, ...messageEvents].forEach((e) => byId.set(e.id, e));
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [leadTimeline, olderEvents, leadMessages, id]);
   const leadTasks = useMemo(() => tasks.filter((t) => t.lead_id === id), [id, tasks]);
   const pendingTasks = useMemo(() => leadTasks.filter((t) => t.status !== "completed"), [leadTasks]);
   const completedTasks = useMemo(() => leadTasks.filter((t) => t.status === "completed"), [leadTasks]);
@@ -606,7 +667,7 @@ export default function LeadProfilePage() {
             </div>
             <div className="bg-card border border-border rounded-lg p-5">
               <div className="space-y-0">
-                {(leadTimeline.length > 0 ? leadTimeline : defaultTimeline(lead, column?.name)).map((ev, i, arr) => {
+                {(mergedTimeline.length > 0 ? mergedTimeline : defaultTimeline(lead, column?.name)).map((ev, i, arr) => {
                   const cfg = timelineConfig[ev.type] || timelineConfig.note;
                   const Icon = cfg.icon;
                   return (
@@ -628,6 +689,19 @@ export default function LeadProfilePage() {
                   );
                 })}
               </div>
+              {mergedTimeline.length > 0 && hasMoreTimeline && (
+                <div className="flex justify-center pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5"
+                    onClick={handleLoadMoreTimeline}
+                    disabled={loadingMoreTimeline}
+                  >
+                    {loadingMoreTimeline ? "Carregando..." : "Carregar mais"}
+                  </Button>
+                </div>
+              )}
             </div>
           </TabsContent>
 

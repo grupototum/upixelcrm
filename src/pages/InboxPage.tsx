@@ -11,8 +11,12 @@ import {
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
   Instagram, Merge, Trash2, AlertCircle,
   PanelRightClose, PanelRightOpen, ArrowLeft, List, MessageSquareDot,
+  RefreshCw, ChevronUp,
 } from "lucide-react";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
+import { Checkbox } from "@/components/ui/checkbox";
+import { InboxBulkActionsBar } from "@/components/inbox/InboxBulkActionsBar";
+import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,13 +90,32 @@ const channelIcons: Record<string, typeof MessageCircle> = {
   webchat: Globe,
 };
 
-export default function InboxPage() { // force HMR reset
+// Wrapper externo só pra providar o SelectionContext, mesmo padrão do CRMPage
+// (src/pages/CRMPage.tsx) — escopo do provider restrito ao Inbox.
+export default function InboxPage() {
+  return (
+    <SelectionProvider>
+      <InboxPageInner />
+    </SelectionProvider>
+  );
+}
+
+function InboxPageInner() { // force HMR reset
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead } = useAppState();
   const { user } = useAuth();
   const inbox = useInbox(refreshData);
   useCsatSender();
+  const { selectionMode, isSelected, toggleLead, enterSelectionMode, exitSelectionMode, selectAll } = useSelection();
+
+  // Esc cancela a seleção em massa.
+  useEffect(() => {
+    if (!selectionMode) return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") exitSelectionMode(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectionMode, exitSelectionMode]);
 
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -412,6 +435,19 @@ export default function InboxPage() { // force HMR reset
               </Tooltip>
             </div>
           </div>
+          {selectionMode && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/40 border-b border-[hsl(var(--border-strong))] text-[11px]">
+              <button
+                className="text-primary font-semibold hover:underline"
+                onClick={() => selectAll(filteredConversations.map((c) => c.lead_id))}
+              >
+                Selecionar {filteredConversations.length} visíveis
+              </button>
+              <button className="text-muted-foreground hover:text-foreground" onClick={exitSelectionMode}>
+                Cancelar
+              </button>
+            </div>
+          )}
           <div className="flex-1 overflow-auto">
             {inbox.loading ? (
               <div className="flex items-center justify-center py-12">
@@ -427,17 +463,38 @@ export default function InboxPage() { // force HMR reset
               </div>
             ) : (
               filteredConversations.map(c => (
-                <button
+                <div
                   key={c.lead_id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
+                    if (selectionMode) { toggleLead(c.lead_id); return; }
                     inbox.selectLead(c.lead_id);
                     setActiveConversationId(c.source_conversations[0]?.id || null);
                     setMobileView("chat");
                   }}
-                  className={`w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-all duration-200 border-b border-[hsl(var(--border-strong))] relative ${
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    if (selectionMode) { toggleLead(c.lead_id); return; }
+                    inbox.selectLead(c.lead_id);
+                    setActiveConversationId(c.source_conversations[0]?.id || null);
+                    setMobileView("chat");
+                  }}
+                  className={`group w-full flex items-start gap-3 p-3 text-left hover:bg-secondary transition-all duration-200 border-b border-[hsl(var(--border-strong))] relative cursor-pointer ${
                     inbox.selectedLeadId === c.lead_id ? "bg-primary/5 shadow-[inset_3px_0_0_0_#9b87f5]" : ""
                   }`}
                 >
+                  <div
+                    className={`shrink-0 self-center transition-opacity ${selectionMode || isSelected(c.lead_id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!selectionMode) enterSelectionMode();
+                      toggleLead(c.lead_id);
+                    }}
+                  >
+                    <Checkbox checked={isSelected(c.lead_id)} aria-label={`Selecionar conversa com ${c.lead_name}`} />
+                  </div>
                   <div className="relative">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-semibold text-primary shadow-sm relative overflow-visible">
                       {initials(c.lead_name || "?")}
@@ -492,7 +549,7 @@ export default function InboxPage() { // force HMR reset
                       <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                     </div>
                   )}
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -691,6 +748,22 @@ export default function InboxPage() { // force HMR reset
                   </div>
                 ) : (
                   <>
+                    {inbox.hasMoreMessages && (
+                      <div className="flex justify-center pb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1.5"
+                          onClick={() => inbox.loadOlderMessages()}
+                          disabled={inbox.loadingOlder}
+                        >
+                          {inbox.loadingOlder
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <ChevronUp className="h-3 w-3" />}
+                          Carregar mensagens anteriores
+                        </Button>
+                      </div>
+                    )}
                     {inbox.messages.map((msg, i) => {
                       const isOutbound = msg.direction === "outbound";
                       const prevMsg = i > 0 ? inbox.messages[i - 1] : null;
@@ -948,9 +1021,16 @@ export default function InboxPage() { // force HMR reset
                                   </span>
                                   {isOutbound && !msg.is_private && (
                                     <div className="flex items-center ml-0.5">
-                                      {msg.metadata?.status === "read" ? (
+                                      {/* `delivery_status` é o campo que os webhooks realmente gravam;
+                                          `status` era lido aqui e nunca existia, então todo outbound
+                                          mostrava um único ✓ para sempre. */}
+                                      {msg.metadata?.failed ? (
+                                        <AlertCircle className="h-3 w-3 text-destructive" />
+                                      ) : msg.metadata?.pending ? (
+                                        <Clock className="h-3 w-3 opacity-60" />
+                                      ) : (msg.metadata?.delivery_status ?? msg.metadata?.status) === "read" ? (
                                         <CheckCheck className="h-3 w-3 text-primary" />
-                                      ) : msg.metadata?.status === "delivered" ? (
+                                      ) : (msg.metadata?.delivery_status ?? msg.metadata?.status) === "delivered" ? (
                                         <CheckCheck className="h-3 w-3 opacity-60" />
                                       ) : (
                                         <Check className="h-3 w-3 opacity-60" />
@@ -958,6 +1038,16 @@ export default function InboxPage() { // force HMR reset
                                     </div>
                                   )}
                                 </div>
+
+                                {msg.metadata?.failed && (
+                                  <button
+                                    onClick={() => inbox.retryMessage(msg.id)}
+                                    className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-destructive hover:underline"
+                                  >
+                                    <RefreshCw className="h-2.5 w-2.5" />
+                                    Não enviada — tentar de novo
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -1634,6 +1724,15 @@ export default function InboxPage() { // force HMR reset
           </div>
         </div>
       )}
+
+      <InboxBulkActionsBar
+        conversations={inbox.conversations}
+        updateStatus={inbox.updateStatus}
+        snoozeConversation={inbox.snoozeConversation}
+        assignToAgent={inbox.assignToAgent}
+        updateLabels={inbox.updateLabels}
+        refresh={inbox.refresh}
+      />
     </AppLayout>
   );
 }

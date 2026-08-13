@@ -3,17 +3,15 @@ import type { Campaign } from "./types";
 
 interface CampaignRankingProps {
   campaigns: Campaign[];
-  sortBy?: "roi" | "leads" | "revenue";
 }
 
-export function CampaignRanking({ campaigns, sortBy = "roi" }: CampaignRankingProps) {
-  const sorted = [...campaigns].sort((a, b) => b[sortBy] - a[sortBy]);
-  const labels: Record<string, string> = { roi: "ROI", leads: "Leads", revenue: "Receita" };
+export function CampaignRanking({ campaigns }: CampaignRankingProps) {
+  const sorted = [...campaigns].sort((a, b) => b.roi - a.roi);
 
   return (
     <div className="bg-card ghost-border rounded-xl overflow-hidden shadow-card">
       <div className="px-5 py-3 ghost-border border-b bg-secondary/50">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ranking por {labels[sortBy]}</h3>
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ranking por ROI</h3>
       </div>
       <div className="divide-y divide-border/50">
         {sorted.map((c, i) => {

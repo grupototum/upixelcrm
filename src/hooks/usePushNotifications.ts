@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import * as usersRepo from "@/services/users";
 import { getCurrentUser } from "@/lib/auth-session";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -56,7 +56,7 @@ export function usePushNotifications() {
       setPermission(result);
 
       if (result !== "granted") {
-        toast({ title: "Permissão negada", description: "Ative as notificações nas configurações do navegador.", variant: "destructive" });
+        toast.error("Permissão negada", { description: "Ative as notificações nas configurações do navegador." });
         setLoading(false);
         return;
       }
@@ -77,7 +77,7 @@ export function usePushNotifications() {
       // Get current user
       const user = await getCurrentUser();
       if (!user) {
-        toast({ title: "Erro", description: "Você precisa estar logado.", variant: "destructive" });
+        toast.error("Erro", { description: "Você precisa estar logado." });
         setLoading(false);
         return;
       }
@@ -91,14 +91,14 @@ export function usePushNotifications() {
           user_agent: navigator.userAgent,
         });
         setIsSubscribed(true);
-        toast({ title: "Notificações ativadas", description: "Você receberá alertas sobre leads, mensagens e tarefas." });
+        toast.success("Notificações ativadas", { description: "Você receberá alertas sobre leads, mensagens e tarefas." });
       } catch (error) {
         logger.error("Error saving push subscription:", error);
-        toast({ title: "Erro", description: "Falha ao salvar inscrição de notificação.", variant: "destructive" });
+        toast.error("Erro", { description: "Falha ao salvar inscrição de notificação." });
       }
     } catch (err) {
       logger.error("Push subscribe error:", err);
-      toast({ title: "Erro", description: "Falha ao ativar notificações push.", variant: "destructive" });
+      toast.error("Erro", { description: "Falha ao ativar notificações push." });
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,7 @@ export function usePushNotifications() {
         }
       }
       setIsSubscribed(false);
-      toast({ title: "Notificações desativadas" });
+      toast.success("Notificações desativadas");
     } catch (err) {
       logger.error("Push unsubscribe error:", err);
     } finally {
