@@ -79,7 +79,10 @@ export interface Task {
   status: "pending" | "completed" | "overdue";
   priority?: "low" | "medium" | "high" | "urgent";
   due_date?: string;
+  /** Nome livre (texto) — legado, mantido pra exibição. */
   assigned_to?: string;
+  /** Fase 7: dono real da tarefa. assigned_to (nome) segue existindo pra tarefas antigas sem dono. */
+  assigned_to_id?: string;
   created_at: string;
   /** 2.6: desfecho registrado na conclusão. */
   result?: string;
@@ -171,8 +174,17 @@ export interface ClientFieldSettings {
   updated_at: string;
 }
 
-export type GoalMetric = "leads_created" | "tasks_completed" | "contacts_made" | "leads_closed";
-export type GoalPeriod = "daily" | "weekly" | "monthly";
+export type GoalMetric =
+  | "leads_created"
+  | "tasks_completed"
+  | "contacts_made"
+  | "leads_closed"
+  | "calls_made"
+  | "meetings_done";
+
+export type GoalPeriod = "daily" | "weekly" | "monthly" | "quarterly";
+
+export type GoalTrend = "on_track" | "at_risk" | "behind" | "achieved";
 
 export interface Goal {
   id: string;
@@ -181,17 +193,44 @@ export interface Goal {
   metric: GoalMetric;
   target_value: number;
   period: GoalPeriod;
+  /** @deprecated Substituído por goal_assignments — mantido só pelo backfill histórico. */
   assigned_to?: string;
   column_id?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** JOIN com goal_assignments — nem todo fetch inclui. */
+  assignments?: GoalAssignment[];
+}
+
+export interface GoalAssignment {
+  id: string;
+  goal_id: string;
+  /** null = meta da equipe toda. */
+  user_id?: string;
+  user?: { id: string; name: string; avatar_url?: string | null };
 }
 
 export interface GoalProgress {
   goal: Goal;
+  /** Ausente quando a linha é o total da equipe (mesmo sentido de assignment.user_id null). */
+  user_id?: string;
   current_value: number;
   percentage: number;
+  trend: GoalTrend;
+  pace_message: string;
+  period_start: string;
+  period_end: string;
+  /** Últimos pontos de progresso pro sparkline. */
+  sparkline: number[];
+}
+
+export interface LeaderboardEntry {
+  user: { id: string; name: string; avatar_url?: string | null };
+  overall_percentage: number;
+  goals_count: number;
+  rank: number;
+  isCurrentUser: boolean;
 }
 
 export type ContactRole = "decisor" | "atendente";

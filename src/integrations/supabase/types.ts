@@ -1116,6 +1116,48 @@ export type Database = {
         }
         Relationships: []
       }
+      goal_assignments: {
+        Row: {
+          client_id: string
+          created_at: string
+          goal_id: string
+          id: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          goal_id: string
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          goal_id?: string
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_assignments_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           assigned_to: string | null
@@ -2479,6 +2521,7 @@ export type Database = {
       tasks: {
         Row: {
           assigned_to: string | null
+          assigned_to_id: string | null
           client_id: string
           completed_at: string | null
           created_at: string
@@ -2486,6 +2529,7 @@ export type Database = {
           due_date: string | null
           id: string
           lead_id: string | null
+          priority: string
           result: string | null
           status: string
           tenant_id: string | null
@@ -2493,6 +2537,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          assigned_to_id?: string | null
           client_id?: string
           completed_at?: string | null
           created_at?: string
@@ -2500,6 +2545,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           lead_id?: string | null
+          priority?: string
           result?: string | null
           status?: string
           tenant_id?: string | null
@@ -2507,6 +2553,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          assigned_to_id?: string | null
           client_id?: string
           completed_at?: string | null
           created_at?: string
@@ -2514,6 +2561,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           lead_id?: string | null
+          priority?: string
           result?: string | null
           status?: string
           tenant_id?: string | null
@@ -2578,6 +2626,7 @@ export type Database = {
           lead_id: string | null
           tenant_id: string | null
           type: string
+          user_id: string | null
           user_name: string | null
         }
         Insert: {
@@ -2588,6 +2637,7 @@ export type Database = {
           lead_id?: string | null
           tenant_id?: string | null
           type: string
+          user_id?: string | null
           user_name?: string | null
         }
         Update: {
@@ -2598,6 +2648,7 @@ export type Database = {
           lead_id?: string | null
           tenant_id?: string | null
           type?: string
+          user_id?: string | null
           user_name?: string | null
         }
         Relationships: [
@@ -2835,6 +2886,10 @@ export type Database = {
         Returns: number
       }
       cleanup_meta_oauth_sessions: { Args: never; Returns: undefined }
+      complete_task: {
+        Args: { p_result?: string; p_task_id: string }
+        Returns: boolean
+      }
       csat_stats: {
         Args: { p_end: string; p_start: string }
         Returns: {
@@ -2864,6 +2919,14 @@ export type Database = {
       get_window_remaining_seconds: {
         Args: { conv_id: string }
         Returns: number
+      }
+      goals_progress: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          current_value: number
+          goal_id: string
+          user_id: string
+        }[]
       }
       increment_client_credits: {
         Args: { amount_param: number; client_id_param: string }
@@ -2902,6 +2965,7 @@ export type Database = {
       }
       prune_rate_limits: { Args: never; Returns: undefined }
       read_secret: { Args: { secret_name: string }; Returns: string }
+      reopen_task: { Args: { p_task_id: string }; Returns: boolean }
       supervisor_set_role: {
         Args: { new_role: string; target_user_id: string }
         Returns: undefined
@@ -2909,6 +2973,10 @@ export type Database = {
       supervisor_toggle_block: {
         Args: { block_status: boolean; target_user_id: string }
         Returns: undefined
+      }
+      update_task_result: {
+        Args: { p_result: string; p_task_id: string }
+        Returns: boolean
       }
     }
     Enums: {
