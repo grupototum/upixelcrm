@@ -439,6 +439,54 @@ export async function listTimelineEvents(
   return data ?? [];
 }
 
+/**
+ * Página de eventos da timeline de UM lead (cursor por created_at). O
+ * listTimelineEvents acima corta em 100 eventos POR TENANT INTEIRO — um
+ * lead ativo pode perder eventos antigos sem nenhum aviso. Esta função é
+ * escopada por lead_id, então "carregar mais" de fato busca o histórico
+ * completo do lead, não uma fatia arbitrária do tenant.
+ */
+export async function listLeadTimelineEventsPage(
+  leadId: string,
+  before?: string,
+  limit = 30,
+): Promise<Tables<"timeline_events">[]> {
+  let q = supabase.from("timeline_events").select("*").eq("lead_id", leadId);
+  if (before) q = q.lt("created_at", before);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export interface LeadTimelineMessage {
+  id: string;
+  content: string;
+  type: string;
+  direction: string;
+  sender_name: string | null;
+  created_at: string;
+}
+
+/**
+ * Mensagens do lead (via conversations.lead_id), pra exibir na timeline sem
+ * duplicar em timeline_events — gravar 1 evento por mensagem dobraria a
+ * escrita de todo o inbox só pra alimentar esta aba. União acontece no
+ * client (LeadProfilePage), não no banco.
+ */
+export async function listLeadMessagesForTimeline(
+  leadId: string,
+  limit = 50,
+): Promise<LeadTimelineMessage[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, content, type, direction, sender_name, created_at, conversations!inner(lead_id)")
+    .eq("conversations.lead_id", leadId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as unknown as LeadTimelineMessage[];
+}
+
 export async function countLeads(clientId: string, masterView = false): Promise<number> {
   let q = supabase.from("leads").select("*", { count: "exact", head: true });
   if (!masterView) q = q.eq("client_id", clientId);

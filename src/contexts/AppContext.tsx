@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as leadsRepo from "@/services/leads";
 import * as automationsRepo from "@/services/automations";
+import { listActiveAgents } from "@/services/users";
 import { reassignConversationsToLead } from "@/services/inbox";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -88,6 +89,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
   const [leads, setLeads] = useState<Lead[]>([]);
+  // Espelha `leads` sem entrar em dependências de useCallback — leads muda a
+  // cada drag/realtime, e updateLead é passado pra baixo em muitos lugares;
+  // colocar `leads` na dep array desestabilizaria a identidade da função.
+  const leadsRef = useRef<Lead[]>([]);
+  useEffect(() => { leadsRef.current = leads; }, [leads]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
   const [currentPipelineId, setCurrentPipelineId] = useState<string>("");
@@ -269,6 +275,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateLead = useCallback(async (id: string, data: Partial<Lead>) => {
+    // Capturado ANTES do update, pra poder comparar valor antigo x novo.
+    const before = leadsRef.current.find((l) => l.id === id);
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.phone !== undefined) updateData.phone = data.phone || null;
@@ -294,8 +302,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, ...data, updated_at: new Date().toISOString() } : l));
 
-    await addTimelineEvent({ lead_id: id, type: "note", content: "Lead atualizado", user_name: "Usuário" });
-  }, [addTimelineEvent]);
+    // Responsável mudou: evento específico com os nomes, em vez do genérico
+    // "Lead atualizado" que não dizia o que de fato mudou.
+    if (data.responsible_id !== undefined && data.responsible_id !== before?.responsible_id) {
+      const clientId = tenant?.id ?? user?.client_id;
+      const ids = [before?.responsible_id, data.responsible_id].filter((v): v is string => !!v);
+      const agents = clientId && ids.length > 0 ? await listActiveAgents(clientId).catch(() => []) : [];
+      const nameOf = (agentId?: string | null) => agentId ? (agents.find((a) => a.id === agentId)?.name ?? agentId) : "Ninguém";
+      await addTimelineEvent({
+        lead_id: id,
+        type: "note",
+        content: `Responsável alterado: de ${nameOf(before?.responsible_id)} para ${nameOf(data.responsible_id)}`,
+        user_name: "Usuário",
+      });
+    } else {
+      await addTimelineEvent({ lead_id: id, type: "note", content: "Lead atualizado", user_name: "Usuário" });
+    }
+  }, [addTimelineEvent, tenant?.id, user?.client_id]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
     let row: Awaited<ReturnType<typeof leadsRepo.insertTaskReturning>>;
