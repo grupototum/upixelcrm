@@ -26,13 +26,15 @@ function mapGoal(row: Record<string, unknown>): Goal {
   };
 }
 
-export async function getGoals(clientId: string): Promise<Goal[]> {
-  const { data, error } = await supabase
-    .from("goals")
-    .select("*, goal_assignments(*)")
-    .eq("client_id", clientId)
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
+/**
+ * `includeInactive` traz metas pausadas junto — necessário na tela de
+ * configuração (senão pausar uma meta a faz sumir sem jeito de reativar).
+ * As telas de progresso (dashboard, /metas) usam o default (só ativas).
+ */
+export async function getGoals(clientId: string, includeInactive = false): Promise<Goal[]> {
+  let query = supabase.from("goals").select("*, goal_assignments(*)").eq("client_id", clientId);
+  if (!includeInactive) query = query.eq("is_active", true);
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((row) => mapGoal(row as unknown as Record<string, unknown>));
 }

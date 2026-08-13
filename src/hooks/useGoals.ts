@@ -1,23 +1,36 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as goalsRepo from "@/services/goals";
+import { listActiveAgents } from "@/services/users";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { resolveClientId } from "@/lib/tenant-utils";
 import type { Goal, GoalMetric, GoalPeriod } from "@/types";
 
-/** CRUD de metas pra tela de configuração. Mesma queryKey ["goals", clientId]
- *  de useGoalsProgress — os dois hooks compartilham o cache do react-query. */
+/** CRUD de metas pra tela de configuração. Prefixo de queryKey compartilhado
+ *  com useGoalsProgress — mutações aqui invalidam o cache dos dois hooks. */
 export function useGoals() {
   const { tenant } = useTenant();
   const { user } = useAuth();
   const clientId = resolveClientId(tenant?.id, user?.client_id);
   const queryClient = useQueryClient();
 
+  const { data: agents = [] } = useQuery({
+    queryKey: ["goals-agents", clientId],
+    queryFn: () => listActiveAgents(clientId as string),
+    enabled: !!clientId,
+    staleTime: 60_000,
+  });
+  const agentsById = useMemo(() => Object.fromEntries(agents.map((a) => [a.id, a])), [agents]);
+
+  // Inclui pausadas (includeInactive) — só a config precisa reativar uma meta
+  // pausada, e "goals" (queryKey base) some com elas por padrão. Chave própria
+  // ["goals", clientId, "all"] com prefixo compartilhado: invalidar
+  // ["goals", clientId] invalida essa e a de useGoalsProgress juntas.
   const { data: goals = [], isLoading } = useQuery({
-    queryKey: ["goals", clientId],
-    queryFn: () => goalsRepo.getGoals(clientId as string),
+    queryKey: ["goals", clientId, "all"],
+    queryFn: () => goalsRepo.getGoals(clientId as string, true),
     enabled: !!clientId,
   });
 
@@ -73,5 +86,5 @@ export function useGoals() {
     }
   }, [invalidate]);
 
-  return { goals, isLoading, createGoal, updateGoal, toggleGoalActive, removeGoal };
+  return { goals, agentsById, isLoading, createGoal, updateGoal, toggleGoalActive, removeGoal };
 }

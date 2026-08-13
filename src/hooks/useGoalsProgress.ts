@@ -120,6 +120,7 @@ export function useGoalsProgress(period: GoalPeriod) {
     myProgress,
     teamProgress,
     leaderboard,
+    agentsById,
     isLoading: goalsLoading || progressLoading,
   };
 }
