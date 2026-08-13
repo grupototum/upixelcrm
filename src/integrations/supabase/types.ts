@@ -1084,6 +1084,68 @@ export type Database = {
         }
         Relationships: []
       }
+      import_logs: {
+        Row: {
+          batch_id: string
+          client_id: string
+          created_at: string
+          errors: number
+          filename: string | null
+          id: string
+          inserted: number
+          rolled_back_at: string | null
+          skipped: number
+          skipped_duplicate: number
+          skipped_no_name: number
+          tenant_id: string | null
+          total_rows: number
+          updated: number
+          user_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          client_id: string
+          created_at?: string
+          errors?: number
+          filename?: string | null
+          id?: string
+          inserted?: number
+          rolled_back_at?: string | null
+          skipped?: number
+          skipped_duplicate?: number
+          skipped_no_name?: number
+          tenant_id?: string | null
+          total_rows?: number
+          updated?: number
+          user_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          client_id?: string
+          created_at?: string
+          errors?: number
+          filename?: string | null
+          id?: string
+          inserted?: number
+          rolled_back_at?: string | null
+          skipped?: number
+          skipped_duplicate?: number
+          skipped_no_name?: number
+          tenant_id?: string | null
+          total_rows?: number
+          updated?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_templates: {
         Row: {
           category: string
@@ -1212,6 +1274,7 @@ export type Database = {
           fbclid: string | null
           gclid: string | null
           id: string
+          import_batch_id: string | null
           instagram_id: string | null
           name: string
           notes: string | null
@@ -1249,6 +1312,7 @@ export type Database = {
           fbclid?: string | null
           gclid?: string | null
           id?: string
+          import_batch_id?: string | null
           instagram_id?: string | null
           name: string
           notes?: string | null
@@ -1286,6 +1350,7 @@ export type Database = {
           fbclid?: string | null
           gclid?: string | null
           id?: string
+          import_batch_id?: string | null
           instagram_id?: string | null
           name?: string
           notes?: string | null
