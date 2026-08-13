@@ -340,6 +340,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [addTimelineEvent, markLeadDirty]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
+    const clientId = tenant?.id ?? user?.client_id;
+    if (!clientId) { toast.error("Sessão inválida. Faça login novamente."); return null; }
+
     let row: Awaited<ReturnType<typeof leadsRepo.insertTaskReturning>>;
     try {
       row = await leadsRepo.insertTaskReturning({
@@ -352,6 +355,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         assigned_to_id: data.assigned_to_id || user?.id || null,
         priority: data.priority || undefined,
         description: data.description || null,
+        client_id: clientId,
+        ...tenantIdForInsert,
       });
     } catch (error) {
       logger.error(error); toast.error("Erro ao criar tarefa"); return null;
@@ -370,7 +375,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     toast.success("Tarefa criada");
     return newTask;
-  }, [addTimelineEvent, user?.id]);
+  }, [addTimelineEvent, user?.id, user?.client_id, tenant?.id, tenantIdForInsert]);
 
   const moveLead = useCallback(async (id: string, toColumnId: string) => {
     const lead = leads.find((l) => l.id === id);
