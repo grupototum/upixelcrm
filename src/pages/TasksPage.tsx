@@ -54,12 +54,12 @@ export default function TasksPage() {
 
   const handleConfirmComplete = useCallback(async (id: string, result?: string) => {
     if (completingTask?.status === "completed") {
-      await updateTaskResult(id, result);
-      return;
+      return updateTaskResult(id, result);
     }
-    await completeTask(id, result);
-    fireConfetti();
-  }, [completingTask, completeTask, updateTask, fireConfetti]);
+    const ok = await completeTask(id, result);
+    if (ok) fireConfetti();
+    return ok;
+  }, [completingTask, completeTask, updateTaskResult, fireConfetti]);
 
   const handleEditResult = useCallback((task: Task) => {
     setCompletingTask(task);

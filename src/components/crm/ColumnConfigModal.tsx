@@ -97,7 +97,7 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
     await updateColumn(column.id, {
       name: columnName,
       color: columnColor,
-      description: columnDescription.trim() || undefined,
+      description: columnDescription.trim() || null,
     });
   };
 

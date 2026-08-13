@@ -87,16 +87,20 @@ export function LeadContactsSection({ leadId }: LeadContactsSectionProps) {
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
-    const data = {
-      name: name.trim(), role,
-      phone: phone.trim() || undefined,
-      email: email.trim() || undefined,
-      notes: notes.trim() || undefined,
-    };
     if (editingContact) {
-      await updateContact(editingContact.id, data);
+      await updateContact(editingContact.id, {
+        name: name.trim(), role,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        notes: notes.trim() || null,
+      });
     } else {
-      await addContact(data);
+      await addContact({
+        name: name.trim(), role,
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
     }
     setSaving(false);
     setModalOpen(false);

@@ -10,7 +10,7 @@ interface CompleteTaskDialogProps {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (taskId: string, result?: string) => Promise<void>;
+  onConfirm: (taskId: string, result?: string) => Promise<boolean | void>;
 }
 
 const MAX_LENGTH = 500;
@@ -27,9 +27,9 @@ export function CompleteTaskDialog({ task, open, onOpenChange, onConfirm }: Comp
   const handleConfirm = useCallback(async () => {
     if (!task) return;
     setLoading(true);
-    await onConfirm(task.id, result.trim() || undefined);
+    const outcome = await onConfirm(task.id, result.trim() || undefined);
     setLoading(false);
-    onOpenChange(false);
+    if (outcome !== false) onOpenChange(false);
   }, [task, result, onConfirm, onOpenChange]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

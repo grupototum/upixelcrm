@@ -17,6 +17,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useLeadPhones } from "@/hooks/useLeadPhones";
+import { stripBRPhone } from "@/utils/phone";
 import type { LeadPhone, PhoneCategory } from "@/types";
 
 const CATEGORY_CONFIG: Record<PhoneCategory, { icon: LucideIcon; label: string }> = {
@@ -60,11 +61,11 @@ export function LeadPhonesSection({ leadId }: LeadPhonesSectionProps) {
   async function handleSave() {
     if (!number.trim()) return;
     setSaving(true);
-    const data = { number: number.trim(), category, label: category === "outro" ? label.trim() || undefined : undefined };
+    const trimmedLabel = category === "outro" ? label.trim() || null : null;
     if (editingPhone) {
-      await updatePhone(editingPhone.id, data);
+      await updatePhone(editingPhone.id, { number: number.trim(), category, label: trimmedLabel });
     } else {
-      await addPhone(data);
+      await addPhone({ number: number.trim(), category, label: trimmedLabel || undefined });
     }
     setSaving(false);
     setModalOpen(false);
@@ -106,7 +107,7 @@ export function LeadPhonesSection({ leadId }: LeadPhonesSectionProps) {
                 <div className="flex items-center gap-1 shrink-0">
                   {phone.category === "whatsapp" && (
                     <a
-                      href={`https://wa.me/55${phone.number.replace(/\D/g, "")}`}
+                      href={`https://wa.me/55${stripBRPhone(phone.number)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-green-600 hover:underline flex items-center gap-1 mr-1"

@@ -1,17 +1,23 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useDashboardKpis } from "@/hooks/useDashboardKpis";
 import {
   TrendingUp, TrendingDown, Users, CheckSquare, Clock, Activity,
-  Loader2, DollarSign, Brain, ArrowUpRight, ArrowDownRight, AlertCircle,
+  Loader2, DollarSign, Brain, ArrowUpRight, ArrowDownRight, AlertCircle, Target,
 } from "lucide-react";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useNavigate } from "react-router-dom";
 import { LeadsByPeriodChart, LeadsByOriginChart } from "@/components/dashboard/DashboardCharts";
 import { GoalCard } from "@/components/dashboard/GoalCard";
 import { useGoalsProgress } from "@/hooks/useGoalsProgress";
 import { formatRelativeTime, formatShortDate } from "@/lib/format-date";
+import { useAppState } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { CompleteTaskDialog } from "@/components/crm/CompleteTaskDialog";
+import type { Task } from "@/types";
 
 const typeColors: Record<string, string> = {
   stage_change: "bg-primary",
@@ -43,7 +49,17 @@ const COMING_SOON_CARDS = [
 
 export default function DashboardPage() {
   const { data, isLoading, error, refetch } = useDashboardKpis();
-  const { progress: goalsProgress } = useGoalsProgress();
+  const { progress: allGoalsProgress } = useGoalsProgress();
+  const { tasks, completeTask } = useAppState();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [completingTask, setCompletingTask] = useState<Task | null>(null);
+
+  // Meta individual só aparece pro próprio dono; metas sem assigned_to são da equipe toda.
+  const goalsProgress = useMemo(
+    () => allGoalsProgress.filter((p) => !p.goal.assigned_to || p.goal.assigned_to === user?.id),
+    [allGoalsProgress, user?.id]
+  );
 
   const stats = data?.stats;
   const pipeline = useMemo(() => data?.pipeline ?? [], [data?.pipeline]);
@@ -93,6 +109,17 @@ export default function DashboardPage() {
     },
   ], [stats, totalLeads]);
 
+  function openCompleteTask(taskId: string) {
+    const fullTask = tasks.find((t) => t.id === taskId);
+    if (fullTask) setCompletingTask(fullTask);
+  }
+
+  async function handleConfirmCompleteDashboardTask(id: string, result?: string) {
+    const ok = await completeTask(id, result);
+    if (ok) refetch();
+    return ok;
+  }
+
   if (error) {
     return (
       <AppLayout title="Dashboard" subtitle="Erro ao carregar métricas">
@@ -141,11 +168,24 @@ export default function DashboardPage() {
     <AppLayout title="Dashboard" subtitle="Visão geral da operação">
       <div className="p-8 space-y-8 animate-fade-in">
         {/* Metas do período */}
-        {goalsProgress.length > 0 && (
+        {goalsProgress.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {goalsProgress.map((p) => (
               <GoalCard key={p.goal.id} progress={p} />
             ))}
+          </div>
+        ) : (
+          <div className="bg-card rounded-xl ghost-border p-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">Nenhuma meta configurada</p>
+                <p className="text-[11px] text-muted-foreground">Defina metas de vendas para acompanhar o progresso da equipe aqui.</p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => navigate("/settings/goals")}>Criar meta</Button>
           </div>
         )}
 
@@ -262,7 +302,11 @@ export default function DashboardPage() {
             ) : pendingTasks.map((task) => (
               <div key={task.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${task.status === "overdue" ? "bg-destructive animate-pulse" : "bg-accent"}`} />
+                  <Checkbox
+                    className="h-4 w-4 shrink-0"
+                    checked={false}
+                    onCheckedChange={() => openCompleteTask(task.id)}
+                  />
                   <div>
                     <span className="text-sm text-foreground font-medium">{task.title}</span>
                     {task.lead_name && (
@@ -283,6 +327,13 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <CompleteTaskDialog
+        task={completingTask}
+        open={!!completingTask}
+        onOpenChange={(open) => { if (!open) setCompletingTask(null); }}
+        onConfirm={handleConfirmCompleteDashboardTask}
+      />
     </AppLayout>
   );
 }

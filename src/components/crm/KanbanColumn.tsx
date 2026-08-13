@@ -88,6 +88,9 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
     count: shouldVirtualize ? leads.length : 0,
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => ESTIMATED_CARD_HEIGHT,
+    // Chave por lead.id (não índice) — sem isso, reordenar dentro da coluna faz o
+    // React reaproveitar nós DOM pela posição, trocando o conteúdo em vez de animar.
+    getItemKey: (index) => leads[index].id,
     // overscan keeps extra items rendered above and below the viewport so @dnd-kit
     // can find neighbouring items during drag even when they are near the scroll boundary.
     overscan: 5,

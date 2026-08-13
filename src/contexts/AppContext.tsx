@@ -45,10 +45,10 @@ interface AppState {
   updateTask: (id: string, data: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleTaskStatus: (id: string) => Promise<void>;
-  /** 2.6: conclui uma tarefa pendente, gravando o resultado. */
-  completeTask: (id: string, result?: string) => Promise<void>;
+  /** 2.6: conclui uma tarefa pendente, gravando o resultado. Retorna false em erro. */
+  completeTask: (id: string, result?: string) => Promise<boolean>;
   /** 2.6: edita o resultado de uma tarefa já concluída, sem mexer em status/completed_at. */
-  updateTaskResult: (id: string, result?: string) => Promise<void>;
+  updateTaskResult: (id: string, result?: string) => Promise<boolean>;
 
   addColumn: (name: string, color: string) => Promise<void>;
   updateColumn: (id: string, data: Partial<PipelineColumn>) => Promise<void>;
@@ -256,6 +256,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const addTimelineEvent = useCallback(async (event: Omit<TimelineEvent, "id" | "created_at">) => {
+    const clientId = tenant?.id ?? user?.client_id;
+    if (!clientId) { logger.error(new Error("addTimelineEvent sem client_id")); return; }
     let data: Awaited<ReturnType<typeof leadsRepo.insertTimelineEvent>>;
     try {
       data = await leadsRepo.insertTimelineEvent({
@@ -263,12 +265,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         type: event.type,
         content: event.content,
         user_name: event.user_name,
+        client_id: clientId,
+        ...tenantIdForInsert,
       });
     } catch (error) {
       logger.error(error); return;
     }
     if (data) setTimeline((prev) => [mapTimeline(data as unknown as Record<string, unknown>), ...prev]);
-  }, []);
+  }, [tenant?.id, user?.client_id, tenantIdForInsert]);
 
   const updateLead = useCallback(async (id: string, data: Partial<Lead>) => {
     const updateData: Record<string, unknown> = {};
@@ -509,9 +513,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // 2.6: conclusão com resultado. Só age em tarefa pendente — reconcluir uma
   // tarefa já fechada sobrescreveria o resultado anterior em silêncio.
-  const completeTask = useCallback(async (id: string, result?: string) => {
+  const completeTask = useCallback(async (id: string, result?: string): Promise<boolean> => {
     const task = tasks.find((t) => t.id === id);
-    if (!task || task.status === "completed") return;
+    if (!task || task.status === "completed") return false;
 
     const completedAt = new Date().toISOString();
     const trimmedResult = result?.trim() || null;
@@ -525,8 +529,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await leadsRepo.updateTaskRow(id, patch);
     } catch (error) {
       logger.error(error);
+      toast.error("Erro ao concluir tarefa");
       setTasks((prev) => prev.map((t) => t.id === id ? task : t));
-      return;
+      return false;
     }
 
     if (task.lead_id) {
@@ -539,17 +544,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         user_name: "Usuário",
       });
     }
+    return true;
   }, [tasks, addTimelineEvent]);
 
   // 2.6: edita o resultado de uma tarefa já concluída, sem tocar status/completed_at.
-  const updateTaskResult = useCallback(async (id: string, result?: string) => {
+  const updateTaskResult = useCallback(async (id: string, result?: string): Promise<boolean> => {
     const trimmedResult = result?.trim() || null;
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, result: trimmedResult ?? undefined } : t));
     try {
       await leadsRepo.updateTaskRow(id, { result: trimmedResult });
     } catch (error) {
       logger.error(error); toast.error("Erro ao salvar resultado");
+      return false;
     }
+    return true;
   }, []);
 
   const toggleTaskStatus = useCallback(async (id: string) => {
@@ -1032,6 +1040,8 @@ function mapTask(row: Record<string, unknown>): Task {
     due_date: (row.due_date as string) || undefined,
     assigned_to: (row.assigned_to as string) || undefined,
     created_at: row.created_at as string,
+    result: (row.result as string) || undefined,
+    completed_at: (row.completed_at as string) || undefined,
   };
 }
 

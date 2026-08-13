@@ -581,6 +581,7 @@ function CRMPageInner() {
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveDragLead(null)}
           autoScroll={{ enabled: true, threshold: { x: 0.15, y: 0 }, acceleration: 10, interval: 5 }}
         >
           <div ref={boardRef} className="board-container flex h-[calc(100vh-4rem)] overflow-x-auto p-6 gap-5 animate-fade-in hide-scrollbar">

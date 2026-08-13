@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useSelection } from "@/contexts/SelectionContext";
 import type { Lead, Task } from "@/types";
 import { formatPhone } from "@/lib/format-phone";
+import { stripBRPhone } from "@/utils/phone";
 
 /** 2.3: no máximo 3 pills; o resto vira "+N" com tooltip. */
 const MAX_VISIBLE_TAGS = 3;
@@ -128,11 +129,16 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, 
           </div>
         )}
         <div className="flex items-start justify-between mb-1.5">
-          <h4 className="text-sm font-medium text-foreground truncate flex-1">{lead.name}</h4>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-sm font-medium text-foreground truncate">{lead.name}</h4>
+            {lead.company && (
+              <p className="text-xs text-muted-foreground truncate">{lead.company}</p>
+            )}
+          </div>
           <div className="shrink-0 flex items-center gap-1.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {lead.phone && (
               <a
-                href={`https://wa.me/55${lead.phone.replace(/\D/g, "")}`}
+                href={`https://wa.me/55${stripBRPhone(lead.phone)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
@@ -202,16 +208,14 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, 
           </div>
         )}
         <NextTask task={nextTask} />
-        {(lead.responsible_id || lastActivityAt) && (
-          <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-border/60">
-            {lead.responsible_id && <UserAvatar user={responsible} />}
-            {lastActivityAt && (
-              <span className="text-[10px] text-muted-foreground ml-auto">
-                {formatDistanceToNow(new Date(lastActivityAt), { locale: ptBR, addSuffix: true })}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-border/60">
+          <UserAvatar user={responsible} />
+          {lastActivityAt && (
+            <span className="text-[10px] text-muted-foreground ml-auto">
+              {formatDistanceToNow(new Date(lastActivityAt), { locale: ptBR, addSuffix: true })}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

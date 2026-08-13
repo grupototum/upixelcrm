@@ -29,6 +29,9 @@ const emptyForm = (columnId: string): Partial<Lead> => ({
 export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultColumnId }: LeadFormModalProps) {
   const [form, setForm] = useState<Partial<Lead>>(lead ?? emptyForm(defaultColumnId));
   const [tagInput, setTagInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => { if (!open) setSubmitting(false); }, [open]);
 
   const { user } = useAuth();
   const clientId = user?.client_id ?? "";
@@ -264,7 +267,11 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
         </div>
         <DialogFooter className="mt-8 gap-2">
           <Button variant="ghost" onClick={onClose} className="rounded-xl grow h-11">Cancelar</Button>
-          <Button onClick={() => { if (form.name?.trim()) onSave(form); }} disabled={!form.name?.trim()} className="rounded-xl grow bg-primary hover:bg-[#e04400] text-primary-foreground h-11">
+          <Button
+            onClick={() => { if (form.name?.trim() && !submitting) { setSubmitting(true); onSave(form); } }}
+            disabled={!form.name?.trim() || submitting}
+            className="rounded-xl grow bg-primary hover:bg-[#e04400] text-primary-foreground h-11"
+          >
             {lead ? "Salvar Alterações" : "Criar Lead"}
           </Button>
         </DialogFooter>

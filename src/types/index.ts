@@ -28,7 +28,7 @@ export interface PipelineColumn {
   order: number;
   color?: string;
   /** 2.7: o que significa um lead estar nesta etapa. Máx 300 caracteres. */
-  description?: string;
+  description?: string | null;
 }
 
 export interface Lead {
@@ -202,9 +202,9 @@ export interface LeadContact {
   client_id: string;
   name: string;
   role: ContactRole;
-  phone?: string;
-  email?: string;
-  notes?: string;
+  phone?: string | null;
+  email?: string | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -217,7 +217,7 @@ export interface LeadPhone {
   client_id: string;
   number: string;
   category: PhoneCategory;
-  label?: string;
+  label?: string | null;
   created_at: string;
 }
 
