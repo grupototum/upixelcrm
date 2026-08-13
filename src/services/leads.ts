@@ -203,6 +203,38 @@ export async function updateLead(id: string, updates: Record<string, unknown>): 
   if (error) throw error;
 }
 
+/** Edição em massa de um campo padrão (coluna real da tabela leads). */
+export async function bulkUpdateLeadStandardField(
+  ids: string[],
+  field: string,
+  value: unknown,
+): Promise<void> {
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { error } = await supabase
+      .from("leads")
+      .update({ [field]: value })
+      .in("id", ids.slice(i, i + CHUNK));
+    if (error) throw error;
+  }
+}
+
+/** Edição em massa de um campo customizado (merge no JSONB via RPC — evita
+ * sobrescrever custom_fields inteiro como um .update() direto faria). */
+export async function bulkUpdateLeadCustomField(
+  ids: string[],
+  slug: string,
+  value: string,
+): Promise<number> {
+  const { data, error } = await supabase.rpc("bulk_update_lead_custom_field" as any, {
+    p_lead_ids: ids,
+    p_slug: slug,
+    p_value: value,
+  });
+  if (error) throw error;
+  return (data as number) ?? 0;
+}
+
 /**
  * Reaponta conversas, tarefas e timeline dos leads em sourceIds para o lead
  * primário. ponytail: erros individuais são ignorados de propósito (mesmo
