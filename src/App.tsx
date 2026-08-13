@@ -57,6 +57,9 @@ const GoogleAdsPage = lazy(() => import("./pages/GoogleAdsPage"));
 const DatabaseBackupPage = lazy(() => import("./pages/DatabaseBackupPage"));
 const MasterIntegrationsPage = lazy(() => import("./pages/MasterIntegrationsPage"));
 const NovidadesPage = lazy(() => import("./pages/NovidadesPage"));
+const GoalsPage = lazy(() => import("./pages/GoalsPage"));
+const GoalDetailPage = lazy(() => import("./pages/GoalDetailPage"));
+const GoalsConfigPage = lazy(() => import("./pages/GoalsConfigPage"));
 
 // Privacy Policy / Terms / Data Deletion Status são servidos como HTML estático
 // pelo nginx (public/privacy-policy/index.html, etc.) — Meta crawler precisa
@@ -185,6 +188,9 @@ function AppRoutes() {
                 <Route path="/database" element={<ProtectedRoute requiredPermission="settings.view"><DatabaseBackupPage /></ProtectedRoute>} />
                 <Route path="/master/integrations" element={<ProtectedRoute><MasterIntegrationsPage /></ProtectedRoute>} />
                 <Route path="/novidades" element={<ProtectedRoute><NovidadesPage /></ProtectedRoute>} />
+                <Route path="/metas" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+                <Route path="/metas/configurar" element={<ProtectedRoute requiredPermission="settings.view"><GoalsConfigPage /></ProtectedRoute>} />
+                <Route path="/metas/:id" element={<ProtectedRoute><GoalDetailPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </Suspense>

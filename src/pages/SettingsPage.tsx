@@ -1,26 +1,31 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, Shield, Users, Upload, Database, Plug, ArrowRight, ListChecks, Target } from "lucide-react";
+import { User, Shield, Users, Upload, Database, Plug, ArrowRight, ListChecks } from "lucide-react";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { LeadFieldSettings } from "@/components/settings/LeadFieldSettings";
-import { GoalsSettings } from "@/components/settings/GoalsSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 
-type TabId = "profile" | "security" | "team" | "data" | "integrations" | "lead-fields" | "goals";
+type TabId = "profile" | "security" | "team" | "data" | "integrations" | "lead-fields";
 
-const VALID_TABS: TabId[] = ["profile", "security", "team", "data", "integrations", "lead-fields", "goals"];
+const VALID_TABS: TabId[] = ["profile", "security", "team", "data", "integrations", "lead-fields"];
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const params = useParams<{ tab?: string }>();
   const { user } = useAuth();
   const { canAccessModule } = usePermissions();
+
+  // Metas virou página própria (/metas/configurar) — link antigo (bookmark,
+  // atalho salvo) continua funcionando via redirect.
+  useEffect(() => {
+    if (params.tab === "goals") navigate("/metas/configurar", { replace: true });
+  }, [params.tab, navigate]);
 
   const tab: TabId = useMemo(() => {
     const raw = params.tab as TabId | undefined;
@@ -57,9 +62,6 @@ export default function SettingsPage() {
             </TabsTrigger>
             <TabsTrigger value="lead-fields" className="gap-2 text-xs">
               <ListChecks className="h-3.5 w-3.5" /> Campos do Lead
-            </TabsTrigger>
-            <TabsTrigger value="goals" className="gap-2 text-xs">
-              <Target className="h-3.5 w-3.5" /> Metas
             </TabsTrigger>
             {canSeeData && (
               <TabsTrigger value="data" className="gap-2 text-xs">
@@ -140,10 +142,6 @@ export default function SettingsPage() {
 
           <TabsContent value="lead-fields" className="mt-0">
             <LeadFieldSettings />
-          </TabsContent>
-
-          <TabsContent value="goals" className="mt-0">
-            <GoalsSettings />
           </TabsContent>
 
           {canSeeData && (

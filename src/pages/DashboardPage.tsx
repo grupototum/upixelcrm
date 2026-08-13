@@ -3,16 +3,13 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useDashboardKpis } from "@/hooks/useDashboardKpis";
 import {
   TrendingUp, TrendingDown, Users, CheckSquare, Clock, Activity,
-  Loader2, DollarSign, Brain, ArrowUpRight, ArrowDownRight, AlertCircle, Target,
+  Loader2, DollarSign, Brain, ArrowUpRight, ArrowDownRight, AlertCircle,
 } from "lucide-react";
 import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useNavigate } from "react-router-dom";
 import { LeadsByPeriodChart, LeadsByOriginChart } from "@/components/dashboard/DashboardCharts";
-import { GoalCard } from "@/components/dashboard/GoalCard";
-import { useGoalsProgress } from "@/hooks/useGoalsProgress";
 import { formatRelativeTime, formatShortDate } from "@/lib/format-date";
 import { useAppState } from "@/contexts/AppContext";
 import { CompleteTaskDialog } from "@/components/crm/CompleteTaskDialog";
@@ -48,11 +45,7 @@ const COMING_SOON_CARDS = [
 
 export default function DashboardPage() {
   const { data, isLoading, error, refetch } = useDashboardKpis();
-  // Dashboard v1 do widget de metas — Fase 7 troca por /metas dedicada (7d);
-  // até lá, mostra as metas mensais atribuídas ao usuário ou à equipe toda.
-  const { myProgress: goalsProgress } = useGoalsProgress("monthly");
   const { tasks, completeTask } = useAppState();
-  const navigate = useNavigate();
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
 
   const stats = data?.stats;
@@ -161,28 +154,6 @@ export default function DashboardPage() {
   return (
     <AppLayout title="Dashboard" subtitle="Visão geral da operação">
       <div className="p-8 space-y-8 animate-fade-in">
-        {/* Metas do período */}
-        {goalsProgress.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {goalsProgress.map((p) => (
-              <GoalCard key={p.goal.id} progress={p} />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-card rounded-xl ghost-border p-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <Target className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground">Nenhuma meta configurada</p>
-                <p className="text-[11px] text-muted-foreground">Defina metas de vendas para acompanhar o progresso da equipe aqui.</p>
-              </div>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => navigate("/settings/goals")}>Criar meta</Button>
-          </div>
-        )}
-
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {cards.map((s) => (

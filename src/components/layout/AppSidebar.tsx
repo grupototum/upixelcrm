@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
   BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText, Clock, Upload, Sparkles,
+  Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -51,6 +52,7 @@ type NavGroup = {
 // Links diretos — os 6 atalhos mais usados no dia-a-dia.
 const directLinks: NavLeaf[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Metas", url: "/metas", icon: Target },
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
   { title: "Funil de Vendas", url: "/crm", icon: Kanban },
