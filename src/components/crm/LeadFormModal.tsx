@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery } from "@tanstack/react-query";
 import { listActiveAgents } from "@/services/users";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFieldSettings } from "@/hooks/useFieldSettings";
+import { BRAZIL_STATES } from "@/lib/brazil-states";
 import type { Lead, PipelineColumn } from "@/types";
 
 interface LeadFormModalProps {
@@ -30,6 +32,7 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
 
   const { user } = useAuth();
   const clientId = user?.client_id ?? "";
+  const { enabledFields } = useFieldSettings();
   const { data: agents = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["lead-form-agents", clientId],
     queryFn: async () => (clientId ? listActiveAgents(clientId).catch(() => []) : []),
@@ -189,6 +192,42 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
               <Input type="number" value={form.faturamento_mensal ?? ""} onChange={(e) => setForm({ ...form, faturamento_mensal: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
             </div>
           </div>
+
+          {enabledFields.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {enabledFields.map((field) => (
+                <div key={field.key} className={field.key === "address" ? "col-span-2" : undefined}>
+                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">{field.label}</Label>
+                  {field.key === "state" ? (
+                    <Select value={form.state ?? ""} onValueChange={(val) => setForm({ ...form, state: val })}>
+                      <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
+                        <SelectValue placeholder="UF" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
+                        {BRAZIL_STATES.map((s) => (
+                          <SelectItem key={s.value} value={s.value} className="rounded-lg">{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : field.key === "zip_code" ? (
+                    <Input
+                      value={form.zip_code ?? ""}
+                      onChange={(e) => setForm({ ...form, zip_code: e.target.value })}
+                      placeholder="00000-000"
+                      maxLength={9}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  ) : (
+                    <Input
+                      value={(form[field.key] as string) ?? ""}
+                      onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Tags</Label>

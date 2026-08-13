@@ -52,6 +52,7 @@ import { MacrosDropdown } from "@/components/inbox/MacrosDropdown";
 import { PriorityBadge } from "@/components/inbox/PriorityBadge";
 import { ConversationStatusBadge } from "@/components/inbox/ConversationStatusBadge";
 import { ShadowSdrPanel } from "@/components/inbox/ShadowSdrPanel";
+import { LeadContactIcons } from "@/components/inbox/LeadContactIcons";
 import { formatFileSize } from "@/lib/utils";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1076,6 +1077,11 @@ export default function InboxPage() { // force HMR reset
                     {initials(selectedLead?.name || selectedLeadGroup.lead_name)}
                   </div>
                   <h3 className="text-sm font-bold text-foreground line-clamp-1">{selectedLead?.name || selectedLeadGroup.lead_name}</h3>
+                  {selectedLead?.id && (
+                    <div className="mt-1">
+                      <LeadContactIcons leadId={selectedLead.id} />
+                    </div>
+                  )}
                   <Select
                     value={selectedLeadGroup.category || "lead"}
                     onValueChange={(val: any) => {

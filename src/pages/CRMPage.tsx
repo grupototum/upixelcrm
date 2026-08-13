@@ -1,10 +1,13 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAppState } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTags } from "@/hooks/useTags";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useDragScroll } from "@/hooks/useDragScroll";
+import { listActiveAgents } from "@/services/users";
 import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
 import { BulkActionsBar } from "@/components/crm/BulkActionsBar";
 import { Plus, Search, X, ChevronDown, LayoutGrid, Upload, CheckSquare } from "lucide-react";
@@ -127,7 +130,7 @@ function SelectionToggleButton({ visibleLeads }: { visibleLeads: Lead[] }) {
 function CRMPageInner() {
   const navigate = useNavigate();
   const {
-    leads, pipelines, columns, currentPipelineId, leadCountByPipeline, loading,
+    leads, pipelines, columns, currentPipelineId, leadCountByPipeline, loading, tasks, timeline,
     setPipeline, addPipeline, updatePipeline, deletePipeline, addColumn, reorderColumns,
     addLead, updateLead, deleteLead, moveLead
   } = useAppState();
@@ -152,6 +155,38 @@ function CRMPageInner() {
     () => customFieldDefs.find((d) => d.name.trim().toLowerCase() === "segmento")?.slug,
     [customFieldDefs]
   );
+
+  // Redesign do card (2.8): responsável, próxima tarefa e última atividade
+  // resolvidos uma vez aqui a partir do que já está carregado no contexto —
+  // evita 1 fetch por card.
+  const { user } = useAuth();
+  const { data: agents = [] } = useQuery({
+    queryKey: ["crm-board-agents", user?.client_id],
+    queryFn: () => listActiveAgents(user!.client_id).catch(() => []),
+    enabled: !!user?.client_id,
+    staleTime: 60_000,
+  });
+  const usersById = useMemo(
+    () => Object.fromEntries(agents.map((a) => [a.id, a])),
+    [agents]
+  );
+  const nextTaskByLead = useMemo(() => {
+    const pending = tasks.filter((t) => t.status !== "completed" && t.lead_id && t.due_date);
+    pending.sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
+    const map: Record<string, typeof tasks[number]> = {};
+    for (const t of pending) {
+      if (!map[t.lead_id!]) map[t.lead_id!] = t;
+    }
+    return map;
+  }, [tasks]);
+  const lastActivityByLead = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const ev of timeline) {
+      if (!ev.lead_id) continue;
+      if (!map[ev.lead_id] || ev.created_at > map[ev.lead_id]) map[ev.lead_id] = ev.created_at;
+    }
+    return map;
+  }, [timeline]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -546,6 +581,7 @@ function CRMPageInner() {
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          autoScroll={{ enabled: true, threshold: { x: 0.15, y: 0 }, acceleration: 10, interval: 5 }}
         >
           <div ref={boardRef} className="board-container flex h-[calc(100vh-4rem)] overflow-x-auto p-6 gap-5 animate-fade-in hide-scrollbar">
             {/* SortableContext de colunas — horizontal. Items recebem o id sentinela
@@ -572,6 +608,9 @@ function CRMPageInner() {
                   onImportLeads={(colId) => setImportDialog({ open: true, columnId: colId })}
                   tagColors={tagColors}
                   segmentoFieldSlug={segmentoFieldSlug}
+                  usersById={usersById}
+                  nextTaskByLead={nextTaskByLead}
+                  lastActivityByLead={lastActivityByLead}
                 />
               );
             })}

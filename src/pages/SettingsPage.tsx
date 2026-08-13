@@ -4,15 +4,17 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, Shield, Users, Upload, Database, Plug, ArrowRight } from "lucide-react";
+import { User, Shield, Users, Upload, Database, Plug, ArrowRight, ListChecks, Target } from "lucide-react";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
+import { LeadFieldSettings } from "@/components/settings/LeadFieldSettings";
+import { GoalsSettings } from "@/components/settings/GoalsSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 
-type TabId = "profile" | "security" | "team" | "data" | "integrations";
+type TabId = "profile" | "security" | "team" | "data" | "integrations" | "lead-fields" | "goals";
 
-const VALID_TABS: TabId[] = ["profile", "security", "team", "data", "integrations"];
+const VALID_TABS: TabId[] = ["profile", "security", "team", "data", "integrations", "lead-fields", "goals"];
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -52,6 +54,12 @@ export default function SettingsPage() {
             )}
             <TabsTrigger value="integrations" className="gap-2 text-xs">
               <Plug className="h-3.5 w-3.5" /> Integrações
+            </TabsTrigger>
+            <TabsTrigger value="lead-fields" className="gap-2 text-xs">
+              <ListChecks className="h-3.5 w-3.5" /> Campos do Lead
+            </TabsTrigger>
+            <TabsTrigger value="goals" className="gap-2 text-xs">
+              <Target className="h-3.5 w-3.5" /> Metas
             </TabsTrigger>
             {canSeeData && (
               <TabsTrigger value="data" className="gap-2 text-xs">
@@ -128,6 +136,14 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="lead-fields" className="mt-0">
+            <LeadFieldSettings />
+          </TabsContent>
+
+          <TabsContent value="goals" className="mt-0">
+            <GoalsSettings />
           </TabsContent>
 
           {canSeeData && (

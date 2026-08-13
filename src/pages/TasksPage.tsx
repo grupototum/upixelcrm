@@ -18,19 +18,21 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
+import { CompleteTaskDialog } from "@/components/crm/CompleteTaskDialog";
 import { TaskProgressHeader } from "@/components/tasks/TaskProgressHeader";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import type { Task } from "@/types";
 
 export default function TasksPage() {
   const navigate = useNavigate();
-  const { tasks, leads, toggleTaskStatus, deleteTask, addTask, updateTask } = useAppState();
+  const { tasks, leads, toggleTaskStatus, completeTask, updateTaskResult, deleteTask, addTask, updateTask } = useAppState();
   const [subArea, setSubArea] = useState("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [showNewTask, setShowNewTask] = useState(false);
+  const [completingTask, setCompletingTask] = useState<Task | null>(null);
 
   const fireConfetti = useCallback(() => {
     confetti({
@@ -44,10 +46,24 @@ export default function TasksPage() {
   const handleToggle = useCallback(async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (task && task.status !== "completed") {
-      fireConfetti();
+      setCompletingTask(task);
+      return;
     }
     await toggleTaskStatus(id);
-  }, [tasks, toggleTaskStatus, fireConfetti]);
+  }, [tasks, toggleTaskStatus]);
+
+  const handleConfirmComplete = useCallback(async (id: string, result?: string) => {
+    if (completingTask?.status === "completed") {
+      await updateTaskResult(id, result);
+      return;
+    }
+    await completeTask(id, result);
+    fireConfetti();
+  }, [completingTask, completeTask, updateTask, fireConfetti]);
+
+  const handleEditResult = useCallback((task: Task) => {
+    setCompletingTask(task);
+  }, []);
 
   const handleUpdatePriority = useCallback(async (id: string, priority: Task["priority"]) => {
     await updateTask(id, { priority });
@@ -240,7 +256,7 @@ export default function TasksPage() {
                   </button>
                   <div className="divide-y divide-border">
                     {groupTasks.map((t) => (
-                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
+                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} onEditResult={handleEditResult} />
                     ))}
                   </div>
                 </div>
@@ -253,7 +269,7 @@ export default function TasksPage() {
             {filtered.length === 0 ? emptyState : (
               <div className="divide-y divide-border">
                 {filtered.map((t) => (
-                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} />
+                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} onEditResult={handleEditResult} />
                 ))}
               </div>
             )}
@@ -275,6 +291,13 @@ export default function TasksPage() {
 
       {/* New Task Dialog */}
       <CreateTaskModal open={showNewTask} onOpenChange={setShowNewTask} />
+
+      <CompleteTaskDialog
+        task={completingTask}
+        open={!!completingTask}
+        onOpenChange={(open) => { if (!open) setCompletingTask(null); }}
+        onConfirm={handleConfirmComplete}
+      />
     </AppLayout>
   );
 }

@@ -40,6 +40,10 @@ export interface Lead {
   company?: string;
   position?: string;
   city?: string;
+  state?: string;
+  neighborhood?: string;
+  address?: string;
+  zip_code?: string;
   notes?: string;
   notes_local?: string;
   custom_fields?: Record<string, any>;
@@ -149,6 +153,72 @@ export interface CustomFieldDefinition {
   display_order: number;
   created_at: string;
   updated_at: string;
+}
+
+export type StandardFieldKey = "state" | "city" | "neighborhood" | "address" | "zip_code";
+
+export interface StandardFieldConfig {
+  key: StandardFieldKey;
+  label: string;
+  enabled: boolean;
+  order: number;
+}
+
+export interface ClientFieldSettings {
+  id: string;
+  client_id: string;
+  field_config: StandardFieldConfig[];
+  updated_at: string;
+}
+
+export type GoalMetric = "leads_created" | "tasks_completed" | "contacts_made" | "leads_closed";
+export type GoalPeriod = "daily" | "weekly" | "monthly";
+
+export interface Goal {
+  id: string;
+  client_id: string;
+  title: string;
+  metric: GoalMetric;
+  target_value: number;
+  period: GoalPeriod;
+  assigned_to?: string;
+  column_id?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalProgress {
+  goal: Goal;
+  current_value: number;
+  percentage: number;
+}
+
+export type ContactRole = "decisor" | "atendente";
+
+export interface LeadContact {
+  id: string;
+  lead_id: string;
+  client_id: string;
+  name: string;
+  role: ContactRole;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PhoneCategory = "celular" | "fixo" | "whatsapp" | "comercial" | "outro";
+
+export interface LeadPhone {
+  id: string;
+  lead_id: string;
+  client_id: string;
+  number: string;
+  category: PhoneCategory;
+  label?: string;
+  created_at: string;
 }
 
 export interface TagMeta {

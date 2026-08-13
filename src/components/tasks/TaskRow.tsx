@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Calendar, User, MoreHorizontal, Trash2 } from "lucide-react";
+import { CheckCircle2, Calendar, User, MoreHorizontal, Trash2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,9 +36,10 @@ interface TaskRowProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onUpdatePriority?: (id: string, priority: Task["priority"]) => void;
+  onEditResult?: (task: Task) => void;
 }
 
-export function TaskRow({ task, leads, showLead = true, onToggle, onDelete, onUpdatePriority }: TaskRowProps) {
+export function TaskRow({ task, leads, showLead = true, onToggle, onDelete, onUpdatePriority, onEditResult }: TaskRowProps) {
   const navigate = useNavigate();
   const lead = showLead ? leads.find((l) => l.id === task.lead_id) : null;
   const priority = task.priority || "medium";
@@ -113,6 +114,12 @@ export function TaskRow({ task, leads, showLead = true, onToggle, onDelete, onUp
             {lead.company && <span className="text-muted-foreground/60">· {lead.company}</span>}
           </button>
         )}
+        {task.status === "completed" && task.result && (
+          <div className="mt-0.5 text-[10px] text-muted-foreground italic flex items-start gap-1">
+            <MessageSquare className="h-2.5 w-2.5 mt-0.5 shrink-0" />
+            <span className="truncate">{task.result}</span>
+          </div>
+        )}
       </div>
       <div className="w-24 flex justify-center">{statusBadge(task.status)}</div>
       <div className="w-24 flex justify-center">
@@ -132,6 +139,11 @@ export function TaskRow({ task, leads, showLead = true, onToggle, onDelete, onUp
           <DropdownMenuItem className="text-xs gap-2" onClick={() => onToggle(task.id)}>
             <CheckCircle2 className="h-3 w-3" /> {task.status === "completed" ? "Reabrir" : "Concluir"}
           </DropdownMenuItem>
+          {task.status === "completed" && onEditResult && (
+            <DropdownMenuItem className="text-xs gap-2" onClick={() => onEditResult(task)}>
+              <MessageSquare className="h-3 w-3" /> Editar resultado
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem className="text-xs gap-2 text-destructive" onClick={() => onDelete(task.id)}>
             <Trash2 className="h-3 w-3" /> Excluir
           </DropdownMenuItem>

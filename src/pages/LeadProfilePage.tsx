@@ -17,6 +17,8 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import { DynamicFieldRenderer } from "@/components/crm/DynamicFieldRenderer";
 import { CustomFieldsManager } from "@/components/crm/CustomFieldsManager";
 import { TagsManager } from "@/components/crm/TagsManager";
+import { LeadPhonesSection } from "@/components/crm/LeadPhonesSection";
+import { LeadContactsSection } from "@/components/crm/LeadContactsSection";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -390,6 +392,8 @@ export default function LeadProfilePage() {
                 </div>
               </div>
               <div className="space-y-4">
+                <LeadPhonesSection leadId={lead.id} />
+                <LeadContactsSection leadId={lead.id} />
                 <div className="bg-card border border-border rounded-lg p-5 space-y-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem e campanha</h3>
                   <EditableDataRow icon={Globe} label="Origem" value={lead.origin} onSave={(v) => updateLead(lead.id, { origin: v })} />

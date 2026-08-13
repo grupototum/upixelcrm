@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SortableLeadCard } from "./SortableLeadCard";
 import { useSelection } from "@/contexts/SelectionContext";
 import { toast } from "sonner";
-import type { Lead, PipelineColumn } from "@/types";
+import type { Lead, PipelineColumn, Task } from "@/types";
 
 // FIX-23: Only virtualize columns with many leads — columns below this threshold
 // render normally so the DnD experience is identical to before for small lists.
@@ -35,9 +35,15 @@ interface KanbanColumnProps {
   tagColors?: Record<string, string>;
   /** Slug do campo customizado "Segmento", quando existir (fallback do card). */
   segmentoFieldSlug?: string;
+  /** id → usuário responsável, resolvido uma vez no board. */
+  usersById?: Record<string, { id: string; name: string; avatar_url?: string | null }>;
+  /** lead_id → próxima tarefa pendente, resolvida uma vez no board. */
+  nextTaskByLead?: Record<string, Task>;
+  /** lead_id → data da última atividade (timeline), resolvida uma vez no board. */
+  lastActivityByLead?: Record<string, string>;
 }
 
-export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads, tagColors, segmentoFieldSlug }: KanbanColumnProps) {
+export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads, tagColors, segmentoFieldSlug, usersById, nextTaskByLead, lastActivityByLead }: KanbanColumnProps) {
   // useDroppable pra leads entrarem na coluna (mantido).
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id, data: { type: "column", columnId: column.id } });
 
@@ -225,7 +231,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                       paddingBottom: "8px",
                     }}
                   >
-                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} />
+                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} responsible={lead.responsible_id ? usersById?.[lead.responsible_id] : undefined} nextTask={nextTaskByLead?.[lead.id]} lastActivityAt={lastActivityByLead?.[lead.id]} />
                   </div>
                 );
               })}
@@ -235,7 +241,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                Preserves the original space-y-2 layout and DnD behaviour exactly. */
             <div className="space-y-2">
               {leads.map((lead) => (
-                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} />
+                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} responsible={lead.responsible_id ? usersById?.[lead.responsible_id] : undefined} nextTask={nextTaskByLead?.[lead.id]} lastActivityAt={lastActivityByLead?.[lead.id]} />
               ))}
             </div>
           )}

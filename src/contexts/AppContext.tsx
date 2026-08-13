@@ -47,6 +47,8 @@ interface AppState {
   toggleTaskStatus: (id: string) => Promise<void>;
   /** 2.6: conclui uma tarefa pendente, gravando o resultado. */
   completeTask: (id: string, result?: string) => Promise<void>;
+  /** 2.6: edita o resultado de uma tarefa já concluída, sem mexer em status/completed_at. */
+  updateTaskResult: (id: string, result?: string) => Promise<void>;
 
   addColumn: (name: string, color: string) => Promise<void>;
   updateColumn: (id: string, data: Partial<PipelineColumn>) => Promise<void>;
@@ -512,7 +514,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!task || task.status === "completed") return;
 
     const completedAt = new Date().toISOString();
-    const patch = { status: "completed" as const, result: result?.trim() || null, completed_at: completedAt };
+    const trimmedResult = result?.trim() || null;
+    const patch = { status: "completed" as const, result: trimmedResult, completed_at: completedAt };
 
     setTasks((prev) => prev.map((t) => t.id === id
       ? { ...t, status: "completed", result: patch.result ?? undefined, completed_at: completedAt }
@@ -523,8 +526,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       logger.error(error);
       setTasks((prev) => prev.map((t) => t.id === id ? task : t));
+      return;
     }
-  }, [tasks]);
+
+    if (task.lead_id) {
+      await addTimelineEvent({
+        lead_id: task.lead_id,
+        type: "note",
+        content: trimmedResult
+          ? `✅ Tarefa concluída: "${task.title}" — ${trimmedResult}`
+          : `✅ Tarefa concluída: "${task.title}"`,
+        user_name: "Usuário",
+      });
+    }
+  }, [tasks, addTimelineEvent]);
+
+  // 2.6: edita o resultado de uma tarefa já concluída, sem tocar status/completed_at.
+  const updateTaskResult = useCallback(async (id: string, result?: string) => {
+    const trimmedResult = result?.trim() || null;
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, result: trimmedResult ?? undefined } : t));
+    try {
+      await leadsRepo.updateTaskRow(id, { result: trimmedResult });
+    } catch (error) {
+      logger.error(error); toast.error("Erro ao salvar resultado");
+    }
+  }, []);
 
   const toggleTaskStatus = useCallback(async (id: string) => {
     const task = tasks.find((t) => t.id === id);
@@ -925,7 +951,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       leadCountByPipeline,
       setPipeline: setCurrentPipelineId, addPipeline, updatePipeline, deletePipeline,
       addLead, updateLead, deleteLead, moveLead, moveLeadToPipeline,
-      addTask, updateTask, deleteTask, toggleTaskStatus, completeTask,
+      addTask, updateTask, deleteTask, toggleTaskStatus, completeTask, updateTaskResult,
       addColumn, updateColumn, deleteColumn, reorderColumns, addTimelineEvent,
       createAutomation, updateAutomationNodes, deleteAutomation, toggleComplexAutomation,
       toggleBasicAutomation, deleteBasicAutomation, addBasicAutomation, updateBasicAutomation,

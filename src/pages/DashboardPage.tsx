@@ -9,6 +9,8 @@ import { ComingSoonBadge } from "@/components/ui/coming-soon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { LeadsByPeriodChart, LeadsByOriginChart } from "@/components/dashboard/DashboardCharts";
+import { GoalCard } from "@/components/dashboard/GoalCard";
+import { useGoalsProgress } from "@/hooks/useGoalsProgress";
 import { formatRelativeTime, formatShortDate } from "@/lib/format-date";
 
 const typeColors: Record<string, string> = {
@@ -41,6 +43,7 @@ const COMING_SOON_CARDS = [
 
 export default function DashboardPage() {
   const { data, isLoading, error, refetch } = useDashboardKpis();
+  const { progress: goalsProgress } = useGoalsProgress();
 
   const stats = data?.stats;
   const pipeline = useMemo(() => data?.pipeline ?? [], [data?.pipeline]);
@@ -137,6 +140,15 @@ export default function DashboardPage() {
   return (
     <AppLayout title="Dashboard" subtitle="Visão geral da operação">
       <div className="p-8 space-y-8 animate-fade-in">
+        {/* Metas do período */}
+        {goalsProgress.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {goalsProgress.map((p) => (
+              <GoalCard key={p.goal.id} progress={p} />
+            ))}
+          </div>
+        )}
+
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {cards.map((s) => (

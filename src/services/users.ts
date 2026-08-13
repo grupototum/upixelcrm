@@ -41,10 +41,10 @@ export async function listClientMembers(
 }
 
 /** Agentes ativos do tenant (atribuição de conversas). */
-export async function listActiveAgents(clientId: string): Promise<{ id: string; name: string }[]> {
+export async function listActiveAgents(clientId: string): Promise<{ id: string; name: string; avatar_url?: string | null }[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name")
+    .select("id, name, avatar_url")
     .eq("client_id", clientId)
     .in("role", ["supervisor", "atendente", "vendedor", "master"])
     .eq("is_blocked", false)

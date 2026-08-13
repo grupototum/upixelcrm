@@ -1,22 +1,74 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Building, Phone, Mail, User, Tag, Clock } from "lucide-react";
+import { GripVertical, Building, Phone, Mail, Tag, Clock, CheckSquare, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSelection } from "@/contexts/SelectionContext";
-import type { Lead } from "@/types";
+import type { Lead, Task } from "@/types";
 import { formatPhone } from "@/lib/format-phone";
 
 /** 2.3: no máximo 3 pills; o resto vira "+N" com tooltip. */
 const MAX_VISIBLE_TAGS = 3;
 
-export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug }: {
+interface ResponsibleUser {
+  id: string;
+  name: string;
+  avatar_url?: string | null;
+}
+
+function UserAvatar({ user }: { user?: ResponsibleUser }) {
+  if (!user) {
+    return (
+      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0">
+        ?
+      </div>
+    );
+  }
+  const initials = user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-medium text-primary shrink-0 overflow-hidden">
+          {user.avatar_url ? (
+            <img src={user.avatar_url} alt={user.name} className="h-6 w-6 rounded-full object-cover" />
+          ) : initials}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>{user.name}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function NextTask({ task }: { task?: Task }) {
+  if (!task) return null;
+  const isOverdue = task.due_date ? new Date(task.due_date) < new Date() : false;
+  return (
+    <div className={`flex items-center gap-1 text-xs mb-1.5 ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}>
+      <CheckSquare className="h-3 w-3 shrink-0" />
+      <span className="truncate">{task.title}</span>
+      {task.due_date && (
+        <span className="shrink-0 ml-auto">{isOverdue ? "Vencida" : new Date(task.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>
+      )}
+    </div>
+  );
+}
+
+export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, responsible, nextTask, lastActivityAt }: {
   lead: Lead;
   onClick: () => void;
   /** name → cor. Buscado uma vez no board; useTags por card faria 1 fetch por lead. */
   tagColors?: Record<string, string>;
   /** Slug do campo customizado "Segmento", quando existir (fallback abaixo). */
   segmentoFieldSlug?: string;
+  /** Usuário responsável, resolvido uma vez no board (evita 1 fetch por card). */
+  responsible?: ResponsibleUser;
+  /** Próxima tarefa pendente do lead, resolvida uma vez no board a partir das tasks já carregadas. */
+  nextTask?: Task;
+  /** Data da última atividade (timeline), resolvida uma vez no board. */
+  lastActivityAt?: string;
 }) {
   // Alguns tenants guardam "Segmento" como campo customizado em vez da coluna
   // nativa leads.segmento (import legado, por ex.) — cai pro customizado
@@ -78,6 +130,18 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug }
         <div className="flex items-start justify-between mb-1.5">
           <h4 className="text-sm font-medium text-foreground truncate flex-1">{lead.name}</h4>
           <div className="shrink-0 flex items-center gap-1.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {lead.phone && (
+              <a
+                href={`https://wa.me/55${lead.phone.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-green-600 p-0.5"
+                title="Abrir WhatsApp"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </a>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -137,9 +201,15 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug }
             )}
           </div>
         )}
-        {lead.responsible_id && (
-          <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground">
-            <User className="h-3 w-3" /> {lead.responsible_id}
+        <NextTask task={nextTask} />
+        {(lead.responsible_id || lastActivityAt) && (
+          <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-border/60">
+            {lead.responsible_id && <UserAvatar user={responsible} />}
+            {lastActivityAt && (
+              <span className="text-[10px] text-muted-foreground ml-auto">
+                {formatDistanceToNow(new Date(lastActivityAt), { locale: ptBR, addSuffix: true })}
+              </span>
+            )}
           </div>
         )}
       </div>
