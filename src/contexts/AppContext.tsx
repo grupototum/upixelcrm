@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, u
 import * as leadsRepo from "@/services/leads";
 import * as automationsRepo from "@/services/automations";
 import { reassignConversationsToLead } from "@/services/inbox";
+import { reconcileLeads } from "@/lib/reconcile-leads";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Lead, Pipeline, PipelineColumn, Task, Automation, TimelineEvent, ComplexAutomation } from "@/types";
@@ -117,11 +118,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const executeAutomationsRef = useRef<((leadId: string, triggerType: Automation["trigger"]["type"], columnId?: string) => Promise<void>) | null>(null);
 
+  // A carga de leads roda em background (FASE 3) com a UI já interativa. Sem
+  // rastrear o que o usuário mexeu nesse meio-tempo, o snapshot do servidor
+  // sobrescrevia a mutação otimista: card voltava de coluna, lead criado sumia,
+  // deletado ressuscitava. O gen invalida a carga anterior numa troca de tenant.
+  const leadsFetchGen = useRef(0);
+  const leadsFetchActive = useRef(false);
+  const dirtyLeadIds = useRef(new Set<string>());
+
+  /** Marca um lead alterado localmente enquanto a carga em background acontece. */
+  const markLeadDirty = useCallback((id: string) => {
+    if (leadsFetchActive.current) dirtyLeadIds.current.add(id);
+  }, []);
+
   const fetchAll = useCallback(async () => {
     // Return early (and clear loading) if auth has not resolved a valid client_id yet.
     // Master view bypassa o filtro por client_id, então só precisa de user autenticado.
     const clientId = tenant?.id ?? user?.client_id ?? "";
     if (!clientId && !isMasterView) { setLoading(false); return; }
+
+    const gen = ++leadsFetchGen.current;
+    leadsFetchActive.current = true;
+    dirtyLeadIds.current.clear();
+
     try {
       // FASE 1: estruturas + count rápido (libera UI em ~500ms)
       // Carrega pipelines, columns, tasks, automations e SÓ os column_ids
@@ -233,11 +252,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (i === 0 && all.length > 0) {
             logger.info("First lead from DB:", { name: all[0].name, custom_fields: all[0].custom_fields });
           }
-          // Atualiza progressivamente: cada batch já aparece nos cards
-          setLeads(all.map(mapLead));
+          // Carga obsoleta (troca de tenant/master view): quem manda é o fetch novo.
+          if (gen !== leadsFetchGen.current) return;
+          // Atualiza progressivamente: cada batch já aparece nos cards, sem
+          // atropelar o que o usuário mexeu enquanto os batches chegavam.
+          const mapped = all.map(mapLead);
+          setLeads((prev) => reconcileLeads(prev, mapped, dirtyLeadIds.current));
         }
-      } else {
-        setLeads([]);
+      } else if (gen === leadsFetchGen.current) {
+        setLeads((prev) => reconcileLeads(prev, [], dirtyLeadIds.current));
       }
     } catch (err) {
       logger.error("Error fetching data:", err);
@@ -246,6 +269,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       // setLoading(false) já é chamado dentro do try após FASE 1.
       // Garantimos aqui caso ocorra erro antes.
+      // Encerra o rastreamento — salvo se um fetch mais novo já assumiu o estado.
+      if (leadsFetchGen.current === gen) {
+        leadsFetchActive.current = false;
+        dirtyLeadIds.current.clear();
+      }
     }
     // currentPipelineId NÃO entra nas deps: o fetchAll filtra por client_id/tenant,
     // não por pipeline. Re-buscar tudo a cada troca de funil é desperdício
@@ -298,10 +326,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logger.error(error); toast.error("Erro ao atualizar lead"); return;
     }
 
+    markLeadDirty(id);
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, ...data, updated_at: new Date().toISOString() } : l));
 
     await addTimelineEvent({ lead_id: id, type: "note", content: "Lead atualizado", user_name: "Usuário" });
-  }, [addTimelineEvent]);
+  }, [addTimelineEvent, markLeadDirty]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
     let row: Awaited<ReturnType<typeof leadsRepo.insertTaskReturning>>;
@@ -340,6 +369,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const toCol = columns.find((c) => c.id === toColumnId);
 
     // Optimistic update
+    markLeadDirty(id);
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: toColumnId, updated_at: new Date().toISOString() } : l));
 
     try {
@@ -364,7 +394,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await executeAutomationsRef.current(id, "stage_changed", toColumnId);
       await executeAutomationsRef.current(id, "card_entered", toColumnId);
     }
-  }, [leads, columns, addTimelineEvent]);
+  }, [leads, columns, addTimelineEvent, markLeadDirty]);
 
   const moveLeadToPipeline = useCallback(async (id: string, toPipelineId: string) => {
     const lead = leads.find((l) => l.id === id);
@@ -381,6 +411,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const toPipeline = pipelines.find(p => p.id === toPipelineId);
 
     // Optimistic update
+    markLeadDirty(id);
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: firstColumnOfNewPipeline.id, updated_at: new Date().toISOString() } : l));
 
     try {
@@ -401,7 +432,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       content: `"${lead.name}" movido do funil "${fromPipeline?.name ?? "?"}" para "${toPipeline?.name ?? "?"}"`,
       user_name: "Usuário",
     });
-  }, [leads, columns, pipelines, addTimelineEvent]);
+  }, [leads, columns, pipelines, addTimelineEvent, markLeadDirty]);
 
   const addLead = useCallback(async (data: Partial<Lead>, columnId: string): Promise<Lead | null> => {
     const clientId = tenant?.id ?? user?.client_id;
@@ -440,6 +471,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logger.error(error); toast.error("Erro ao criar lead"); return null;
     }
     const newLead = mapLead(row as unknown as Record<string, unknown>);
+    markLeadDirty(newLead.id);
     setLeads((prev) => [newLead, ...prev]);
 
     await addTimelineEvent({
@@ -458,7 +490,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     return newLead;
-  }, [addTimelineEvent, user?.client_id, tenant?.id, tenantIdForInsert]);
+  }, [addTimelineEvent, user?.client_id, tenant?.id, tenantIdForInsert, markLeadDirty]);
 
 
   const deleteLead = useCallback(async (id: string) => {
@@ -467,10 +499,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       logger.error(error); toast.error("Erro ao excluir lead"); return;
     }
+    markLeadDirty(id);
     setLeads((prev) => prev.filter((l) => l.id !== id));
     setTasks((prev) => prev.filter((t) => t.lead_id !== id));
     toast.success("Lead excluído");
-  }, []);
+  }, [markLeadDirty]);
 
   const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
     try {
@@ -484,13 +517,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       await leadsRepo.bulkDeleteLeads([sourceLeadId]);
 
+      markLeadDirty(sourceLeadId);
       setLeads((prev) => prev.filter((l) => l.id !== sourceLeadId));
       toast.success("Leads mesclados com sucesso.");
     } catch (err: any) {
       logger.error(err);
       toast.error(`Erro ao mesclar leads: ${err.message}`);
     }
-  }, []);
+  }, [markLeadDirty]);
 
   const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
     try {
