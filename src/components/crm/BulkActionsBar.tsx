@@ -25,7 +25,7 @@ import * as leadsRepo from "@/services/leads";
  */
 export function BulkActionsBar() {
   const { selectionMode, selectedIds, selectedCount, clearSelection, exitSelectionMode } = useSelection();
-  const { pipelines, columns, currentPipelineId, refreshData } = useAppState();
+  const { pipelines, columns, currentPipelineId, refreshData, addTimelineEvent } = useAppState();
 
   const [moveOpen, setMoveOpen] = useState(false);
   // Funil de destino (default = funil atual) + etapa de destino. Como o funil do
@@ -76,6 +76,17 @@ export function BulkActionsBar() {
       toast.success(`${ids.length} lead(s) movido(s) para "${targetName}".`);
       setMoveOpen(false);
       setMoveTarget("");
+      // Best-effort: rastro na timeline de cada lead movido em massa.
+      void Promise.allSettled(
+        ids.map((leadId) =>
+          addTimelineEvent({
+            lead_id: leadId,
+            type: "stage_change",
+            content: `Movido em massa para "${targetName}"`,
+            user_name: "Ação em massa",
+          })
+        )
+      );
       await refreshData();
       exitSelectionMode();
     } catch (err) {
@@ -89,6 +100,8 @@ export function BulkActionsBar() {
   const handleDelete = async () => {
     setDeleting(true);
     try {
+      // Sem evento de timeline aqui de propósito: o lead está sendo apagado,
+      // então não há onde esse evento seria exibido depois.
       await leadsRepo.bulkDeleteLeads(ids);
       toast.success(`${ids.length} lead(s) excluído(s).`);
       setDeleteConfirmOpen(false);
@@ -118,6 +131,17 @@ export function BulkActionsBar() {
       }
       setTagOpen(false);
       setTagInput("");
+      // Best-effort: rastro na timeline de cada lead marcado em massa.
+      void Promise.allSettled(
+        ids.map((leadId) =>
+          addTimelineEvent({
+            lead_id: leadId,
+            type: "note",
+            content: `Tag "${tag}" adicionada em massa`,
+            user_name: "Ação em massa",
+          })
+        )
+      );
       await refreshData();
       exitSelectionMode();
     } catch (err) {
