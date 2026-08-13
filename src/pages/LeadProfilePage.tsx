@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useCustomFields } from "@/hooks/useCustomFields";
+import { useFieldSettings } from "@/hooks/useFieldSettings";
 import { DynamicFieldRenderer } from "@/components/crm/DynamicFieldRenderer";
 import { CustomFieldsManager } from "@/components/crm/CustomFieldsManager";
 import { TagsManager } from "@/components/crm/TagsManager";
@@ -73,6 +74,7 @@ export default function LeadProfilePage() {
   } = useAppState();
   
   const { definitions, loading: cfLoading } = useCustomFields();
+  const { enabledFields } = useFieldSettings();
   const { hasPermission, canEditLeadCategory, role } = usePermissions();
   const { user } = useAuth();
   const isAdmin = role === "master" || role === "admin" || role === "supervisor";
@@ -402,7 +404,18 @@ export default function LeadProfilePage() {
                   <EditableDataRow icon={Mail} label="Email" value={lead.email} onSave={(v) => updateLead(lead.id, { email: v })} />
                   <EditableDataRow icon={Building} label="Empresa" value={lead.company} onSave={(v) => updateLead(lead.id, { company: v })} />
                   <EditableDataRow icon={Briefcase} label="Cargo" value={lead.position} onSave={(v) => updateLead(lead.id, { position: v })} />
-                  <EditableDataRow icon={MapPin} label="Cidade" value={lead.city} onSave={(v) => updateLead(lead.id, { city: v })} />
+                  {/* Campos configuráveis (settings/lead-fields): só os habilitados aparecem. */}
+                  {enabledFields
+                    .filter((f) => ["city", "state", "neighborhood", "address", "zip_code", "segmento"].includes(f.key))
+                    .map((f) => (
+                      <EditableDataRow
+                        key={f.key}
+                        icon={f.key === "segmento" ? Building : MapPin}
+                        label={f.label}
+                        value={lead[f.key] as string | undefined}
+                        onSave={(v) => updateLead(lead.id, { [f.key]: v })}
+                      />
+                    ))}
                 </div>
               </div>
               <div className="space-y-4">
@@ -410,7 +423,9 @@ export default function LeadProfilePage() {
                 <LeadContactsSection leadId={lead.id} />
                 <div className="bg-card border border-border rounded-lg p-5 space-y-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem e campanha</h3>
-                  <EditableDataRow icon={Globe} label="Origem" value={lead.origin} onSave={(v) => updateLead(lead.id, { origin: v })} />
+                  {enabledFields.some((f) => f.key === "origin") && (
+                    <EditableDataRow icon={Globe} label="Origem" value={lead.origin} onSave={(v) => updateLead(lead.id, { origin: v })} />
+                  )}
                   {hasPermission("lead.view_sensitive") && (
                     <EditableDataRow icon={DollarSign} label="Valor" value={lead.value ? String(lead.value) : undefined} onSave={(v) => updateLead(lead.id, { value: parseFloat(v) || 0 })} />
                   )}

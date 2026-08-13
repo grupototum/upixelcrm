@@ -155,7 +155,7 @@ export interface CustomFieldDefinition {
   updated_at: string;
 }
 
-export type StandardFieldKey = "state" | "city" | "neighborhood" | "address" | "zip_code";
+export type StandardFieldKey = "state" | "city" | "neighborhood" | "address" | "zip_code" | "segmento" | "origin";
 
 export interface StandardFieldConfig {
   key: StandardFieldKey;

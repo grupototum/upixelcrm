@@ -75,45 +75,21 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-1">
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Categoria</Label>
-              <Select 
-                value={form.category ?? "lead"} 
-                onValueChange={(val: any) => setForm({ ...form, category: val })}
-              >
-                <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
-                  <SelectValue placeholder="Categoria" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
-                  <SelectItem value="lead" className="rounded-lg">Lead</SelectItem>
-                  <SelectItem value="partner" className="rounded-lg">Parceiro</SelectItem>
-                  <SelectItem value="collaborator" className="rounded-lg">Colaborador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-1">
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Origem</Label>
-              <Select
-                value={form.origin || "Manual"}
-                onValueChange={(val) => setForm({ ...form, origin: val })}
-              >
-                <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
-                  <SelectValue placeholder="Origem do lead" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
-                  <SelectItem value="Meta Ads" className="rounded-lg">Meta Ads</SelectItem>
-                  <SelectItem value="Google Ads" className="rounded-lg">Google Ads</SelectItem>
-                  <SelectItem value="Website" className="rounded-lg">Website</SelectItem>
-                  <SelectItem value="Indicação" className="rounded-lg">Indicação</SelectItem>
-                  <SelectItem value="Evento" className="rounded-lg">Evento</SelectItem>
-                  <SelectItem value="Outbound" className="rounded-lg">Outbound</SelectItem>
-                  <SelectItem value="WhatsApp" className="rounded-lg">WhatsApp</SelectItem>
-                  <SelectItem value="Instagram" className="rounded-lg">Instagram</SelectItem>
-                  <SelectItem value="Manual" className="rounded-lg">Manual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Categoria</Label>
+            <Select
+              value={form.category ?? "lead"}
+              onValueChange={(val: any) => setForm({ ...form, category: val })}
+            >
+              <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
+                <SelectItem value="lead" className="rounded-lg">Lead</SelectItem>
+                <SelectItem value="partner" className="rounded-lg">Parceiro</SelectItem>
+                <SelectItem value="collaborator" className="rounded-lg">Colaborador</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
@@ -185,15 +161,9 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
               <Input type="number" value={form.value ?? ""} onChange={(e) => setForm({ ...form, value: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Segmento</Label>
-              <Input value={form.segmento ?? ""} onChange={(e) => setForm({ ...form, segmento: e.target.value })} placeholder="Ex: Saúde, Varejo, SaaS" className="mt-1 h-10 rounded-xl" />
-            </div>
-            <div>
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Faturamento Mensal (R$)</Label>
-              <Input type="number" value={form.faturamento_mensal ?? ""} onChange={(e) => setForm({ ...form, faturamento_mensal: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
-            </div>
+          <div>
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Faturamento Mensal (R$)</Label>
+            <Input type="number" value={form.faturamento_mensal ?? ""} onChange={(e) => setForm({ ...form, faturamento_mensal: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" className="mt-1 h-10 rounded-xl" />
           </div>
 
           {enabledFields.length > 0 && (
@@ -218,6 +188,30 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
                       onChange={(e) => setForm({ ...form, zip_code: e.target.value })}
                       placeholder="00000-000"
                       maxLength={9}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  ) : field.key === "origin" ? (
+                    <Select value={form.origin || "Manual"} onValueChange={(val) => setForm({ ...form, origin: val })}>
+                      <SelectTrigger className="mt-1 h-10 rounded-xl bg-secondary/20 border-none transition-all">
+                        <SelectValue placeholder="Origem do lead" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border border-[hsl(var(--border-strong))] bg-card">
+                        <SelectItem value="Meta Ads" className="rounded-lg">Meta Ads</SelectItem>
+                        <SelectItem value="Google Ads" className="rounded-lg">Google Ads</SelectItem>
+                        <SelectItem value="Website" className="rounded-lg">Website</SelectItem>
+                        <SelectItem value="Indicação" className="rounded-lg">Indicação</SelectItem>
+                        <SelectItem value="Evento" className="rounded-lg">Evento</SelectItem>
+                        <SelectItem value="Outbound" className="rounded-lg">Outbound</SelectItem>
+                        <SelectItem value="WhatsApp" className="rounded-lg">WhatsApp</SelectItem>
+                        <SelectItem value="Instagram" className="rounded-lg">Instagram</SelectItem>
+                        <SelectItem value="Manual" className="rounded-lg">Manual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : field.key === "segmento" ? (
+                    <Input
+                      value={form.segmento ?? ""}
+                      onChange={(e) => setForm({ ...form, segmento: e.target.value })}
+                      placeholder="Ex: Saúde, Varejo, SaaS"
                       className="mt-1 h-10 rounded-xl"
                     />
                   ) : (
