@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import type { Lead, Task, TimelineEvent } from "@/types";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 
 const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string; label: string }> = {
   message: { icon: MessageSquare, color: "text-primary", label: "Mensagem" },
@@ -58,6 +59,8 @@ interface LeadNote {
   user_name: string;
   /** 2.5: só existe depois da primeira edição — marca a nota como "editado". */
   updated_at?: string;
+  /** Fase 4: id do autor. Ausente em notas anteriores a esta feature. */
+  user_id?: string;
 }
 
 export default function LeadProfilePage() {
@@ -70,7 +73,9 @@ export default function LeadProfilePage() {
   } = useAppState();
   
   const { definitions, loading: cfLoading } = useCustomFields();
-  const { hasPermission, canEditLeadCategory } = usePermissions();
+  const { hasPermission, canEditLeadCategory, role } = usePermissions();
+  const { user } = useAuth();
+  const isAdmin = role === "master" || role === "admin" || role === "supervisor";
 
   const [activeTab, setActiveTab] = useState("dados");
   const [newNote, setNewNote] = useState("");
@@ -164,23 +169,32 @@ export default function LeadProfilePage() {
 
   const handleAddNote = useCallback(async () => {
     if (!newNote.trim() || !id || !lead) return;
-    const note = {
+    const note: LeadNote = {
       id: `n_${Date.now()}`,
       lead_id: id,
       content: newNote,
       created_at: new Date().toISOString(),
-      user_name: "Você",
+      user_name: user?.name || "Você",
+      user_id: user?.id,
     };
     const updated = [note, ...leadNotes];
     await updateLead(lead.id, { notes_local: JSON.stringify(updated) });
-    await addTimelineEvent({ lead_id: id, type: "note", content: `Nota adicionada: "${newNote.slice(0, 50)}..."`, user_name: "Você" });
+    await addTimelineEvent({ lead_id: id, type: "note", content: `Nota adicionada: "${newNote.slice(0, 50)}..."`, user_name: user?.name || "Você" });
     setNewNote("");
-  }, [newNote, id, lead, leadNotes, addTimelineEvent, updateLead]);
+  }, [newNote, id, lead, leadNotes, addTimelineEvent, updateLead, user]);
+
+  // Notas legadas (sem user_id) ficam editáveis por todos — backfill de
+  // autoria fora de escopo (decisão 2026-08-13).
+  const canEditNote = useCallback(
+    (note: LeadNote) => !note.user_id || note.user_id === user?.id || isAdmin,
+    [user?.id, isAdmin]
+  );
 
   const handleStartEditNote = useCallback((note: LeadNote) => {
+    if (!canEditNote(note)) return;
     setEditingNoteId(note.id);
     setEditingNoteDraft(note.content);
-  }, []);
+  }, [canEditNote]);
 
   const handleCancelEditNote = useCallback(() => {
     setEditingNoteId(null);
@@ -712,6 +726,7 @@ export default function LeadProfilePage() {
                         <Textarea
                           value={editingNoteDraft}
                           onChange={(e) => setEditingNoteDraft(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Escape") handleCancelEditNote(); }}
                           className="text-xs min-h-[80px] resize-none"
                           autoFocus
                         />
@@ -731,25 +746,32 @@ export default function LeadProfilePage() {
                       </div>
                     ) : (
                       <>
-                        <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEditNote(note)}
-                            className="text-muted-foreground hover:text-foreground"
-                            aria-label="Editar nota"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setNoteToDelete(note)}
-                            className="text-muted-foreground hover:text-destructive"
-                            aria-label="Excluir nota"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <p className="text-sm text-foreground whitespace-pre-wrap pr-12">{note.content}</p>
+                        {canEditNote(note) && (
+                          <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditNote(note)}
+                              className="text-muted-foreground hover:text-foreground"
+                              aria-label="Editar nota"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNoteToDelete(note)}
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label="Excluir nota"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        <p
+                          className={`text-sm text-foreground whitespace-pre-wrap pr-12 ${canEditNote(note) ? "cursor-text" : ""}`}
+                          onDoubleClick={() => handleStartEditNote(note)}
+                        >
+                          {note.content}
+                        </p>
                         <p className="text-[10px] text-muted-foreground mt-2">
                           {note.user_name} · {formatDateTime(note.created_at)}
                           {note.updated_at && <span className="ml-1 italic">(editado)</span>}

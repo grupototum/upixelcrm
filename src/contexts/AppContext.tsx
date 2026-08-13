@@ -329,7 +329,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     markLeadDirty(id);
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, ...data, updated_at: new Date().toISOString() } : l));
 
-    await addTimelineEvent({ lead_id: id, type: "note", content: "Lead atualizado", user_name: "Usuário" });
+    // Edição de nota já grava seu próprio evento específico ("Nota
+    // adicionada/editada/removida") — duplicar aqui com "Lead atualizado"
+    // infla a métrica contacts_made das metas (conta eventos type=note).
+    const onlyNotesChanged = Object.keys(updateData).length === 1 && "notes_local" in updateData;
+    if (!onlyNotesChanged) {
+      await addTimelineEvent({ lead_id: id, type: "note", content: "Lead atualizado", user_name: "Usuário" });
+    }
   }, [addTimelineEvent, markLeadDirty]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
