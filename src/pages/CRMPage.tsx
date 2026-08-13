@@ -8,6 +8,7 @@ import { useTags } from "@/hooks/useTags";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useDragScroll } from "@/hooks/useDragScroll";
 import { listActiveAgents } from "@/services/users";
+import { listLeadPhonesByClient, type BoardLeadPhone } from "@/services/leadPhones";
 import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
 import { BulkActionsBar } from "@/components/crm/BulkActionsBar";
 import { Plus, Search, X, ChevronDown, LayoutGrid, Upload, CheckSquare } from "lucide-react";
@@ -187,6 +188,23 @@ function CRMPageInner() {
     }
     return map;
   }, [timeline]);
+
+  // Telefones extras em lote — o botão de WhatsApp do card prioriza o número
+  // de categoria "whatsapp" sobre lead.phone. Até a query chegar, o card cai
+  // no fallback lead.phone (nada bloqueia o render do board).
+  const { data: boardPhones = [] } = useQuery({
+    queryKey: ["board-lead-phones", user?.client_id],
+    queryFn: () => listLeadPhonesByClient().catch(() => [] as BoardLeadPhone[]),
+    enabled: !!user?.client_id,
+    staleTime: 60_000,
+  });
+  const phonesByLead = useMemo(() => {
+    const map: Record<string, BoardLeadPhone[]> = {};
+    for (const p of boardPhones) {
+      (map[p.lead_id] ??= []).push(p);
+    }
+    return map;
+  }, [boardPhones]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -612,6 +630,7 @@ function CRMPageInner() {
                   usersById={usersById}
                   nextTaskByLead={nextTaskByLead}
                   lastActivityByLead={lastActivityByLead}
+                  phonesByLead={phonesByLead}
                 />
               );
             })}

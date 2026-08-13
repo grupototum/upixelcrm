@@ -17,7 +17,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useLeadPhones } from "@/hooks/useLeadPhones";
-import { stripBRPhone } from "@/utils/phone";
+import { waLink } from "@/utils/phone";
 import type { LeadPhone, PhoneCategory } from "@/types";
 
 const CATEGORY_CONFIG: Record<PhoneCategory, { icon: LucideIcon; label: string }> = {
@@ -107,7 +107,7 @@ export function LeadPhonesSection({ leadId }: LeadPhonesSectionProps) {
                 <div className="flex items-center gap-1 shrink-0">
                   {phone.category === "whatsapp" && (
                     <a
-                      href={`https://wa.me/55${stripBRPhone(phone.number)}`}
+                      href={waLink(phone.number)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-green-600 hover:underline flex items-center gap-1 mr-1"

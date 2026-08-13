@@ -41,9 +41,11 @@ interface KanbanColumnProps {
   nextTaskByLead?: Record<string, Task>;
   /** lead_id → data da última atividade (timeline), resolvida uma vez no board. */
   lastActivityByLead?: Record<string, string>;
+  /** lead_id → telefones extras (lead_phones), resolvidos uma vez no board. */
+  phonesByLead?: Record<string, Array<{ number: string; category: string }>>;
 }
 
-export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads, tagColors, segmentoFieldSlug, usersById, nextTaskByLead, lastActivityByLead }: KanbanColumnProps) {
+export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead, onConfigColumn, onMoveLead, onImportLeads, tagColors, segmentoFieldSlug, usersById, nextTaskByLead, lastActivityByLead, phonesByLead }: KanbanColumnProps) {
   // useDroppable pra leads entrarem na coluna (mantido).
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id, data: { type: "column", columnId: column.id } });
 
@@ -234,7 +236,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                       paddingBottom: "8px",
                     }}
                   >
-                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} responsible={lead.responsible_id ? usersById?.[lead.responsible_id] : undefined} nextTask={nextTaskByLead?.[lead.id]} lastActivityAt={lastActivityByLead?.[lead.id]} />
+                    <SortableLeadCard lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} responsible={lead.responsible_id ? usersById?.[lead.responsible_id] : undefined} nextTask={nextTaskByLead?.[lead.id]} lastActivityAt={lastActivityByLead?.[lead.id]} extraPhones={phonesByLead?.[lead.id]} />
                   </div>
                 );
               })}
@@ -244,7 +246,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
                Preserves the original space-y-2 layout and DnD behaviour exactly. */
             <div className="space-y-2">
               {leads.map((lead) => (
-                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} responsible={lead.responsible_id ? usersById?.[lead.responsible_id] : undefined} nextTask={nextTaskByLead?.[lead.id]} lastActivityAt={lastActivityByLead?.[lead.id]} />
+                <SortableLeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} tagColors={tagColors} segmentoFieldSlug={segmentoFieldSlug} responsible={lead.responsible_id ? usersById?.[lead.responsible_id] : undefined} nextTask={nextTaskByLead?.[lead.id]} lastActivityAt={lastActivityByLead?.[lead.id]} extraPhones={phonesByLead?.[lead.id]} />
               ))}
             </div>
           )}

@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useSelection } from "@/contexts/SelectionContext";
 import type { Lead, Task } from "@/types";
 import { formatPhone } from "@/lib/format-phone";
-import { stripBRPhone } from "@/utils/phone";
+import { bestWhatsAppNumber, waLink } from "@/utils/phone";
 
 /** 2.3: no máximo 3 pills; o resto vira "+N" com tooltip. */
 const MAX_VISIBLE_TAGS = 3;
@@ -57,7 +57,7 @@ function NextTask({ task }: { task?: Task }) {
   );
 }
 
-export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, responsible, nextTask, lastActivityAt }: {
+export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, responsible, nextTask, lastActivityAt, extraPhones }: {
   lead: Lead;
   onClick: () => void;
   /** name → cor. Buscado uma vez no board; useTags por card faria 1 fetch por lead. */
@@ -70,6 +70,8 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, 
   nextTask?: Task;
   /** Data da última atividade (timeline), resolvida uma vez no board. */
   lastActivityAt?: string;
+  /** Telefones extras (lead_phones) do lead, resolvidos uma vez no board. */
+  extraPhones?: Array<{ number: string; category: string }>;
 }) {
   // Alguns tenants guardam "Segmento" como campo customizado em vez da coluna
   // nativa leads.segmento (import legado, por ex.) — cai pro customizado
@@ -78,6 +80,8 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, 
   // numa linha de resumo do card.
   const customSegmento = segmentoFieldSlug ? lead.custom_fields?.[segmentoFieldSlug] : undefined;
   const segmento = lead.segmento || (typeof customSegmento === "string" ? customSegmento : undefined);
+  // Telefone extra categoria "whatsapp" vence lead.phone (spec-numeros-secundarios).
+  const waNumber = bestWhatsAppNumber(lead.phone, extraPhones);
   const navigate = useNavigate();
   const { selectionMode, isSelected, toggleLead } = useSelection();
   const selected = isSelected(lead.id);
@@ -136,9 +140,9 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, 
             )}
           </div>
           <div className="shrink-0 flex items-center gap-1.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {lead.phone && (
+            {waNumber && (
               <a
-                href={`https://wa.me/55${stripBRPhone(lead.phone)}`}
+                href={waLink(waNumber)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}

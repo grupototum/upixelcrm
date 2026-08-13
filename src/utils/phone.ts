@@ -10,6 +10,25 @@ export function stripBRPhone(value: string): string {
   return digits;
 }
 
+/** Deep link do WhatsApp para um número BR (com ou sem DDI/formatação). */
+export function waLink(number: string): string {
+  return `https://wa.me/55${stripBRPhone(number)}`;
+}
+
+/**
+ * Melhor número para WhatsApp de um lead:
+ * telefone extra com categoria "whatsapp" > telefone principal > primeiro extra.
+ */
+export function bestWhatsAppNumber(
+  leadPhone: string | null | undefined,
+  extraPhones?: Array<{ number: string; category: string }>
+): string | null {
+  const wa = extraPhones?.find((p) => p.category === "whatsapp");
+  if (wa) return wa.number;
+  if (leadPhone) return leadPhone;
+  return extraPhones?.[0]?.number ?? null;
+}
+
 /**
  * Chave normalizada de telefone BR para deduplicação (DDD + 8 dígitos finais).
  * Remove código do país (55) e o 9 de celular, batendo formatos "+55 11 9 8765-4321"
