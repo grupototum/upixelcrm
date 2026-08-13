@@ -7,7 +7,8 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import { useDragScroll } from "@/hooks/useDragScroll";
 import { SelectionProvider, useSelection } from "@/contexts/SelectionContext";
 import { BulkActionsBar } from "@/components/crm/BulkActionsBar";
-import { Plus, Search, X, ChevronDown, LayoutGrid, Upload, CheckSquare } from "lucide-react";
+import { Plus, Search, X, ChevronDown, LayoutGrid, Upload, CheckSquare, Copy } from "lucide-react";
+import { useDuplicateDetection } from "@/hooks/useDuplicateDetection";
 import { ImportLeadsDialog } from "@/components/import/ImportLeadsDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +123,34 @@ function SelectionToggleButton({ visibleLeads }: { visibleLeads: Lead[] }) {
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * Botão "Duplicatas" com badge de contagem — só aparece quando há grupos
+ * com score >= 60% (alta/média confiança; o scan atual não produz score
+ * abaixo disso). Reusa useDuplicateDetection, que já opera sobre os leads
+ * em memória do AppContext — sem query extra, scan é computação local.
+ */
+function DuplicatesButton() {
+  const navigate = useNavigate();
+  const { leads } = useAppState();
+  const { scan, totalDuplicates } = useDuplicateDetection();
+
+  useEffect(() => { scan(); }, [scan, leads.length]);
+
+  if (totalDuplicates === 0) return null;
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="text-xs gap-1.5 h-8 text-muted-foreground"
+      onClick={() => navigate("/leads/duplicates")}
+      title="Ver sugestões de leads duplicados"
+    >
+      <Copy className="h-3.5 w-3.5" /> Duplicatas · {totalDuplicates}
+    </Button>
   );
 }
 
@@ -501,6 +530,7 @@ function CRMPageInner() {
             onToggle={(id) => setHiddenColumnIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
           />
           <SelectionToggleButton visibleLeads={filteredLeads} />
+          <DuplicatesButton />
           {/* Split button: criar lead manual OU importar lista */}
           <div className="flex items-center">
             <Button

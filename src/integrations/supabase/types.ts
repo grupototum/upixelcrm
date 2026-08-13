@@ -1255,6 +1255,38 @@ export type Database = {
           },
         ]
       }
+      lead_duplicate_exceptions: {
+        Row: {
+          client_id: string
+          created_at: string
+          group_key: string
+          id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          group_key: string
+          id?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          group_key?: string
+          id?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_duplicate_exceptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           ad_adset_id: string | null
@@ -2584,6 +2616,10 @@ export type Database = {
       admin_toggle_block: {
         Args: { block_status: boolean; target_user_id: string }
         Returns: undefined
+      }
+      bulk_update_lead_custom_field: {
+        Args: { p_lead_ids: string[]; p_slug: string; p_value: string }
+        Returns: number
       }
       bump_rate_limit: {
         Args: { p_key: string; p_window_seconds: number }
