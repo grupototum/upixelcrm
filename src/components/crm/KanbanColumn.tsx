@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SortableLeadCard } from "./SortableLeadCard";
 import { useSelection } from "@/contexts/SelectionContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import type { Lead, PipelineColumn, Task } from "@/types";
 
@@ -58,6 +59,10 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
     data: { type: "column-reorder", columnId: column.id },
   });
   const { selectionMode, isSelected, selectMany, deselectMany } = useSelection();
+  // Editar/reordenar etapa é admin-only na RLS; sem esconder aqui, a ação
+  // pareceria funcionar e o banco descartaria a escrita em silêncio.
+  const { hasPermission } = usePermissions();
+  const canManageColumns = hasPermission("crm.manage_columns");
 
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
@@ -146,7 +151,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
       <div className="flex items-center justify-between mb-3 px-1 group">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Drag handle do header — só essa região inicia o drag da coluna. */}
-          {!selectionMode && (
+          {!selectionMode && canManageColumns && (
             <button
               {...sortable.listeners}
               className="opacity-30 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground -ml-1"
@@ -177,9 +182,11 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column)}>
-              <Settings className="h-3 w-3" /> Editar coluna
-            </DropdownMenuItem>
+            {canManageColumns && (
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column)}>
+                <Settings className="h-3 w-3" /> Editar coluna
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="text-xs gap-2" onClick={() => setTransferOpen(true)}>
               <ArrowRight className="h-3 w-3" /> Transferir leads
             </DropdownMenuItem>
@@ -191,9 +198,11 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
             <DropdownMenuItem className="text-xs gap-2" onClick={handleExportCSV}>
               <Download className="h-3 w-3" /> Exportar CSV
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column, "automations")}>
-              <Zap className="h-3 w-3" /> Automações
-            </DropdownMenuItem>
+            {canManageColumns && (
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => onConfigColumn(column, "automations")}>
+                <Zap className="h-3 w-3" /> Automações
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

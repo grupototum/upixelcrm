@@ -10,6 +10,11 @@ const PERMISSION_MATRIX: Record<string, AuthUser["role"][]> = {
   "crm.delete": ["supervisor"],
   "crm.export": ["supervisor", "vendedor"],
   "crm.transfer": ["supervisor"],
+  // Editar/excluir/reordenar etapa do funil. Espelha a trava RESTRICTIVE da RLS
+  // (20260813070000_rls_admin_gates.sql) — sem o gate aqui, a UI mostraria
+  // sucesso numa escrita que o banco barrou (UPDATE bloqueado afeta 0 linhas
+  // sem devolver erro).
+  "crm.manage_columns": ["supervisor"],
 
   // Lead sensitive data (financial fields, value)
   "lead.view_sensitive": ["supervisor"],
@@ -22,6 +27,9 @@ const PERMISSION_MATRIX: Record<string, AuthUser["role"][]> = {
   // Tasks
   "tasks.view": ["supervisor", "atendente", "vendedor"],
   "tasks.create": ["supervisor", "atendente", "vendedor"],
+  // Editar campos da tarefa (título, prazo, responsável). Concluir/reabrir/
+  // registrar resultado NÃO passa por aqui — vai pelos RPCs, liberados a todos.
+  "tasks.edit": ["supervisor"],
   "tasks.delete": ["supervisor"],
 
   // Automations

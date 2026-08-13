@@ -81,7 +81,9 @@ export function TaskRow({ task, leads, showLead = true, onToggle, onDelete, onUp
           {/* Inline priority dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded cursor-pointer hover:ring-1 hover:ring-border transition-all ${
+              {/* Sem onUpdatePriority = usuário sem permissão de editar tarefa:
+                  o badge vira só leitura em vez de abrir um menu que o banco barraria. */}
+              <button disabled={!onUpdatePriority} className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded transition-all ${onUpdatePriority ? "cursor-pointer hover:ring-1 hover:ring-border" : "cursor-default"} ${
                 priority === "urgent" ? "bg-destructive/10 text-destructive" :
                 priority === "high" ? "bg-warning/10 text-warning" :
                 priority === "medium" ? "bg-primary/10 text-primary" :

@@ -429,6 +429,28 @@ export async function deleteTaskById(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// Fluxo de conclusão via RPC: UPDATE em tasks é admin-only na RLS, e essas
+// funções SECURITY DEFINER liberam só status/result/completed_at para qualquer
+// usuário do tenant. Retornam false quando nada foi atualizado (tarefa fora do
+// tenant, já concluída, usuário bloqueado) — a UI não deve fingir sucesso.
+export async function completeTaskRpc(id: string, result?: string | null): Promise<boolean> {
+  const { data, error } = await supabase.rpc("complete_task", { p_task_id: id, p_result: result ?? null });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function reopenTaskRpc(id: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("reopen_task", { p_task_id: id });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function updateTaskResultRpc(id: string, result?: string | null): Promise<boolean> {
+  const { data, error } = await supabase.rpc("update_task_result", { p_task_id: id, p_result: result ?? null });
+  if (error) throw error;
+  return data === true;
+}
+
 export async function insertTimelineEvent(
   row: TablesInsert<"timeline_events">
 ): Promise<Tables<"timeline_events"> | null> {

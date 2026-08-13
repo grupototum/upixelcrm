@@ -560,7 +560,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       : t));
 
     try {
-      await leadsRepo.updateTaskRow(id, patch);
+      const ok = await leadsRepo.completeTaskRpc(id, patch.result);
+      if (!ok) throw new Error("Nenhuma tarefa concluída (fora do tenant ou já concluída)");
     } catch (error) {
       logger.error(error);
       toast.error("Erro ao concluir tarefa");
@@ -584,28 +585,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // 2.6: edita o resultado de uma tarefa já concluída, sem tocar status/completed_at.
   const updateTaskResult = useCallback(async (id: string, result?: string): Promise<boolean> => {
     const trimmedResult = result?.trim() || null;
+    const previous = tasks.find((t) => t.id === id);
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, result: trimmedResult ?? undefined } : t));
     try {
-      await leadsRepo.updateTaskRow(id, { result: trimmedResult });
+      const ok = await leadsRepo.updateTaskResultRpc(id, trimmedResult);
+      if (!ok) throw new Error("Resultado não salvo (tarefa não está concluída ou fora do tenant)");
     } catch (error) {
       logger.error(error); toast.error("Erro ao salvar resultado");
+      if (previous) setTasks((prev) => prev.map((t) => t.id === id ? previous : t));
       return false;
     }
     return true;
-  }, []);
+  }, [tasks]);
 
   const toggleTaskStatus = useCallback(async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     const newStatus = task.status === "completed" ? "pending" : "completed";
 
-    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: newStatus } : t));
+    // Reabrir limpa completed_at (no banco e aqui): tarefa pendente com data de
+    // conclusão contaria como concluída na métrica de metas.
+    setTasks((prev) => prev.map((t) => t.id === id
+      ? { ...t, status: newStatus, completed_at: newStatus === "completed" ? new Date().toISOString() : undefined }
+      : t));
 
     try {
-      await leadsRepo.updateTaskRow(id, { status: newStatus });
+      const ok = newStatus === "completed"
+        ? await leadsRepo.completeTaskRpc(id)
+        : await leadsRepo.reopenTaskRpc(id);
+      if (!ok) throw new Error("Status da tarefa não mudou");
     } catch (error) {
       logger.error(error);
-      setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: task.status } : t));
+      toast.error("Erro ao alterar status da tarefa");
+      setTasks((prev) => prev.map((t) => t.id === id ? task : t));
     }
   }, [tasks]);
 

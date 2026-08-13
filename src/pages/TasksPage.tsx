@@ -21,11 +21,16 @@ import { CreateTaskModal } from "@/components/crm/CreateTaskModal";
 import { CompleteTaskDialog } from "@/components/crm/CompleteTaskDialog";
 import { TaskProgressHeader } from "@/components/tasks/TaskProgressHeader";
 import { TaskRow } from "@/components/tasks/TaskRow";
+import { usePermissions } from "@/hooks/usePermissions";
 import type { Task } from "@/types";
 
 export default function TasksPage() {
   const navigate = useNavigate();
   const { tasks, leads, toggleTaskStatus, completeTask, updateTaskResult, deleteTask, addTask, updateTask } = useAppState();
+  // Editar campos da tarefa é admin-only na RLS. Concluir/reabrir/registrar
+  // resultado seguem liberados para todos (passam por RPC, não por UPDATE).
+  const { hasPermission } = usePermissions();
+  const canEditTasks = hasPermission("tasks.edit");
   const [subArea, setSubArea] = useState("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -256,7 +261,7 @@ export default function TasksPage() {
                   </button>
                   <div className="divide-y divide-border">
                     {groupTasks.map((t) => (
-                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} onEditResult={handleEditResult} />
+                      <TaskRow key={t.id} task={t} leads={leads} showLead={false} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={canEditTasks ? handleUpdatePriority : undefined} onEditResult={handleEditResult} />
                     ))}
                   </div>
                 </div>
@@ -269,7 +274,7 @@ export default function TasksPage() {
             {filtered.length === 0 ? emptyState : (
               <div className="divide-y divide-border">
                 {filtered.map((t) => (
-                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={handleUpdatePriority} onEditResult={handleEditResult} />
+                  <TaskRow key={t.id} task={t} leads={leads} onToggle={handleToggle} onDelete={deleteTask} onUpdatePriority={canEditTasks ? handleUpdatePriority : undefined} onEditResult={handleEditResult} />
                 ))}
               </div>
             )}
