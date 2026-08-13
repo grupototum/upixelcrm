@@ -1,7 +1,7 @@
 # CHANGELOG — uPixel CRM
 
-**Sistema:** Vibe Coding Totum v3.0  
-Formato: `[tipo] descrição — arquivo(s) afetado(s)`  
+**Sistema:** Vibe Coding Totum v3.0
+Formato: `[tipo] descrição — arquivo(s) afetado(s)`
 Tipos: `feat` | `fix` | `refactor` | `docs` | `chore` | `perf` | `security`
 
 ---
@@ -10,120 +10,120 @@ Tipos: `feat` | `fix` | `refactor` | `docs` | `chore` | `perf` | `security`
 
 ---
 
-## 📅 2026-06-10 — Sessão: Clean Up pré-produção (PR #10)
+## 📅 2026-08-13 — Sessão: Auditoria de testes e correções (F1–F11)
 
-### 🔒 Segurança
-- `security` `.env.production` removido do tracking; `.gitignore` cobre `.env.*` — pendente rotação da anon key (histórico)
-- `security` `read_secret()` revogada de PUBLIC — anon conseguia ler segredos do Vault via RPC (aplicado em produção)
-- `security` REVOKE em 11 funções de trigger expostas via `/rest/v1/rpc`; `search_path` fixado em 17 funções — `20260610120000`
-- `security` Bucket `whatsapp_media`: listagem pública removida + limites de tamanho/MIME no backend — `20260610120400`
-- `security` RPCs de org (`owner_add_org_member`, `supervisor_set_role`) validam `tenant_id` — `20260610120000`
-- `security` react-router-dom 6.30.4 (GHSA-2j2x-hqr9-3h42); `npm audit --omit=dev` zerado
+Depois de lançar as features acima, rodamos uma auditoria de 181 casos de teste
+no sistema já em produção, com 11 revisores automáticos lendo o código real e
+testando ao vivo. Esta sessão corrige o que foi encontrado e é seguro de
+corrigir sem mexer em permissões de acesso ou na estrutura do banco.
 
 ### ✅ Consertado
-- `fix` TypeScript `strict: true` ativado; 57 erros de tipo corrigidos sem `as any` — `tsconfig.app.json`, 21 arquivos
-- `fix` Erros silenciosos: `toast.error` em useInbox/useTags/useSequences/useCannedResponses; `ErrorBoundary` envolvendo o app — `App.tsx`
-- `fix` QueryClient com defaults (staleTime/gcTime/retry com backoff) — `App.tsx`
-- `fix` Bulk add tag: `Promise.allSettled` com contagem de falhas — `BulkActionsBar.tsx`
-- `fix` FilterPopover renderizava objetos em vez de label/value em campos custom de select
+- `fix` Resultado de tarefa concluída sumia da tela depois de recarregar a página — o dado ficava salvo no banco, só não aparecia
+- `fix` Registro de atividade do lead (timeline) podia falhar silenciosamente em qualquer tenant — corrigido o envio da identificação da empresa junto com o registro
+- `fix` Concluir tarefa ou salvar resultado agora avisa quando algo dá errado, em vez de fechar a tela como se tivesse funcionado
+- `fix` Limpar a descrição de uma etapa do funil, um telefone ou uma nota de contato não estava realmente apagando o valor no banco
+- `fix` Link do WhatsApp duplicava o código do país (55) quando o número já vinha com ele — abria número errado
+- `fix` Nome da empresa sumia do card do lead durante o arraste; leads sem responsável não mostravam mais o ícone de "sem responsável"
+- `fix` Cancelar o arraste de um card (tecla Esc) deixava uma cópia fantasma grudada na tela
+- `fix` Reordenar cards em colunas com muitos leads trocava o conteúdo do card em vez de mover ele (efeito visual errado)
+- `fix` Clique duplo em "Criar Lead" podia criar o mesmo lead duas vezes
+- `fix` Painel principal (Dashboard) não tinha como concluir uma tarefa direto por lá
+- `fix` Meta individual de outro vendedor aparecia pra todo mundo no Dashboard
+- `fix` Painel sem nenhuma meta configurada não mostrava um jeito fácil de criar uma
 
-### ⚡ Performance
-- `perf` 134 políticas RLS com funções em `(select ...)` — avaliação por statement (advisor `auth_rls_initplan` zerado) — `20260610120300`
-- `perf` Índices compostos: `tasks(client_id, created_at)`, `timeline_events(client_id, created_at)`, `pipeline_columns(client_id, pipeline_id)` — `20260610120100`
-
-### 🧹 Organização
-- `chore` Pastas de marketing/design/prompts movidas da raiz para `docs/marketing` e `docs/internal`
-- `chore` Locks do bun e artefatos de build removidos; `RagContextInjector` órfão (2 cópias) removido
-- `docs` `docs/CLEANUP_REPORT.md` (auditoria 24 itens) + `docs/ROLLBACK.md` (runbook DR)
-- `test` Testes unitários de `tenant-utils` (isolamento multi-tenant) — 41 testes no total
+### 🧭 Pendências reportadas (viraram as próximas sessões)
+- Qualquer usuário do time podia editar ou excluir etapas do funil, e editar tarefas de qualquer colega
+- Botão de WhatsApp do card não usava os números extras cadastrados no lead
+- Editar nota do lead direto na tela ("nota inline") nunca tinha sido implementada de verdade
+- Carregar muitos leads em segundo plano podia desfazer uma ação que o usuário acabou de fazer
 
 ---
 
-## 📅 2026-05-22 — Sessão: features CRM + bug fixes
-
-### ✅ Consertado
-- `fix` Bug crítico: "Enviar mensagem" no perfil do lead abria inbox geral em vez de chat direto → agora abre conversa existente ou modal nova conversa com phone pré-preenchido (`2b67140`)
-- `fix` Multi-tenant: 5 edge functions criavam registros órfãos quando user master operava (whatsapp-proxy, whatsapp-cloud-proxy, facebook-page-embedded-signup, instagram-exchange-token + outras) — todas com `resolveClientId` server-side + hard-bind de `tenant_id` (`58419c8`, `9985975`)
-- `fix` Bug trigger Postgres `handle_lead_automation_on_insert`: `v_auto.tenant_id` sem `SELECT tenant_id` — bloqueava insert de leads
-- `fix` Badge do inbox na sidebar usando `user.client_id` direto (mostrava contagem do master orphan) (`1a3c88d`)
-- `fix` Seletor de funil voltava pro principal sozinho — auto-switch rodava em toda carga em vez de só na primeira (`3d4c331`)
-- `fix` Crash `pipelineId is not defined` no CRM (`57f66c3`)
-- `fix` Dedup de phone na importação colidia DDDs (`slice(-8)` → DDD+8) (`fdee9e7`)
-- `fix` 406 client_credits + 404 ad_campaigns silenciados (`b9c78b1`)
-
-### 🔄 Alterado / Migrado
-- **DB cleanup multi-tenant** (não tinha como reverter, isolamento por tenant agora 100%):
-  - 17 leads órfãos (Matheus master) → tenant Totum
-  - 6 leads de "Atendimento e Triagem" → Totum/Campanhas/Novos Leads
-  - 27 leads legados (`demo1`+`c1`) → Olá Demo
-  - 110 conversas legadas `c1` → Olá Demo
-  - 13 conversas órfãs WhatsApp ativas → Totum + criados 13 leads novos com nomes reais do perfil WhatsApp
-  - 7 conversas órfãs (master) → Totum
-  - 212 messages re-sincronizadas com client_id da conversation pai
-  - 2 conversas residuais (1 `c1` órfã + 1 `master` sentinela) deletadas
-  - 4 integrations WhatsApp órfãs com `tenant_id` correto + FB Page + Instagram preenchidos
-- **Profiles**:
-  - Matheus Felipe (`matheusfelipemktg`): role `master` → `admin` Totum
-  - Vinicius Oliveira: profile + auth.users **deletados** (não trabalha mais)
-  - Master verdadeiro singleton: apenas `master@upixel.com.br`
-- **Pipeline**: "Atendimento e Triagem" órfão (0 leads) **deletado**
-- **ASAAS_WEBHOOK_TOKEN** rotacionado pra valor forte; webhook validado end-to-end
-- **Frontend rename**: "Pipeline" → "Funil de Vendas" (sidebar, breadcrumbs, CRM header, bots, automations) (`b9c78b1`)
-- `perf` Removido polling redundante de 60s em `useUnreadCounts` (realtime cobre) (`3e81aeb`)
-- `perf` `AppContext.fetchAll` não re-baixa 8000 leads ao trocar funil (`3e81aeb`)
-- `perf` 7 índices DB criados (messages/tasks/timeline/conversations composites)
-- `security` CSP + HSTS + security headers no nginx + `_headers` Cloudflare (`05e6cb5`)
-- `security` Edge functions com signature verification + ownership checks (`26524d0`)
-- `security` Frontend: idle timeout 30min + realtime block listener (`2a59c43`)
+## 📅 2026-08-13 — Sessão: Contatos, telefones, campos e metas
 
 ### 🆕 Criado
-- **Multi-select de leads no CRM** + ações em massa (Mover, Excluir, Adicionar Tag) (`f1bbdb0`)
-- **Reordenar colunas do funil via drag-and-drop** (handle no header) (`1687023`)
-- **Painel /master/integrations** — visão global de integrações por tenant (master-only) (`f78629d`)
-- **Toggle ativar/desativar WhatsApp** (Cloud + Lite) — pausa preserva credenciais (`0df05e1`)
-- **Hierarquia de roles documentada**: master / admin / gerente / vendedor / atendente (memory)
-- **Plano técnico FB+IG comments/stories triggers** salvo em memória pra sessão dedicada
-- **Helper `resolveClientId`** central (frontend + edge fns) — previne novos órfãos
-- **Breadcrumbs em todas páginas autenticadas** (`e073afd`)
-- **Importação `.xlsx`** + sugestão automática de tipo de campo personalizado
-- **/master/integrations** + indicador visual de integrações órfãs
-- **Pipeline auto-creation** quando webhook recebe msg em tenant sem colunas
+- `feat` Cada lead agora pode ter vários contatos associados (decisor e atendente), com telefone e e-mail próprios
+- `feat` Cada lead pode ter vários números de telefone, cada um com uma categoria (celular, fixo, WhatsApp, comercial)
+- `feat` Novos campos de endereço no cadastro do lead: estado, bairro, endereço completo e CEP
+- `feat` Painel de metas de vendas com acompanhamento no Dashboard
+- `feat` Card do lead no funil redesenhado — mais informação visível de relance (empresa, responsável, última atividade)
+- `feat` Tarefa concluída agora pode registrar um resultado (o que foi feito, resposta do cliente etc.)
+- `feat` Etapas do funil podem ter uma descrição explicando o que significam, visível ao passar o mouse
+- `feat` Arrastar um card até a borda do funil agora rola a tela automaticamente
+- `perf` Funis com muitos leads carregam mais rápido — as colunas paginam em vez de carregar tudo de uma vez
 
 ---
 
-## [docs] 2026-05-10 — Modo Madruga: Adequação Vibe Coding Totum v3.0
+## 📅 2026-06-10 — Sessão: Preparação para produção
 
-### Documentação
+### 🔒 Segurança
+- `security` Arquivo com senhas de produção parou de ser rastreado pelo controle de versão
+- `security` Fechada uma brecha que deixava qualquer pessoa não-logada ler segredos internos do sistema
+- `security` Corrigidas 11 funções internas do banco que estavam mais abertas do que deveriam
+- `security` Arquivos de mídia do WhatsApp deixaram de poder ser listados publicamente, e ganharam limite de tamanho
+- `security` Ações de convidar/promover usuário em uma empresa agora conferem se a pessoa pertence mesmo àquela empresa
+- `security` Atualizada uma biblioteca do sistema de rotas por causa de uma falha de segurança conhecida
 
-- `docs` CLAUDE.md atualizado v1.0 → v3.0
-  - Adicionado nível LP/Site à pergunta-gatilho
-  - Adicionada Fase 0 com tabela de saúde técnica
-  - Adicionadas referências às skills especializadas
-  - Adicionada Totum Torah (7 leis que nunca mudam)
-  - Revisão pré-produção documentada
+### ✅ Consertado
+- `fix` Verificação de tipos do código ativada por completo — 57 inconsistências corrigidas
+- `fix` Erros que antes falhavam em silêncio agora avisam o usuário na tela
+- `fix` Ações em massa (adicionar tag a vários leads) agora contam certo quantas falharam
+- `fix` Filtro por campo personalizado do tipo "seleção" mostrava o valor bruto em vez do nome
 
-- `docs` KIMI.md atualizado v1.0 → v2.0
-  - Adicionado nível LP/Site
-  - Tabela de saúde técnica sincronizada com CLAUDE.md
+### ⚡ Performance
+- `perf` Regras de acesso ao banco otimizadas — consultas ficaram mais rápidas em telas com muitos registros
+- `perf` Índices novos no banco para tarefas, histórico de atividade e etapas do funil
 
-- `docs` BUGS.md criado — Revisão Pré-Produção 6 Categorias
-  - Cat 1 (Código Morto): LandingPage.tsx/EN duplicação, RagContextInjector conflito
-  - Cat 2 (DRY): LandingPage PT/EN 514 linhas iguais, AppContext God Context
-  - Cat 3 (Performance): AppContext re-render global, 22 exhaustive-deps, 120 useEffects
-  - Cat 4 (Erros): ✅ logger module, ✅ toasts Supabase, ⚠️ sem try/catch de rede, sem ErrorBoundary
-  - Cat 5 (SRP): InboxPage (1365), AppContext (914), UsersPage (845), ImportPage (762), LeadProfilePage (721)
-  - Cat 6 (TypeScript): 404 any, 7 any críticos em AppContext, strict mode ✅
-  - Lint: 0 errors, 428 warnings documentados
-
-- `docs` TODO.md criado com ações priorizadas por severidade (🔴/🟡/🟢/⚪)
+### 🧹 Organização
+- `chore` Arquivos de marketing e documentação interna reorganizados fora da raiz do projeto
+- `docs` Relatório de limpeza e manual de recuperação de desastre documentados
+- `test` Testes automáticos cobrindo o isolamento de dados entre empresas (multi-tenant)
 
 ---
 
-## [fix] 2026-05-07 — FIX-07: tenant_id from profiles
+## 📅 2026-05-22 — Sessão: Funcionalidades do CRM e correções
 
-- `fix` AppContext.tsx — tenant_id lido de `profiles` em vez de `user_metadata`
-  - Corrige isolamento multi-tenant por subdomínio
-  - Ver linha 70 do AppContext.tsx para detalhes
+### ✅ Consertado
+- `fix` Botão "Enviar mensagem" no perfil do lead abria o inbox geral em vez da conversa certa
+- `fix` Algumas integrações (WhatsApp, Facebook, Instagram) podiam criar registros perdidos quando o usuário master operava — corrigido em 5 pontos
+- `fix` Um erro no banco bloqueava a criação de leads em certas automações
+- `fix` Contador de mensagens não lidas usava a empresa errada em alguns casos
+- `fix` Seletor de funil voltava sozinho pro funil principal, atrapalhando quem queria ficar em outro
+- `fix` Corrigida uma tela que travava (erro de "funil não definido") no CRM
+- `fix` Corrigida uma falha na identificação de telefones duplicados durante a importação
+
+### 🔄 Alterado
+- Grande limpeza de dados: leads, conversas e mensagens que estavam sem empresa definida foram realocados para a empresa certa
+- Papel de acesso de um usuário corrigido; usuário que não trabalha mais no time foi removido
+- Nome "Pipeline" trocado por "Funil de Vendas" em todo o sistema
+- `perf` Removida uma verificação repetitiva a cada 60 segundos que não era mais necessária
+- `perf` Trocar de funil não recarrega mais milhares de leads à toa
+- `security` Cabeçalhos de segurança adicionados ao servidor
+- `security` Sessão expira automaticamente após 30 minutos sem uso
+
+### 🆕 Criado
+- `feat` Seleção de vários leads ao mesmo tempo, com ações em massa (mover, excluir, marcar)
+- `feat` Reordenar as etapas do funil arrastando pelo cabeçalho
+- `feat` Painel exclusivo pra administradores verem todas as integrações de todas as empresas
+- `feat` Botão para pausar/reativar o WhatsApp sem perder a configuração
+- `feat` Trilha de navegação (breadcrumbs) em todas as páginas
+- `feat` Importação de planilhas .xlsx, com sugestão automática do tipo de campo
+
+---
+
+## 📅 2026-05-10 — Sessão: Padronização do processo de desenvolvimento
+
+### 🧹 Organização
+- `docs` Documento de regras do projeto (CLAUDE.md) atualizado com checklist de saúde técnica e regras de segurança
+- `docs` Relatório de auditoria de código morto, duplicação e complexidade documentado
+- `docs` Lista de próximas melhorias priorizada por gravidade
+
+---
+
+## 📅 2026-05-07 — Sessão: Correção de isolamento entre empresas
+
+### ✅ Consertado
+- `fix` Identificação da empresa do usuário passou a vir da fonte correta (perfil salvo no banco, não de um dado que podia ser alterado no navegador) — corrige uma falha de isolamento entre empresas diferentes
 
 ---
 
