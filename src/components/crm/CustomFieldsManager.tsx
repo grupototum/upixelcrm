@@ -16,7 +16,9 @@ import type { CustomFieldDefinition, CustomFieldType } from "@/types";
 import { toast } from "sonner";
 
 export function CustomFieldsManager() {
-  const { definitions, loading, createField, updateField, deleteField } = useCustomFields();
+  const {
+    definitions, loading, createField, createFieldError, clearCreateFieldError, updateField, deleteField,
+  } = useCustomFields();
   const [open, setOpen] = useState(false);
   const [editingField, setEditingField] = useState<CustomFieldDefinition | null>(null);
 
@@ -33,6 +35,7 @@ export function CustomFieldsManager() {
     setOptions([]);
     setNewOption("");
     setEditingField(null);
+    clearCreateFieldError();
   };
 
   const handleOpenEdit = (field: CustomFieldDefinition) => {
@@ -41,12 +44,13 @@ export function CustomFieldsManager() {
     setFieldType(field.field_type);
     setIsRequired(field.is_required);
     setOptions(field.options || []);
+    clearCreateFieldError();
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!name.trim()) return;
-    
+
     if (["select", "multi_select", "radio"].includes(fieldType) && options.length === 0) {
       toast.error("Adicione pelo menos uma opção para este tipo de campo.");
       return;
@@ -59,12 +63,15 @@ export function CustomFieldsManager() {
         options: ["select", "multi_select", "radio"].includes(fieldType) ? options : [],
       });
     } else {
-      await createField({
+      const created = await createField({
         name: name.trim(),
         field_type: fieldType,
         is_required: isRequired,
         options: ["select", "multi_select", "radio"].includes(fieldType) ? options : [],
       });
+      // Nome duplicado: mantém o modal aberto com o erro visível no campo Nome
+      // em vez de fechar como se tivesse dado certo.
+      if (!created) return;
     }
     setOpen(false);
     resetForm();
@@ -87,7 +94,16 @@ export function CustomFieldsManager() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label className="text-xs">Nome do Campo *</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Renda Mensal" className="h-9" />
+                <Input
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); if (createFieldError) clearCreateFieldError(); }}
+                  placeholder="Ex: Renda Mensal"
+                  className="h-9"
+                  aria-invalid={!!createFieldError}
+                />
+                {createFieldError && (
+                  <p className="text-xs text-destructive">{createFieldError}</p>
+                )}
               </div>
               
               {!editingField && (

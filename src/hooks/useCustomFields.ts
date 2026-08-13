@@ -18,6 +18,9 @@ function slugify(text: string): string {
 export function useCustomFields() {
   const [definitions, setDefinitions] = useState<CustomFieldDefinition[]>([]);
   const [loading, setLoading] = useState(true);
+  // Erro de nome duplicado na criação — exibido inline no campo Nome do
+  // formulário (não só toast), por isso fica exposto como estado do hook.
+  const [createFieldError, setCreateFieldError] = useState<string | null>(null);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
@@ -48,6 +51,7 @@ export function useCustomFields() {
       visible_pipelines?: string[];
     }) => {
       if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
+      setCreateFieldError(null);
       const slug = slugify(params.name);
       try {
         const data = await leadsRepo.createCustomFieldDefinition({
@@ -64,6 +68,13 @@ export function useCustomFields() {
         setDefinitions((prev) => [...prev, data]);
         return data;
       } catch (err) {
+        // 23505 = unique_violation (Postgres). client_id+slug já existe —
+        // mensagem amigável em vez do erro bruto de constraint vazando pra UI.
+        const code = (err as { code?: string })?.code;
+        if (code === "23505") {
+          setCreateFieldError("Já existe um campo com esse nome. Escolha um nome diferente.");
+          return null;
+        }
         const message = (err as { message?: string })?.message;
         toast.error("Erro ao criar campo: " + message);
         return null;
@@ -71,6 +82,8 @@ export function useCustomFields() {
     },
     [clientId, definitions.length]
   );
+
+  const clearCreateFieldError = useCallback(() => setCreateFieldError(null), []);
 
   const updateField = useCallback(
     async (id: string, updates: Partial<CustomFieldDefinition>) => {
@@ -107,6 +120,8 @@ export function useCustomFields() {
     loading,
     fetchDefinitions,
     createField,
+    createFieldError,
+    clearCreateFieldError,
     updateField,
     deleteField,
   };
