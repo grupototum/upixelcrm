@@ -93,6 +93,12 @@ export async function markConversationsRead(convIds: string[]): Promise<void> {
   if (error) throw error;
 }
 
+/** Marca como não lida (ação em massa) — mesmo efeito visual de uma msg nova chegando. */
+export async function markConversationsUnread(convIds: string[]): Promise<void> {
+  const { error } = await supabase.from("conversations").update({ unread_count: 1 }).in("id", convIds);
+  if (error) throw error;
+}
+
 // ---- lookups do callback de realtime ----
 
 /** lead_id/channel de uma conversa, escopada ao tenant. */
