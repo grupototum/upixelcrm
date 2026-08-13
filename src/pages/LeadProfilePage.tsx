@@ -36,7 +36,7 @@ import {
   Plus, CheckCircle2, Circle, AlertTriangle, Clock, ChevronDown,
   MessageSquare, ArrowRight, Zap, ClipboardList, StickyNote,
   MoreHorizontal, Send, ChevronRight, Smartphone, Monitor, X, Check, Settings2,
-  Handshake, Target, Merge
+  Handshake, Target, Merge, CalendarCheck
 } from "lucide-react";
 import type { Lead, Task, TimelineEvent } from "@/types";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -49,6 +49,7 @@ const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string
   task: { icon: ClipboardList, color: "text-success", label: "Tarefa" },
   automation: { icon: Zap, color: "text-warning", label: "Automação" },
   call: { icon: Phone, color: "text-primary", label: "Ligação" },
+  meeting: { icon: CalendarCheck, color: "text-primary", label: "Reunião" },
   field_changed: { icon: Edit3, color: "text-accent", label: "Campo alterado" },
 };
 
@@ -80,6 +81,9 @@ export default function LeadProfilePage() {
   const isAdmin = role === "master" || role === "admin" || role === "supervisor";
 
   const [activeTab, setActiveTab] = useState("dados");
+  // Fase 7: registrar ligação/reunião — fonte das métricas calls_made/meetings_done.
+  const [logEventType, setLogEventType] = useState<"call" | "meeting" | null>(null);
+  const [logEventNote, setLogEventNote] = useState("");
   const [newNote, setNewNote] = useState("");
   const [noteToDelete, setNoteToDelete] = useState<LeadNote | null>(null);
   // 2.5: edição inline — id da nota aberta e rascunho do texto.
@@ -235,6 +239,20 @@ export default function LeadProfilePage() {
     });
     setNoteToDelete(null);
   }, [noteToDelete, id, lead, leadNotes, addTimelineEvent, updateLead]);
+
+  const handleLogEvent = useCallback(async () => {
+    if (!logEventType || !id) return;
+    const label = logEventType === "call" ? "Ligação registrada" : "Reunião registrada";
+    await addTimelineEvent({
+      lead_id: id,
+      type: logEventType,
+      content: logEventNote.trim() || label,
+      user_name: user?.name || "Você",
+      user_id: user?.id,
+    });
+    setLogEventType(null);
+    setLogEventNote("");
+  }, [logEventType, logEventNote, id, addTimelineEvent, user]);
 
   const handleCreateTask = useCallback(async () => {
     if (!newTaskTitle.trim() || !id) return;
@@ -578,6 +596,14 @@ export default function LeadProfilePage() {
 
           {/* Timeline */}
           <TabsContent value="timeline" className="mt-5">
+            <div className="flex justify-end gap-2 mb-3">
+              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setLogEventType("call")}>
+                <Phone className="h-3.5 w-3.5" /> Registrar ligação
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setLogEventType("meeting")}>
+                <CalendarCheck className="h-3.5 w-3.5" /> Registrar reunião
+              </Button>
+            </div>
             <div className="bg-card border border-border rounded-lg p-5">
               <div className="space-y-0">
                 {(leadTimeline.length > 0 ? leadTimeline : defaultTimeline(lead, column?.name)).map((ev, i, arr) => {
@@ -918,6 +944,25 @@ export default function LeadProfilePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!logEventType} onOpenChange={(open) => { if (!open) { setLogEventType(null); setLogEventNote(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{logEventType === "call" ? "Registrar ligação" : "Registrar reunião"}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            placeholder="O que foi conversado? (opcional)"
+            value={logEventNote}
+            onChange={(e) => setLogEventNote(e.target.value)}
+            className="text-xs min-h-[80px] resize-none"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setLogEventType(null); setLogEventNote(""); }}>Cancelar</Button>
+            <Button onClick={handleLogEvent}>Registrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

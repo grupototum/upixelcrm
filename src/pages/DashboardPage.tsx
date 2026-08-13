@@ -15,7 +15,6 @@ import { GoalCard } from "@/components/dashboard/GoalCard";
 import { useGoalsProgress } from "@/hooks/useGoalsProgress";
 import { formatRelativeTime, formatShortDate } from "@/lib/format-date";
 import { useAppState } from "@/contexts/AppContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { CompleteTaskDialog } from "@/components/crm/CompleteTaskDialog";
 import type { Task } from "@/types";
 
@@ -49,17 +48,12 @@ const COMING_SOON_CARDS = [
 
 export default function DashboardPage() {
   const { data, isLoading, error, refetch } = useDashboardKpis();
-  const { progress: allGoalsProgress } = useGoalsProgress();
+  // Dashboard v1 do widget de metas — Fase 7 troca por /metas dedicada (7d);
+  // até lá, mostra as metas mensais atribuídas ao usuário ou à equipe toda.
+  const { myProgress: goalsProgress } = useGoalsProgress("monthly");
   const { tasks, completeTask } = useAppState();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
-
-  // Meta individual só aparece pro próprio dono; metas sem assigned_to são da equipe toda.
-  const goalsProgress = useMemo(
-    () => allGoalsProgress.filter((p) => !p.goal.assigned_to || p.goal.assigned_to === user?.id),
-    [allGoalsProgress, user?.id]
-  );
 
   const stats = data?.stats;
   const pipeline = useMemo(() => data?.pipeline ?? [], [data?.pipeline]);

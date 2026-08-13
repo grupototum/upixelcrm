@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useGoalsProgress } from "@/hooks/useGoalsProgress";
+import { useGoals } from "@/hooks/useGoals";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { listActiveAgents } from "@/services/users";
@@ -25,7 +25,7 @@ import type { Goal, GoalMetric, GoalPeriod } from "@/types";
 const NONE = "__none";
 
 export function GoalsSettings() {
-  const { goals, isLoading, createGoal, updateGoal, removeGoal } = useGoalsProgress();
+  const { goals, isLoading, createGoal, updateGoal, removeGoal } = useGoals();
   const { columns } = useAppState();
   const { user } = useAuth();
   const { data: agents = [] } = useQuery({
@@ -59,7 +59,7 @@ export function GoalsSettings() {
     setMetric(goal.metric);
     setTargetValue(String(goal.target_value));
     setPeriod(goal.period);
-    setAssignedTo(goal.assigned_to || NONE);
+    setAssignedTo(goal.assignments?.find((a) => a.user_id)?.user_id || NONE);
     setColumnId(goal.column_id || NONE);
     setModalOpen(true);
   }
@@ -68,15 +68,15 @@ export function GoalsSettings() {
     const value = parseInt(targetValue, 10);
     if (!title.trim() || !value || value <= 0) return;
     setSaving(true);
+    const userIds = assignedTo === NONE ? [] : [assignedTo];
     const data = {
       title: title.trim(), metric, target_value: value, period,
-      assigned_to: assignedTo === NONE ? undefined : assignedTo,
       column_id: metric === "leads_closed" && columnId !== NONE ? columnId : undefined,
     };
     if (editingGoal) {
-      await updateGoal(editingGoal.id, data);
+      await updateGoal(editingGoal.id, data, userIds);
     } else {
-      await createGoal(data);
+      await createGoal({ ...data, userIds });
     }
     setSaving(false);
     setModalOpen(false);
@@ -108,7 +108,8 @@ export function GoalsSettings() {
           ) : (
             <div className="space-y-2">
               {goals.map((goal) => {
-                const assignee = agents.find((a) => a.id === goal.assigned_to);
+                const assigneeId = goal.assignments?.find((a) => a.user_id)?.user_id;
+                const assignee = agents.find((a) => a.id === assigneeId);
                 return (
                   <div key={goal.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                     <div>

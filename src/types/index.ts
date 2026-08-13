@@ -272,10 +272,12 @@ export interface TagMeta {
 export interface TimelineEvent {
   id: string;
   lead_id: string;
-  type: "message" | "stage_change" | "note" | "task" | "automation" | "call" | "field_changed";
+  type: "message" | "stage_change" | "note" | "task" | "automation" | "call" | "meeting" | "field_changed";
   content: string;
   created_at: string;
   user_name?: string;
+  /** Fase 7: autor real do evento — alimenta calls_made/meetings_done e leaderboard por pessoa. */
+  user_id?: string;
 }
 
 export interface InboxThread {

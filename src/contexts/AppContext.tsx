@@ -293,6 +293,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         type: event.type,
         content: event.content,
         user_name: event.user_name,
+        user_id: event.user_id ?? user?.id ?? null,
         client_id: clientId,
         ...tenantIdForInsert,
       });
@@ -300,7 +301,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logger.error(error); return;
     }
     if (data) setTimeline((prev) => [mapTimeline(data as unknown as Record<string, unknown>), ...prev]);
-  }, [tenant?.id, user?.client_id, tenantIdForInsert]);
+  }, [tenant?.id, user?.client_id, user?.id, tenantIdForInsert]);
 
   const updateLead = useCallback(async (id: string, data: Partial<Lead>) => {
     const updateData: Record<string, unknown> = {};
@@ -346,6 +347,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         lead_id: data.lead_id || null,
         due_date: data.due_date || null,
         assigned_to: data.assigned_to || "Você",
+        // Sem seletor de responsável na UI hoje — "Você" (acima) é sempre o
+        // criador, então o dono real da tarefa é quem está logado.
+        assigned_to_id: data.assigned_to_id || user?.id || null,
+        priority: data.priority || undefined,
         description: data.description || null,
       });
     } catch (error) {
@@ -365,7 +370,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     toast.success("Tarefa criada");
     return newTask;
-  }, [addTimelineEvent]);
+  }, [addTimelineEvent, user?.id]);
 
   const moveLead = useCallback(async (id: string, toColumnId: string) => {
     const lead = leads.find((l) => l.id === id);
@@ -1107,6 +1112,7 @@ function mapTimeline(row: Record<string, unknown>): TimelineEvent {
     content: row.content as string,
     created_at: row.created_at as string,
     user_name: (row.user_name as string) || undefined,
+    user_id: (row.user_id as string) || undefined,
   };
 }
 

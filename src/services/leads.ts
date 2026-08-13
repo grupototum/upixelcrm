@@ -434,7 +434,7 @@ export async function deleteTaskById(id: string): Promise<void> {
 // usuário do tenant. Retornam false quando nada foi atualizado (tarefa fora do
 // tenant, já concluída, usuário bloqueado) — a UI não deve fingir sucesso.
 export async function completeTaskRpc(id: string, result?: string | null): Promise<boolean> {
-  const { data, error } = await supabase.rpc("complete_task", { p_task_id: id, p_result: result ?? null });
+  const { data, error } = await supabase.rpc("complete_task", { p_task_id: id, p_result: result ?? undefined });
   if (error) throw error;
   return data === true;
 }
@@ -446,7 +446,10 @@ export async function reopenTaskRpc(id: string): Promise<boolean> {
 }
 
 export async function updateTaskResultRpc(id: string, result?: string | null): Promise<boolean> {
-  const { data, error } = await supabase.rpc("update_task_result", { p_task_id: id, p_result: result ?? null });
+  // p_result não tem DEFAULT no SQL (diferente de complete_task) — o tipo
+  // gerado exige string, não aceita undefined/null. "" tem semântica idêntica
+  // ao NULL aqui: a função faz NULLIF(btrim(COALESCE(p_result, '')), '').
+  const { data, error } = await supabase.rpc("update_task_result", { p_task_id: id, p_result: result ?? "" });
   if (error) throw error;
   return data === true;
 }
