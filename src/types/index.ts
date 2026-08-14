@@ -145,7 +145,8 @@ export type CustomFieldType =
 
 export interface CustomFieldDefinition {
   id: string;
-  tenant_id: string;
+  client_id: string;
+  tenant_id?: string | null;
   name: string;
   slug: string;
   field_type: CustomFieldType;

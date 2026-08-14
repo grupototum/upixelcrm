@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { tenantIdField } from "@/lib/tenant-utils";
-import type { ClientFieldSettings, StandardFieldConfig } from "@/types";
+import type { StandardFieldConfig } from "@/types";
+import type { Json } from "@/integrations/supabase/types";
 
 export const DEFAULT_FIELD_CONFIG: StandardFieldConfig[] = [
   { key: "state", label: "Estado", enabled: true, order: 1 },
@@ -28,7 +29,7 @@ export async function getFieldSettings(clientId: string, tenantId?: string | nul
     .from("client_field_settings")
     .upsert({
       client_id: clientId,
-      field_config: DEFAULT_FIELD_CONFIG as unknown as ClientFieldSettings["field_config"],
+      field_config: DEFAULT_FIELD_CONFIG as unknown as Json,
       ...tenantIdField(tenantId),
     }, { onConflict: "client_id" });
   if (upsertError) throw upsertError;
@@ -55,7 +56,7 @@ export async function saveFieldSettings(
     .from("client_field_settings")
     .upsert({
       client_id: clientId,
-      field_config: config as unknown as ClientFieldSettings["field_config"],
+      field_config: config as unknown as Json,
       ...tenantIdField(tenantId),
     }, { onConflict: "client_id" });
   if (error) throw error;
