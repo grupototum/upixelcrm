@@ -1,5 +1,4 @@
 import { logger } from "@/lib/logger";
-import { getCurrentSession } from "@/lib/auth-session";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,37 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { extractEdgeError } from "@/lib/edge-error";
 import { invokeEdge } from "@/lib/edge-invoke";
 import { resolveClientId } from "@/lib/tenant-utils";
+import { untypedFrom } from "@/lib/supabase-untyped";
 import { notifyMentions } from "@/lib/mentions";
-import {
-  reawakenExpiredSnoozes,
-  listConversations,
-  listLeadBasicsByIds,
-  listLeadConversationRefs,
-  listMessagesByConversationIds,
-  MESSAGE_PAGE_SIZE,
-  markConversationsRead,
-  getConversationRef,
-  getConversationCsatInfo,
-  insertCsatResponse,
-  assignLeadToConversation,
-  insertMessage,
-  updateConversationLastMessage,
-  updateConversationsStatus,
-  updateConversationMetadata,
-  insertConversation,
-  getMessageContentMeta,
-  updateMessageMetadata,
-  reassignConversationsToLead,
-} from "@/services/inbox";
-import {
-  findLeadIdsByPhoneSuffix,
-  findLeadIdsByEmail,
-  getFirstPipelineColumnId,
-  insertAutoLead,
-  deleteLeadById,
-  reassignTasksToLead,
-  reassignNotesToLead,
-} from "@/services/leads";
 
 export interface LeadConversation {
   lead_id: string;
@@ -95,59 +65,6 @@ function canonicalBrPhone(raw?: string | null): string {
   return digits;
 }
 
-function resolveMediaContent(content: string, type: string, metadata: Record<string, any>): string {
-  const isMedia = ["image", "audio", "video", "file", "sticker"].includes(type);
-  if (!isMedia) return content;
-  const isEncrypted = content?.includes(".enc");
-  const isWhatsAppDomain = content?.includes("mmg.whatsapp.net") || content?.includes("media.whatsapp.net");
-  const isPlaceholder = content?.startsWith("[") || !content || content === "";
-  if (
-    (isEncrypted || isPlaceholder || isWhatsAppDomain) &&
-    metadata?.media_url &&
-    !metadata.media_url.includes(".enc") &&
-    !metadata.media_url.startsWith("[")
-  ) {
-    return metadata.media_url;
-  }
-  return content;
-}
-
-// PC-038: `media_url` passou a guardar o PATH do objeto no bucket (`{clientId}/arquivo`),
-// não uma URL. A URL assinada é gerada aqui, na renderização, e vive 1h.
-// Mídia antiga gravada como URL pública (http…) continua passando direto — a migração
-// do histórico é o passo (b), fora deste escopo.
-const SIGNED_TTL_SECONDS = 3600;
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
-async function signMediaPath(value: string): Promise<string> {
-  if (!value || /^https?:\/\//i.test(value) || value.startsWith("[")) return value;
-
-  const cached = signedUrlCache.get(value);
-  if (cached && cached.expiresAt > Date.now()) return cached.url;
-
-  const { data, error } = await supabase.storage
-    .from("whatsapp_media")
-    .createSignedUrl(value, SIGNED_TTL_SECONDS);
-
-  if (error || !data?.signedUrl) {
-    logger.error("Storage sign error:", error);
-    return value;
-  }
-
-  // Renova com folga de 60s para não entregar URL prestes a expirar.
-  signedUrlCache.set(value, {
-    url: data.signedUrl,
-    expiresAt: Date.now() + (SIGNED_TTL_SECONDS - 60) * 1000,
-  });
-  return data.signedUrl;
-}
-
-async function signMessageMedia(msg: Message): Promise<Message> {
-  const isMedia = ["image", "audio", "video", "file", "sticker"].includes(msg.type);
-  if (!isMedia) return msg;
-  return { ...msg, content: await signMediaPath(msg.content) };
-}
-
 function sortByCreatedAt(list: Message[]): Message[] {
   return [...list].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -159,13 +76,10 @@ export function useInbox(onLeadCreated?: () => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [loadingOlder, setLoadingOlder] = useState(false);
+  const realtimeSubscriptionRef = useRef<any>(null);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-
   // Tenant scope: prefer tenant.id (UUID válido); cai para user.client_id em master-view sem tenant
   const clientId = resolveClientId(tenant?.id, user?.client_id);
 
@@ -176,26 +90,39 @@ export function useInbox(onLeadCreated?: () => void) {
       return;
     }
 
-    // Self-healing: reacorda sonecas expiradas (roda uma vez por load).
-    await reawakenExpiredSnoozes(clientId);
+    // Self-healing: reawaken any conversation whose snooze has expired.
+    // Cheap conditional UPDATE, runs once per load — avoids needing pg_cron.
+    await supabase
+      .from("conversations")
+      .update({ status: "open", snoozed_until: null })
+      .eq("client_id", clientId)
+      .eq("status", "snoozed")
+      .lte("snoozed_until", new Date().toISOString());
 
-    let convs: Awaited<ReturnType<typeof listConversations>>;
-    try {
-      convs = await listConversations(clientId);
-    } catch (convError) {
+    const { data: convs, error: convError } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("last_message_at", { ascending: false });
+
+    if (convError) {
       logger.error("Error loading conversations:", convError);
       toast.error("Erro ao carregar conversas. Tente novamente.");
       return;
     }
 
-    // Fetch leads — erro aqui é ignorado como no original (lista segue sem
-    // os dados do lead, exibindo fallbacks do metadata)
+    // Fetch leads
     const leadIds = (convs || []).map(c => c.lead_id).filter((id): id is string => !!id);
     let leadsMap: Record<string, any> = {};
 
-    const leads = await listLeadBasicsByIds(leadIds).catch(() => []);
-    if (leads.length > 0) {
-      leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
+    if (leadIds.length > 0) {
+      const { data: leads } = await supabase
+        .from("leads")
+        .select("id, name, phone, email, company, origin, category")
+        .in("id", leadIds);
+      if (leads) {
+        leadsMap = Object.fromEntries(leads.map(l => [l.id, l]));
+      }
     }
 
     // Grouping logic
@@ -263,8 +190,18 @@ export function useInbox(onLeadCreated?: () => void) {
   const loadMessages = useCallback(async (leadId: string) => {
     if (!clientId) return;
 
-    // Erro aqui era ignorado no original (lista vazia) — preservado
-    const convs = await listLeadConversationRefs(clientId, leadId).catch(() => []);
+    let convQuery = supabase
+      .from("conversations")
+      .select("id, channel")
+      .eq("client_id", clientId);
+
+    if (leadId === "unassigned") {
+      convQuery = convQuery.is("lead_id", null) as typeof convQuery;
+    } else {
+      convQuery = convQuery.eq("lead_id", leadId) as typeof convQuery;
+    }
+
+    const { data: convs } = await convQuery;
 
     if (!convs || convs.length === 0) {
       setMessages([]);
@@ -274,10 +211,13 @@ export function useInbox(onLeadCreated?: () => void) {
     const convIds = convs.map(c => c.id);
     const channelMap = Object.fromEntries(convs.map(c => [c.id, c.channel]));
 
-    let data: Awaited<ReturnType<typeof listMessagesByConversationIds>>;
-    try {
-      data = await listMessagesByConversationIds(convIds);
-    } catch (error) {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .in("conversation_id", convIds)
+      .order("created_at", { ascending: true });
+
+    if (error) {
       logger.error("Error loading messages:", error);
       return;
     }
@@ -288,24 +228,34 @@ export function useInbox(onLeadCreated?: () => void) {
       seenIds.add(m.id);
       return true;
     });
-    // Página cheia = provavelmente há histórico anterior.
-    setHasMoreMessages(dedupedRows.length >= MESSAGE_PAGE_SIZE);
-    console.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
-    // PC-038: assina os paths de mídia antes de entregar pra UI.
-    setMessages(await Promise.all(dedupedRows.map(m => {
+    logger.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
+    setMessages(dedupedRows.map(m => {
       const meta = (m.metadata || {}) as Record<string, any>;
-      return signMessageMedia({
+      // For media messages, resolve the best available URL
+      let resolvedContent = m.content;
+      const isMedia = ["image", "audio", "video", "file", "sticker"].includes(m.type);
+      if (isMedia) {
+        const isEncrypted = resolvedContent?.includes(".enc");
+        const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
+        const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
+        
+        // Fallback to metadata media_url if content is not a direct link or is an inaccessible WhatsApp link
+        if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
+          resolvedContent = meta.media_url;
+        }
+      }
+      return {
         ...m,
-        content: resolveMediaContent(m.content, m.type, meta),
+        content: resolvedContent,
         channel: channelMap[m.conversation_id],
         metadata: meta,
         is_private: meta?.is_private || false,
         content_type: meta?.content_type || "text",
-      });
-    })));
+      };
+    }));
 
-    // Mark all as read (erro ignorado como no original)
-    await markConversationsRead(convIds).catch(() => {});
+    // Mark all as read
+    await supabase.from("conversations").update({ unread_count: 0 }).in("id", convIds);
     setConversations(prev =>
       prev.map(c => c.lead_id === leadId ? { ...c, unread_count: 0 } : c)
     );
@@ -316,53 +266,11 @@ export function useInbox(onLeadCreated?: () => void) {
     loadMessages(id);
   }, [loadMessages]);
 
-  /** Busca a página anterior do histórico (o "carregar mais" da timeline). */
-  const loadOlderMessages = useCallback(async () => {
-    if (!clientId || !selectedLeadId || loadingOlder) return;
-    const oldest = messages.find(m => !String(m.id).startsWith("optimistic-"));
-    if (!oldest) return;
-
-    setLoadingOlder(true);
-    try {
-      const convs = await listLeadConversationRefs(clientId, selectedLeadId).catch(() => []);
-      if (!convs.length) return;
-      const channelMap = Object.fromEntries(convs.map(c => [c.id, c.channel]));
-      const older = await listMessagesByConversationIds(convs.map(c => c.id), oldest.created_at);
-
-      setHasMoreMessages(older.length >= MESSAGE_PAGE_SIZE);
-      if (!older.length) return;
-
-      const signed = await Promise.all(older.map(m => {
-        const meta = (m.metadata || {}) as Record<string, any>;
-        return signMessageMedia({
-          ...m,
-          content: resolveMediaContent(m.content, m.type, meta),
-          channel: channelMap[m.conversation_id],
-          metadata: meta,
-          is_private: meta?.is_private || false,
-          content_type: meta?.content_type || "text",
-        });
-      }));
-
-      setMessages(prev => {
-        const known = new Set(prev.map(m => m.id));
-        return sortByCreatedAt([...signed.filter(m => !known.has(m.id)), ...prev]);
-      });
-    } catch (err) {
-      logger.error("[loadOlderMessages]", err);
-      toast.error("Erro ao carregar mensagens anteriores.");
-    } finally {
-      setLoadingOlder(false);
-    }
-  }, [clientId, selectedLeadId, loadingOlder, messages]);
-
   // Upload file to Supabase Storage
   const uploadFile = async (file: File) => {
     const fileExt = file.name.split('.').pop() || 'bin';
-    // PC-038: prefixo por tenant — habilita policy de storage por client_id.
-    if (!clientId) throw new Error('Upload sem tenant resolvido: clientId ausente.');
     const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-    const filePath = `${clientId}/${fileName}`;
+    const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('whatsapp_media')
@@ -377,9 +285,11 @@ export function useInbox(onLeadCreated?: () => void) {
       throw new Error(`Falha no upload: ${uploadError.message}`);
     }
 
-    // PC-038: devolve o PATH do objeto, não uma URL. A assinatura acontece na
-    // renderização (signMediaPath) — URL assinada gravada no banco expiraria.
-    return filePath;
+    const { data: { publicUrl } } = supabase.storage
+      .from('whatsapp_media')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
   };
 
   // Detect media type from file
@@ -434,7 +344,7 @@ export function useInbox(onLeadCreated?: () => void) {
     setMessages(prev => sortByCreatedAt([...prev, optimisticMsg]));
 
     try {
-      const session = await getCurrentSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
       const channel = target.channel;
@@ -481,18 +391,6 @@ export function useInbox(onLeadCreated?: () => void) {
     }
   }, [conversations]);
 
-  /**
-   * Reenvia uma mensagem que falhou. Antes, `failed: true` era estado terminal
-   * e invisível: a bolha era renderizada igual às demais e o atendente
-   * acreditava ter enviado — ao recarregar a página, a mensagem sumia.
-   */
-  const retryMessage = useCallback(async (messageId: string) => {
-    const msg = messages.find(m => m.id === messageId);
-    if (!msg || !selectedLeadId) return;
-    setMessages(prev => prev.filter(m => m.id !== messageId));
-    await sendWhatsAppMessage(selectedLeadId, msg.content, msg.conversation_id);
-  }, [messages, selectedLeadId, sendWhatsAppMessage]);
-
   // Send message with media (unified - WhatsApp, Instagram, or fallback for other channels)
   const sendWhatsAppMedia = useCallback(async (leadId: string, file: File, targetConversationId?: string) => {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
@@ -512,7 +410,7 @@ export function useInbox(onLeadCreated?: () => void) {
     }
 
     try {
-      const session = await getCurrentSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão expirada. Faça login novamente.");
 
       // 1. Upload to Supabase Storage
@@ -572,8 +470,7 @@ export function useInbox(onLeadCreated?: () => void) {
       } else {
         // Webchat/email/outros: apenas registra a mensagem com o link da mídia.
         // Para email, idealmente usaríamos anexo via Gmail API, mas isso requer extensão futura.
-        // Lança em erro, como no original (msgError -> throw)
-        await insertMessage({
+        const { error: msgError } = await supabase.from("messages").insert({
           conversation_id: target.id,
           content: url,
           type: mediaType === "video" || mediaType === "document" ? "file" : mediaType,
@@ -586,12 +483,12 @@ export function useInbox(onLeadCreated?: () => void) {
             channel: target.channel,
           },
         });
+        if (msgError) throw new Error(msgError.message);
 
-        // Erro ignorado como no original
-        await updateConversationLastMessage(
-          target.id,
-          mediaType === "image" ? "📷 Imagem" : mediaType === "audio" ? "🎵 Áudio" : mediaType === "video" ? "🎥 Vídeo" : `📎 ${file.name}`,
-        ).catch(() => {});
+        await supabase.from("conversations").update({
+          last_message: mediaType === "image" ? "📷 Imagem" : mediaType === "audio" ? "🎵 Áudio" : mediaType === "video" ? "🎥 Vídeo" : `📎 ${file.name}`,
+          last_message_at: new Date().toISOString(),
+        }).eq("id", target.id);
       }
 
       // Realtime entrega o INSERT da mensagem persistida (pelo proxy ou direto)
@@ -625,7 +522,7 @@ export function useInbox(onLeadCreated?: () => void) {
     }
 
     try {
-      const session = await getCurrentSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
       const { error } = await invokeEdge('google-oauth?action=gmail-send', {
@@ -636,17 +533,18 @@ export function useInbox(onLeadCreated?: () => void) {
         throw new Error(error.message || "Failed to send email");
       }
 
-      // Erros ignorados como no original (mas logados)
-      await insertMessage({
+      await supabase.from("messages").insert({
         conversation_id: target.id,
         content: text,
         type: "email",
         direction: "outbound",
         sender_name: "Você",
-      }).catch((e) => logger.error("[sendMessage/email] insertMessage", e?.message));
+      });
 
-      await updateConversationLastMessage(target.id, text)
-        .catch((e) => logger.error("[sendMessage/email] updateLastMessage", e?.message));
+      await supabase.from("conversations").update({
+        last_message: text,
+        last_message_at: new Date().toISOString(),
+      }).eq("id", target.id);
 
       await loadMessages(leadId);
       await loadConversations();
@@ -669,19 +567,14 @@ export function useInbox(onLeadCreated?: () => void) {
     if (!target) return;
 
     if (isPrivate) {
-      try {
-        await insertMessage({
-          conversation_id: target.id,
-          content: text,
-          type: "text",
-          direction: "outbound",
-          sender_name: "Você (Nota Privada)",
-          metadata: { is_private: true },
-        });
-      } catch (err: any) {
-        toast.error(`Erro ao salvar nota privada: ${err.message}`);
-        return;
-      }
+      await supabase.from("messages").insert({
+        conversation_id: target.id,
+        content: text,
+        type: "text",
+        direction: "outbound",
+        sender_name: "Você (Nota Privada)",
+        metadata: { is_private: true },
+      });
       if (clientId) {
         void notifyMentions({
           clientId,
@@ -704,16 +597,17 @@ export function useInbox(onLeadCreated?: () => void) {
       // Webchat e outros canais sem proxy: persiste direto.
       // Realtime entrega o INSERT e o dedup por id evita duplicata na UI,
       // então não chamamos loadMessages aqui.
-      // Erros ignorados como no original (mas logados)
-      await insertMessage({
+      await supabase.from("messages").insert({
         conversation_id: target.id,
         content: text,
         type: "text",
         direction: "outbound",
         sender_name: "Você",
-      }).catch((e) => logger.error("[sendMessage/text] insertMessage", e?.message));
-      await updateConversationLastMessage(target.id, text)
-        .catch((e) => logger.error("[sendMessage/text] updateLastMessage", e?.message));
+      });
+      await supabase.from("conversations").update({
+        last_message: text,
+        last_message_at: new Date().toISOString(),
+      }).eq("id", target.id);
     }
   }, [selectedLeadId, conversations, sendWhatsAppMessage, sendEmail, clientId, user]);
 
@@ -726,9 +620,15 @@ export function useInbox(onLeadCreated?: () => void) {
     setConversations(prev => prev.map(c => c.lead_id === leadId ? { ...c, status } : c));
 
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
-    try {
-      await updateConversationsStatus(convIds, status);
-    } catch {
+    const { error } = await supabase
+      .from("conversations")
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
+      .in("id", convIds);
+
+    if (error) {
       toast.error("Erro ao atualizar status");
       loadConversations(); // Revert
       return;
@@ -743,9 +643,16 @@ export function useInbox(onLeadCreated?: () => void) {
     if (!leadGroup) return;
 
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
-    try {
-      await updateConversationsStatus(convIds, "snoozed", until.toISOString());
-    } catch {
+    const { error } = await supabase
+      .from("conversations")
+      .update({
+        status: "snoozed",
+        snoozed_until: until.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", convIds);
+
+    if (error) {
       toast.error("Erro ao adiar conversa");
       return;
     }
@@ -761,12 +668,10 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    await Promise.all(leadGroup.source_conversations.map((sc) => {
+    for (const sc of leadGroup.source_conversations) {
       const newMeta = { ...sc.metadata, priority };
-      // Erro ignorado como no original (mas logado); paralelo em vez de sequencial
-      return updateConversationMetadata(sc.id, newMeta)
-        .catch((e) => logger.error("[updatePriority]", e?.message));
-    }));
+      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", sc.id);
+    }
 
     loadConversations();
     toast.success("Prioridade atualizada");
@@ -777,12 +682,10 @@ export function useInbox(onLeadCreated?: () => void) {
     const leadGroup = conversations.find(c => c.lead_id === leadId);
     if (!leadGroup) return;
 
-    await Promise.all(leadGroup.source_conversations.map((sc) => {
+    for (const sc of leadGroup.source_conversations) {
       const newMeta = { ...sc.metadata, assignee_id: agentId };
-      // Erro ignorado como no original (mas logado); paralelo em vez de sequencial
-      return updateConversationMetadata(sc.id, newMeta)
-        .catch((e) => logger.error("[assignToAgent]", e?.message));
-    }));
+      await supabase.from("conversations").update({ metadata: newMeta }).eq("id", sc.id);
+    }
 
     loadConversations();
     toast.success(agentId ? "Agente atribuído" : "Agente removido");
@@ -796,12 +699,16 @@ export function useInbox(onLeadCreated?: () => void) {
     const convIds = leadGroup.source_conversations.map(sc => sc.id);
     
     // We update all conversations for this lead to have the same labels
-    await Promise.all(leadGroup.source_conversations.map((sc) => {
+    for (const sc of leadGroup.source_conversations) {
       const newMeta = { ...(sc.metadata as any || {}), labels };
-      // Erro ignorado como no original (mas logado); paralelo em vez de sequencial
-      return updateConversationMetadata(sc.id, newMeta, true)
-        .catch((e) => logger.error("[updateLabels]", e?.message));
-    }));
+      await supabase
+        .from("conversations")
+        .update({ 
+          metadata: newMeta,
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", sc.id);
+    }
     
     await loadConversations();
     toast.success("Etiquetas atualizadas");
@@ -821,36 +728,44 @@ export function useInbox(onLeadCreated?: () => void) {
 
     if (canonicalPhone) {
       const phoneSuffix = canonicalPhone.length >= 8 ? canonicalPhone.slice(-8) : canonicalPhone;
-      // Erro ignorado como no original (duplicates undefined -> segue o fluxo)
-      const duplicates = await findLeadIdsByPhoneSuffix(clientId, phoneSuffix).catch(() => []);
+      const { data: duplicates } = await supabase
+        .from("leads").select("id")
+        .eq("client_id", clientId)
+        .or(`phone.ilike.%${phoneSuffix}%`)
+        .order("created_at", { ascending: true });
       if (duplicates && duplicates.length > 0) return duplicates[0].id;
     }
 
     if (email) {
-      // Erro ignorado como no original
-      const byEmail = await findLeadIdsByEmail(clientId, email).catch(() => []);
+      const { data: byEmail } = await supabase
+        .from("leads").select("id")
+        .eq("client_id", clientId)
+        .ilike("email", email).limit(1);
       if (byEmail && byEmail.length > 0) return byEmail[0].id;
     }
 
-    // Erro ignorado como no original
-    const firstColId = await getFirstPipelineColumnId(clientId).catch(() => null);
+    const { data: firstCol } = await supabase
+      .from("pipeline_columns").select("id")
+      .eq("client_id", clientId)
+      .order("order", { ascending: true }).limit(1).maybeSingle();
 
-    if (!firstColId) return null;
+    if (!firstCol) return null;
 
     const leadName = name || phone || email || "Lead Automático";
-    const newLead = await insertAutoLead({
-      client_id: clientId,
-      name: leadName,
-      phone: canonicalPhone || null,
-      email: email || null,
-      column_id: firstColId,
-      tags: ["auto-criado"],
-      origin: "inbox",
-    }).catch(() => null);
+    const { data: newLead, error } = await supabase
+      .from("leads").insert({
+        client_id: clientId,
+        name: leadName,
+        phone: canonicalPhone || null,
+        email: email || null,
+        column_id: firstCol.id,
+        tags: ["auto-criado"],
+        origin: "inbox",
+      }).select("id").single();
 
-    if (!newLead) return null;
+    if (error) return null;
     if (onLeadCreated) onLeadCreated();
-    return newLead.id;
+    return newLead?.id ?? null;
   }, [clientId, onLeadCreated]);
 
   // Create new conversation
@@ -867,106 +782,66 @@ export function useInbox(onLeadCreated?: () => void) {
       resolvedLeadId = await findOrCreateLead(phone, email, leadName);
     }
 
-    let data: { id: string };
-    try {
-      data = await insertConversation({
-        channel,
-        lead_id: resolvedLeadId,
-        status: "open",
-        client_id: clientId,
-        metadata: { phone, email, lead_name: leadName },
-      });
-    } catch {
+    const { data, error } = await supabase.from("conversations").insert({
+      channel,
+      lead_id: resolvedLeadId,
+      status: "open",
+      client_id: clientId,
+      metadata: { phone, email, lead_name: leadName },
+    }).select("id").single();
+
+    if (error) {
       toast.error("Erro ao criar conversa.");
       return null;
     }
 
     await loadConversations();
     if (resolvedLeadId) selectLead(resolvedLeadId);
-    return data.id;
+    return data?.id;
   }, [loadConversations, findOrCreateLead, selectLead, clientId]);
 
   // Initial load
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // O canal de realtime é assinado uma vez por tenant. O estado que o callback
-  // precisa vive em refs para que trocar de conversa NÃO derrube e refaça o
-  // WebSocket — o teardown/reassinatura abria uma janela em que a mensagem não
-  // chegava nem pelo fetch nem pelo stream.
-  const selectedLeadIdRef = useRef<string | null>(null);
-  const handlersRef = useRef({ loadConversations, loadMessages, findOrCreateLead });
-  // conversation_id → lead: evita um round-trip ao banco por mensagem recebida.
-  const convIndexRef = useRef(new Map<string, { lead_id: string; channel: string }>());
-
-  useEffect(() => {
-    selectedLeadIdRef.current = selectedLeadId;
-    handlersRef.current = { loadConversations, loadMessages, findOrCreateLead };
-  });
-
-  useEffect(() => {
-    const index = new Map<string, { lead_id: string; channel: string }>();
-    conversations.forEach((g) =>
-      g.source_conversations.forEach((sc) => index.set(sc.id, { lead_id: g.lead_id, channel: sc.channel }))
-    );
-    convIndexRef.current = index;
-  }, [conversations]);
-
-  // Recarrega a lista coalescendo rajadas: 5 mensagens chegando juntas viram
-  // um refetch, não cinco.
-  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleReload = useCallback(() => {
-    if (reloadTimerRef.current) return;
-    reloadTimerRef.current = setTimeout(() => {
-      reloadTimerRef.current = null;
-      handlersRef.current.loadConversations();
-    }, 700);
-  }, []);
-
-  // Reconexão: postgres_changes não faz replay do que passou enquanto o socket
-  // esteve caído, então só um refetch recupera. Throttle evita tempestade de
-  // requests; o jitter evita que N abas reconectando após um deploy batam no
-  // banco no mesmo instante.
-  const lastResyncRef = useRef(0);
-  const resync = useCallback(() => {
-    const now = Date.now();
-    if (now - lastResyncRef.current < 5000) return;
-    lastResyncRef.current = now;
-    setTimeout(() => {
-      handlersRef.current.loadConversations();
-      const lead = selectedLeadIdRef.current;
-      if (lead) handlersRef.current.loadMessages(lead);
-    }, Math.random() * 1000);
-  }, []);
-
   // Realtime subscription
   useEffect(() => {
-    if (!clientId) return;
-    let firstSubscribe = true;
+    if (!clientId || !selectedLeadId) return;
 
     const channel = supabase
       .channel(`inbox-realtime:${clientId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const newMsg = payload.new as any;
-        const selectedLeadId = selectedLeadIdRef.current;
 
-        // Cache local primeiro; só consulta o banco para conversa desconhecida
-        // ou ainda sem lead (o branch de auto-assign precisa do valor real).
-        const cached = convIndexRef.current.get(newMsg.conversation_id);
-        const conv = cached && cached.lead_id !== "unassigned"
-          ? cached
-          : await getConversationRef(newMsg.conversation_id, clientId).catch(() => null);
+        const { data: conv } = await supabase.from("conversations")
+          .select("lead_id, channel")
+          .eq("id", newMsg.conversation_id)
+          .eq("client_id", clientId)
+          .maybeSingle();
 
         if (conv?.lead_id === selectedLeadId) {
           const meta = (newMsg.metadata || {}) as Record<string, any>;
-          // PC-038: assina o path da mídia antes de inserir na lista.
-          const incomingMsg: Message = await signMessageMedia({
+          let resolvedContent = newMsg.content;
+          const isMedia = ["image", "audio", "video", "file", "sticker"].includes(newMsg.type);
+
+          // Resolve media URLs similar to loadMessages
+          if (isMedia) {
+            const isEncrypted = resolvedContent?.includes(".enc");
+            const isWhatsAppDomain = resolvedContent?.includes("mmg.whatsapp.net") || resolvedContent?.includes("media.whatsapp.net");
+            const isPlaceholder = resolvedContent?.startsWith("[") || !resolvedContent || resolvedContent === "";
+
+            if ((isEncrypted || isPlaceholder || isWhatsAppDomain) && meta?.media_url && !meta.media_url.includes(".enc") && !meta.media_url.startsWith("[")) {
+              resolvedContent = meta.media_url;
+            }
+          }
+
+          const incomingMsg: Message = {
             ...newMsg,
-            content: resolveMediaContent(newMsg.content, newMsg.type, meta),
+            content: resolvedContent,
             channel: conv.channel,
             metadata: meta,
             is_private: meta?.is_private || false,
             content_type: meta?.content_type || "text",
-          });
+          };
 
           setMessages(prev => {
             // Dedup robusto: também detecta caso prev já tenha qualquer msg
@@ -974,11 +849,11 @@ export function useInbox(onLeadCreated?: () => void) {
             // for entregue 2x pelo realtime ou se loadMessages rodar em paralelo.
             const incomingWamid = (incomingMsg.metadata as any)?.meta_message_id;
             if (prev.some(m => m.id === incomingMsg.id)) {
-              console.debug("[useInbox] realtime dedup by id", incomingMsg.id);
+              logger.debug("[useInbox] realtime dedup by id", incomingMsg.id);
               return prev;
             }
             if (incomingWamid && prev.some(m => (m.metadata as any)?.meta_message_id === incomingWamid)) {
-              console.debug("[useInbox] realtime dedup by wamid", incomingWamid);
+              logger.debug("[useInbox] realtime dedup by wamid", incomingWamid);
               return prev;
             }
 
@@ -995,12 +870,12 @@ export function useInbox(onLeadCreated?: () => void) {
                 (m.metadata as any)?.pending
               );
               if (idx >= 0) {
-                console.debug("[useInbox] substituting optimistic", { from: prev[idx].id, to: incomingMsg.id });
+                logger.debug("[useInbox] substituting optimistic", { from: prev[idx].id, to: incomingMsg.id });
                 const next = [...prev];
                 next[idx] = incomingMsg;
                 return sortByCreatedAt(next);
               }
-              logger.debug("[useInbox] no optimistic match — appending", { id: incomingMsg.id, prevPendingIds: prev.filter(m => (m.metadata as any)?.pending).map(m => m.id) });
+              logger.debug("[useInbox] no optimistic match — appending", { content: incomingMsg.content, prevPending: prev.filter(m => (m.metadata as any)?.pending).map(m => ({ id: m.id, content: m.content })) });
             }
 
             return sortByCreatedAt([...prev, incomingMsg]);
@@ -1017,16 +892,19 @@ export function useInbox(onLeadCreated?: () => void) {
             possibleRating <= 5 &&
             trimmed.length === 1
           ) {
-            const csatConv = await getConversationCsatInfo(newMsg.conversation_id).catch(() => null);
+            const { data: csatConv } = await supabase
+              .from("conversations")
+              .select("csat_sent_at, lead_id")
+              .eq("id", newMsg.conversation_id)
+              .maybeSingle();
 
             if (csatConv?.csat_sent_at && clientId) {
-              // Erro no insert era ignorado no original — preservado
-              await insertCsatResponse({
+              await supabase.from("csat_responses").insert({
                 client_id: clientId,
                 conversation_id: newMsg.conversation_id,
                 lead_id: csatConv.lead_id ?? null,
                 rating: possibleRating,
-              }).catch(() => {});
+              });
             }
           }
 
@@ -1034,51 +912,33 @@ export function useInbox(onLeadCreated?: () => void) {
           if (!conv.lead_id) {
             const phone = (newMsg.metadata as any)?.phone;
             const senderName = (newMsg.metadata as any)?.sender_name || newMsg.sender_name;
-            const leadId = await handlersRef.current.findOrCreateLead(phone, undefined, senderName || phone);
+            const leadId = await findOrCreateLead(phone, undefined, senderName || phone);
             if (leadId) {
-              // Erro no update era ignorado no original — preservado
-              await assignLeadToConversation(newMsg.conversation_id, leadId).catch(() => {});
+              await supabase.from("conversations").update({ lead_id: leadId }).eq("id", newMsg.conversation_id);
             }
           }
         }
 
-        // Só recarrega lista quando a mensagem NÃO é do lead selecionado.
-        // Para o lead selecionado, a lista é atualizada via setMessages acima
-        // e o unread_count via markConversationsRead em loadMessages.
-        // Chamar loadConversations() em todo INSERT causa re-fetch storm em produção.
-        if (conv?.lead_id !== selectedLeadId) {
-          scheduleReload();
-        }
+        loadConversations();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, async (payload) => {
         const updatedConv = payload.new as any;
         // Only process updates from this client
         if (updatedConv.client_id === clientId) {
-          scheduleReload();
+          loadConversations();
         }
       })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          // A primeira assinatura não precisa de resync (o load inicial já
-          // rodou); as seguintes são reconexões e precisam.
-          if (!firstSubscribe) resync();
-          firstSubscribe = false;
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          logger.warn("[useInbox] realtime desconectado:", status);
-        }
-      });
+      .subscribe();
 
-    return () => {
-      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-      supabase.removeChannel(channel);
-    };
-  }, [clientId, scheduleReload, resync]);
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedLeadId, loadConversations, findOrCreateLead, clientId]);
 
   // Delete lead and its data
   const deleteLead = useCallback(async (leadId: string) => {
     try {
-      await deleteLeadById(leadId);
-
+      const { error } = await supabase.from("leads").delete().eq("id", leadId);
+      if (error) throw error;
+      
       setSelectedLeadId(null);
       await loadConversations();
       toast.success("Lead excluído com sucesso.");
@@ -1090,8 +950,11 @@ export function useInbox(onLeadCreated?: () => void) {
   // Transcribe an audio message via AI
   const transcribeAudio = useCallback(async (messageId: string) => {
     try {
-      // Erro no fetch era ignorado no original (msg undefined) — preservado
-      const msg = await getMessageContentMeta(messageId).catch(() => null);
+      const { data: msg } = await supabase
+        .from("messages")
+        .select("content, metadata")
+        .eq("id", messageId)
+        .single();
 
       if (!msg?.content) throw new Error("Áudio não encontrado");
 
@@ -1108,8 +971,7 @@ export function useInbox(onLeadCreated?: () => void) {
       if (!transcript) throw new Error("Transcrição vazia");
 
       const newMeta = { ...((msg.metadata as Record<string, unknown> | null) || {}), transcript };
-      // Erro no update era ignorado no original — preservado
-      await updateMessageMetadata(messageId, newMeta).catch(() => {});
+      await supabase.from("messages").update({ metadata: newMeta }).eq("id", messageId);
 
       setMessages(prev =>
         prev.map(m => m.id === messageId ? { ...m, metadata: newMeta } : m)
@@ -1124,16 +986,21 @@ export function useInbox(onLeadCreated?: () => void) {
   const mergeLeads = useCallback(async (sourceLeadId: string, targetLeadId: string) => {
     try {
       // 1. Move conversations
-      await reassignConversationsToLead(sourceLeadId, targetLeadId);
+      const { error: convError } = await supabase
+        .from("conversations")
+        .update({ lead_id: targetLeadId })
+        .eq("lead_id", sourceLeadId);
+      if (convError) throw convError;
 
-      // 2. Move tasks (erro ignorado como no original)
-      await reassignTasksToLead(sourceLeadId, targetLeadId).catch(() => {});
-
-      // 3. Move notes (erro ignorado como no original; tabela fora dos tipos gerados)
-      await reassignNotesToLead(sourceLeadId, targetLeadId).catch(() => {});
+      // 2. Move tasks
+      await supabase.from("tasks").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
+      
+      // 3. Move notes (tabela ainda fora dos tipos gerados)
+      await untypedFrom("notes").update({ lead_id: targetLeadId }).eq("lead_id", sourceLeadId);
 
       // 4. Delete source lead
-      await deleteLeadById(sourceLeadId);
+      const { error: deleteError } = await supabase.from("leads").delete().eq("id", sourceLeadId);
+      if (deleteError) throw deleteError;
 
       setSelectedLeadId(targetLeadId);
       await loadConversations();
@@ -1146,7 +1013,6 @@ export function useInbox(onLeadCreated?: () => void) {
 
   return {
     conversations, messages, selectedLeadId, loading,
-    hasMoreMessages, loadingOlder, loadOlderMessages, retryMessage,
     selectLead, sendMessage, createConversation,
     updateStatus, updatePriority, assignToAgent, updateLabels,
     snoozeConversation,
