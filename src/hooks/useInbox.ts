@@ -80,8 +80,6 @@ export function useInbox(onLeadCreated?: () => void) {
 
   const { tenant } = useTenant();
   const { user } = useAuth();
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-
   // Tenant scope: prefer tenant.id (UUID válido); cai para user.client_id em master-view sem tenant
   const clientId = resolveClientId(tenant?.id, user?.client_id);
 
@@ -230,7 +228,7 @@ export function useInbox(onLeadCreated?: () => void) {
       seenIds.add(m.id);
       return true;
     });
-    console.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
+    logger.debug("[useInbox] loadMessages", { leadId, rows: dedupedRows.length });
     setMessages(dedupedRows.map(m => {
       const meta = (m.metadata || {}) as Record<string, any>;
       // For media messages, resolve the best available URL
@@ -851,11 +849,11 @@ export function useInbox(onLeadCreated?: () => void) {
             // for entregue 2x pelo realtime ou se loadMessages rodar em paralelo.
             const incomingWamid = (incomingMsg.metadata as any)?.meta_message_id;
             if (prev.some(m => m.id === incomingMsg.id)) {
-              console.debug("[useInbox] realtime dedup by id", incomingMsg.id);
+              logger.debug("[useInbox] realtime dedup by id", incomingMsg.id);
               return prev;
             }
             if (incomingWamid && prev.some(m => (m.metadata as any)?.meta_message_id === incomingWamid)) {
-              console.debug("[useInbox] realtime dedup by wamid", incomingWamid);
+              logger.debug("[useInbox] realtime dedup by wamid", incomingWamid);
               return prev;
             }
 
@@ -872,12 +870,12 @@ export function useInbox(onLeadCreated?: () => void) {
                 (m.metadata as any)?.pending
               );
               if (idx >= 0) {
-                console.debug("[useInbox] substituting optimistic", { from: prev[idx].id, to: incomingMsg.id });
+                logger.debug("[useInbox] substituting optimistic", { from: prev[idx].id, to: incomingMsg.id });
                 const next = [...prev];
                 next[idx] = incomingMsg;
                 return sortByCreatedAt(next);
               }
-              console.debug("[useInbox] no optimistic match — appending", { content: incomingMsg.content, prevPending: prev.filter(m => (m.metadata as any)?.pending).map(m => ({ id: m.id, content: m.content })) });
+              logger.debug("[useInbox] no optimistic match — appending", { content: incomingMsg.content, prevPending: prev.filter(m => (m.metadata as any)?.pending).map(m => ({ id: m.id, content: m.content })) });
             }
 
             return sortByCreatedAt([...prev, incomingMsg]);

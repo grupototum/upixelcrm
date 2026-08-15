@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import type { CustomFieldDefinition, CustomFieldType } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,7 +34,7 @@ export function useCustomFields() {
       .order("display_order", { ascending: true });
 
     if (error) {
-      console.error("Error fetching custom field definitions:", error);
+      logger.error("Error fetching custom field definitions:", error);
     } else {
       setDefinitions((data as unknown as CustomFieldDefinition[]) || []);
     }

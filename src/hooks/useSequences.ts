@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { isValidUuid, resolveClientId } from "@/lib/tenant-utils";
@@ -54,7 +55,7 @@ export function useSequences() {
       .order("created_at", { ascending: false });
 
     if (seqErr) {
-      console.error("Error fetching sequences:", seqErr);
+      logger.error("Error fetching sequences:", seqErr);
       toast.error("Erro ao carregar sequências. Tente novamente.");
       setLoading(false);
       return;
@@ -69,7 +70,7 @@ export function useSequences() {
         .in("sequence_id", ids)
         .order("step_order", { ascending: true });
       if (stepsErr) {
-        console.error("Error fetching steps:", stepsErr);
+        logger.error("Error fetching steps:", stepsErr);
       } else {
         for (const st of steps ?? []) {
           const arr = stepsBySeq.get((st as any).sequence_id) ?? [];

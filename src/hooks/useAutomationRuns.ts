@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { isValidUuid, resolveClientId } from "@/lib/tenant-utils";
@@ -52,7 +53,7 @@ export function useAutomationRuns(automationId: string | null) {
       .order("started_at", { ascending: false })
       .limit(200);
     if (error) {
-      console.error("Failed to load runs:", error);
+      logger.error("Failed to load runs:", error);
       setLoading(false);
       return;
     }
@@ -125,7 +126,7 @@ export function useAutomationStats() {
       .eq("client_id", clientId);
 
     if (error) {
-      console.error("Failed to load stats:", error);
+      logger.error("Failed to load stats:", error);
       setLoading(false);
       return;
     }

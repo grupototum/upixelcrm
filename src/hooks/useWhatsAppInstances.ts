@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 export interface WaInstance {
   id: string;
@@ -28,12 +29,12 @@ export function useWhatsAppInstances() {
         "whatsapp-proxy?action=list-instances"
       );
       if (error) {
-        console.error("Proxy error:", error);
+        logger.error("Proxy error:", error);
         throw new Error(error.message);
       }
       setInstances(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error("Failed to load WA instances:", err.message || err);
+      logger.error("Failed to load WA instances:", err.message || err);
       setInstances([]);
     } finally {
       setLoading(false);

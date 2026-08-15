@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -42,7 +43,7 @@ export function useCannedResponses() {
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Error fetching templates:", error);
+      logger.error("Error fetching templates:", error);
       toast.error("Erro ao carregar respostas rápidas. Tente novamente.");
       setLoading(false);
       return;

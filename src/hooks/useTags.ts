@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { untypedFrom } from "@/lib/supabase-untyped";
+import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 import type { TagMeta } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
@@ -24,7 +25,7 @@ export function useTags() {
       .order("name", { ascending: true });
 
     if (error) {
-      console.error("Error fetching tags:", error);
+      logger.error("Error fetching tags:", error);
       toast.error("Erro ao carregar etiquetas. Tente novamente.");
     } else {
       setTags((data as unknown as TagMeta[]) || []);

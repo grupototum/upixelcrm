@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types";
+import { logger } from "@/lib/logger";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -227,14 +228,14 @@ export function useDuplicateDetection() {
 
         results.forEach((r, idx) => {
           if (r.status === "rejected") {
-            console.warn(`Group ${g.id} op ${idx} failed:`, r.reason);
+            logger.warn(`Group ${g.id} op ${idx} failed:`, r.reason);
           }
         });
 
         groupSourceIds.set(g.id, sourceIds);
         return true;
       } catch (err: any) {
-        console.error(`Group ${g.id} merge failed:`, err);
+        logger.error(`Group ${g.id} merge failed:`, err);
         return false;
       }
     };
@@ -268,7 +269,7 @@ export function useDuplicateDetection() {
         const slice = allSourceIds.slice(i, i + DEL_CHUNK);
         const { error: delError } = await supabase.from("leads").delete().in("id", slice);
         if (delError) {
-          console.error("Bulk delete failed:", delError);
+          logger.error("Bulk delete failed:", delError);
         }
       }
     }
