@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { logger } from "@/lib/logger";
 import { Plus, Send, Loader2, Sparkles, MessageCircle, Mail, MessageSquare, Lock, Smile, Paperclip as AttachIcon, Shield, ChevronDown, Instagram, Image as ImageIcon, FileText, Music, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -171,7 +172,7 @@ export function ReplyBox({
         setMessage("");
       }
     } catch (err: any) {
-      console.error("Send media error:", err);
+      logger.error("Send media error:", err);
       toast.error(`Erro ao enviar mídia: ${err?.message ?? "tente novamente"}`);
     } finally {
       setUploading(false);
@@ -197,7 +198,7 @@ export function ReplyBox({
 
   return (
     <div className={`p-4 border-t transition-colors duration-200 ${isPrivate ? "bg-amber-50/50 border-amber-200" : "bg-card"}`}>
-      <div className="w-full space-y-3 relative">
+      <div className="max-w-4xl mx-auto space-y-3 relative">
         
         {showCannedPicker && (
           <CannedResponsePicker 

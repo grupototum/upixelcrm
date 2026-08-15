@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import * as automationsRepo from "@/services/automations";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { isValidUuid, resolveClientId } from "@/lib/tenant-utils";
@@ -47,11 +48,14 @@ export function useSequences() {
   const fetchSequences = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }
     setLoading(true);
-    let seqs: Awaited<ReturnType<typeof automationsRepo.listSequences>>;
-    try {
-      seqs = await automationsRepo.listSequences(clientId);
-    } catch (err) {
-      console.error("Error fetching sequences:", err);
+    const { data: seqs, error: seqErr } = await supabase
+      .from("message_sequences")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false });
+
+    if (seqErr) {
+      logger.error("Error fetching sequences:", seqErr);
       toast.error("Erro ao carregar sequências. Tente novamente.");
       setLoading(false);
       return;
@@ -59,15 +63,21 @@ export function useSequences() {
 
     const ids = (seqs ?? []).map((s: any) => s.id);
     const stepsBySeq = new Map<string, SequenceStep[]>();
-    try {
-      const steps = await automationsRepo.listSequenceSteps(ids);
-      for (const st of steps ?? []) {
-        const arr = stepsBySeq.get((st as any).sequence_id) ?? [];
-        arr.push(st as unknown as SequenceStep);
-        stepsBySeq.set((st as any).sequence_id, arr);
+    if (ids.length > 0) {
+      const { data: steps, error: stepsErr } = await supabase
+        .from("message_sequence_steps")
+        .select("*")
+        .in("sequence_id", ids)
+        .order("step_order", { ascending: true });
+      if (stepsErr) {
+        logger.error("Error fetching steps:", stepsErr);
+      } else {
+        for (const st of steps ?? []) {
+          const arr = stepsBySeq.get((st as any).sequence_id) ?? [];
+          arr.push(st as unknown as SequenceStep);
+          stepsBySeq.set((st as any).sequence_id, arr);
+        }
       }
-    } catch (err) {
-      console.error("Error fetching steps:", err);
     }
 
     const merged = (seqs ?? []).map((s: any) => ({
@@ -89,8 +99,9 @@ export function useSequences() {
     trigger_pipeline_id?: string | null;
   }) => {
     if (!clientId) { toast.error("Sessão inválida."); return null; }
-    try {
-      const data = await automationsRepo.createSequence({
+    const { data, error } = await supabase
+      .from("message_sequences")
+      .insert({
         client_id: clientId,
         tenant_id: isValidUuid(tenant?.id) ? tenant.id : null,
         name: params.name,
@@ -99,16 +110,18 @@ export function useSequences() {
         active: false,
         trigger_column_id: params.trigger_column_id ?? null,
         trigger_pipeline_id: params.trigger_pipeline_id ?? null,
-      });
-      const newSeq = { ...(data as any), steps: [] } as MessageSequence;
-      setSequences((prev) => [newSeq, ...prev]);
-      toast.success(`Sequência "${params.name}" criada!`);
-      return newSeq;
-    } catch (err) {
-      const message = (err as { message?: string })?.message;
-      toast.error("Erro ao criar sequência: " + message);
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Erro ao criar sequência: " + error.message);
       return null;
     }
+    const newSeq = { ...(data as any), steps: [] } as MessageSequence;
+    setSequences((prev) => [newSeq, ...prev]);
+    toast.success(`Sequência "${params.name}" criada!`);
+    return newSeq;
   }, [clientId, tenant?.id]);
 
   const updateSequence = useCallback(async (id: string, updates: Partial<MessageSequence>) => {
@@ -120,15 +133,17 @@ export function useSequences() {
     if (updates.trigger_column_id !== undefined) dbUpdates.trigger_column_id = updates.trigger_column_id;
     if (updates.trigger_pipeline_id !== undefined) dbUpdates.trigger_pipeline_id = updates.trigger_pipeline_id;
 
-    try {
-      await automationsRepo.updateSequence(id, dbUpdates);
-      setSequences((prev) => prev.map((s) => s.id === id ? { ...s, ...updates } : s));
-      return true;
-    } catch (err) {
-      const message = (err as { message?: string })?.message;
-      toast.error("Erro ao atualizar: " + message);
+    const { error } = await supabase
+      .from("message_sequences")
+      .update(dbUpdates)
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao atualizar: " + error.message);
       return false;
     }
+    setSequences((prev) => prev.map((s) => s.id === id ? { ...s, ...updates } : s));
+    return true;
   }, []);
 
   const toggleActive = useCallback(async (id: string) => {
@@ -141,16 +156,18 @@ export function useSequences() {
   }, [sequences, updateSequence]);
 
   const deleteSequence = useCallback(async (id: string) => {
-    try {
-      await automationsRepo.deleteSequence(id);
-      setSequences((prev) => prev.filter((s) => s.id !== id));
-      toast.success("Sequência excluída.");
-      return true;
-    } catch (err) {
-      const message = (err as { message?: string })?.message;
-      toast.error("Erro ao excluir: " + message);
+    const { error } = await supabase
+      .from("message_sequences")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao excluir: " + error.message);
       return false;
     }
+    setSequences((prev) => prev.filter((s) => s.id !== id));
+    toast.success("Sequência excluída.");
+    return true;
   }, []);
 
   const addStep = useCallback(async (sequenceId: string, params: {
@@ -162,26 +179,29 @@ export function useSequences() {
     const seq = sequences.find((s) => s.id === sequenceId);
     if (!seq) return null;
     const nextOrder = seq.steps.length;
-    try {
-      const data = await automationsRepo.createSequenceStep({
+    const { data, error } = await supabase
+      .from("message_sequence_steps")
+      .insert({
         sequence_id: sequenceId,
         step_order: nextOrder,
         type: params.type ?? "text",
         content: params.content ?? "",
         delay_value: params.delay_value ?? 0,
         delay_unit: params.delay_unit ?? "minutes",
-      });
-      const newStep = data as unknown as SequenceStep;
-      setSequences((prev) => prev.map((s) => s.id === sequenceId
-        ? { ...s, steps: [...s.steps, newStep] }
-        : s
-      ));
-      return newStep;
-    } catch (err) {
-      const message = (err as { message?: string })?.message;
-      toast.error("Erro ao adicionar etapa: " + message);
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Erro ao adicionar etapa: " + error.message);
       return null;
     }
+    const newStep = data as unknown as SequenceStep;
+    setSequences((prev) => prev.map((s) => s.id === sequenceId
+      ? { ...s, steps: [...s.steps, newStep] }
+      : s
+    ));
+    return newStep;
   }, [sequences]);
 
   const updateStep = useCallback(async (stepId: string, updates: Partial<SequenceStep>) => {
@@ -193,34 +213,38 @@ export function useSequences() {
     if (updates.step_order !== undefined) dbUpdates.step_order = updates.step_order;
     if (updates.metadata !== undefined) dbUpdates.metadata = updates.metadata;
 
-    try {
-      await automationsRepo.updateSequenceStep(stepId, dbUpdates);
-      setSequences((prev) => prev.map((s) => ({
-        ...s,
-        steps: s.steps.map((st) => st.id === stepId ? { ...st, ...updates } : st),
-      })));
-      toast.success("Etapa atualizada!");
-      return true;
-    } catch (err) {
-      const message = (err as { message?: string })?.message;
-      toast.error("Erro ao atualizar etapa: " + message);
+    const { error } = await supabase
+      .from("message_sequence_steps")
+      .update(dbUpdates)
+      .eq("id", stepId);
+
+    if (error) {
+      toast.error("Erro ao atualizar etapa: " + error.message);
       return false;
     }
+    setSequences((prev) => prev.map((s) => ({
+      ...s,
+      steps: s.steps.map((st) => st.id === stepId ? { ...st, ...updates } : st),
+    })));
+    toast.success("Etapa atualizada!");
+    return true;
   }, []);
 
   const deleteStep = useCallback(async (stepId: string) => {
-    try {
-      await automationsRepo.deleteSequenceStep(stepId);
-      setSequences((prev) => prev.map((s) => ({
-        ...s,
-        steps: s.steps.filter((st) => st.id !== stepId),
-      })));
-      return true;
-    } catch (err) {
-      const message = (err as { message?: string })?.message;
-      toast.error("Erro ao excluir etapa: " + message);
+    const { error } = await supabase
+      .from("message_sequence_steps")
+      .delete()
+      .eq("id", stepId);
+
+    if (error) {
+      toast.error("Erro ao excluir etapa: " + error.message);
       return false;
     }
+    setSequences((prev) => prev.map((s) => ({
+      ...s,
+      steps: s.steps.filter((st) => st.id !== stepId),
+    })));
+    return true;
   }, []);
 
   return {

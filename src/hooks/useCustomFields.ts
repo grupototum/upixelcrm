@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import * as leadsRepo from "@/services/leads";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import type { CustomFieldDefinition, CustomFieldType } from "@/types";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,9 +19,6 @@ function slugify(text: string): string {
 export function useCustomFields() {
   const [definitions, setDefinitions] = useState<CustomFieldDefinition[]>([]);
   const [loading, setLoading] = useState(true);
-  // Erro de nome duplicado na criação — exibido inline no campo Nome do
-  // formulário (não só toast), por isso fica exposto como estado do hook.
-  const [createFieldError, setCreateFieldError] = useState<string | null>(null);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
@@ -29,11 +27,16 @@ export function useCustomFields() {
   const fetchDefinitions = useCallback(async () => {
     if (!clientId) { setLoading(false); return; }
     setLoading(true);
-    try {
-      const data = await leadsRepo.listCustomFieldDefinitions(clientId);
-      setDefinitions(data);
-    } catch (error) {
-      console.error("Error fetching custom field definitions:", error);
+    const { data, error } = await supabase
+      .from("custom_field_definitions")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("display_order", { ascending: true });
+
+    if (error) {
+      logger.error("Error fetching custom field definitions:", error);
+    } else {
+      setDefinitions((data as unknown as CustomFieldDefinition[]) || []);
     }
     setLoading(false);
   }, [clientId]);
@@ -51,10 +54,10 @@ export function useCustomFields() {
       visible_pipelines?: string[];
     }) => {
       if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
-      setCreateFieldError(null);
       const slug = slugify(params.name);
-      try {
-        const data = await leadsRepo.createCustomFieldDefinition({
+      const { data, error } = await supabase
+        .from("custom_field_definitions")
+        .insert({
           client_id: clientId,
           name: params.name,
           slug,
@@ -63,56 +66,53 @@ export function useCustomFields() {
           is_required: params.is_required ?? false,
           visible_pipelines: params.visible_pipelines || [],
           display_order: definitions.length,
-        });
-        toast.success(`Campo "${params.name}" criado!`);
-        setDefinitions((prev) => [...prev, data]);
-        return data;
-      } catch (err) {
-        // 23505 = unique_violation (Postgres). client_id+slug já existe —
-        // mensagem amigável em vez do erro bruto de constraint vazando pra UI.
-        const code = (err as { code?: string })?.code;
-        if (code === "23505") {
-          setCreateFieldError("Já existe um campo com esse nome. Escolha um nome diferente.");
-          return null;
-        }
-        const message = (err as { message?: string })?.message;
-        toast.error("Erro ao criar campo: " + message);
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast.error("Erro ao criar campo: " + error.message);
         return null;
       }
+      toast.success(`Campo "${params.name}" criado!`);
+      setDefinitions((prev) => [...prev, data as unknown as CustomFieldDefinition]);
+      return data;
     },
     [clientId, definitions.length]
   );
 
-  const clearCreateFieldError = useCallback(() => setCreateFieldError(null), []);
-
   const updateField = useCallback(
     async (id: string, updates: Partial<CustomFieldDefinition>) => {
-      try {
-        await leadsRepo.updateCustomFieldDefinition(id, updates);
-        setDefinitions((prev) =>
-          prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
-        );
-        return true;
-      } catch (err) {
-        const message = (err as { message?: string })?.message;
-        toast.error("Erro ao atualizar campo: " + message);
+      const { error } = await supabase
+        .from("custom_field_definitions")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Erro ao atualizar campo: " + error.message);
         return false;
       }
+      setDefinitions((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
+      );
+      return true;
     },
     []
   );
 
   const deleteField = useCallback(async (id: string) => {
-    try {
-      await leadsRepo.deleteCustomFieldDefinition(id);
-      setDefinitions((prev) => prev.filter((d) => d.id !== id));
-      toast.success("Campo removido.");
-      return true;
-    } catch (err) {
-      const message = (err as { message?: string })?.message;
-      toast.error("Erro ao excluir campo: " + message);
+    const { error } = await supabase
+      .from("custom_field_definitions")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao excluir campo: " + error.message);
       return false;
     }
+    setDefinitions((prev) => prev.filter((d) => d.id !== id));
+    toast.success("Campo removido.");
+    return true;
   }, []);
 
   return {
@@ -120,8 +120,6 @@ export function useCustomFields() {
     loading,
     fetchDefinitions,
     createField,
-    createFieldError,
-    clearCreateFieldError,
     updateField,
     deleteField,
   };

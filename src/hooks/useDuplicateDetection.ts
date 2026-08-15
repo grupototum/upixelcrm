@@ -1,23 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { logger } from "@/lib/logger";
+import { supabase } from "@/integrations/supabase/client";
 import { Lead } from "@/types";
+import { logger } from "@/lib/logger";
 import { useAppState } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTenant } from "@/contexts/TenantContext";
-import { resolveClientId } from "@/lib/tenant-utils";
-import { normalizePhoneKey } from "@/utils/phone";
-import {
-  listAllLeads,
-  reassignLeadRelations,
-  reassignAndMergePrimary,
-  updateLead,
-  bulkDeleteLeads,
-  bulkDeleteLeadsLogOnly,
-  listDismissedDuplicateGroupKeys,
-  insertDuplicateException,
-  insertTimelineEvent,
-} from "@/services/leads";
 
 export type DuplicateReason = "phone" | "email" | "name_company";
 export type DuplicateConfidence = "alta" | "media";
@@ -31,13 +18,10 @@ export interface DuplicateGroup {
   matchValue: string;
 }
 
-interface LeadNoteLike {
-  id: string;
-  lead_id: string;
-  content: string;
-  created_at: string;
-  user_name: string;
-  updated_at?: string;
+// Normalize phone: keep only last 8 digits
+function phoneSuffix(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 8 ? digits.slice(-8) : digits;
 }
 
 // Normalize name: lowercase, remove accents, collapse whitespace
@@ -61,34 +45,21 @@ function groupByKey<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]>
   return map;
 }
 
-function parseNotesLocal(raw: string | undefined | null): LeadNoteLike[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Junta as notas reais (não só o texto legado `.notes`) de primary + duplicatas. */
-function mergeNotesLocal(primary: Lead, duplicates: Lead[]): string {
-  const merged = [...parseNotesLocal(primary.notes_local)];
-  for (const d of duplicates) {
-    merged.push(...parseNotesLocal(d.notes_local));
-  }
-  return JSON.stringify(merged);
-}
-
 export function useDuplicateDetection() {
   const { leads: stateLeads } = useAppState();
   const { user } = useAuth();
-  const { tenant } = useTenant();
-  const clientId = resolveClientId(tenant?.id, user?.client_id) ?? "";
+  const clientId = user?.client_id ?? "";
 
   const { data: dbLeads = [] } = useQuery<Lead[]>({
     queryKey: ["all-leads-dedup", clientId],
-    queryFn: () => listAllLeads(clientId),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("client_id", clientId)
+        .limit(5000);
+      return (data ?? []) as Lead[];
+    },
     enabled: !!clientId && stateLeads.length === 0,
     staleTime: 60_000,
   });
@@ -99,17 +70,6 @@ export function useDuplicateDetection() {
   const [scanning, setScanning] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  // Carrega os grupos já ignorados persistentemente (1x por client_id) — antes
-  // era só useState local, e o mesmo par voltava a ser sugerido a cada F5.
-  useEffect(() => {
-    if (!clientId) return;
-    let alive = true;
-    listDismissedDuplicateGroupKeys(clientId)
-      .then((keys) => { if (alive) setDismissed((prev) => new Set([...prev, ...keys])); })
-      .catch((err) => logger.error("[useDuplicateDetection] load exceptions", err));
-    return () => { alive = false; };
-  }, [clientId]);
-
   const scan = useCallback(() => {
     setScanning(true);
 
@@ -119,13 +79,10 @@ export function useDuplicateDetection() {
     const found: DuplicateGroup[] = [];
     const seenLeadIds = new Set<string>();
 
-    // 1. Phone match (HIGH confidence) — normalizePhoneKey é a mesma função
-    // usada na importação (utils/phone.ts), lida com +55/55/com-9/sem-9.
-    // Antes esta tela tinha sua própria normalização (só últimos 8 dígitos
-    // crus, sem DDD), divergente da usada no fluxo de importação.
+    // 1. Phone suffix match (HIGH confidence)
     const byPhone = groupByKey(
       candidates.filter((l) => l.phone),
-      (l) => normalizePhoneKey(l.phone!)
+      (l) => phoneSuffix(l.phone!)
     );
     for (const [suffix, group] of byPhone) {
       if (group.length < 2) continue;
@@ -173,10 +130,13 @@ export function useDuplicateDetection() {
     if (sourceIds.length === 0) return;
 
     // Reassign related records to primary
-    await reassignLeadRelations(sourceIds, primaryId);
+    await Promise.all([
+      supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+      supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+      supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+    ]);
 
-    // Merge tags, notas legadas (.notes) e notas reais (.notes_local) das
-    // duplicatas no primary.
+    // Merge tags and notes from duplicates into primary
     const primary = group.leads.find((l) => l.id === primaryId)!;
     const duplicates = group.leads.filter((l) => l.id !== primaryId);
 
@@ -186,22 +146,9 @@ export function useDuplicateDetection() {
       (d.tags || []).forEach((t) => { if (!mergedTags.includes(t)) mergedTags.push(t); });
       if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
     });
-    const mergedNotesLocal = mergeNotesLocal(primary, duplicates);
 
-    // Falha em qualquer passo aborta: o grupo continua na lista e o caller
-    // (DuplicatesPage) mostra o toast de erro — antes a UI dizia "mesclado"
-    // mesmo com as duplicatas intactas no banco.
-    await updateLead(primaryId, { tags: mergedTags, notes: mergedNotes || null, notes_local: mergedNotesLocal });
-    await bulkDeleteLeads(sourceIds);
-
-    // Best-effort: rastro na timeline do lead que sobreviveu.
-    await insertTimelineEvent({
-      client_id: primary.client_id,
-      lead_id: primaryId,
-      type: "note",
-      content: `${duplicates.length} lead(s) duplicado(s) mesclado(s) neste lead (${duplicates.map((d) => d.name).join(", ")}).`,
-      user_name: "Mesclagem de duplicatas",
-    }).catch((err) => logger.error("[useDuplicateDetection] merge timeline event", err));
+    await supabase.from("leads").update({ tags: mergedTags, notes: mergedNotes || null }).eq("id", primaryId);
+    await supabase.from("leads").delete().in("id", sourceIds);
 
     setGroups((prev) => prev.filter((g) => g.id !== group.id));
   }, []);
@@ -209,11 +156,7 @@ export function useDuplicateDetection() {
   const dismiss = useCallback((groupId: string) => {
     setDismissed((prev) => new Set([...prev, groupId]));
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
-    if (clientId) {
-      insertDuplicateException(clientId, tenant?.id ?? null, groupId)
-        .catch((err) => logger.error("[useDuplicateDetection] persist exception", err));
-    }
-  }, [clientId, tenant?.id]);
+  }, []);
 
   // Heurística para escolher o lead "principal" automaticamente:
   // - Mais campos preenchidos vence
@@ -257,7 +200,6 @@ export function useDuplicateDetection() {
     // Acumula sourceIds de todos os grupos para fazer 1 delete em lote no final
     const allSourceIds: string[] = [];
     const groupSourceIds = new Map<string, string[]>();
-    const timelineEvents: { client_id: string; lead_id: string; type: "note"; content: string; user_name: string }[] = [];
 
     const processGroup = async (g: DuplicateGroup): Promise<boolean> => {
       try {
@@ -275,28 +217,25 @@ export function useDuplicateDetection() {
           (d.tags || []).forEach((t) => { if (!mergedTags.includes(t)) mergedTags.push(t); });
           if (d.notes) mergedNotes += `\n[Nota mesclada]: ${d.notes}`;
         });
-        const mergedNotesLocal = mergeNotesLocal(primary, duplicates);
 
         // Reassign + update primary em paralelo (4 ops por grupo)
-        const results = await reassignAndMergePrimary(sourceIds, primaryId, mergedTags, mergedNotes, mergedNotesLocal);
+        const results = await Promise.allSettled([
+          supabase.from("conversations").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+          supabase.from("tasks").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+          supabase.from("timeline_events").update({ lead_id: primaryId }).in("lead_id", sourceIds),
+          supabase.from("leads").update({ tags: mergedTags, notes: mergedNotes || null }).eq("id", primaryId),
+        ]);
 
         results.forEach((r, idx) => {
           if (r.status === "rejected") {
-            console.warn(`Group ${g.id} op ${idx} failed:`, r.reason);
+            logger.warn(`Group ${g.id} op ${idx} failed:`, r.reason);
           }
         });
 
         groupSourceIds.set(g.id, sourceIds);
-        timelineEvents.push({
-          client_id: primary.client_id,
-          lead_id: primaryId,
-          type: "note",
-          content: `${duplicates.length} lead(s) duplicado(s) mesclado(s) neste lead (${duplicates.map((d) => d.name).join(", ")}).`,
-          user_name: "Mesclagem de duplicatas",
-        });
         return true;
-      } catch (err) {
-        console.error(`Group ${g.id} merge failed:`, err);
+      } catch (err: any) {
+        logger.error(`Group ${g.id} merge failed:`, err);
         return false;
       }
     };
@@ -324,11 +263,16 @@ export function useDuplicateDetection() {
     });
 
     if (allSourceIds.length > 0) {
-      await bulkDeleteLeadsLogOnly(allSourceIds);
+      // Delete em chunks de 500 (limite seguro do PostgREST .in())
+      const DEL_CHUNK = 500;
+      for (let i = 0; i < allSourceIds.length; i += DEL_CHUNK) {
+        const slice = allSourceIds.slice(i, i + DEL_CHUNK);
+        const { error: delError } = await supabase.from("leads").delete().in("id", slice);
+        if (delError) {
+          logger.error("Bulk delete failed:", delError);
+        }
+      }
     }
-
-    // Best-effort, em paralelo — não bloqueia o retorno da mesclagem em lote.
-    void Promise.allSettled(timelineEvents.map((e) => insertTimelineEvent(e)));
 
     setGroups((prev) => prev.filter((g) => !successIds.includes(g.id)));
     return { merged, failed };

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { logger } from "@/lib/logger";
 import { Shield, Trash2, RefreshCw, Phone, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import * as integrationsRepo from "@/services/integrations";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -35,7 +35,7 @@ export function CloudInstanceList({ refreshKey }: { refreshKey?: number }) {
       if (error) throw new Error(error.message);
       setInstances((data?.instances ?? []) as CloudInstance[]);
     } catch (err: any) {
-      console.error("Failed to list cloud instances:", err);
+      logger.error("Failed to list cloud instances:", err);
       setInstances([]);
     } finally {
       setLoading(false);
@@ -63,13 +63,16 @@ export function CloudInstanceList({ refreshKey }: { refreshKey?: number }) {
   const toggleInstance = async (id: string, currentStatus: string, name: string) => {
     const newStatus = currentStatus === "connected" ? "paused" : "connected";
     setInstances((prev) => prev.map((i) => i.id === id ? { ...i, status: newStatus } : i));
-    try {
-      await integrationsRepo.updateIntegration(id, { status: newStatus });
-      toast.success(`"${name}" ${newStatus === "connected" ? "ativada" : "pausada"}.`);
-    } catch (err: any) {
+    const { error } = await supabase
+      .from("integrations")
+      .update({ status: newStatus })
+      .eq("id", id);
+    if (error) {
       setInstances((prev) => prev.map((i) => i.id === id ? { ...i, status: currentStatus } : i));
-      toast.error(`Erro ao alterar status: ${err.message}`);
+      toast.error(`Erro ao alterar status: ${error.message}`);
+      return;
     }
+    toast.success(`"${name}" ${newStatus === "connected" ? "ativada" : "pausada"}.`);
   };
 
   if (loading) {
