@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 
 // Refresca a sessão se o JWT expira em menos de 60s,
 // evitando que o invoke chegue à edge function com token vencido.
@@ -39,10 +40,10 @@ export async function invokeEdge(
     } catch {
       try { firstAttemptBody = await result.error.context.clone().text(); } catch { /* noop */ }
     }
-    console.warn("[invokeEdge] 401 on first attempt", { functionName, body: firstAttemptBody });
+    logger.warn("[invokeEdge] 401 on first attempt", { functionName, body: firstAttemptBody });
 
     const { error: refreshError, data: refreshed } = await supabase.auth.refreshSession();
-    console.warn("[invokeEdge] refreshSession result", {
+    logger.warn("[invokeEdge] refreshSession result", {
       ok: !refreshError,
       hasNewSession: !!refreshed?.session,
       error: refreshError?.message,
@@ -53,7 +54,7 @@ export async function invokeEdge(
       if (result.error instanceof FunctionsHttpError && result.error.context?.status === 401) {
         let retryBody: unknown = null;
         try { retryBody = await result.error.context.clone().json(); } catch { /* noop */ }
-        console.error("[invokeEdge] 401 after refresh+retry — session likely revoked", {
+        logger.error("[invokeEdge] 401 after refresh+retry — session likely revoked", {
           functionName,
           body: retryBody,
         });

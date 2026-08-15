@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Upload, FileSpreadsheet, ArrowRight, CheckCircle2, X,
@@ -231,7 +232,7 @@ export default function ImportPage({
         });
         applyParsed({ headers, rows }, file);
       } catch (err) {
-        console.error("xlsx parse error", err);
+        logger.error("xlsx parse error", err);
         toast.error("Falha ao ler o arquivo Excel. Verifique se está corrompido.");
       }
     };
@@ -368,7 +369,7 @@ export default function ImportPage({
       .order("display_order", { ascending: true });
 
     if (defsError) {
-      console.error("Erro ao carregar definições de campos:", defsError);
+      logger.error("Erro ao carregar definições de campos:", defsError);
     }
 
     const activeDefs = (freshDefs as any[] | null) ?? customFieldDefs;
@@ -412,7 +413,7 @@ export default function ImportPage({
         if (data.length < PAGE) break;
       }
     } catch (err) {
-      console.warn("Falha ao carregar telefones existentes para dedup:", err);
+      logger.warn("Falha ao carregar telefones existentes para dedup:", err);
       // Fallback: usa só o que está em estado local
       leads.filter((l) => l.phone).forEach((l) =>
         existingPhoneKeys.add(normalizePhoneBR(l.phone!))
@@ -505,7 +506,7 @@ export default function ImportPage({
           const { error } = await supabase.from("leads").insert(chunk);
 
           if (error) {
-            console.error(`Chunk ${chunkNum}/${totalChunks} error:`, error);
+            logger.error(`Chunk ${chunkNum}/${totalChunks} error:`, error);
             errors += chunk.length;
 
             // Tenta novamente com backoff exponencial se for timeout/rate-limit
@@ -523,7 +524,7 @@ export default function ImportPage({
           }
           break;
         } catch (err: any) {
-          console.error(`Chunk ${chunkNum}/${totalChunks} exception:`, err);
+          logger.error(`Chunk ${chunkNum}/${totalChunks} exception:`, err);
           errors += chunk.length;
           retries++;
           if (retries < maxRetries) {

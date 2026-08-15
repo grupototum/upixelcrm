@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { logger } from "@/lib/logger";
 import { Shield, Trash2, RefreshCw, Phone, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ export function CloudInstanceList({ refreshKey }: { refreshKey?: number }) {
       if (error) throw new Error(error.message);
       setInstances((data?.instances ?? []) as CloudInstance[]);
     } catch (err: any) {
-      console.error("Failed to list cloud instances:", err);
+      logger.error("Failed to list cloud instances:", err);
       setInstances([]);
     } finally {
       setLoading(false);

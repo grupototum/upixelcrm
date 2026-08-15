@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { logger } from "@/lib/logger";
 import { downloadCSV } from "@/lib/export";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -104,7 +105,7 @@ function BroadcastsTab({ clientId }: { clientId?: string }) {
       const { data, error } = await (supabase.from("campaign_dispatch_logs") as any)
         .select("*").eq("client_id", clientId)
         .order("created_at", { ascending: false }).limit(500);
-      if (error) { console.error(error); return []; }
+      if (error) { logger.error(error); return []; }
       return (data || []) as DispatchLog[];
     },
     enabled: !!clientId,

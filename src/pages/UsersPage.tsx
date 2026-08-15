@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -318,7 +319,7 @@ export default function UsersPage() {
       fetchData();
       fetchAuditLogs();
     } catch (error: any) {
-      console.error("Error creating user:", error);
+      logger.error("Error creating user:", error);
       toast.error(error.message || "Erro ao criar usuário");
     } finally {
       setCreatingUser(false);
