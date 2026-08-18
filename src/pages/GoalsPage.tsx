@@ -9,6 +9,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { GoalTeamGrid } from "@/components/goals/GoalTeamGrid";
 import { GoalsLeaderboard } from "@/components/goals/GoalsLeaderboard";
+import { ActiveSequencesWidget } from "@/components/goals/ActiveSequencesWidget";
 import type { GoalPeriod } from "@/types";
 
 type GoalView = "mine" | "team" | "all";
@@ -50,6 +51,8 @@ export default function GoalsPage() {
             </TabsList>
           </Tabs>
         </div>
+
+        <ActiveSequencesWidget />
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>

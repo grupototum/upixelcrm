@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
-  Search, Phone, MoreVertical,
+  Search, Phone, PhoneMissed, MoreVertical,
   MessageSquare, CheckSquare, Tag,
   ArrowRight, Plus, User, Building, Globe, Mail,
   MessageCircle, Loader2, ExternalLink, Lock, Tags,
@@ -103,11 +103,16 @@ export default function InboxPage() {
 function InboxPageInner() { // force HMR reset
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead } = useAppState();
+  const { tasks, toggleTaskStatus, moveLead, columns, leads, refreshData, updateLead, addTimelineEvent } = useAppState();
   const { user } = useAuth();
   const inbox = useInbox(refreshData);
   useCsatSender();
   const { selectionMode, isSelected, toggleLead, enterSelectionMode, exitSelectionMode, selectAll } = useSelection();
+
+  const openQuickLog = async (leadId: string, type: "call" | "call_attempt") => {
+    const label = type === "call" ? "Ligação registrada" : "Tentativa de ligação registrada";
+    await addTimelineEvent({ lead_id: leadId, type, content: label, user_name: user?.name || "Você", user_id: user?.id });
+  };
 
   // Esc cancela a seleção em massa.
   useEffect(() => {
@@ -540,6 +545,22 @@ function InboxPageInner() { // force HMR reset
                          return <Icon key={ch} className="h-2.5 w-2.5 text-muted-foreground/60" />;
                       })}
                     </div>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity self-center shrink-0">
+                    <button
+                      title="Registrar tentativa de ligação"
+                      className="h-6 w-6 flex items-center justify-center rounded hover:bg-secondary"
+                      onClick={(e) => { e.stopPropagation(); openQuickLog(c.lead_id, "call_attempt"); }}
+                    >
+                      <PhoneMissed className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                    <button
+                      title="Registrar ligação"
+                      className="h-6 w-6 flex items-center justify-center rounded hover:bg-secondary"
+                      onClick={(e) => { e.stopPropagation(); openQuickLog(c.lead_id, "call"); }}
+                    >
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
                   </div>
                   {c.unread_count > 0 && (
                     <div className="flex flex-col items-end gap-2 self-center">

@@ -38,7 +38,7 @@ import {
   Plus, CheckCircle2, Circle, AlertTriangle, Clock, ChevronDown,
   MessageSquare, ArrowRight, Zap, ClipboardList, StickyNote,
   MoreHorizontal, Send, ChevronRight, Smartphone, Monitor, X, Check, Settings2,
-  Handshake, Target, Merge, CalendarCheck
+  Handshake, Target, Merge, CalendarCheck, PhoneMissed
 } from "lucide-react";
 import type { Lead, Task, TimelineEvent } from "@/types";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -51,6 +51,7 @@ const timelineConfig: Record<string, { icon: typeof MessageSquare; color: string
   task: { icon: ClipboardList, color: "text-success", label: "Tarefa" },
   automation: { icon: Zap, color: "text-warning", label: "Automação" },
   call: { icon: Phone, color: "text-primary", label: "Ligação" },
+  call_attempt: { icon: PhoneMissed, color: "text-warning", label: "Tentativa de ligação" },
   meeting: { icon: CalendarCheck, color: "text-primary", label: "Reunião" },
   field_changed: { icon: Edit3, color: "text-accent", label: "Campo alterado" },
 };
@@ -84,7 +85,7 @@ export default function LeadProfilePage() {
 
   const [activeTab, setActiveTab] = useState("dados");
   // Fase 7: registrar ligação/reunião — fonte das métricas calls_made/meetings_done.
-  const [logEventType, setLogEventType] = useState<"call" | "meeting" | null>(null);
+  const [logEventType, setLogEventType] = useState<"call" | "call_attempt" | "meeting" | null>(null);
   const [logEventNote, setLogEventNote] = useState("");
   const [newNote, setNewNote] = useState("");
   const [noteToDelete, setNoteToDelete] = useState<LeadNote | null>(null);
@@ -303,7 +304,7 @@ export default function LeadProfilePage() {
 
   const handleLogEvent = useCallback(async () => {
     if (!logEventType || !id) return;
-    const label = logEventType === "call" ? "Ligação registrada" : "Reunião registrada";
+    const label = logEventType === "call" ? "Ligação registrada" : logEventType === "call_attempt" ? "Tentativa de ligação registrada" : "Reunião registrada";
     await addTimelineEvent({
       lead_id: id,
       type: logEventType,
@@ -660,6 +661,9 @@ export default function LeadProfilePage() {
             <div className="flex justify-end gap-2 mb-3">
               <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setLogEventType("call")}>
                 <Phone className="h-3.5 w-3.5" /> Registrar ligação
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setLogEventType("call_attempt")}>
+                <PhoneMissed className="h-3.5 w-3.5" /> Tentativa
               </Button>
               <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setLogEventType("meeting")}>
                 <CalendarCheck className="h-3.5 w-3.5" /> Registrar reunião
@@ -1022,7 +1026,7 @@ export default function LeadProfilePage() {
       <Dialog open={!!logEventType} onOpenChange={(open) => { if (!open) { setLogEventType(null); setLogEventNote(""); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{logEventType === "call" ? "Registrar ligação" : "Registrar reunião"}</DialogTitle>
+            <DialogTitle>{logEventType === "call" ? "Registrar ligação" : logEventType === "call_attempt" ? "Registrar tentativa de ligação" : "Registrar reunião"}</DialogTitle>
           </DialogHeader>
           <Textarea
             placeholder="O que foi conversado? (opcional)"

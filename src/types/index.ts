@@ -180,6 +180,7 @@ export type GoalMetric =
   | "contacts_made"
   | "leads_closed"
   | "calls_made"
+  | "call_attempts"
   | "meetings_done";
 
 export type GoalPeriod = "daily" | "weekly" | "monthly" | "quarterly";
@@ -272,7 +273,7 @@ export interface TagMeta {
 export interface TimelineEvent {
   id: string;
   lead_id: string;
-  type: "message" | "stage_change" | "note" | "task" | "automation" | "call" | "meeting" | "field_changed";
+  type: "message" | "stage_change" | "note" | "task" | "automation" | "call" | "call_attempt" | "meeting" | "field_changed";
   content: string;
   created_at: string;
   user_name?: string;

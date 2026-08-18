@@ -40,9 +40,10 @@ export async function listClientMembers(
   return data ?? [];
 }
 
-/** Agentes ativos do tenant (atribuição de conversas). */
+/** Agentes ativos do tenant (atribuição de conversas).
+ * Inclui masters globais que podem não ter profile no tenant específico. */
 export async function listActiveAgents(clientId: string): Promise<{ id: string; name: string; avatar_url?: string | null }[]> {
-  const { data, error } = await supabase
+  const { data: tenantProfiles, error } = await supabase
     .from("profiles")
     .select("id, name, avatar_url")
     .eq("client_id", clientId)
@@ -50,7 +51,22 @@ export async function listActiveAgents(clientId: string): Promise<{ id: string; 
     .eq("is_blocked", false)
     .order("name");
   if (error) throw error;
-  return data ?? [];
+
+  const tenantIds = (tenantProfiles ?? []).map((p) => p.id);
+  const { data: masterProfiles } = await supabase
+    .from("profiles")
+    .select("id, name, avatar_url")
+    .eq("role", "master")
+    .eq("is_blocked", false)
+    .not("id", "in", `(${tenantIds.join(",") || "00000000-0000-0000-0000-000000000000"})`);
+
+  const all = [...(tenantProfiles ?? []), ...(masterProfiles ?? [])];
+  const seen = new Set<string>();
+  return all.filter((p) => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
 }
 
 export async function updateProfileName(userId: string, name: string): Promise<void> {
