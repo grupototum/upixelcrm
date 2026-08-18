@@ -161,6 +161,7 @@ export async function listMetricTimestamps(
   const typeByMetric: Partial<Record<GoalMetric, string>> = {
     contacts_made: "note",
     calls_made: "call",
+    call_attempts: "call_attempt",
     meetings_done: "meeting",
   };
   const type = typeByMetric[metric];

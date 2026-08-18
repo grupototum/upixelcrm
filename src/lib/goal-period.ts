@@ -41,6 +41,7 @@ export const METRIC_LABELS: Record<string, string> = {
   contacts_made: "Contatos realizados",
   leads_closed: "Fechamentos",
   calls_made: "Ligações realizadas",
+  call_attempts: "Tentativas de ligação",
   meetings_done: "Reuniões realizadas",
 };
 
