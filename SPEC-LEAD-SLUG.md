@@ -139,13 +139,17 @@ Nada disso é implementado nesta rodada — spec fica pronta para quando Rael de
 
 ## Migration (rascunho, NÃO aplicada)
 
-O passo 1 da ordem acima já está escrito como arquivo de migration, na branch
-`fix/lead-slug` — **fora de `main` de propósito**, para que ninguém aplique por engano
-junto de um deploy comum:
+O passo 1 da ordem acima já está escrito como arquivo de migration:
 
 ```
-supabase/migrations/20260821_add_lead_slug.sql
+supabase/migrations-pending/20260821_add_lead_slug.sql
 ```
+
+**Fora de `supabase/migrations/` de propósito.** A branch `fix/lead-slug` foi mergeada
+em `main` (PR #93) e o arquivo caiu na pasta que o `supabase db push` varre — o que
+faria um push cego aplicar a coluna sem ninguém decidir. Movido para
+`migrations-pending/` em 2026-08-21. Para aplicar: mover de volta e rodar o apply
+explícito, com backup antes.
 
 Cobre só a coluna nullable + índice único parcial. Não faz backfill, não torna `not null`,
 não toca RLS. Comando de aplicação e plano de rollback estão no cabeçalho do próprio
