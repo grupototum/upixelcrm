@@ -55,7 +55,8 @@ export function ApiSettingsModal({ open, onOpenChange }: { open: boolean; onOpen
       });
     } catch (error) {
       logger.error(error);
-      toast.error("Erro ao criar chave de API.");
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`Erro ao criar chave de API: ${msg}`);
       return;
     }
 
