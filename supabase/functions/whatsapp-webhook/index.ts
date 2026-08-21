@@ -403,7 +403,19 @@ async function triggerAutomations(adminClient: any, clientId: string, eventType:
 
     for (const auto of automations || []) {
       const nodes = auto.nodes || [];
-      const triggerNodes = nodes.filter((n: any) => n.type === 'trigger' && n.data?.type === eventType);
+      // Issue #87: o builder visual grava o tipo do trigger em `data.configType`
+      // (AutomationSidebar.tsx), não em `data.type` — mesmo fallback já usado em
+      // AppContext.tsx:1023 pra new_lead/status_change/tag_added. E o valor do
+      // WhatsApp é sempre o literal "new_message" (não "message_received*"), então
+      // precisa da mesma equivalência já aplicada no resume de wait_for_reply acima.
+      const triggerNodes = nodes.filter((n: any) => {
+        if (n.type !== 'trigger') return false;
+        const triggerType = n.data?.type ?? n.data?.configType;
+        if (eventType === 'new_message') {
+          return triggerType === 'message_received' || triggerType === 'message_received_whatsapp';
+        }
+        return triggerType === eventType;
+      });
 
       for (const trigger of triggerNodes) {
         console.log(`Triggering automation ${auto.id} via node ${trigger.id}`);
