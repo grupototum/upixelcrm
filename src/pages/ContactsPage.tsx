@@ -53,15 +53,15 @@ export default function ContactsPage() {
     }
   };
 
-  const handleSave = async (data: Partial<Lead>) => {
-    if (editingLead) {
-      await updateLead(editingLead.id, data);
-    } else {
-      const defaultColumnId = columns[0]?.id || "";
-      await addLead({ ...data, category: activeCategory }, defaultColumnId);
-    }
+  // UI-PATTERNS (docs/UI-PATTERNS.md): erro mantém o modal aberto.
+  const handleSave = async (data: Partial<Lead>): Promise<boolean> => {
+    const ok = editingLead
+      ? await updateLead(editingLead.id, data)
+      : (await addLead({ ...data, category: activeCategory }, columns[0]?.id || "")) !== null;
+    if (!ok) return false;
     setShowForm(false);
     setEditingLead(null);
+    return true;
   };
 
   return (

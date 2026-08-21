@@ -16,7 +16,8 @@ import type { Lead, PipelineColumn } from "@/types";
 interface LeadFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: Partial<Lead>) => void;
+  /** UI-PATTERNS: retorna false em erro — o modal fica aberto e o botão volta a funcionar. */
+  onSave: (data: Partial<Lead>) => Promise<boolean> | void;
   lead: Lead | null;
   columns: PipelineColumn[];
   defaultColumnId: string;
@@ -262,11 +263,18 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
         <DialogFooter className="mt-8 gap-2">
           <Button variant="ghost" onClick={onClose} className="rounded-xl grow h-11">Cancelar</Button>
           <Button
-            onClick={() => { if (form.name?.trim() && !submitting) { setSubmitting(true); onSave(form); } }}
+            onClick={async () => {
+              if (!form.name?.trim() || submitting) return;
+              setSubmitting(true);
+              // No sucesso quem fecha é o pai (e o useEffect de `open` zera
+              // submitting). No erro o botão precisa voltar, senão o modal
+              // fica aberto com o botão travado para sempre.
+              if ((await onSave(form)) === false) setSubmitting(false);
+            }}
             disabled={!form.name?.trim() || submitting}
             className="rounded-xl grow bg-primary hover:bg-[#e04400] text-primary-foreground h-11"
           >
-            {lead ? "Salvar Alterações" : "Criar Lead"}
+            {submitting ? "Salvando..." : lead ? "Salvar Alterações" : "Criar Lead"}
           </Button>
         </DialogFooter>
       </DialogContent>

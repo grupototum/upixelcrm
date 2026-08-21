@@ -431,14 +431,16 @@ function CRMPageInner() {
     setShowForm(true);
   }
 
-  async function handleSaveLead(data: Partial<Lead>) {
-    if (editingLead) {
-      await updateLead(editingLead.id, data);
-    } else {
-      await addLead(data, formColumnId || pipelineColumns[0]?.id || "");
-    }
+  // UI-PATTERNS (docs/UI-PATTERNS.md): erro mantém o modal aberto com os
+  // dados digitados; quem mostra o toast de erro é o AppContext.
+  async function handleSaveLead(data: Partial<Lead>): Promise<boolean> {
+    const ok = editingLead
+      ? await updateLead(editingLead.id, data)
+      : (await addLead(data, formColumnId || pipelineColumns[0]?.id || "")) !== null;
+    if (!ok) return false;
     setShowForm(false);
     setEditingLead(null);
+    return true;
   }
 
   const handleCreatePipeline = async () => {

@@ -35,7 +35,7 @@ interface KanbanColumnProps {
   onLeadClick: (lead: Lead) => void;
   onAddLead: (columnId: string) => void;
   onConfigColumn: (column: PipelineColumn, tab?: string) => void;
-  onMoveLead?: (leadId: string, toColumnId: string) => void;
+  onMoveLead?: (leadId: string, toColumnId: string) => Promise<boolean> | void;
   /** Abrir importação contextualizada nesta coluna (CSV/Excel direto pra cá). */
   onImportLeads?: (columnId: string) => void;
   /** 2.3: mapa name → cor das etiquetas, resolvido uma vez no board. */
@@ -72,6 +72,7 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
 
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
+  const [transferring, setTransferring] = useState(false);
 
   const leadIds = useMemo(() => leads.map((l) => l.id), [leads]);
   const selectedInColumn = useMemo(() => leadIds.filter((id) => isSelected(id)).length, [leadIds, isSelected]);
@@ -137,12 +138,29 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
     toast.success(`${leads.length} leads exportados`);
   }
 
-  function handleTransfer() {
-    if (!transferTarget || !onMoveLead) return;
-    leads.forEach((l) => onMoveLead(l.id, transferTarget));
-    setTransferOpen(false);
-    setTransferTarget("");
-    toast.success(`${leads.length} leads transferidos`);
+  // UI-PATTERNS (docs/UI-PATTERNS.md). Antes: disparava N moves sem await,
+  // fechava e anunciava "N leads transferidos" antes de qualquer resposta —
+  // com falha parcial o número era mentira. Agora espera todos, relata
+  // quantos passaram e só fecha se nenhum falhou.
+  async function handleTransfer() {
+    if (!transferTarget || !onMoveLead || transferring) return;
+    setTransferring(true);
+    const target = transferTarget;
+    // Sequencial de propósito: cada move dispara automações no AppContext,
+    // e o paralelo faria N execuções concorrentes sobre o mesmo estado.
+    let moved = 0;
+    for (const l of leads) {
+      if ((await onMoveLead(l.id, target)) !== false) moved++;
+    }
+    setTransferring(false);
+    if (moved === leads.length) {
+      toast.success(`${moved} lead${moved !== 1 ? "s" : ""} transferido${moved !== 1 ? "s" : ""}`);
+      setTransferOpen(false);
+      setTransferTarget("");
+      return;
+    }
+    // Falha parcial: modal fica aberto para o usuário tentar de novo.
+    toast.error(`${moved} de ${leads.length} leads transferidos. Tente novamente.`);
   }
 
   const otherColumns = (allColumns || []).filter((c) => c.id !== column.id);
@@ -305,8 +323,10 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
             </Select>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" size="sm" onClick={() => setTransferOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleTransfer} disabled={!transferTarget || leads.length === 0}>Transferir</Button>
+            <Button variant="outline" size="sm" onClick={() => setTransferOpen(false)} disabled={transferring}>Cancelar</Button>
+            <Button size="sm" onClick={handleTransfer} disabled={!transferTarget || leads.length === 0 || transferring}>
+              {transferring ? "Transferindo..." : "Transferir"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -37,9 +37,11 @@ interface AppState {
   setPipeline: (id: string) => void;
   addPipeline: (name: string) => Promise<void>;
   addLead: (data: Partial<Lead>, columnId: string) => Promise<Lead | null>;
-  updateLead: (id: string, data: Partial<Lead>) => Promise<void>;
+  /** UI-PATTERNS: retorna false em erro para o modal decidir se fecha. */
+  updateLead: (id: string, data: Partial<Lead>) => Promise<boolean>;
   deleteLead: (id: string) => Promise<void>;
-  moveLead: (id: string, toColumnId: string) => Promise<void>;
+  /** UI-PATTERNS: retorna false em erro para o modal decidir se fecha. */
+  moveLead: (id: string, toColumnId: string) => Promise<boolean>;
   moveLeadToPipeline: (id: string, toPipelineId: string) => Promise<void>;
   mergeLeads: (sourceLeadId: string, targetLeadId: string) => Promise<void>;
 
@@ -53,8 +55,10 @@ interface AppState {
   updateTaskResult: (id: string, result?: string) => Promise<boolean>;
 
   addColumn: (name: string, color: string) => Promise<void>;
-  updateColumn: (id: string, data: Partial<PipelineColumn>) => Promise<void>;
-  deleteColumn: (id: string) => Promise<void>;
+  /** UI-PATTERNS: retorna false em erro para o modal decidir se fecha. */
+  updateColumn: (id: string, data: Partial<PipelineColumn>) => Promise<boolean>;
+  /** UI-PATTERNS: retorna false em erro para o modal decidir se fecha. */
+  deleteColumn: (id: string) => Promise<boolean>;
   reorderColumns: (orderedIds: string[]) => Promise<void>;
 
   addTimelineEvent: (event: Omit<TimelineEvent, "id" | "created_at">) => Promise<void>;
@@ -309,7 +313,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (data) setTimeline((prev) => [mapTimeline(data as unknown as Record<string, unknown>), ...prev]);
   }, [tenant?.id, user?.client_id, user?.id, tenantIdForInsert]);
 
-  const updateLead = useCallback(async (id: string, data: Partial<Lead>) => {
+  const updateLead = useCallback(async (id: string, data: Partial<Lead>): Promise<boolean> => {
     // Capturado ANTES do update, pra poder comparar valor antigo x novo.
     const before = leadsRef.current.find((l) => l.id === id);
     const updateData: Record<string, unknown> = {};
@@ -332,7 +336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await leadsRepo.updateLead(id, updateData);
     } catch (error) {
-      logger.error(error); toast.error("Erro ao atualizar lead"); return;
+      logger.error(error); toast.error("Erro ao atualizar lead"); return false;
     }
 
     markLeadDirty(id);
@@ -360,6 +364,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else {
       await addTimelineEvent({ lead_id: id, type: "note", content: "Lead atualizado", user_name: "Usuário" });
     }
+    return true;
   }, [addTimelineEvent, markLeadDirty, tenant?.id, user?.client_id]);
 
   const addTask = useCallback(async (data: Partial<Task>): Promise<Task | null> => {
@@ -400,9 +405,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return newTask;
   }, [addTimelineEvent, user?.id, user?.client_id, tenant?.id, tenantIdForInsert]);
 
-  const moveLead = useCallback(async (id: string, toColumnId: string) => {
+  const moveLead = useCallback(async (id: string, toColumnId: string): Promise<boolean> => {
     const lead = leads.find((l) => l.id === id);
-    if (!lead || lead.column_id === toColumnId) return;
+    // Já está na coluna destino: nada a fazer, mas não é erro.
+    if (!lead || lead.column_id === toColumnId) return true;
 
     const fromCol = columns.find((c) => c.id === lead.column_id);
     const toCol = columns.find((c) => c.id === toColumnId);
@@ -418,7 +424,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Rollback
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, column_id: lead.column_id } : l));
       toast.error("Erro ao mover lead");
-      return;
+      return false;
     }
 
     await addTimelineEvent({
@@ -433,6 +439,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await executeAutomationsRef.current(id, "stage_changed", toColumnId);
       await executeAutomationsRef.current(id, "card_entered", toColumnId);
     }
+    return true;
   }, [leads, columns, addTimelineEvent, markLeadDirty]);
 
   const moveLeadToPipeline = useCallback(async (id: string, toPipelineId: string) => {
@@ -750,24 +757,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("Coluna criada");
   }, [columns, currentPipelineId, tenant?.id, tenantIdForInsert, user?.client_id]);
 
-  const updateColumn = useCallback(async (id: string, data: Partial<PipelineColumn>) => {
+  const updateColumn = useCallback(async (id: string, data: Partial<PipelineColumn>): Promise<boolean> => {
     try {
       await leadsRepo.updatePipelineColumn(id, data);
     } catch (error) {
-      logger.error(error); toast.error("Erro ao atualizar coluna"); return;
+      logger.error(error); toast.error("Erro ao atualizar coluna"); return false;
     }
     setColumns((prev) => prev.map((c) => c.id === id ? { ...c, ...data } : c));
     toast.success("Coluna atualizada");
+    return true;
   }, []);
 
-  const deleteColumn = useCallback(async (id: string) => {
+  const deleteColumn = useCallback(async (id: string): Promise<boolean> => {
     try {
       await leadsRepo.deletePipelineColumn(id);
     } catch (error) {
-      logger.error(error); toast.error("Erro ao excluir coluna"); return;
+      logger.error(error); toast.error("Erro ao excluir coluna"); return false;
     }
     setColumns((prev) => prev.filter((c) => c.id !== id));
     toast.success("Coluna removida");
+    return true;
   }, []);
 
   /**

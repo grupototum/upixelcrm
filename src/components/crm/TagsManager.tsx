@@ -31,6 +31,7 @@ export function TagsManager() {
   const [open, setOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<TagMeta | null>(null);
 
+  const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [category, setCategory] = useState("general");
@@ -50,22 +51,17 @@ export function TagsManager() {
     setOpen(true);
   };
 
+  // UI-PATTERNS (docs/UI-PATTERNS.md): erro mantém o modal aberto com o que
+  // foi digitado — useTags já mostrou o toast com a mensagem real. Antes o
+  // setOpen(false) era incondicional e o usuário perdia o formulário.
   const handleSave = async () => {
-    if (!name.trim()) return;
-
-    if (editingTag) {
-      await updateTag(editingTag.id, {
-        name: name.trim(),
-        color,
-        category,
-      });
-    } else {
-      await createTag({
-        name: name.trim(),
-        color,
-        category,
-      });
-    }
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    const ok = editingTag
+      ? await updateTag(editingTag.id, { name: name.trim(), color, category })
+      : (await createTag({ name: name.trim(), color, category })) !== null;
+    setSaving(false);
+    if (!ok) return;
     setOpen(false);
     resetForm();
   };
@@ -127,8 +123,10 @@ export function TagsManager() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={!name.trim()}>Salvar</Button>
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={!name.trim() || saving}>
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

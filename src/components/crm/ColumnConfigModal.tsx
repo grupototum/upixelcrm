@@ -74,6 +74,8 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
   const [columnDescription, setColumnDescription] = useState(column?.description ?? "");
   const [columnColor, setColumnColor] = useState(column?.color ?? "#3b82f6");
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Filter automations for this specific column
   const columnRules = useMemo(() => 
@@ -93,19 +95,28 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
 
   if (!column) return null;
 
+  // UI-PATTERNS (docs/UI-PATTERNS.md): sucesso fecha, erro mantém aberto.
+  // Antes o "Salvar Alterações" não fechava nunca (nem no sucesso) e o
+  // excluir fechava sempre, inclusive quando o delete falhava.
   const handleSaveGeneral = async () => {
-    await updateColumn(column.id, {
+    if (saving) return;
+    setSaving(true);
+    const ok = await updateColumn(column.id, {
       name: columnName,
       color: columnColor,
       description: columnDescription.trim() || null,
     });
+    setSaving(false);
+    if (ok) onClose();
   };
 
   const handleDeleteColumn = async () => {
-    if (confirm("Deseja realmente excluir esta coluna? Todos os leads nela serão mantidos, mas a coluna sumirá.")) {
-      await deleteColumn(column.id);
-      onClose();
-    }
+    if (deleting) return;
+    if (!confirm("Deseja realmente excluir esta coluna? Todos os leads nela serão mantidos, mas a coluna sumirá.")) return;
+    setDeleting(true);
+    const ok = await deleteColumn(column.id);
+    setDeleting(false);
+    if (ok) onClose();
   };
 
   const handleAddRule = async () => {
@@ -164,10 +175,12 @@ export function ColumnConfigModal({ column, open, onClose, initialTab = "general
               </div>
             </div>
             <div className="flex justify-between">
-              <Button size="sm" variant="destructive" className="text-xs gap-1" onClick={handleDeleteColumn}>
-                <Trash2 className="h-3 w-3" /> Excluir Coluna
+              <Button size="sm" variant="destructive" className="text-xs gap-1" onClick={handleDeleteColumn} disabled={deleting || saving}>
+                <Trash2 className="h-3 w-3" /> {deleting ? "Excluindo..." : "Excluir Coluna"}
               </Button>
-              <Button size="sm" className="text-xs" onClick={handleSaveGeneral}>Salvar Alterações</Button>
+              <Button size="sm" className="text-xs" onClick={handleSaveGeneral} disabled={saving || deleting}>
+                {saving ? "Salvando..." : "Salvar Alterações"}
+              </Button>
             </div>
           </TabsContent>
 
