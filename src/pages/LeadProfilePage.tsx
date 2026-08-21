@@ -23,7 +23,7 @@ import { TagsManager } from "@/components/crm/TagsManager";
 import { LeadPhonesSection } from "@/components/crm/LeadPhonesSection";
 import { LeadContactsSection } from "@/components/crm/LeadContactsSection";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
@@ -72,7 +72,7 @@ export default function LeadProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { 
-    leads, columns, tasks, timeline, automations: contextAutomations, 
+    leads, columns, pipelines, tasks, timeline, automations: contextAutomations, 
     toggleBasicAutomation, updateLead, deleteLead, addTask, 
     toggleTaskStatus, completeTask, addTimelineEvent, mergeLeads 
   } = useAppState();
@@ -104,6 +104,25 @@ export default function LeadProfilePage() {
   const [showMergeModal, setShowMergeModal] = useState(false);
   const lead = useMemo(() => leads.find((l) => l.id === id), [id, leads]);
   const column = useMemo(() => columns.find((c) => c.id === lead?.column_id), [lead, columns]);
+
+  // Etapas de todos os funis chegam num array flat (AppContext carrega tudo de
+  // uma vez, de propósito). Sem agrupar, o select mostra "Novos Leads" uma vez
+  // por funil — todo funil novo nasce com as mesmas 3 etapas — e escolher a
+  // errada move o lead pra outro funil sem o usuário perceber.
+  const columnsByPipeline = useMemo(() => {
+    const byPipeline = new Map<string, { pipeline: (typeof pipelines)[number]; columns: typeof columns }>();
+    for (const col of columns) {
+      const pipeline = pipelines.find((p) => p.id === col.pipeline_id);
+      if (!pipeline) continue; // etapa órfã: sem funil não há grupo onde exibir
+      if (!byPipeline.has(pipeline.id)) byPipeline.set(pipeline.id, { pipeline, columns: [] });
+      byPipeline.get(pipeline.id)!.columns.push(col);
+    }
+    for (const group of byPipeline.values()) group.columns.sort((a, b) => a.order - b.order);
+    // Funil atual do lead primeiro — é onde ele quase sempre vai querer mexer.
+    return Array.from(byPipeline.values()).sort((a, b) =>
+      a.pipeline.id === column?.pipeline_id ? -1 : b.pipeline.id === column?.pipeline_id ? 1 : 0
+    );
+  }, [columns, pipelines, column?.pipeline_id]);
 
   const leadNotes = useMemo<LeadNote[]>(() => {
     if (!lead?.notes_local) return [];
@@ -555,13 +574,20 @@ export default function LeadProfilePage() {
                         <SelectValue placeholder="Selecione uma etapa" />
                       </SelectTrigger>
                       <SelectContent>
-                        {columns.map((col) => (
-                          <SelectItem key={col.id} value={col.id} className="text-xs">
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />
-                              {col.name}
-                            </div>
-                          </SelectItem>
+                        {columnsByPipeline.map(({ pipeline, columns: cols }) => (
+                          <SelectGroup key={pipeline.id}>
+                            <SelectLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                              {pipeline.name}
+                            </SelectLabel>
+                            {cols.map((col) => (
+                              <SelectItem key={col.id} value={col.id} className="text-xs">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />
+                                  {col.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         ))}
                       </SelectContent>
                     </Select>
