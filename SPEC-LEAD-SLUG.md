@@ -73,6 +73,40 @@ Todo `navigate(\`/leads/${id}\`)` no código deveria preferir `slug` quando disp
 Maior parte do esforço real está no backfill + na função de resolução da rota, não nesses 10 call
 sites.
 
+## Segmentos reservados — bloqueador achado no batch de 2026-08-21
+
+`/leads/:idOrSlug` é uma rota curinga: **qualquer** primeiro segmento depois de `/leads/`
+casa. Isso já causou um bug real em produção antes da spec existir — `CRMPage.tsx:153`
+fazia `navigate("/leads/duplicates")` para uma rota que nunca existiu, e em vez de 404 o
+usuário via o `LeadProfilePage` carregando um lead inexistente. Corrigido em
+`[fix-duplicatas-route]` (a rota certa é `/duplicates`, na raiz).
+
+Com UUID o estrago era limitado: um segmento não-UUID simplesmente não achava nada. Com
+slug o risco aumenta — `"duplicates"` vira um slug plausível, e um lead chamado
+"Duplicates" (ou "Novo", "Importar", "Config") passa a competir com uma rota futura.
+
+**Regra para a implementação:**
+
+1. Manter uma lista de segmentos reservados e recusá-los na **geração** do slug — se o
+   slug calculado cair na lista, sufixar com o `shortHash` mesmo quando não houver
+   colisão de nome. Ponto de partida, a partir das rotas atuais de `App.tsx`:
+
+   ```
+   duplicates, new, novo, import, importar, export, config, settings,
+   configuracoes, edit, editar, search, buscar, all, todos
+   ```
+
+2. **Não** criar rotas irmãs sob `/leads/*` daqui pra frente. Página nova relacionada a
+   leads mora na raiz (`/duplicates`, e não `/leads/duplicates`), exatamente como o
+   `DuplicatesPage` já faz hoje. Se um dia for inevitável, declarar a rota literal
+   **antes** da curinga no `App.tsx` — o React Router v6 ordena por especificidade, mas
+   depender disso é frágil quando a lista cresce.
+
+3. Teste unitário: `slugify("Duplicates")` não pode devolver `"duplicates"` puro.
+
+Sem isso, o item 4 da ordem de execução (resolução da rota) reintroduz o mesmo bug que
+o batch acabou de consertar, só que mais difícil de enxergar.
+
 ## Retrocompatibilidade
 
 URLs antigas com UUID puro **continuam funcionando para sempre** — a rota aceita os dois formatos
@@ -102,3 +136,20 @@ plano de desativar o UUID como formato válido.
 5. Atualizar os 10 call sites para preferir `slug`.
 
 Nada disso é implementado nesta rodada — spec fica pronta para quando Rael decidir priorizar.
+
+## Migration (rascunho, NÃO aplicada)
+
+O passo 1 da ordem acima já está escrito como arquivo de migration, na branch
+`fix/lead-slug` — **fora de `main` de propósito**, para que ninguém aplique por engano
+junto de um deploy comum:
+
+```
+supabase/migrations/20260821_add_lead_slug.sql
+```
+
+Cobre só a coluna nullable + índice único parcial. Não faz backfill, não torna `not null`,
+não toca RLS. Comando de aplicação e plano de rollback estão no cabeçalho do próprio
+arquivo e no `RELATORIO-CRM-BATCH-20260821.md`.
+
+*Seção de segmentos reservados e rascunho de migration adicionados em 2026-08-21,
+batch `crm-revision`.*
