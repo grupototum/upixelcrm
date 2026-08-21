@@ -91,7 +91,7 @@ export function LeadDetail({ leadId, onClose }: LeadDetailProps) {
   const id = leadId;
   const { 
     leads, columns, pipelines, tasks, timeline, automations: contextAutomations, 
-    toggleBasicAutomation, updateLead, addTask, 
+    toggleBasicAutomation, updateLead, moveLead, addTask, 
     toggleTaskStatus, completeTask, addTimelineEvent 
   } = useAppState();
   
@@ -548,7 +548,12 @@ export function LeadDetail({ leadId, onClose }: LeadDetailProps) {
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Funil de vendas</h3>
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Etapas do Funil</Label>
-                    <Select value={lead.column_id} onValueChange={async (val) => { await updateLead(lead.id, { column_id: val }); }}>
+                    {/* moveLead, não updateLead: mudar de etapa por aqui gravava
+                        um "Lead atualizado" genérico em vez de stage_change, e
+                        não disparava as automações de entrada na coluna — o
+                        mesmo lead arrastado no board tinha comportamento
+                        diferente do lead movido por este select. */}
+                    <Select value={lead.column_id} onValueChange={async (val) => { await moveLead(lead.id, val); }}>
                       <SelectTrigger className="h-9 text-xs">
                         <SelectValue placeholder="Selecione uma etapa" />
                       </SelectTrigger>

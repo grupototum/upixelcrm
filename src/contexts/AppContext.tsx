@@ -427,10 +427,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    // Etapa de outro funil: sem nomear o funil, o timeline vira "movido de
+    // Qualificação para Qualificação" — todo funil novo nasce com as mesmas
+    // 3 etapas, então só o nome da coluna não diz o que aconteceu.
+    const crossPipeline =
+      !!fromCol && !!toCol && fromCol.pipeline_id !== toCol.pipeline_id;
+    const pipeName = (pipelineId?: string) =>
+      pipelines.find((p) => p.id === pipelineId)?.name ?? "?";
     await addTimelineEvent({
       lead_id: id,
       type: "stage_change",
-      content: `"${lead.name}" movido de ${fromCol?.name ?? "?"} para ${toCol?.name ?? "?"}`,
+      content: crossPipeline
+        ? `"${lead.name}" movido de ${fromCol?.name ?? "?"} (funil "${pipeName(fromCol?.pipeline_id)}") para ${toCol?.name ?? "?"} (funil "${pipeName(toCol?.pipeline_id)}")`
+        : `"${lead.name}" movido de ${fromCol?.name ?? "?"} para ${toCol?.name ?? "?"}`,
       user_name: "Usuário",
     });
 
@@ -440,7 +449,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await executeAutomationsRef.current(id, "card_entered", toColumnId);
     }
     return true;
-  }, [leads, columns, addTimelineEvent, markLeadDirty]);
+  }, [leads, columns, pipelines, addTimelineEvent, markLeadDirty]);
 
   const moveLeadToPipeline = useCallback(async (id: string, toPipelineId: string) => {
     const lead = leads.find((l) => l.id === id);
