@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -59,6 +59,8 @@ import type { Lead, PipelineColumn } from "@/types";
 import { KanbanColumn } from "@/components/crm/KanbanColumn";
 import { DragOverlayCard } from "@/components/crm/SortableLeadCard";
 import { LeadFormModal } from "@/components/crm/LeadFormModal";
+import { LeadDetail, LeadDetailActions } from "@/components/crm/LeadDetail";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { KanbanSkeleton } from "@/components/crm/KanbanSkeleton";
 import { ColumnConfigModal } from "@/components/crm/ColumnConfigModal";
 import { FilterPopover, EMPTY_FILTERS, type CRMFilters } from "@/components/crm/FilterPopover";
@@ -250,6 +252,28 @@ function CRMPageInner() {
     next.delete("pipeline");
     setSearchParams(next, { replace: true });
   }, [searchParams, pipelines, setPipeline, setSearchParams]);
+
+  // Detalhe do lead abre num Sheet lateral, com o id vivendo em ?lead=<id>.
+  // Fonte da verdade é a URL, não useState: assim voltar/avançar do browser
+  // abre e fecha o painel, e o board atrás não remonta a cada abertura.
+  const selectedLeadId = searchParams.get("lead");
+  const selectedLead = useMemo(
+    () => leads.find((l) => l.id === selectedLeadId),
+    [leads, selectedLeadId]
+  );
+
+  const openLeadSheet = useCallback((leadId: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("lead", leadId);
+    // Entrada no histórico (sem replace) — o "voltar" do browser fecha o painel.
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
+  const closeLeadSheet = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("lead");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -651,7 +675,7 @@ function CRMPageInner() {
                   column={col}
                   leads={colLeads}
                   allColumns={pipelineColumns}
-                  onLeadClick={(lead) => navigate(`/leads/${lead.id}`)}
+                  onLeadClick={(lead) => openLeadSheet(lead.id)}
                   onAddLead={handleAddLead}
                   onConfigColumn={(col, tab) => {
                     setConfigColumn(col);
@@ -684,6 +708,32 @@ function CRMPageInner() {
           </DragOverlay>
         </DndContext>
       )}
+
+      {/* Detalhe do lead. Sheet à direita para o board continuar visível atrás —
+          o usuário mantém o contexto da coluna de onde veio. A rota /leads/:id
+          segue existindo: link compartilhado abre a página cheia. */}
+      <Sheet open={!!selectedLeadId} onOpenChange={(o) => { if (!o) closeLeadSheet(); }}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-[540px] p-0 flex flex-col gap-0 overflow-hidden"
+        >
+          <SheetHeader className="px-6 py-4 border-b border-border shrink-0 text-left">
+            <div className="flex items-center justify-between gap-3 pr-8">
+              <SheetTitle className="text-base font-semibold truncate">
+                {selectedLead?.name ?? "Lead"}
+              </SheetTitle>
+              <LeadDetailActions leadId={selectedLeadId ?? undefined} onClose={closeLeadSheet} />
+            </div>
+          </SheetHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* key força remontar ao trocar de lead: o LeadDetail guarda rascunho
+                de nota/tarefa em estado local, que não pode vazar entre leads. */}
+            {selectedLeadId && (
+              <LeadDetail key={selectedLeadId} leadId={selectedLeadId} onClose={closeLeadSheet} />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <LeadFormModal
         open={showForm}
