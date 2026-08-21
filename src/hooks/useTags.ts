@@ -1,11 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { untypedFrom } from "@/lib/supabase-untyped";
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 import type { TagMeta } from "@/types";
+import * as leadsRepo from "@/services/leads";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolveClientId, isValidUuid } from "@/lib/tenant-utils";
+
+/** PostgREST devolve o code do Postgres; 23505 = violação de unique. */
+function errCode(e: unknown): string | undefined {
+  return typeof e === "object" && e !== null && "code" in e
+    ? String((e as { code: unknown }).code)
+    : undefined;
+}
+
+function errMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
 
 export function useTags() {
   const [tags, setTags] = useState<TagMeta[]>([]);
@@ -13,25 +24,22 @@ export function useTags() {
 
   const { tenant } = useTenant();
   const { user } = useAuth();
-  const clientId = tenant?.id ?? user?.client_id;
+  // A tabela `tags` é escopada por tenant_id (UUID) — a coluna client_id não
+  // existe mais no banco (ver services/leads.ts). A sentinela "master" do
+  // TenantContext e client_ids legados não-UUID quebrariam o cast, daí o guard.
+  const tenantId = resolveClientId(tenant?.id, user?.client_id);
 
   const fetchTags = useCallback(async () => {
-    if (!clientId) { setLoading(false); return; }
+    if (!isValidUuid(tenantId)) { setTags([]); setLoading(false); return; }
     setLoading(true);
-    // tags.client_id existe no banco mas não nos tipos gerados (schema drift)
-    const { data, error } = await untypedFrom("tags")
-      .select("*")
-      .eq("client_id", clientId)
-      .order("name", { ascending: true });
-
-    if (error) {
-      logger.error("Error fetching tags:", error);
-      toast.error("Erro ao carregar etiquetas. Tente novamente.");
-    } else {
-      setTags((data as unknown as TagMeta[]) || []);
+    try {
+      setTags(await leadsRepo.listTags(tenantId));
+    } catch (e) {
+      logger.error("Error fetching tags:", e);
+      toast.error("Erro ao carregar etiquetas: " + errMessage(e));
     }
     setLoading(false);
-  }, [clientId]);
+  }, [tenantId]);
 
   useEffect(() => {
     fetchTags();
@@ -39,59 +47,44 @@ export function useTags() {
 
   const createTag = useCallback(
     async (params: { name: string; color?: string; category?: string }) => {
-      if (!clientId) { toast.error("Sem contexto de cliente."); return null; }
-      const { data, error } = await untypedFrom("tags")
-        .insert({
-          client_id: clientId,
-          name: params.name,
-          color: params.color || "#6366f1",
-          category: params.category || "general",
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Esta tag já existe.");
-        } else {
-          toast.error("Erro ao criar tag: " + error.message);
-        }
+      if (!isValidUuid(tenantId)) { toast.error("Sem contexto de tenant."); return null; }
+      try {
+        const data = await leadsRepo.createTag(tenantId, params);
+        toast.success(`Tag "${params.name}" criada!`);
+        setTags((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+        return data;
+      } catch (e) {
+        toast.error(
+          errCode(e) === "23505"
+            ? "Esta tag já existe."
+            : "Erro ao criar tag: " + errMessage(e)
+        );
         return null;
       }
-      toast.success(`Tag "${params.name}" criada!`);
-      setTags((prev) => [...prev, data as unknown as TagMeta].sort((a, b) => a.name.localeCompare(b.name)));
-      return data;
     },
-    [clientId]
+    [tenantId]
   );
 
   const updateTag = useCallback(
     async (id: string, updates: Partial<Pick<TagMeta, "name" | "color" | "category">>) => {
-      const { error } = await supabase
-        .from("tags")
-        .update(updates)
-        .eq("id", id);
-
-      if (error) {
-        toast.error("Erro ao atualizar tag: " + error.message);
+      try {
+        await leadsRepo.updateTag(id, updates);
+      } catch (e) {
+        toast.error("Erro ao atualizar tag: " + errMessage(e));
         return false;
       }
-      setTags((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-      );
+      setTags((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+      toast.success("Tag atualizada.");
       return true;
     },
     []
   );
 
   const deleteTag = useCallback(async (id: string) => {
-    const { error } = await supabase
-      .from("tags")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Erro ao excluir tag: " + error.message);
+    try {
+      await leadsRepo.deleteTag(id);
+    } catch (e) {
+      toast.error("Erro ao excluir tag: " + errMessage(e));
       return false;
     }
     setTags((prev) => prev.filter((t) => t.id !== id));
@@ -99,12 +92,5 @@ export function useTags() {
     return true;
   }, []);
 
-  return {
-    tags,
-    loading,
-    fetchTags,
-    createTag,
-    updateTag,
-    deleteTag,
-  };
+  return { tags, loading, fetchTags, createTag, updateTag, deleteTag };
 }
