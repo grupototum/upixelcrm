@@ -150,7 +150,7 @@ function DuplicatesButton() {
       size="sm"
       variant="outline"
       className="text-xs gap-1.5 h-8 text-muted-foreground"
-      onClick={() => navigate("/leads/duplicates")}
+      onClick={() => navigate("/duplicates")}
       title="Ver sugestões de leads duplicados"
     >
       <Copy className="h-3.5 w-3.5" /> Duplicatas · {totalDuplicates}
