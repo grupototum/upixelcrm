@@ -18,9 +18,15 @@ import type { Lead, PipelineColumn, Task } from "@/types";
 // FIX-23: Only virtualize columns with many leads — columns below this threshold
 // render normally so the DnD experience is identical to before for small lists.
 const VIRTUALIZATION_THRESHOLD = 20;
-// Approximate height of one lead card (px). The virtualizer measures actual heights
-// dynamically, so this is only the initial estimate.
-const ESTIMATED_CARD_HEIGHT = 108;
+// Altura estimada de um card (px), usada só para os itens ainda não medidos —
+// o virtualizer remede cada card conforme entra na viewport.
+// Calibrado para o card mínimo real (nome + 1 linha de contato + rodapé de
+// avatar + padding + o gap de 8px do wrapper): quase toda linha do card é
+// condicional, então o caso comum é bem mais baixo que o caso completo.
+// Estimar por cima infla getTotalSize() e deixa um vão morto no fim da coluna
+// que só encolhe conforme o usuário rola. Se o card mudar de altura, este é o
+// número a recalibrar.
+const ESTIMATED_CARD_HEIGHT = 92;
 
 interface KanbanColumnProps {
   column: PipelineColumn;
@@ -219,8 +225,16 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
           setDroppableRef(node);
           scrollContainerRef.current = node;
         }}
-        className={`overflow-y-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
-        style={{ height: "calc(100vh - 220px)" }}
+        // flex-1 + min-h-0 em vez de height: calc(100vh - 220px).
+        // O 220px era chute e errava por 68px: o espaço real é 100vh menos o
+        // header do AppLayout (64px), o p-6 do board (48px) e o header desta
+        // coluna (~40px, variável quando a etapa tem descrição). Como era
+        // `height` fixo e o pai é flex com align-items:stretch, a coluna era
+        // esticada até 100vh-152px enquanto o filho parava em 100vh-220px —
+        // sobrava faixa morta no rodapé de toda coluna, sempre.
+        // min-h-0 é obrigatório: sem ele o filho flex não encolhe abaixo do
+        // conteúdo e o overflow-y-auto nunca chega a rolar.
+        className={`flex-1 min-h-0 overflow-y-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
       >
         {/* SortableContext always receives ALL lead IDs — not just the visible ones —
             so @dnd-kit knows the complete order even when items are outside the viewport. */}
