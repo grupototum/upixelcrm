@@ -14,9 +14,20 @@ import { toast } from "sonner";
 
 // Maps AppContext basic-rule trigger types → complex automation visual-builder trigger types.
 // Module-scoped: stable across renders, no need to memoize or list in hook deps.
+//
+// `card_entered` NÃO mapeia para nada, de propósito. moveLead dispara os dois
+// eventos em sequência (stage_changed, depois card_entered) porque as regras
+// básicas são filtradas por trigger.type e cada uma escuta só o seu. Mas este
+// mapa não filtra: com card_entered também apontando para "status_change", toda
+// automação complexa com gatilho "Mudança de Etapa de Funil" era invocada DUAS
+// vezes por movimentação — e o automation-engine envia WhatsApp, então o lead
+// recebia a mensagem duplicada.
+//
+// Mudança de etapa é stage_changed. Lead novo já é coberto por new_lead (addLead
+// dispara os dois). Não devolver card_entered para este mapa sem antes deduplicar
+// as invocações dentro de executeAutomations.
 const complexTriggerMap: Record<string, string[]> = {
   stage_changed: ["status_change"],
-  card_entered:  ["status_change"],
   new_lead:      ["new_lead"],
   tag_added:     ["tag_added"],
 };
