@@ -5,6 +5,47 @@ import App from "./App.tsx";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./index.css";
 
+// Recuperação de chunk obsoleto após deploy.
+//
+// As rotas são carregadas com lazy(() => import(...)), e o nome de cada chunk
+// carrega um hash do conteúdo. Quando sobe um build novo, os hashes mudam e os
+// arquivos antigos somem do CDN — mas uma aba já aberta continua com o HTML
+// anterior em memória, apontando para os nomes velhos. Navegar para /inbox
+// nessa aba dispara um import() de um arquivo que não existe mais, e o usuário
+// vê o ErrorBoundary ("Algo deu errado") sem nada de errado no app.
+//
+// O Vite emite `vite:preloadError` exatamente nesse caso. Recarregar resolve:
+// a navegação busca o HTML novo (a Vercel serve index.html com max-age=0,
+// must-revalidate, e o service worker é network-first em navegação), que já
+// aponta para os hashes atuais.
+//
+// A trava não é opcional: sem ela, um import() que falha por qualquer outro
+// motivo — rede instável, build realmente quebrado — recarrega a página em loop
+// infinito.
+//
+// A trava é por tempo, não por sessão. Uma trava permanente na sessão impediria
+// a recuperação no segundo deploy da mesma aba (hoje saem vários no mesmo dia);
+// uma trava que se limpa no load seguinte não trava nada, porque o próprio
+// reload dispara o load. A janela resolve os dois: recupera de deploys
+// sucessivos, mas um chunk que falha de verdade não recarrega mais de uma vez
+// a cada 10 minutos — na segunda falha dentro da janela o ErrorBoundary aparece,
+// que é o comportamento honesto.
+const PRELOAD_RELOAD_KEY = "upixel:chunk-reload-at";
+const PRELOAD_RELOAD_WINDOW_MS = 10 * 60 * 1000;
+
+window.addEventListener("vite:preloadError", (event) => {
+  const last = Number(sessionStorage.getItem(PRELOAD_RELOAD_KEY) ?? 0);
+  if (Date.now() - last < PRELOAD_RELOAD_WINDOW_MS) {
+    // Já recarregamos há pouco e o chunk continua falhando: não é build
+    // obsoleto. Deixa o erro subir para o ErrorBoundary.
+    return;
+  }
+  event.preventDefault();
+  sessionStorage.setItem(PRELOAD_RELOAD_KEY, String(Date.now()));
+  logger.warn("Chunk obsoleto detectado após deploy — recarregando para pegar o build novo.");
+  window.location.reload();
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
