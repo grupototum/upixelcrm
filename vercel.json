@@ -4,6 +4,9 @@
       "source": "/functions/v1/:path*",
       "destination": "https://xusdhzwfkzufupjwbebt.supabase.co/functions/v1/:path*"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
   ]
 }
