@@ -363,10 +363,10 @@ export function AppSidebar() {
                   : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
               }`}
             >
-              {/* Único ícone da sidebar que NÃO é #FF5100 no UIDL: o de
-                  Novidades vem com stroke='#FF9500'. É de onde saiu a
-                  variável Colors/Orange que eu confundi com a marca. */}
-              <Sparkles className="h-[18px] w-[18px] text-[#FF9500]" />
+              {/* Pedido explícito: todo ícone do menu laranja, sem exceção —
+                  inclusive este, que no UIDL do Figma era #FF9500 (o único
+                  fora do padrão #FF5100 dos demais). */}
+              <Sparkles className="h-[18px] w-[18px] text-primary" />
               <span>Novidades</span>
             </Link>
             <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">

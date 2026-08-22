@@ -504,7 +504,6 @@ function CRMPageInner() {
 
   return (
     <AppLayout
-      title="Funil de Vendas"
       subtitle={
         <div className="flex flex-col gap-4 mt-1">
           <div className="flex items-center gap-4">
