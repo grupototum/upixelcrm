@@ -170,7 +170,12 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
       ref={sortable.setNodeRef}
       style={columnStyle}
       {...sortable.attributes}
-      className="flex flex-col w-72 shrink-0"
+      // self-start tira o stretch do board (que é `flex`, logo
+      // align-items:stretch por padrão): a coluna passa a ter a altura dos
+      // próprios cards em vez de descer até o fim da tela.
+      // max-h-full devolve o teto que o stretch dava — coluna cheia para de
+      // crescer na altura do board e a lista interna rola.
+      className="flex flex-col w-72 shrink-0 self-start max-h-full"
     >
       <div className="flex items-center justify-between mb-3 px-1 group">
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -243,16 +248,20 @@ export function KanbanColumn({ column, leads, allColumns, onLeadClick, onAddLead
           setDroppableRef(node);
           scrollContainerRef.current = node;
         }}
-        // flex-1 + min-h-0 em vez de height: calc(100vh - 220px).
-        // O 220px era chute e errava por 68px: o espaço real é 100vh menos o
-        // header do AppLayout (64px), o p-6 do board (48px) e o header desta
-        // coluna (~40px, variável quando a etapa tem descrição). Como era
-        // `height` fixo e o pai é flex com align-items:stretch, a coluna era
-        // esticada até 100vh-152px enquanto o filho parava em 100vh-220px —
-        // sobrava faixa morta no rodapé de toda coluna, sempre.
-        // min-h-0 é obrigatório: sem ele o filho flex não encolhe abaixo do
-        // conteúdo e o overflow-y-auto nunca chega a rolar.
-        className={`flex-1 min-h-0 overflow-y-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
+        // Altura do conteúdo, não da viewport. Antes era `height:
+        // calc(100vh - 220px)` (número mágico que errava por 68px), depois
+        // `flex-1` — que corrigia a conta mas ainda esticava a coluna até em
+        // baixo. Agora a caixa termina no último card: quem limita é o
+        // `max-h-full` do wrapper da coluna, e o flex-shrink padrão encolhe
+        // esta div quando o conteúdo passa da tela.
+        //
+        // min-h-[6rem] faz dois papéis, e por isso substitui o min-h-0 antigo
+        // em vez de conviver com ele (são a mesma propriedade CSS): permite que
+        // o item flex encolha abaixo da altura do conteúdo — sem isso o
+        // overflow-y-auto nunca rola — e dá piso à área de drop. Encolher ao
+        // conteúdo faz o alvo do dnd-kit encolher junto, e uma etapa vazia
+        // viraria um alvo de poucos pixels, impossível de acertar arrastando.
+        className={`min-h-[6rem] overflow-y-auto pb-4 rounded-xl p-1 transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
       >
         {/* SortableContext always receives ALL lead IDs — not just the visible ones —
             so @dnd-kit knows the complete order even when items are outside the viewport. */}
