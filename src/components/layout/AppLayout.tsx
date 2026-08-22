@@ -6,7 +6,6 @@ import { ThemeToggle } from "./ThemeToggle";
 import { NotificationPopover } from "./NotificationPopover";
 import { SettingsPopover } from "./SettingsPopover";
 import { CommandPalette } from "./CommandPalette";
-import { CommandPaletteTrigger } from "./CommandPaletteTrigger";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -80,7 +79,6 @@ export function AppLayout({ children, title, subtitle, actions, breadcrumbLabel 
               )}
             </div>
             <div className="flex items-center gap-2">
-              <CommandPaletteTrigger />
               {actions}
               <NotificationPopover />
               <SettingsPopover />
