@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import upixelLight from "@/assets/upixel_light.png";
 import upixelDark from "@/assets/upixel_dark.png";
+import { CommandPaletteTrigger } from "@/components/layout/CommandPaletteTrigger";
 import upixelIconLight from "@/assets/upixel_icon_light.png";
 import upixelIconDark from "@/assets/upixel_icon_dark.png";
 
@@ -49,15 +50,22 @@ type NavGroup = {
  *   v2: 5 links diretos + 3 grupos = 8 itens visuais, 1 clique pros críticos
  */
 
-// Links diretos — os 6 atalhos mais usados no dia-a-dia.
-const directLinks: NavLeaf[] = [
+// Ordem do Figma (arquivo "Upixel funil"): o trabalho do dia fica em cima, os
+// grupos no meio, e o que é configuração desce para o fim.
+//
+// Operação — o que o usuário abre várias vezes por dia.
+const primaryLinks: NavLeaf[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Metas", url: "/metas", icon: Target },
-  { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
+  { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Funil de Vendas", url: "/crm", icon: Kanban },
-  { title: "Importar", url: "/import", icon: Upload },
+];
+
+// Setup — abaixo dos grupos colapsáveis. Uso esporádico.
+const secondaryLinks: NavLeaf[] = [
   { title: "Integrações", url: "/integrations", icon: Plug },
+  { title: "Importar", url: "/import", icon: Upload },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
@@ -129,7 +137,7 @@ export function AppSidebar() {
   const { inboxCount, tasksCount } = useUnreadCounts();
 
   // Atualiza os badges dos links diretos com counts vivos.
-  const linksWithBadges: NavLeaf[] = directLinks.map((link) => {
+  const linksWithBadges: NavLeaf[] = primaryLinks.map((link) => {
     if (link.url === "/inbox") return { ...link, badge: inboxCount };
     if (link.url === "/tasks") return { ...link, badge: tasksCount };
     return link;
@@ -170,9 +178,12 @@ export function AppSidebar() {
         <SidebarMenuButton asChild isActive={active} tooltip={link.title}>
           <Link
             to={link.url}
+            // Ativo no Figma é fundo sutil com ícone e texto em laranja, não o
+            // bloco laranja sólido de antes — o preenchimento cheio competia
+            // com o botão "Novo Lead", que é a única ação primária da tela.
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ${
               active
-                ? "bg-primary text-primary-foreground"
+                ? "bg-sidebar-accent text-primary font-semibold"
                 : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
             }`}
           >
@@ -200,11 +211,18 @@ export function AppSidebar() {
         />
       </div>
 
+      {/* Busca rápida. No Figma ela vive no topo da sidebar, não no header —
+          é o mesmo CommandPaletteTrigger, só que largura cheia. Colapsada, o
+          próprio componente cai para o ícone. */}
+      <div className="px-2 pb-2">
+        <CommandPaletteTrigger fullWidth={!collapsed} />
+      </div>
+
       <SidebarContent className="pt-2 px-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {/* Links diretos — top 6 atalhos (com badges live de unread) */}
+              {/* Operação — atalhos do dia-a-dia (com badges live de unread) */}
               {linksWithBadges.map(renderDirectLink)}
 
               {/* Separador sutil entre links diretos e grupos */}
@@ -298,6 +316,13 @@ export function AppSidebar() {
                   </Collapsible>
                 );
               })}
+
+              {/* Setup — Integrações, Importar, Configurações. Ficam abaixo dos
+                  grupos por ordem do Figma: uso esporádico não disputa o topo. */}
+              {!collapsed && (
+                <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
+              )}
+              {secondaryLinks.map(renderDirectLink)}
 
               {/* Links exclusivos de master — separador + render */}
               {isMaster && (
