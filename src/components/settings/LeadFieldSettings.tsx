@@ -81,7 +81,7 @@ export function LeadFieldSettings() {
                   </div>
                 </SortableContext>
               </DndContext>
-              <Button onClick={handleSave} disabled={saving} className="gap-2 bg-primary hover:bg-[#e08300] text-white">
+              <Button onClick={handleSave} disabled={saving} className="gap-2 bg-primary hover:bg-[#e04400] text-white">
                 Salvar configuração
               </Button>
             </>

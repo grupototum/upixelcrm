@@ -455,7 +455,7 @@ export function ReplyBox({
               
               <Button
                 size="icon"
-                className={`h-9 w-9 rounded-full shrink-0 shadow-lg transition-all active:scale-95 ${isPrivate ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-primary shadow-primary/20 hover:bg-[#e08300]"}`}
+                className={`h-9 w-9 rounded-full shrink-0 shadow-lg transition-all active:scale-95 ${isPrivate ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-primary shadow-primary/20 hover:bg-[#e04400]"}`}
                 disabled={!message.trim() || sending}
                 onClick={handleSend}
               >

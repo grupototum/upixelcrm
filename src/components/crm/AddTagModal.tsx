@@ -69,7 +69,7 @@ export function AddTagModal({ open, onOpenChange, leadId }: AddTagModalProps) {
                 size="icon"
                 onClick={() => handleAddTag(newTag)}
                 disabled={!newTag.trim() || currentTags.includes(newTag) || loading}
-                className="rounded-xl h-11 w-11 shrink-0 bg-primary hover:bg-[#e08300] shadow-lg"
+                className="rounded-xl h-11 w-11 shrink-0 bg-primary hover:bg-[#e04400] shadow-lg"
               >
                 <Plus className="h-5 w-5" />
               </Button>

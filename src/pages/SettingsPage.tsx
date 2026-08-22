@@ -100,7 +100,7 @@ export default function SettingsPage() {
                     </p>
                     <Button
                       onClick={() => navigate("/users")}
-                      className="gap-2 bg-primary hover:bg-[#e08300] text-white"
+                      className="gap-2 bg-primary hover:bg-[#e04400] text-white"
                     >
                       Abrir gestão de equipe <ArrowRight className="h-4 w-4" />
                     </Button>
@@ -131,7 +131,7 @@ export default function SettingsPage() {
                   </p>
                   <Button
                     onClick={() => navigate("/integrations")}
-                    className="gap-2 bg-primary hover:bg-[#e08300] text-white"
+                    className="gap-2 bg-primary hover:bg-[#e04400] text-white"
                   >
                     Abrir Integrações <ArrowRight className="h-4 w-4" />
                   </Button>

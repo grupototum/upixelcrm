@@ -7,7 +7,7 @@ const CSS = `
   --z-black:#201515;
   --z-cream:#fffefb;
   --z-offwhite:#fffdf9;
-  --z-orange:#ff9500;
+  --z-orange:#ff4f00;
   --z-charcoal:#36342e;
   --z-warm-gray:#939084;
   --z-sand:#c5c0b1;

@@ -10,7 +10,7 @@ const triggerLabels: Record<string, string> = {
 export function BotStartNode({ data }: { data: { label?: string; trigger?: string; keyword?: string } }) {
   const trigger = data.trigger || 'manual';
   return (
-    <div className="w-[220px] rounded-lg bg-[#ff9500] text-white overflow-hidden shadow-none border-2 border-[#ff9500]">
+    <div className="w-[220px] rounded-lg bg-[#ff4f00] text-white overflow-hidden shadow-none border-2 border-[#ff4f00]">
       <div className="flex items-center gap-2 px-3 py-2">
         <Zap className="w-4 h-4 shrink-0" />
         <span className="font-bold text-sm">Início</span>
@@ -23,7 +23,7 @@ export function BotStartNode({ data }: { data: { label?: string; trigger?: strin
         {data.label && <p className="opacity-70 mt-0.5 truncate">{data.label}</p>}
       </div>
       <Handle type="source" position={Position.Right}
-        className="w-3 h-3 bg-white border-2 border-[#ff9500] -mr-1.5" />
+        className="w-3 h-3 bg-white border-2 border-[#ff4f00] -mr-1.5" />
     </div>
   );
 }

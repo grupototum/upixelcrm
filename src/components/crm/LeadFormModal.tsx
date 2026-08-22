@@ -272,7 +272,7 @@ export function LeadFormModal({ open, onClose, onSave, lead, columns, defaultCol
               if ((await onSave(form)) === false) setSubmitting(false);
             }}
             disabled={!form.name?.trim() || submitting}
-            className="rounded-xl grow bg-primary hover:bg-[#e08300] text-primary-foreground h-11"
+            className="rounded-xl grow bg-primary hover:bg-[#e04400] text-primary-foreground h-11"
           >
             {submitting ? "Salvando..." : lead ? "Salvar Alterações" : "Criar Lead"}
           </Button>

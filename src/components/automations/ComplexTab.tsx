@@ -77,7 +77,7 @@ export function ComplexTab() {
           return (
             <div
               key={wf.id}
-              className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-[#ff9500]/30 transition-all duration-200 group flex flex-col relative"
+              className="bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover hover:border-[#ff4f00]/30 transition-all duration-200 group flex flex-col relative"
             >
               <div
                 onClick={() => navigate(`/automations/builder/${wf.id}`)}

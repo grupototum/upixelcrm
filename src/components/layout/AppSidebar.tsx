@@ -50,20 +50,25 @@ type NavGroup = {
  *   v2: 5 links diretos + 3 grupos = 8 itens visuais, 1 clique pros críticos
  */
 
-// Ordem do Figma (arquivo "Upixel funil"): o trabalho do dia fica em cima, os
-// grupos no meio, e o que é configuração desce para o fim.
-//
-// Operação — o que o usuário abre várias vezes por dia.
-const primaryLinks: NavLeaf[] = [
+// Três blocos separados por divisor, na ordem e no agrupamento do UIDL do
+// Figma (arquivo "Upixel funil", node 1:2).
+
+// "Meu dia" — o que se abre para saber onde eu estou.
+const dailyLinks: NavLeaf[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Metas", url: "/metas", icon: Target },
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
+];
+
+// "Trabalho com leads" — Inbox e Funil ficam colados aos grupos de Marketing
+// e Automações; no design não há divisor entre eles.
+const workLinks: NavLeaf[] = [
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Funil de Vendas", url: "/crm", icon: Kanban },
 ];
 
-// Setup — abaixo dos grupos colapsáveis. Uso esporádico.
-const secondaryLinks: NavLeaf[] = [
+// Setup — uso esporádico, desce para o fim.
+const setupLinks: NavLeaf[] = [
   { title: "Integrações", url: "/integrations", icon: Plug },
   { title: "Importar", url: "/import", icon: Upload },
   { title: "Configurações", url: "/settings", icon: Settings },
@@ -136,12 +141,14 @@ export function AppSidebar() {
   const isMaster = user?.role === "master";
   const { inboxCount, tasksCount } = useUnreadCounts();
 
-  // Atualiza os badges dos links diretos com counts vivos.
-  const linksWithBadges: NavLeaf[] = primaryLinks.map((link) => {
-    if (link.url === "/inbox") return { ...link, badge: inboxCount };
-    if (link.url === "/tasks") return { ...link, badge: tasksCount };
-    return link;
-  });
+  // Badges vivos. Inbox e Tarefas caem em blocos diferentes, então o mapa é
+  // aplicado em qualquer lista.
+  const withBadges = (links: NavLeaf[]): NavLeaf[] =>
+    links.map((link) => {
+      if (link.url === "/inbox") return { ...link, badge: inboxCount };
+      if (link.url === "/tasks") return { ...link, badge: tasksCount };
+      return link;
+    });
 
   // Acordeão: apenas 1 grupo aberto por vez. Auto-abre o grupo que contém a rota ativa.
   const initialOpenGroup =
@@ -178,16 +185,20 @@ export function AppSidebar() {
         <SidebarMenuButton asChild isActive={active} tooltip={link.title}>
           <Link
             to={link.url}
-            // Ativo no Figma é fundo sutil com ícone e texto em laranja, não o
-            // bloco laranja sólido de antes — o preenchimento cheio competia
-            // com o botão "Novo Lead", que é a única ação primária da tela.
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ${
+            // UIDL do item ativo ("Funil de Vendas"):
+            //   backgroundColor: rgba(37,37,34,1)   -> fundo sutil
+            //   color:           rgba(255,254,250,1) -> texto BRANCO
+            // Ou seja: nem bloco laranja sólido (como era antes), nem texto
+            // laranja (como eu tinha lido errado do screenshot). O laranja
+            // fica só no ícone — que é laranja em todos os itens.
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] transition-all duration-200 ${
               active
-                ? "bg-sidebar-accent text-primary font-semibold"
-                : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
+                ? "bg-sidebar-accent text-foreground font-semibold"
+                : "text-sidebar-foreground font-medium hover:text-foreground hover:bg-sidebar-accent"
             }`}
           >
-            <link.icon className="h-[18px] w-[18px] shrink-0" />
+            {/* No UIDL todo ícone da sidebar é stroke='#FF5100', ativo ou não. */}
+            <link.icon className="h-[18px] w-[18px] shrink-0 text-primary" />
             {!collapsed && (
               <>
                 <span className="flex-1">{link.title}</span>
@@ -222,13 +233,16 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {/* Operação — atalhos do dia-a-dia (com badges live de unread) */}
-              {linksWithBadges.map(renderDirectLink)}
+              {/* Bloco 1 — meu dia */}
+              {withBadges(dailyLinks).map(renderDirectLink)}
 
-              {/* Separador sutil entre links diretos e grupos */}
               {!collapsed && (
                 <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
               )}
+
+              {/* Bloco 2 — trabalho com leads. Sem divisor antes dos grupos:
+                  no UIDL Marketing e Automações vêm colados no Funil. */}
+              {withBadges(workLinks).map(renderDirectLink)}
 
               {/* Grupos secundários */}
               {navGroups.map((group) => {
@@ -250,11 +264,11 @@ export function AppSidebar() {
                           aria-label={`${group.title}: abrir ${firstItem.title}`}
                           className={`flex items-center justify-center rounded-lg p-2.5 transition-all duration-200 ${
                             groupActive
-                              ? "bg-primary text-primary-foreground"
+                              ? "bg-sidebar-accent text-foreground"
                               : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
                           }`}
                         >
-                          <group.icon className="h-[18px] w-[18px] shrink-0" />
+                          <group.icon className="h-[18px] w-[18px] shrink-0 text-primary" />
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -281,10 +295,11 @@ export function AppSidebar() {
                                 : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
                           }`}
                         >
-                          <group.icon className="h-[18px] w-[18px] shrink-0" />
+                          <group.icon className="h-[18px] w-[18px] shrink-0 text-primary" />
                           <span className="flex-1 text-left">{group.title}</span>
+                          {/* O chevron dos grupos também é #FF5100 no UIDL. */}
                           <ChevronRight
-                            className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                            className={`h-3.5 w-3.5 shrink-0 text-primary transition-transform ${isOpen ? "rotate-90" : ""}`}
                           />
                         </button>
                       </CollapsibleTrigger>
@@ -300,11 +315,11 @@ export function AppSidebar() {
                                   to={item.url}
                                   className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition-all duration-200 ${
                                     isActive
-                                      ? "bg-primary text-primary-foreground"
+                                      ? "bg-sidebar-accent text-foreground font-semibold"
                                       : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
                                   }`}
                                 >
-                                  <item.icon className="h-4 w-4 shrink-0" />
+                                  <item.icon className="h-4 w-4 shrink-0 text-primary" />
                                   <span>{item.title}</span>
                                 </Link>
                               </SidebarMenuButton>
@@ -317,12 +332,11 @@ export function AppSidebar() {
                 );
               })}
 
-              {/* Setup — Integrações, Importar, Configurações. Ficam abaixo dos
-                  grupos por ordem do Figma: uso esporádico não disputa o topo. */}
+              {/* Bloco 3 — setup */}
               {!collapsed && (
                 <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
               )}
-              {secondaryLinks.map(renderDirectLink)}
+              {setupLinks.map(renderDirectLink)}
 
               {/* Links exclusivos de master — separador + render */}
               {isMaster && (
@@ -345,22 +359,25 @@ export function AppSidebar() {
               to="/novidades"
               className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
                 isLeafActive("/novidades", location.pathname)
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-sidebar-accent text-foreground font-semibold"
                   : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
               }`}
             >
-              <Sparkles className="h-[18px] w-[18px]" />
+              {/* Único ícone da sidebar que NÃO é #FF5100 no UIDL: o de
+                  Novidades vem com stroke='#FF9500'. É de onde saiu a
+                  variável Colors/Orange que eu confundi com a marca. */}
+              <Sparkles className="h-[18px] w-[18px] text-[#FF9500]" />
               <span>Novidades</span>
             </Link>
             <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">
-              <HelpCircle className="h-[18px] w-[18px]" />
+              <HelpCircle className="h-[18px] w-[18px] text-primary" />
               <span>Help</span>
             </button>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
             >
-              <LogOut className="h-[18px] w-[18px]" />
+              <LogOut className="h-[18px] w-[18px] text-primary" />
               <span>Logout</span>
             </button>
           </>
