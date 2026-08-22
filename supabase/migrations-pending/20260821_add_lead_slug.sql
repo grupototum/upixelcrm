@@ -1,3 +1,7 @@
+-- PARKED em 2026-08-21 aguardando "aprovado, aplica em prod" literal do Rael.
+-- Motivo: evitar aplicação acidental via supabase db push cego.
+-- Pra aplicar: mover de volta pra supabase/migrations/ + rodar apply explícito com backup.
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Link amigável para leads — passo 1 de 3 (coluna + índice)
 --
