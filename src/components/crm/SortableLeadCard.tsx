@@ -191,11 +191,19 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, 
               return (
                 <span
                   key={tag}
-                  // Sem cor cadastrada, mantém o estilo antigo em vez de inventar uma.
+                  // UIDL da etiqueta no card:
+                  //   backgroundColor: rgba(255,81,0,0.1)  -> cor a 10%
+                  //   color:           rgba(255,81,0,1)    -> cor cheia
+                  //   borderRadius 4px, padding 2px 6px, 10px/500, gap 2px
+                  // Sem borda — o pill é só fundo translúcido + texto. O card
+                  // usava fundo sólido com texto branco, que destoava tanto do
+                  // design quanto do TagsManager.
+                  //
+                  // Sem cor cadastrada, mantém o fallback em vez de inventar uma.
                   className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-0.5 ${
-                    color ? "text-white" : "bg-primary/10 text-primary"
+                    color ? "" : "bg-primary/10 text-primary"
                   }`}
-                  style={color ? { backgroundColor: color } : undefined}
+                  style={color ? { backgroundColor: `${color}1a`, color } : undefined}
                 >
                   <Tag className="h-2.5 w-2.5" /> {tag}
                 </span>

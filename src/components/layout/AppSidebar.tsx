@@ -50,8 +50,8 @@ type NavGroup = {
  *   v2: 5 links diretos + 3 grupos = 8 itens visuais, 1 clique pros críticos
  */
 
-// Três blocos separados por divisor, na ordem e no agrupamento do Figma
-// (arquivo "Upixel funil", node 1:2).
+// Três blocos separados por divisor, na ordem e no agrupamento do UIDL do
+// Figma (arquivo "Upixel funil", node 1:2).
 
 // "Meu dia" — o que se abre para saber onde eu estou.
 const dailyLinks: NavLeaf[] = [
@@ -61,7 +61,7 @@ const dailyLinks: NavLeaf[] = [
 ];
 
 // "Trabalho com leads" — Inbox e Funil ficam colados aos grupos de Marketing
-// e Automações, que são a continuação do mesmo fluxo. Sem divisor entre eles.
+// e Automações; no design não há divisor entre eles.
 const workLinks: NavLeaf[] = [
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Funil de Vendas", url: "/crm", icon: Kanban },
@@ -141,8 +141,8 @@ export function AppSidebar() {
   const isMaster = user?.role === "master";
   const { inboxCount, tasksCount } = useUnreadCounts();
 
-  // Badges vivos de não-lidos. Inbox e Tarefas caem em blocos diferentes,
-  // então o mapa é aplicado em qualquer lista.
+  // Badges vivos. Inbox e Tarefas caem em blocos diferentes, então o mapa é
+  // aplicado em qualquer lista.
   const withBadges = (links: NavLeaf[]): NavLeaf[] =>
     links.map((link) => {
       if (link.url === "/inbox") return { ...link, badge: inboxCount };
@@ -185,16 +185,19 @@ export function AppSidebar() {
         <SidebarMenuButton asChild isActive={active} tooltip={link.title}>
           <Link
             to={link.url}
-            // Ativo no Figma: fundo sutil e texto BRANCO em negrito — não o
-            // bloco laranja sólido de antes, nem texto laranja. O laranja fica
-            // só no ícone, que já é laranja em todos os itens.
+            // UIDL do item ativo ("Funil de Vendas"):
+            //   backgroundColor: rgba(37,37,34,1)   -> fundo sutil
+            //   color:           rgba(255,254,250,1) -> texto BRANCO
+            // Ou seja: nem bloco laranja sólido (como era antes), nem texto
+            // laranja (como eu tinha lido errado do screenshot). O laranja
+            // fica só no ícone — que é laranja em todos os itens.
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] transition-all duration-200 ${
               active
                 ? "bg-sidebar-accent text-foreground font-semibold"
                 : "text-sidebar-foreground font-medium hover:text-foreground hover:bg-sidebar-accent"
             }`}
           >
-            {/* Laranja em todos os itens, ativo ou não — é assim no Figma. */}
+            {/* No UIDL todo ícone da sidebar é stroke='#FF5100', ativo ou não. */}
             <link.icon className="h-[18px] w-[18px] shrink-0 text-primary" />
             {!collapsed && (
               <>
@@ -238,7 +241,7 @@ export function AppSidebar() {
               )}
 
               {/* Bloco 2 — trabalho com leads. Sem divisor antes dos grupos:
-                  Marketing e Automações são a continuação do mesmo fluxo. */}
+                  no UIDL Marketing e Automações vêm colados no Funil. */}
               {withBadges(workLinks).map(renderDirectLink)}
 
               {/* Grupos secundários */}
@@ -294,6 +297,7 @@ export function AppSidebar() {
                         >
                           <group.icon className="h-[18px] w-[18px] shrink-0 text-primary" />
                           <span className="flex-1 text-left">{group.title}</span>
+                          {/* O chevron dos grupos também é #FF5100 no UIDL. */}
                           <ChevronRight
                             className={`h-3.5 w-3.5 shrink-0 text-primary transition-transform ${isOpen ? "rotate-90" : ""}`}
                           />
@@ -359,8 +363,10 @@ export function AppSidebar() {
                   : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
               }`}
             >
-              {/* Novidades é o único ícone dourado no Figma — destaca do laranja. */}
-              <Sparkles className="h-[18px] w-[18px] text-amber-400" />
+              {/* Único ícone da sidebar que NÃO é #FF5100 no UIDL: o de
+                  Novidades vem com stroke='#FF9500'. É de onde saiu a
+                  variável Colors/Orange que eu confundi com a marca. */}
+              <Sparkles className="h-[18px] w-[18px] text-[#FF9500]" />
               <span>Novidades</span>
             </Link>
             <button className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors">
