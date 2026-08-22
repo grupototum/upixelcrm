@@ -151,7 +151,7 @@ export default function TasksPage() {
       title="Tarefas"
       subtitle="Gerenciamento de tarefas"
       actions={
-        <Button size="sm" className="text-xs gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground rounded-lg" onClick={() => setShowNewTask(true)}>
+        <Button size="sm" className="text-xs gap-1.5 bg-primary hover:bg-[#e08300] text-primary-foreground rounded-lg" onClick={() => setShowNewTask(true)}>
           <Plus className="h-3.5 w-3.5" /> Nova Tarefa
         </Button>
       }

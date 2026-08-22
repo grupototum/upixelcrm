@@ -53,7 +53,7 @@ export function CreateTagModal({ open, onOpenChange }: CreateTagModalProps) {
               <Button
                 onClick={handleCreate}
                 disabled={!tagName.trim()}
-                className="rounded-card h-12 px-6 bg-primary hover:bg-[#e04400] shadow-lg"
+                className="rounded-card h-12 px-6 bg-primary hover:bg-[#e08300] shadow-lg"
               >
                 <Plus className="h-5 w-5 mr-2" /> Criar
               </Button>

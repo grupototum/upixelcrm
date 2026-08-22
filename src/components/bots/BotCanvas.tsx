@@ -65,7 +65,7 @@ function Palette() {
             key={item.type}
             draggable
             onDragStart={(e) => onDragStart(e, item.type, item.label)}
-            className="flex items-center gap-3 p-2.5 rounded-lg border border-[hsl(var(--border-strong))] bg-background cursor-grab active:cursor-grabbing hover:border-[#ff4f00]/40 hover:bg-secondary transition-all"
+            className="flex items-center gap-3 p-2.5 rounded-lg border border-[hsl(var(--border-strong))] bg-background cursor-grab active:cursor-grabbing hover:border-[#ff9500]/40 hover:bg-secondary transition-all"
           >
             <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-white text-xs font-bold"
               style={{ backgroundColor: item.color }}>
@@ -286,7 +286,7 @@ function ConfigPanel({ nodeId, onDelete }: { nodeId: string | null; onDelete: ()
             <p className="text-[9px] font-bold uppercase text-muted-foreground mb-2">Variáveis</p>
             <div className="flex flex-wrap gap-1">
               {['{{lead.name}}', '{{lead.phone}}', '{{lead.email}}'].map((v) => (
-                <button key={v} className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-dashed border-[hsl(var(--border-strong))] hover:border-[#ff4f00] hover:text-[#ff4f00] transition-colors"
+                <button key={v} className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-dashed border-[hsl(var(--border-strong))] hover:border-[#ff9500] hover:text-[#ff9500] transition-colors"
                   onClick={() => {
                     const field = type === 'bot_message' ? 'text' : 'text';
                     update({ [field]: ((d[field] as string) ?? '') + v });

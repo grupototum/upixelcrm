@@ -662,7 +662,7 @@ export default function ImportPage({
               <Button variant="outline" size="sm" className="text-xs" onClick={clearFile}>Voltar</Button>
               <Button
                 size="sm"
-                className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground"
+                className="text-xs bg-primary hover:bg-[#e08300] text-primary-foreground"
                 onClick={() => setStep(3)}
                 disabled={!column}
               >
@@ -798,7 +798,7 @@ export default function ImportPage({
               <Button variant="outline" size="sm" className="text-xs" onClick={() => setStep(2)}>Voltar</Button>
               <Button
                 size="sm"
-                className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground"
+                className="text-xs bg-primary hover:bg-[#e08300] text-primary-foreground"
                 onClick={() => {
                   if (!mapping.name || mapping.name === "__skip") {
                     toast.error("O campo Nome é obrigatório.");
@@ -873,7 +873,7 @@ export default function ImportPage({
               <Button variant="outline" size="sm" className="text-xs" onClick={clearFile}>
                 Nova Importação
               </Button>
-              <Button size="sm" className="text-xs bg-primary hover:bg-[#e04400] text-primary-foreground" asChild>
+              <Button size="sm" className="text-xs bg-primary hover:bg-[#e08300] text-primary-foreground" asChild>
                 <a href="/crm">Ver no CRM</a>
               </Button>
             </div>
