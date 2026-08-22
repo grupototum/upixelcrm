@@ -191,11 +191,15 @@ export function SortableLeadCard({ lead, onClick, tagColors, segmentoFieldSlug, 
               return (
                 <span
                   key={tag}
-                  // Sem cor cadastrada, mantém o estilo antigo em vez de inventar uma.
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-0.5 ${
-                    color ? "text-white" : "bg-primary/10 text-primary"
+                  // Pill outline: borda e texto na cor da etiqueta, fundo só um
+                  // véu dela. É o estilo do Figma, e o mesmo que o TagsManager
+                  // já usa na lista de etiquetas — antes o card destoava, com
+                  // fundo sólido e texto branco.
+                  // Sem cor cadastrada, mantém o fallback em vez de inventar uma.
+                  className={`px-1.5 py-0.5 rounded border text-[10px] font-medium flex items-center gap-0.5 ${
+                    color ? "" : "border-primary/30 bg-primary/10 text-primary"
                   }`}
-                  style={color ? { backgroundColor: color } : undefined}
+                  style={color ? { borderColor: color, color, backgroundColor: `${color}1a` } : undefined}
                 >
                   <Tag className="h-2.5 w-2.5" /> {tag}
                 </span>
