@@ -1184,7 +1184,7 @@ function InboxPageInner() { // force HMR reset
                   <PanelRightClose className="h-4 w-4" />
                 </button>
                 <div className="flex flex-col items-center text-center mb-4">
-                  <div className="h-16 w-16 rounded-card bg-gradient-to-br from-primary to-[#e04400] flex items-center justify-center text-xl font-bold text-primary-foreground shadow-lg mb-3 transform rotate-3 hover:rotate-0 transition-transform">
+                  <div className="h-16 w-16 rounded-card bg-gradient-to-br from-primary to-[#e08300] flex items-center justify-center text-xl font-bold text-primary-foreground shadow-lg mb-3 transform rotate-3 hover:rotate-0 transition-transform">
                     {initials(selectedLead?.name || selectedLeadGroup.lead_name)}
                   </div>
                   <h3 className="text-sm font-bold text-foreground line-clamp-1">{selectedLead?.name || selectedLeadGroup.lead_name}</h3>

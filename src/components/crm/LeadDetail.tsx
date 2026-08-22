@@ -726,7 +726,7 @@ export function LeadDetail({ leadId, onClose }: LeadDetailProps) {
                 {threads.map((thread) => {
                   const msgs = mockMessages.filter((m) => m.thread_id === thread.id);
                   return (
-                    <div key={thread.id} className="bg-card border border-border rounded-lg p-4 hover:border-[#ff4f00]/30 transition-colors cursor-pointer" onClick={() => navigate("/inbox")}>
+                    <div key={thread.id} className="bg-card border border-border rounded-lg p-4 hover:border-[#ff9500]/30 transition-colors cursor-pointer" onClick={() => navigate("/inbox")}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px] capitalize">{thread.channel}</Badge>

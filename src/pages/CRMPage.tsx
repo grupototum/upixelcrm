@@ -613,7 +613,7 @@ function CRMPageInner() {
           <div className="flex items-center">
             <Button
               size="sm"
-              className="text-xs gap-1.5 h-8 rounded-l-lg rounded-r-none bg-primary hover:bg-[#e04400] text-primary-foreground border-r border-primary-foreground/20"
+              className="text-xs gap-1.5 h-8 rounded-l-lg rounded-r-none bg-primary hover:bg-[#e08300] text-primary-foreground border-r border-primary-foreground/20"
               onClick={() => handleAddLead(pipelineColumns[0]?.id ?? "")}
             >
               <Plus className="h-3.5 w-3.5" /> Novo Lead
@@ -622,7 +622,7 @@ function CRMPageInner() {
               <DropdownMenuTrigger asChild>
                 <Button
                   size="sm"
-                  className="text-xs h-8 rounded-l-none rounded-r-lg bg-primary hover:bg-[#e04400] text-primary-foreground px-1.5"
+                  className="text-xs h-8 rounded-l-none rounded-r-lg bg-primary hover:bg-[#e08300] text-primary-foreground px-1.5"
                   aria-label="Mais opções de criação"
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
@@ -767,7 +767,7 @@ function CRMPageInner() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowNewPipeline(false)} className="rounded-xl">Cancelar</Button>
-            <Button onClick={handleCreatePipeline} disabled={!newPipelineName.trim()} className="rounded-xl bg-primary hover:bg-[#e04400] px-8">Criar Funil</Button>
+            <Button onClick={handleCreatePipeline} disabled={!newPipelineName.trim()} className="rounded-xl bg-primary hover:bg-[#e08300] px-8">Criar Funil</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -832,7 +832,7 @@ function CRMPageInner() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditingPipelineId(null)} className="rounded-xl">Cancelar</Button>
-            <Button onClick={handleSavePipelineName} disabled={!editingPipelineName.trim()} className="rounded-xl bg-primary hover:bg-[#e04400] px-8">Salvar</Button>
+            <Button onClick={handleSavePipelineName} disabled={!editingPipelineName.trim()} className="rounded-xl bg-primary hover:bg-[#e08300] px-8">Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

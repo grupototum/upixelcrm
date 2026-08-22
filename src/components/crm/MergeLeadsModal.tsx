@@ -102,7 +102,7 @@ export function MergeLeadsModal({ open, onOpenChange, sourceLead, onMerge }: Mer
           <Button 
             onClick={handleMerge} 
             disabled={!targetId || loading} 
-            className="rounded-xl bg-primary hover:bg-[#e04400] px-8 gap-2 shadow-lg shadow-primary/20"
+            className="rounded-xl bg-primary hover:bg-[#e08300] px-8 gap-2 shadow-lg shadow-primary/20"
           >
             {loading ? "Mesclando..." : "Mesclar Agora"}
           </Button>

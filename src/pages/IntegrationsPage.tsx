@@ -289,7 +289,7 @@ function IntegrationCard({ integration: int, active, hasIntegration, expanded, o
   const B = Badge as any;
 
   return (
-    <div className={`bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col ${active && isAvailable ? 'hover:border-[hsl(var(--border-strong))] ring-1 ring-primary/10' : 'hover:border-[#ff4f00]/30'}`}>
+    <div className={`bg-card ghost-border rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col ${active && isAvailable ? 'hover:border-[hsl(var(--border-strong))] ring-1 ring-primary/10' : 'hover:border-[#ff9500]/30'}`}>
       <div className="flex items-start justify-between mb-3">
         <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${active && isAvailable ? 'bg-primary/10' : 'bg-muted'}`}>
           <int.icon className={`h-5 w-5 ${active && isAvailable ? int.color : 'text-muted-foreground'}`} />
@@ -323,7 +323,7 @@ function IntegrationCard({ integration: int, active, hasIntegration, expanded, o
           // Nunca configurada: CTA primário "Conectar →"
           <Button
             size="sm"
-            className="text-xs w-full rounded-lg gap-1.5 bg-primary hover:bg-[#e04400] text-white"
+            className="text-xs w-full rounded-lg gap-1.5 bg-primary hover:bg-[#e08300] text-white"
             onClick={onConfigure}
           >
             Conectar <ExternalLink className="h-3 w-3" />

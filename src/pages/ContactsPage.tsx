@@ -81,7 +81,7 @@ export default function ContactsPage() {
           </div>
           <Button 
             size="sm" 
-            className="h-9 px-4 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20"
+            className="h-9 px-4 rounded-xl bg-primary hover:bg-[#e08300] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20"
             onClick={() => { setEditingLead(null); setShowForm(true); }}
           >
             <Plus className="h-4 w-4" /> Novo {activeCategory === "partner" ? "Parceiro" : "Colaborador"}

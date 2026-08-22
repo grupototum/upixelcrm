@@ -15,7 +15,7 @@ const badgeVariants = cva(
         success:     "bg-success/15 text-success",
         outline:     "border border-[hsl(var(--border-strong))] text-foreground bg-transparent",
         warm:        "bg-[var(--badge-bg)] text-[var(--badge-fg)]",
-        orange:      "bg-[#ff4f00]/10 text-[#ff4f00] border border-[#ff4f00]/20",
+        orange:      "bg-[#ff9500]/10 text-[#ff9500] border border-[#ff9500]/20",
       },
     },
     defaultVariants: {

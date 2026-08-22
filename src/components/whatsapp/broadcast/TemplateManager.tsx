@@ -85,7 +85,7 @@ export function TemplateManager() {
           </Button>
           <Button
             onClick={() => setCreateOpen(true)}
-            className="rounded-xl h-10 bg-primary hover:bg-[#e04400] font-bold text-xs gap-2 shadow-lg shadow-primary/20"
+            className="rounded-xl h-10 bg-primary hover:bg-[#e08300] font-bold text-xs gap-2 shadow-lg shadow-primary/20"
           >
             <Plus className="h-4 w-4" /> Novo Modelo
           </Button>

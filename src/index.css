@@ -16,7 +16,7 @@
     /* ═══════════════════════════════════════════
        LIGHT MODE — Zapier Design System
        Canvas #fffefb · Zapier Black #201515
-       Zapier Orange #ff4f00 · Sand #c5c0b1
+       Zapier Orange #ff9500 · Sand #c5c0b1
     ═══════════════════════════════════════════ */
 
     /* Canvas — warm cream, never pure white */
@@ -50,8 +50,8 @@
     --accent-hover: 45 15% 83%;
 
     /* Orange — Zapier CTA color */
-    --orange: 19 100% 50%;
-    --orange-hover: 19 100% 44%;
+    --orange: 35 100% 50%;
+    --orange-hover: 35 100% 44%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -83,7 +83,7 @@
     --sidebar-accent: 45 15% 83%;
     --sidebar-accent-foreground: 0 21% 10%;
     --sidebar-border: 45 15% 73%;
-    --sidebar-ring: 19 100% 50%;
+    --sidebar-ring: 35 100% 50%;
 
     /* Surface tiers */
     --bg-primary: 45 100% 99%;
@@ -127,9 +127,9 @@
     --popover: 47 4% 14%;
     --popover-foreground: 45 100% 99%;
 
-    --primary: 19 100% 50%;
+    --primary: 35 100% 50%;
     --primary-foreground: 45 100% 99%;
-    --primary-hover: 19 100% 44%;
+    --primary-hover: 35 100% 44%;
 
     --secondary: 47 4% 14%;
     --secondary-foreground: 45 100% 99%;
@@ -141,8 +141,8 @@
     --accent-foreground: 45 100% 99%;
     --accent-hover: 47 4% 20%;
 
-    --orange: 19 100% 50%;
-    --orange-hover: 19 100% 44%;
+    --orange: 35 100% 50%;
+    --orange-hover: 35 100% 44%;
 
     --destructive: 2 100% 72%;
     --destructive-foreground: 0 0% 100%;
@@ -156,16 +156,16 @@
     --border-strong: 47 5% 30%;
     --border-hover: 47 5% 36%;
     --input: 47 5% 22%;
-    --ring: 19 100% 50%;
+    --ring: 35 100% 50%;
 
     --sidebar-background: 47 4% 10%;
     --sidebar-foreground: 48 7% 55%;
-    --sidebar-primary: 19 100% 50%;
+    --sidebar-primary: 35 100% 50%;
     --sidebar-primary-foreground: 45 100% 99%;
     --sidebar-accent: 47 4% 14%;
     --sidebar-accent-foreground: 45 100% 99%;
     --sidebar-border: 47 5% 22%;
-    --sidebar-ring: 19 100% 50%;
+    --sidebar-ring: 35 100% 50%;
 
     --bg-primary: 47 5% 7%;
     --bg-secondary: 47 4% 10%;
