@@ -70,9 +70,11 @@ export function AppLayout({ children, title, subtitle, actions, breadcrumbLabel 
                   </BreadcrumbList>
                 </Breadcrumb>
               ) : (
-                title && (
+                (title || subtitle) && (
                   <div>
-                    <h1 className="text-base font-semibold text-foreground tracking-tight">{title}</h1>
+                    {title && (
+                      <h1 className="text-base font-semibold text-foreground tracking-tight">{title}</h1>
+                    )}
                     {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
                   </div>
                 )
