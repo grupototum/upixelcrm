@@ -17,7 +17,7 @@ const CSS = `
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --u-dark:#131210;--u-surface:#1a1915;--u-card:#1c1b18;--u-border:#393731;
-  --u-accent:#ff9500;--u-accent2:#19a34a;--u-accent3:#ff7c40;
+  --u-accent:#ff4f00;--u-accent2:#19a34a;--u-accent3:#ff7c40;
   --u-text:#fffefb;--u-muted:#938e84;--u-subtle:#5c5850;
 }
 .lp{background:var(--u-dark);color:var(--u-text);font-family:'Inter',sans-serif;font-size:16px;line-height:1.65;overflow-x:hidden}
@@ -35,7 +35,7 @@ h1,h2,h3,h4{font-family:'Inter',sans-serif;line-height:1.15}
 .hero::before{content:'';position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:700px;height:500px;background:radial-gradient(ellipse at center,rgba(255,79,0,.2) 0%,transparent 70%);pointer-events:none}
 .hero-inner{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:0 24px}
 .hero h1{font-size:clamp(2.6rem,5vw,4.4rem);font-weight:800;letter-spacing:-.03em;max-width:800px;margin:0 auto 1.5rem}
-.hero h1 .grad{background:linear-gradient(135deg,#ff9500,#ff8c40);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero h1 .grad{background:linear-gradient(135deg,#ff4f00,#ff8c40);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .hero p{font-size:1.15rem;color:var(--u-muted);max-width:600px;margin:0 auto 2.5rem;font-weight:300}
 .cta-row{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
 .btn-primary{background:var(--u-accent);color:#fff;border:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;transition:opacity .2s,transform .15s;font-family:'Inter',sans-serif}
@@ -66,7 +66,7 @@ h1,h2,h3,h4{font-family:'Inter',sans-serif;line-height:1.15}
 .section-header p{color:var(--u-muted);font-size:1rem;max-width:520px;margin:0 auto;font-weight:300}
 .divider{border:none;border-top:1px solid var(--u-border);margin:0 24px}
 .stats-bar{background:var(--u-card);border:1px solid var(--u-border);border-radius:16px;padding:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:32px;text-align:center}
-.stat-n{font-family:'Inter',sans-serif;font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#ff9500,#ff8c40);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:6px}
+.stat-n{font-family:'Inter',sans-serif;font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#ff4f00,#ff8c40);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:6px}
 .stat-l{font-size:.85rem;color:var(--u-muted)}
 .pain-narrative{background:var(--u-card);border:1px solid rgba(255,107,74,.25);border-radius:20px;padding:40px 48px;position:relative;overflow:hidden;margin-bottom:2rem}
 .pain-narrative::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,107,74,.12) 1px,transparent 1px);background-size:22px 22px;opacity:.35}
@@ -310,11 +310,11 @@ export default function LandingPage() {
           <svg className="hero-network-bg" viewBox="0 0 900 600" aria-hidden="true">
             <defs>
               <linearGradient id="netGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" style={{ stopColor: "#ff9500", stopOpacity: 1 }} />
+                <stop offset="0%" style={{ stopColor: "#ff4f00", stopOpacity: 1 }} />
                 <stop offset="100%" style={{ stopColor: "#ff8c40", stopOpacity: 1 }} />
               </linearGradient>
               <radialGradient id="centerGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" style={{ stopColor: "#ff9500", stopOpacity: 1 }} />
+                <stop offset="0%" style={{ stopColor: "#ff4f00", stopOpacity: 1 }} />
                 <stop offset="100%" style={{ stopColor: "#ff8c40", stopOpacity: 1 }} />
               </radialGradient>
             </defs>

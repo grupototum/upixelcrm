@@ -50,7 +50,7 @@ export default function GoalsConfigPage() {
       subtitle="Criar, editar e gerenciar as metas da equipe"
       breadcrumbLabel="Configurar"
       actions={
-        <Button size="sm" className="gap-1.5 bg-primary hover:bg-[#e08300] text-primary-foreground" onClick={openCreate}>
+        <Button size="sm" className="gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" /> Nova Meta
         </Button>
       }

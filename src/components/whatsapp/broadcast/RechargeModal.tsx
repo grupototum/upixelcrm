@@ -131,7 +131,7 @@ export function RechargeModal({ open, onOpenChange }: RechargeModalProps) {
 
               <Button 
                 onClick={handleGeneratePayment}
-                className="w-full h-14 rounded-card bg-primary hover:bg-[#e08300] text-white font-heading font-black text-base shadow-xl shadow-primary/20 group"
+                className="w-full h-14 rounded-card bg-primary hover:bg-[#e04400] text-white font-heading font-black text-base shadow-xl shadow-primary/20 group"
                 disabled={loading || !cpfCnpj}
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
