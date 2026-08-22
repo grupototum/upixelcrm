@@ -264,7 +264,7 @@ export function BroadcastConfigModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-primary hover:bg-[#e08300] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
+        <Button size="sm" className="bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
           <Send className="h-3.5 w-3.5" /> NOVO DISPARO
         </Button>
       </DialogTrigger>
@@ -647,14 +647,14 @@ export function BroadcastConfigModal() {
             ← Voltar
           </Button>
           {step !== "review" ? (
-            <Button onClick={goNext} disabled={!canGoNext()} className="bg-primary hover:bg-[#e08300] text-xs gap-1">
+            <Button onClick={goNext} disabled={!canGoNext()} className="bg-primary hover:bg-[#e04400] text-xs gap-1">
               Próximo <ArrowRight className="h-3 w-3" />
             </Button>
           ) : (
             <Button
               onClick={handleSubmit}
               disabled={submitting || (cost > credits && route === "official")}
-              className="bg-primary hover:bg-[#e08300] text-xs gap-1"
+              className="bg-primary hover:bg-[#e04400] text-xs gap-1"
             >
               {submitting ? (
                 <div className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -156,7 +156,7 @@ export function TemplateCreateModal({ open, onOpenChange }: TemplateCreateModalP
             <Button 
               type="submit" 
               disabled={loading}
-              className="rounded-xl px-8 h-10 bg-primary hover:bg-[#e08300] font-bold text-xs"
+              className="rounded-xl px-8 h-10 bg-primary hover:bg-[#e04400] font-bold text-xs"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar para Aprovação"}
             </Button>

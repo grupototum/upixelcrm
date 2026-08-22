@@ -80,7 +80,7 @@ export default function GooglePage() {
           ) : (
             <Button
               size="sm"
-              className="text-xs gap-1.5 bg-primary hover:bg-[#e08300] text-primary-foreground ml-2"
+              className="text-xs gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground ml-2"
               onClick={handleConnect}
             >
               <LogIn className="h-3.5 w-3.5" /> Conectar com Google
@@ -116,7 +116,7 @@ export default function GooglePage() {
               </div>
             )}
             <Button
-              className="gap-2 bg-primary hover:bg-[#e08300] text-primary-foreground"
+              className="gap-2 bg-primary hover:bg-[#e04400] text-primary-foreground"
               onClick={handleConnect}
             >
               <LogIn className="h-4 w-4" /> Conectar com Google
@@ -206,7 +206,7 @@ export default function GooglePage() {
             </Button>
             <Button
               size="sm"
-              className="text-xs gap-1.5 bg-primary hover:bg-[#e08300] text-primary-foreground"
+              className="text-xs gap-1.5 bg-primary hover:bg-[#e04400] text-primary-foreground"
               onClick={handleSaveAndConnect}
               disabled={saving || !formClientId.trim() || !formClientSecret.trim()}
             >

@@ -105,7 +105,7 @@ export function ProfileSettings() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button onClick={handleSave} disabled={saving} className="rounded-xl h-11 px-8 bg-primary hover:bg-[#e08300] shadow-lg">
+                <Button onClick={handleSave} disabled={saving} className="rounded-xl h-11 px-8 bg-primary hover:bg-[#e04400] shadow-lg">
                   {saving ? "Salvando..." : "Salvar Alterações"}
                 </Button>
               </div>

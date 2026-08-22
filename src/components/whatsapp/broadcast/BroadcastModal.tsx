@@ -36,7 +36,7 @@ export function BroadcastModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-primary hover:bg-[#e08300] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
+        <Button size="sm" className="bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2 shadow-lg shadow-primary/20">
           <Send className="h-3.5 w-3.5" /> NOVO DISPARO
         </Button>
       </DialogTrigger>
@@ -172,7 +172,7 @@ export function BroadcastModal() {
 
           <div className="pt-2">
             <Button 
-              className="w-full h-14 rounded-card bg-primary hover:bg-[#e08300] text-white font-heading font-black text-base shadow-xl shadow-primary/20 group transition-all"
+              className="w-full h-14 rounded-card bg-primary hover:bg-[#e04400] text-white font-heading font-black text-base shadow-xl shadow-primary/20 group transition-all"
               onClick={handleSend}
               disabled={loading || (!hasCredits && route === "official" && !isInside24h) || (route === "official" && !selectedTemplate) || (route === "free" && !message)}
             >

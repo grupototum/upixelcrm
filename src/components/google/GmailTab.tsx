@@ -197,7 +197,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
             <RefreshCw className="h-4 w-4" />
           </Button>
 
-          <Button size="sm" className="h-10 px-4 rounded-xl bg-primary hover:bg-[#e08300] text-primary-foreground text-xs font-bold gap-2 shadow-lg shadow-primary/20" onClick={() => setComposeOpen(true)}>
+          <Button size="sm" className="h-10 px-4 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground text-xs font-bold gap-2 shadow-lg shadow-primary/20" onClick={() => setComposeOpen(true)}>
             <Send className="h-3.5 w-3.5" /> Escrever
           </Button>
         </div>
@@ -319,7 +319,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
               
               <DialogFooter className="p-4 border-t border-[hsl(var(--border-strong))] bg-secondary/10 gap-2">
                 <Button variant="ghost" size="sm" className="text-xs rounded-xl h-9" onClick={() => setViewEmail(null)}>Fechar</Button>
-                <Button size="sm" className="text-xs h-9 px-4 rounded-xl bg-primary hover:bg-[#e08300] text-primary-foreground font-bold gap-2" onClick={() => { 
+                <Button size="sm" className="text-xs h-9 px-4 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2" onClick={() => { 
                   setTo(viewEmail.from.match(/<(.+?)>/)?.[1] || viewEmail.from);
                   setSubject(`Re: ${viewEmail.subject}`);
                   setViewEmail(null);
@@ -368,7 +368,7 @@ export function GmailTab({ fetchGmailList, fetchEmailMessage, sendEmail }: Gmail
           </div>
           <DialogFooter className="gap-2">
             <Button variant="ghost" size="sm" className="text-xs rounded-xl h-10" onClick={() => setComposeOpen(false)}>Cancelar</Button>
-            <Button size="sm" className="text-xs h-10 px-6 rounded-xl bg-primary hover:bg-[#e08300] text-primary-foreground font-bold gap-2" onClick={handleSend} disabled={sending}>
+            <Button size="sm" className="text-xs h-10 px-6 rounded-xl bg-primary hover:bg-[#e04400] text-primary-foreground font-bold gap-2" onClick={handleSend} disabled={sending}>
               {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Enviar agora
             </Button>
           </DialogFooter>
