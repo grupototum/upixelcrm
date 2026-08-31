@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessageSquare, Kanban, CheckSquare, Zap, Brain, BookOpen, Megaphone, Send,
-  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ChevronRight, ShieldCheck, FileText, Clock, Upload, Sparkles,
+  BarChart3, Plug, HelpCircle, LogOut, Bot, Settings, ShieldCheck, FileText, Clock, Upload, Sparkles,
   Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -14,8 +13,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { TreeFolder, TreeItem, TreeSection, TreeView } from "@/components/ui/animated-file-tree";
 import upixelLight from "@/assets/upixel_light.png";
 import upixelDark from "@/assets/upixel_dark.png";
 import { CommandPaletteTrigger } from "@/components/layout/CommandPaletteTrigger";
@@ -39,19 +37,13 @@ type NavGroup = {
 };
 
 /**
- * Sidebar architecture (v2 — UX redesign):
+ * Sidebar architecture (v3 — árvore ramificada):
  *
- * Os 5 itens MAIS usados ficam como links diretos no topo (1 clique pra chegar).
- * Os 3 grupos restantes (Marketing, IA & Automações, Configurações) ficam como
- * submenus colapsáveis abaixo. Cmd+K (próxima etapa) cobre o resto.
- *
- * Comparação:
- *   v1: 6 grupos + Dashboard = 17 itens visuais, 2 cliques pra qualquer canto
- *   v2: 5 links diretos + 3 grupos = 8 itens visuais, 1 clique pros críticos
+ * Mesma informação da v2 (blocos "meu dia" / "leads" / "setup" + grupos
+ * colapsáveis), agora renderizada como TreeView: seções recolhíveis, linhas de
+ * ramificação e o galho ativo deslizando até o item selecionado.
+ * Colapsada (modo ícone) a sidebar continua sendo uma lista simples de ícones.
  */
-
-// Três blocos separados por divisor, na ordem e no agrupamento do UIDL do
-// Figma (arquivo "Upixel funil", node 1:2).
 
 // "Meu dia" — o que se abre para saber onde eu estou.
 const dailyLinks: NavLeaf[] = [
@@ -60,8 +52,7 @@ const dailyLinks: NavLeaf[] = [
   { title: "Tarefas", url: "/tasks", icon: CheckSquare },
 ];
 
-// "Trabalho com leads" — Inbox e Funil ficam colados aos grupos de Marketing
-// e Automações; no design não há divisor entre eles.
+// "Trabalho com leads" — Inbox e Funil, com Marketing e Automações logo abaixo.
 const workLinks: NavLeaf[] = [
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Funil de Vendas", url: "/crm", icon: Kanban },
@@ -105,9 +96,6 @@ const masterLinks: NavLeaf[] = [
   { title: "Integrações (Master)", url: "/master/integrations", icon: ShieldCheck, masterOnly: true },
 ];
 
-// Usuários e Banco vivem como tabs dentro de /settings — acessíveis via
-// "Configurações" no link direto acima. Importação também tem link direto próprio.
-
 function isLeafActive(url: string, pathname: string): boolean {
   if (url === "/") return pathname === "/";
   return pathname === url || pathname.startsWith(`${url}/`);
@@ -115,18 +103,6 @@ function isLeafActive(url: string, pathname: string): boolean {
 
 function groupContainsActive(group: NavGroup, pathname: string): boolean {
   return group.items.some((item) => isLeafActive(item.url, pathname));
-}
-
-function BadgeIndicator({ count }: { count: number }) {
-  if (count <= 0) return null;
-  return (
-    <Badge
-      variant="default"
-      className="ml-auto h-4 min-w-[16px] px-1 text-[9px] font-bold bg-primary text-primary-foreground"
-    >
-      {count > 99 ? "99+" : count}
-    </Badge>
-  );
 }
 
 export function AppSidebar() {
@@ -141,30 +117,6 @@ export function AppSidebar() {
   const isMaster = user?.role === "master";
   const { inboxCount, tasksCount } = useUnreadCounts();
 
-  // Badges vivos. Inbox e Tarefas caem em blocos diferentes, então o mapa é
-  // aplicado em qualquer lista.
-  const withBadges = (links: NavLeaf[]): NavLeaf[] =>
-    links.map((link) => {
-      if (link.url === "/inbox") return { ...link, badge: inboxCount };
-      if (link.url === "/tasks") return { ...link, badge: tasksCount };
-      return link;
-    });
-
-  // Acordeão: apenas 1 grupo aberto por vez. Auto-abre o grupo que contém a rota ativa.
-  const initialOpenGroup =
-    navGroups.find((g) => groupContainsActive(g, location.pathname))?.id ?? null;
-  const [openGroupId, setOpenGroupId] = useState<string | null>(initialOpenGroup);
-
-  // Se a rota muda externamente (ex: click em link de outra parte do app), garante
-  // que o grupo correspondente abra. Não fecha grupos abertos pelo próprio usuário.
-  useEffect(() => {
-    const activeGroup = navGroups.find((g) => groupContainsActive(g, location.pathname));
-    if (activeGroup && openGroupId !== activeGroup.id) {
-      setOpenGroupId(activeGroup.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
-
   const handleLogout = async () => {
     await logout();
     navigate("/login");
@@ -177,7 +129,34 @@ export function AppSidebar() {
   const canSeeItem = (item: NavLeaf) =>
     canAccessModule(item.url) && (!item.masterOnly || isMaster);
 
-  const renderDirectLink = (link: NavLeaf) => {
+  // Badges vivos — Inbox e Tarefas.
+  const badgeFor = (url: string): string | undefined => {
+    const count = url === "/inbox" ? inboxCount : url === "/tasks" ? tasksCount : 0;
+    if (!count || count <= 0) return undefined;
+    return count > 99 ? "99+" : String(count);
+  };
+
+  // O id de cada TreeItem é a própria rota, então selecionar = navegar.
+  const allLeaves = [...dailyLinks, ...workLinks, ...setupLinks, ...masterLinks,
+    ...navGroups.flatMap((g) => g.items)];
+  const selectedId =
+    allLeaves.filter((leaf) => isLeafActive(leaf.url, location.pathname))
+      // rota mais específica vence (ex: /whatsapp/templates sobre /whatsapp)
+      .sort((a, b) => b.url.length - a.url.length)[0]?.url ?? "";
+
+  const renderTreeItem = (link: NavLeaf) =>
+    canSeeItem(link) ? (
+      <TreeItem
+        key={link.url}
+        id={link.url}
+        label={link.title}
+        icon={link.icon}
+        badge={badgeFor(link.url)}
+      />
+    ) : null;
+
+  // Modo colapsado: ícones diretos, sem árvore.
+  const renderCollapsedLink = (link: NavLeaf) => {
     if (!canSeeItem(link)) return null;
     const active = isLeafActive(link.url, location.pathname);
     return (
@@ -185,26 +164,13 @@ export function AppSidebar() {
         <SidebarMenuButton asChild isActive={active} tooltip={link.title}>
           <Link
             to={link.url}
-            // UIDL do item ativo ("Funil de Vendas"):
-            //   backgroundColor: rgba(37,37,34,1)   -> fundo sutil
-            //   color:           rgba(255,254,250,1) -> texto BRANCO
-            // Ou seja: nem bloco laranja sólido (como era antes), nem texto
-            // laranja (como eu tinha lido errado do screenshot). O laranja
-            // fica só no ícone — que é laranja em todos os itens.
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] transition-all duration-200 ${
+            className={`flex items-center justify-center rounded-lg p-2.5 transition-all duration-200 ${
               active
-                ? "bg-sidebar-accent text-foreground font-semibold"
-                : "text-sidebar-foreground font-medium hover:text-foreground hover:bg-sidebar-accent"
+                ? "bg-sidebar-accent text-foreground"
+                : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
             }`}
           >
-            {/* No UIDL todo ícone da sidebar é stroke='#FF5100', ativo ou não. */}
             <link.icon className="h-[18px] w-[18px] shrink-0 text-primary" />
-            {!collapsed && (
-              <>
-                <span className="flex-1">{link.title}</span>
-                {link.badge != null && link.badge > 0 && <BadgeIndicator count={link.badge} />}
-              </>
-            )}
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -222,46 +188,28 @@ export function AppSidebar() {
         />
       </div>
 
-      {/* Busca rápida. No Figma ela vive no topo da sidebar, não no header —
-          é o mesmo CommandPaletteTrigger, só que largura cheia. Colapsada, o
-          próprio componente cai para o ícone. */}
+      {/* Busca rápida — no Figma ela vive no topo da sidebar, não no header. */}
       <div className="px-2 pb-2">
         <CommandPaletteTrigger fullWidth={!collapsed} />
       </div>
 
       <SidebarContent className="pt-2 px-2">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-0.5">
-              {/* Bloco 1 — meu dia */}
-              {withBadges(dailyLinks).map(renderDirectLink)}
-
-              {!collapsed && (
-                <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
-              )}
-
-              {/* Bloco 2 — trabalho com leads. Sem divisor antes dos grupos:
-                  no UIDL Marketing e Automações vêm colados no Funil. */}
-              {withBadges(workLinks).map(renderDirectLink)}
-
-              {/* Grupos secundários */}
-              {navGroups.map((group) => {
-                const visibleItems = group.items.filter(canSeeItem);
-                if (visibleItems.length === 0) return null;
-
-                const groupActive = groupContainsActive(group, location.pathname);
-                const isOpen = openGroupId === group.id;
-
-                // Quando colapsado, cada grupo vira um link clicável que vai pro primeiro item.
-                // Tooltip mostra o nome do grupo.
-                if (collapsed) {
-                  const firstItem = visibleItems[0];
+        {collapsed ? (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-0.5">
+                {dailyLinks.map(renderCollapsedLink)}
+                {workLinks.map(renderCollapsedLink)}
+                {navGroups.map((group) => {
+                  const visibleItems = group.items.filter(canSeeItem);
+                  if (visibleItems.length === 0) return null;
+                  const groupActive = groupContainsActive(group, location.pathname);
                   return (
                     <SidebarMenuItem key={group.id}>
                       <SidebarMenuButton asChild isActive={groupActive} tooltip={group.title}>
                         <Link
-                          to={firstItem.url}
-                          aria-label={`${group.title}: abrir ${firstItem.title}`}
+                          to={visibleItems[0].url}
+                          aria-label={`${group.title}: abrir ${visibleItems[0].title}`}
                           className={`flex items-center justify-center rounded-lg p-2.5 transition-all duration-200 ${
                             groupActive
                               ? "bg-sidebar-accent text-foreground"
@@ -273,83 +221,48 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
-                }
+                })}
+                {setupLinks.map(renderCollapsedLink)}
+                {isMaster && masterLinks.map(renderCollapsedLink)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          <TreeView
+            variant="line"
+            activeColor="text-primary"
+            selectedId={selectedId}
+            onSelect={(url) => navigate(url)}
+            className="px-0"
+          >
+            <TreeSection title="Meu dia">{dailyLinks.map(renderTreeItem)}</TreeSection>
 
+            <TreeSection title="Leads">
+              {workLinks.map(renderTreeItem)}
+
+              {navGroups.map((group) => {
+                const visibleItems = group.items.filter(canSeeItem);
+                if (visibleItems.length === 0) return null;
                 return (
-                  <Collapsible
+                  <TreeFolder
                     key={group.id}
-                    open={isOpen}
-                    onOpenChange={(open) => setOpenGroupId(open ? group.id : null)}
+                    id={group.id}
+                    label={group.title}
+                    icon={group.icon}
+                    defaultExpanded={groupContainsActive(group, location.pathname)}
                   >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <button
-                          type="button"
-                          aria-expanded={isOpen}
-                          aria-controls={`sidebar-group-${group.id}`}
-                          className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200 ${
-                            groupActive
-                              ? "text-foreground bg-sidebar-accent/50"
-                              : isOpen
-                                ? "text-foreground bg-sidebar-accent/30"
-                                : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
-                          }`}
-                        >
-                          <group.icon className="h-[18px] w-[18px] shrink-0 text-primary" />
-                          <span className="flex-1 text-left">{group.title}</span>
-                          {/* O chevron dos grupos também é #FF5100 no UIDL. */}
-                          <ChevronRight
-                            className={`h-3.5 w-3.5 shrink-0 text-primary transition-transform ${isOpen ? "rotate-90" : ""}`}
-                          />
-                        </button>
-                      </CollapsibleTrigger>
-                    </SidebarMenuItem>
-                    <CollapsibleContent id={`sidebar-group-${group.id}`}>
-                      <SidebarMenu className="space-y-0.5 mt-0.5 ml-3 pl-3 border-l border-sidebar-border">
-                        {visibleItems.map((item) => {
-                          const isActive = isLeafActive(item.url, location.pathname);
-                          return (
-                            <SidebarMenuItem key={item.title}>
-                              <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                                <Link
-                                  to={item.url}
-                                  className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition-all duration-200 ${
-                                    isActive
-                                      ? "bg-sidebar-accent text-foreground font-semibold"
-                                      : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
-                                  }`}
-                                >
-                                  <item.icon className="h-4 w-4 shrink-0 text-primary" />
-                                  <span>{item.title}</span>
-                                </Link>
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          );
-                        })}
-                      </SidebarMenu>
-                    </CollapsibleContent>
-                  </Collapsible>
+                    {visibleItems.map(renderTreeItem)}
+                  </TreeFolder>
                 );
               })}
+            </TreeSection>
 
-              {/* Bloco 3 — setup */}
-              {!collapsed && (
-                <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
-              )}
-              {setupLinks.map(renderDirectLink)}
-
-              {/* Links exclusivos de master — separador + render */}
-              {isMaster && (
-                <>
-                  {!collapsed && (
-                    <div className="my-2 mx-3 h-px bg-sidebar-border/60" aria-hidden />
-                  )}
-                  {masterLinks.map(renderDirectLink)}
-                </>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            <TreeSection title="Configuração">
+              {setupLinks.map(renderTreeItem)}
+              {isMaster && masterLinks.map(renderTreeItem)}
+            </TreeSection>
+          </TreeView>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-3 space-y-1">
@@ -363,9 +276,6 @@ export function AppSidebar() {
                   : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
               }`}
             >
-              {/* Pedido explícito: todo ícone do menu laranja, sem exceção —
-                  inclusive este, que no UIDL do Figma era #FF9500 (o único
-                  fora do padrão #FF5100 dos demais). */}
               <Sparkles className="h-[18px] w-[18px] text-primary" />
               <span>Novidades</span>
             </Link>
