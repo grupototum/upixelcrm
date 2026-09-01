@@ -1,31 +1,43 @@
 # OpenWA (Totum SDR) — o que falta para a integração ficar completa
 
-## Funciona hoje (depois desta migration de código)
+## Funciona hoje
 - Criar sessão, conectar (QR), checar status, desconectar/apagar, enviar mensagem de texto.
 - Ativado via `UPIXEL_WA_TYPE=openwa` (ver `tmp/WHATSAPP_OPENWA_CONFIG.md`).
+- **Receber mensagens (texto) agora é suportado em paralelo com a Evolution** —
+  `whatsapp-webhook/index.ts` reconhece `message.received`/`session.status`/
+  `session.disconnected` (OpenWA) ao lado de `messages.upsert`/`connection.update`
+  (Evolution), sem alterar o caminho Evolution. `whatsapp-proxy` registra o
+  webhook automaticamente (`POST /api/webhooks`) ao criar/conectar uma sessão OpenWA.
 
-## NÃO funciona ainda — bloqueio real
+## Ainda incerto — não testado contra um evento real
 
-**Mensagens recebidas do cliente não chegam ao CRM.**
+**O formato exato do payload que o OpenWA envia no `message.received` nunca foi
+observado.** Só vi o formato de `GET /api/webhooks` (que descreve o webhook
+registrado, não o evento em si). O parser em `handleOpenWAMessageWebhook`
+tenta vários nomes de campo prováveis (`body.data.message`, `.from`/`.sender`/
+`.phone`, `.body`/`.text`/`.content` etc.) e **loga o corpo bruto quando não
+reconhece a forma** — depois de conectar um número de teste e mandar uma
+mensagem, checar os logs da função `whatsapp-webhook` no Supabase Dashboard.
+Se aparecer `"Sem telefone no payload"` ou `"Nenhuma integração para a sessão"`
+com o corpo logado, ajustar os nomes de campo em
+`supabase/functions/whatsapp-webhook/index.ts` (função `handleOpenWAMessageWebhook`).
 
-`supabase/functions/whatsapp-webhook/index.ts` só entende o payload da Evolution API
-(`body.event === "messages.upsert"`, `body.instance`, `body.data`). O servidor
-OpenWA (Totum SDR) manda eventos com nomes diferentes — confirmado via
-`GET /api/webhooks`: `message.received`, `session.status`, `session.disconnected` —
-e provavelmente um corpo JSON diferente. Esse arquivo estava fora do escopo autorizado
-desta tarefa (área crítica, "não tocar").
+**Mídia recebida não é baixada** — chega como aviso de texto genérico
+("Mídia recebida — suporte a mídia do OpenWA ainda não implementado"). Endpoint
+de download do OpenWA não foi identificado.
 
-**Para fechar isso:**
-1. Registrar um webhook na sessão OpenWA apontando para a `whatsapp-webhook` do
-   Supabase (`POST /api/webhooks` — formato de request não confirmado, só o de
-   resposta via `GET /api/webhooks`).
-2. Adaptar `whatsapp-webhook/index.ts` para reconhecer o formato OpenWA
-   (`message.received` etc.) e mapear pros mesmos campos que a Evolution já popula
-   (telefone, texto, mídia, `whatsapp_message_id` pra suprimir eco).
-3. **Atenção:** a sessão `cludia-atendimento` (produção, já conectada) tem hoje um
-   webhook ativo apontando para `http://10.0.17.1:3100/api/webhook/openwa` — um
-   serviço interno que não é o CRM. Não sobrescrever/duplicar sem confirmar o que
-   é esse serviço.
+**`POST /api/webhooks` (registrar webhook) também não foi testado ao vivo** —
+o formato do body é inferido a partir do shape do GET. Se a sessão conectar mas
+nenhuma mensagem chegar no CRM, checar primeiro se o webhook foi mesmo criado
+(`GET /api/webhooks` deve listar um item com a URL do `whatsapp-webhook` do
+projeto) — se não aparecer, o formato do POST precisa de ajuste.
+
+**Atenção:** a sessão `cludia-atendimento` (produção, já conectada) tem hoje um
+webhook ativo apontando para `http://10.0.17.1:3100/api/webhook/openwa` — um
+serviço interno que não é o CRM. Conectar essa sessão específica pelo uPixelCRM
+adicionaria um SEGUNDO webhook (a API permite múltiplos por sessão, confirmado
+pelo shape de `GET /api/webhooks` ter `id` próprio por registro) — não deveria
+remover o existente, mas confirmar isso antes de testar nela.
 
 ## Endpoints usados no código — status de confirmação
 
@@ -40,7 +52,8 @@ desta tarefa (área crítica, "não tocar").
 | `POST /api/sessions/{id}/messages/send-text` | ⚠️ informado, não testado — formato do body (`{to, text}`) é um palpite razoável, não confirmado |
 | `DELETE /api/sessions/{id}` | ⚠️ inferido por convenção REST, não testado |
 | Envio de mídia | ❌ desconhecido — `send-media` retorna erro explícito "não suportado" para OpenWA em vez de adivinhar |
-| `POST /api/webhooks` (registrar webhook) | ❌ desconhecido — não implementado |
+| `POST /api/webhooks` (registrar webhook) | ⚠️ implementado (chamado automaticamente ao criar/conectar), formato do body inferido, não confirmado |
+| Payload do evento `message.received` | ❌ desconhecido — parser defensivo com múltiplos nomes de campo + log do corpo bruto em caso de falha |
 
 ## Recomendação
 

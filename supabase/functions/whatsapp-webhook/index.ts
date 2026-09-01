@@ -968,6 +968,130 @@ async function handleEvolutionWebhook(body: any, adminClient: any, integrationId
   return { ok: true, conversation_id: convId };
 }
 
+// ─── Handle OpenWA (Totum SDR) webhook — convive em paralelo com Evolution,
+// nunca a substitui. Detectado por nome de evento (message.received vs
+// messages.upsert), não por servidor configurado — assim a Cláudia/SDR
+// (Evolution) e o OpenWA funcionam ao mesmo tempo em tenants diferentes.
+//
+// Formato do payload NÃO foi observado em produção ainda (só o formato de
+// GET /api/webhooks, que descreve o webhook registrado, não o evento em si).
+// Extração defensiva com múltiplos nomes de campo + log do corpo bruto quando
+// não reconhece a forma — ajustar assim que um evento real chegar (ver logs
+// da função no Supabase Dashboard). Mídia recebida ainda não é baixada
+// (endpoint de download do OpenWA não confirmado — chega como aviso de texto).
+async function handleOpenWAMessageWebhook(body: any, adminClient: any, integrationIdFromUrl: string | null) {
+  const sessionId = body.sessionId ?? body.session ?? body.data?.sessionId ?? "";
+
+  let match: IntegrationRow | null = null;
+  if (integrationIdFromUrl) {
+    const { data } = await adminClient.from("integrations")
+      .select("id, client_id, status, config")
+      .eq("id", integrationIdFromUrl)
+      .eq("provider", "whatsapp")
+      .maybeSingle();
+    if (data) match = data as IntegrationRow;
+  }
+  if (!match && sessionId) {
+    const { data } = await adminClient.from("integrations").select("id, client_id, status, config")
+      .eq("provider", "whatsapp")
+      .eq("config->>instance_name", sessionId)
+      .limit(1)
+      .maybeSingle();
+    match = (data as IntegrationRow | null) ?? null;
+  }
+  if (!match) {
+    console.log("[openwa-webhook] Nenhuma integração para a sessão:", sessionId, "— corpo bruto:", JSON.stringify(body).slice(0, 500));
+    return { ok: true, skipped: "no_match" };
+  }
+
+  if (match.status === "paused") {
+    console.log(`[openwa-webhook] Instância ${sessionId} pausada — descartando mensagem.`);
+    return { ok: true, skipped: "paused" };
+  }
+
+  const clientId = match.client_id;
+  const integrationId = match.id as string;
+  const matchConfig = (match.config || {}) as Record<string, any>;
+
+  const msg = body.data?.message ?? body.message ?? body.data ?? {};
+  const isFromMe = !!(msg.fromMe ?? msg.isMe ?? body.fromMe);
+  const rawPhone = msg.from ?? msg.sender ?? msg.phone ?? body.from ?? "";
+  const phone = String(rawPhone).replace(/\D/g, "");
+  if (!phone) {
+    console.log("[openwa-webhook] Sem telefone no payload — corpo bruto:", JSON.stringify(body).slice(0, 500));
+    return { ok: true, skipped: "no_phone" };
+  }
+  const senderName = isFromMe ? "Você" : (msg.pushName ?? msg.notifyName ?? msg.senderName ?? phone);
+  const messageId = msg.id ?? msg.messageId ?? null;
+
+  if (await isDuplicateMessage(adminClient, "whatsapp_message_id", messageId)) {
+    console.log("[openwa-webhook] Mensagem duplicada ignorada:", messageId);
+    return { ok: true, skipped: "duplicate" };
+  }
+
+  const msgTypeRaw = msg.type ?? "text";
+  const isText = !msgTypeRaw || msgTypeRaw === "text" || msgTypeRaw === "chat";
+  const content = isText
+    ? (msg.body ?? msg.text ?? msg.content ?? "[Mensagem vazia]")
+    : "[Mídia recebida — suporte a mídia do OpenWA ainda não implementado]";
+
+  const convId = await upsertConversationAndMessage(
+    adminClient, clientId, phone, senderName, content, "text", {},
+    "whatsapp", matchConfig, messageId, integrationId,
+    isFromMe ? "outbound" : "inbound"
+  );
+
+  if (isFromMe) return { ok: true, convId, direction: "outbound" };
+
+  if (convId) {
+    const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
+    if (conv?.lead_id) {
+      runInBackground(
+        triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, {
+          message: content, message_type: "text", channel: "whatsapp",
+        }),
+        "triggerAutomations:openwa",
+      );
+      runInBackground(
+        runBotEngine(adminClient, clientId, conv.lead_id, phone, matchConfig, content, senderName),
+        "runBotEngine:openwa",
+      );
+
+      const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
+      const targetUserId = lead?.responsible_id;
+      if (targetUserId) {
+        runInBackground(sendPushNotification(adminClient, {
+          title: `💬 ${senderName}`,
+          body: content.slice(0, 100),
+          tag: `msg-${convId}`,
+          type: "new_message",
+          target_user_id: targetUserId,
+          lead_id: conv.lead_id,
+        }), "push:new_message:openwa");
+      }
+    }
+  }
+
+  return { ok: true, conversation_id: convId };
+}
+
+async function handleOpenWAStatusWebhook(body: any, adminClient: any, integrationIdFromUrl: string | null) {
+  const sessionId = body.sessionId ?? body.session ?? body.data?.sessionId ?? "";
+  const rawStatus = body.data?.status ?? body.status ?? (body.event === "session.disconnected" ? "disconnected" : undefined);
+  let newStatus = "disconnected";
+  if (rawStatus === "ready") newStatus = "connected";
+  else if (rawStatus === "qr" || rawStatus === "connecting" || rawStatus === "starting") newStatus = "connecting";
+
+  const baseUpdate = adminClient.from("integrations").update({ status: newStatus }).eq("provider", "whatsapp");
+  if (integrationIdFromUrl) {
+    await baseUpdate.eq("id", integrationIdFromUrl);
+  } else if (sessionId) {
+    await baseUpdate.filter("config->>instance_name", "eq", sessionId);
+  }
+  console.log(`[openwa-webhook] status sessão ${sessionId}: ${rawStatus} -> ${newStatus}`);
+  return { ok: true };
+}
+
 // ─── Handle Meta Official API webhook ───
 async function handleOfficialWebhook(body: any, adminClient: any) {
   const results: any[] = [];
@@ -1183,6 +1307,22 @@ Deno.serve(async (req) => {
         console.log(`Connection update for ${instanceName}: ${state} -> ${newStatus}`);
       }
       return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // OpenWA (Totum SDR) format — eventos com nomes diferentes da Evolution
+    // (message.received vs messages.upsert). Convive em paralelo: o bloco
+    // Evolution acima continua funcionando exatamente como antes.
+    if (event === "message.received") {
+      const result = await handleOpenWAMessageWebhook(body, adminClient, integrationIdFromUrl);
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (event === "session.status" || event === "session.disconnected") {
+      const result = await handleOpenWAStatusWebhook(body, adminClient, integrationIdFromUrl);
+      return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

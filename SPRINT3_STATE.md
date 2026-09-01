@@ -78,8 +78,11 @@ para `curl` de investigação (GET, endpoints confirmados acima) — **não pers
 nenhum arquivo do repo** (conferido com grep antes de commitar). Os valores reais
 devem ir só nas Secrets do Supabase, conforme `tmp/WHATSAPP_OPENWA_CONFIG.md`.
 
-### Pendente — bloqueia "receber mensagens no CRM"
-- [ ] Adaptar `whatsapp-webhook/index.ts` pro formato OpenWA (fora do escopo autorizado desta tarefa — precisa aprovação explícita separada)
-- [ ] Registrar o webhook da sessão apontando pro CRM (formato do `POST /api/webhooks` não confirmado)
-- [ ] Testar T4 de ponta a ponta com um número real de teste antes de anunciar como resolvido — `POST /api/sessions`, `/start` e `/messages/send-text` foram implementados pelo formato informado, não testados ao vivo (evitei POST em servidor de produção)
+### Pendente — receber mensagens (segunda etapa, aprovada pelo usuário: "Opção 2")
+- [x] `whatsapp-webhook/index.ts` adaptado — reconhece `message.received`/`session.status`/`session.disconnected` do OpenWA **em paralelo** com `messages.upsert`/`connection.update` da Evolution (detecção por nome de evento, não por servidor configurado). Caminho Evolution intacto — zero linha alterada no fluxo existente, só adição.
+- [x] `whatsapp-proxy` registra o webhook automaticamente (`POST /api/webhooks`) ao criar ou reconectar uma sessão OpenWA
+- [ ] **Formato real do payload `message.received` nunca foi observado** — parser defensivo (múltiplos nomes de campo) + log do corpo bruto quando não reconhece. Testar com uma mensagem real e conferir os logs da função no Supabase Dashboard; ajustar `handleOpenWAMessageWebhook` se necessário. Ver [`tmp/OPENWA_INTEGRATION_PENDING.md`](tmp/OPENWA_INTEGRATION_PENDING.md).
+- [ ] Mídia recebida via OpenWA ainda não é baixada (chega como aviso de texto genérico)
+- [ ] Testar T4 de ponta a ponta com um número de teste antes de anunciar como resolvido — `POST /api/sessions`, `/start`, `/messages/send-text` e `/api/webhooks` foram implementados pelo formato informado/inferido, não testados ao vivo (evitei POST em servidor de produção)
+- [ ] **Cuidado ao testar na sessão `cludia-atendimento`** (já em produção) — ela já tem um webhook ativo pra um serviço interno (`10.0.17.1:3100`); conectar essa sessão pelo uPixelCRM adicionaria um segundo webhook, não deveria remover o existente
 - [ ] Ver [`tmp/OPENWA_INTEGRATION_PENDING.md`](tmp/OPENWA_INTEGRATION_PENDING.md) para a lista completa de endpoints confirmados vs. inferidos

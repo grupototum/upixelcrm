@@ -63,6 +63,24 @@ function waAuthHeaders(apiKey: string): Record<string, string> {
   return headers;
 }
 
+// Registra o webhook da sessão OpenWA apontando pro whatsapp-webhook do CRM
+// (agora que ele já entende message.received/session.status em paralelo com
+// Evolution). Formato do POST inferido a partir do shape de GET /api/webhooks
+// — não confirmado ao vivo. Best-effort: falha aqui não bloqueia conectar/criar.
+function registerOpenWAWebhook(managedUrl: string, managedKey: string, sessionId: string, integrationId: string) {
+  const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook?integration_id=${integrationId}`;
+  return fetch(`${managedUrl}/api/webhooks`, {
+    method: "POST",
+    headers: { ...waAuthHeaders(managedKey), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId,
+      url: webhookUrl,
+      events: ["message.received", "session.status", "session.disconnected"],
+      active: true,
+    }),
+  }).catch((e) => console.error("OpenWA webhook register failed:", e));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -216,6 +234,8 @@ Deno.serve(async (req) => {
           console.error("DB insert error:", insertErr);
           return jsonResponse({ error: "Erro ao salvar instância no banco de dados." }, 500);
         }
+
+        registerOpenWAWebhook(managedUrl, managedKey, sessionId, inserted?.id ?? "");
 
         // QR code (best effort — pode ainda não estar pronto logo após o start;
         // o app já faz polling de "status"/reconecta o modal se vier vazio).
@@ -589,6 +609,8 @@ Deno.serve(async (req) => {
             method: "POST",
             headers: waAuthHeaders(config.api_key),
           }).catch((e) => console.error("OpenWA start failed:", e));
+
+          registerOpenWAWebhook(config.api_url, config.api_key, sessionId, integration.id);
 
           const statusRes = await fetch(`${config.api_url}/api/sessions/${sessionPath}`, { headers: waAuthHeaders(config.api_key) });
           const statusData = await readResponseBody(statusRes);
