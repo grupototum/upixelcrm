@@ -6,9 +6,13 @@ import { useTenant } from "@/contexts/TenantContext";
 import { ACCESS_DENIAL_MESSAGES, evaluateProfileAccess } from "@/lib/auth-access";
 import { toast } from "sonner";
 
-// Após 30 min sem qualquer interação (mousemove/keydown/click/touch/scroll),
+// Após N minutos sem qualquer interação (mousemove/keydown/click/touch/scroll),
 // força logout — protege sessões esquecidas em máquinas compartilhadas.
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+// Configurável via VITE_IDLE_TIMEOUT_MINUTES (default 480min/8h, mínimo 5min).
+const IDLE_TIMEOUT_MS = (() => {
+  const minutes = parseInt(import.meta.env.VITE_IDLE_TIMEOUT_MINUTES || "480", 10);
+  return (isNaN(minutes) || minutes < 5 ? 480 : minutes) * 60 * 1000;
+})();
 
 export interface AuthOrganization {
   id: string;
@@ -126,7 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const armTimer = () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       idleTimerRef.current = setTimeout(async () => {
-        toast.warning("Sua sessão expirou por inatividade. Faça login novamente.", { duration: 8000 });
+        toast.warning("Sessão encerrada após período sem atividade. Clique aqui para entrar novamente.", {
+          duration: 10000,
+          action: { label: "Entrar", onClick: () => window.location.href = "/login" },
+        });
         await supabase.auth.signOut();
         setUser(null);
       }, IDLE_TIMEOUT_MS);

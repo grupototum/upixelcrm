@@ -165,7 +165,7 @@ function InstanceCard({
       const data = await invokeProxy("connect");
       if (!data) return;
       if (data.reachable === false) {
-        toast.error(data.error || "Evolution API indisponível.");
+        toast.error(data.error || "Servidor WhatsApp indisponível.");
         setStatus(data.status || status);
         return;
       }
@@ -492,9 +492,9 @@ function InstanceEditModal({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">URL do Servidor Evolution API</Label>
+            <Label className="text-xs font-semibold">URL do Servidor WhatsApp</Label>
             <Input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="https://api.evolution.com.br" className="text-xs h-9 bg-secondary" />
+              placeholder="https://seu-servidor-whatsapp.com" className="text-xs h-9 bg-secondary" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">API Key</Label>
@@ -564,7 +564,7 @@ function UnhealthyBanner({ instances }: { instances: WaInstance[] }) {
         {servers.length > 0 && (
           <p className="text-[11px] text-muted-foreground">
             Servidor: <code className="text-foreground">{servers.join(", ")}</code> — verifique se
-            o serviço da Evolution API está no ar e se o proxy reverso consegue alcançá-lo.
+            o serviço WhatsApp está no ar e se o proxy reverso consegue alcançá-lo.
           </p>
         )}
       </div>
@@ -735,13 +735,13 @@ export function WhatsAppManagement({ embedded = false }: WhatsAppManagementProps
               {(["normal", "official"] as const).map((t) => (
                 <button key={t} type="button" onClick={() => setAdvancedType(t)}
                   className={`rounded-lg border p-3 text-left text-xs transition-colors ${advancedType === t ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
-                  {t === "normal" ? <><QrCode className="h-4 w-4 mb-1 text-primary" /><p className="font-semibold">QR Code</p><p className="text-muted-foreground">Evolution API</p></>
+                  {t === "normal" ? <><QrCode className="h-4 w-4 mb-1 text-primary" /><p className="font-semibold">QR Code</p><p className="text-muted-foreground">Servidor próprio</p></>
                     : <><Shield className="h-4 w-4 mb-1 text-success" /><p className="font-semibold">API Oficial</p><p className="text-muted-foreground">Meta Business</p></>}
                 </button>
               ))}
             </div>
             {[
-              { label: "URL do Servidor Evolution API", val: adApiUrl, set: setAdApiUrl, ph: "https://api.evolution.com.br" },
+              { label: "URL do Servidor WhatsApp", val: adApiUrl, set: setAdApiUrl, ph: "https://seu-servidor-whatsapp.com" },
               { label: "Nome da Instância", val: adInstanceName, set: setAdInstanceName, ph: "meu-numero-1" },
               { label: "API Key", val: adApiKey, set: setAdApiKey, ph: "Sua API Key", type: "password" },
               ...(advancedType === "official" ? [{ label: "Phone Number ID", val: adPhoneId, set: setAdPhoneId, ph: "ID do número" }] : []),
