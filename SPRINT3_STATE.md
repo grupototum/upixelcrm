@@ -21,7 +21,34 @@
 ### Pendente (fora do escopo deste fix — deixado para depois)
 - [ ] Regerar `src/integrations/supabase/types.ts` — **não fiz**, está na lista "arquivos a não tocar" do prompt anexo. `untypedFrom` continua funcionando normalmente (só não é type-safe).
 - [ ] Migrar `src/services/integrations.ts` de `untypedFrom` para `supabase.from(...)` tipado, depois de regerar os tipos
-- [ ] T6 — teste manual no app (criar/revogar/deletar chave e webhook): **não fiz** — exigiria login real na aplicação e não tenho credenciais de um usuário do CRM. Passo a passo em [`tmp/APPLY_MIGRATION_API_KEYS.md`](tmp/APPLY_MIGRATION_API_KEYS.md) para você validar.
+- [x] T6 — teste manual no app: **confirmado pelo usuário** (testou e o problema foi resolvido).
 
 ### Decisão registrada
 CLAUDE.md deste projeto marca "Banco de dados: RLS policies... Supabase migrations" e "Schema de banco em produção" como No-Fly Zone ("IA sugere, humano aprova"). O prompt anexo pedia autonomia total e `supabase db push` direto sem pausa — perguntei antes de aplicar, conforme a regra do projeto, e apliquei só depois da aprovação explícita.
+
+### Push
+Branch `claude/orquestrar-totum-api-key-49413e` enviada para `origin` (deploy automático no Vercel).
+
+---
+
+# Fix 02: Sessão expirando (login toda hora)
+
+## Status: concluído
+
+### Diagnóstico confirmado
+- Não era falta de cookie/persistência — `client.ts` já tinha `persistSession: true` + `autoRefreshToken: true`.
+- Era um idle timeout hardcoded de 30 min em `AuthContext.tsx` que forçava `signOut()` após inatividade.
+
+### Feito
+- [x] T1/T2 — `IDLE_TIMEOUT_MS` agora configurável via `VITE_IDLE_TIMEOUT_MINUTES` (default 480min/8h, mínimo 5min) em [`src/contexts/AuthContext.tsx`](src/contexts/AuthContext.tsx)
+- [x] T3 — mensagem de expiração com ação "Entrar" (sonner `^1.7.4` suporta `action`)
+- [x] T4 — `VITE_IDLE_TIMEOUT_MINUTES=480` adicionado ao [`.env.example`](.env.example)
+- [x] T5 — confirmado `autoRefreshToken: true` em `client.ts` (não alterado, estava na lista "não tocar"); instrução de JWT expiry no painel Supabase em [`tmp/SUPABASE_SESSION_CONFIG.md`](tmp/SUPABASE_SESSION_CONFIG.md)
+- [x] `npm run build` — passa sem erro
+
+### Área sensível
+`src/contexts/AuthContext.tsx` está na lista de áreas sensíveis (Autenticação) do CLAUDE.md — usuário confirmou explicitamente antes da execução ("pode seguir").
+
+### Pendente
+- [ ] Ajustar JWT Expiry no painel Supabase (config manual, fora do código) — ver `tmp/SUPABASE_SESSION_CONFIG.md`
+- [ ] Testar em produção após deploy (não tenho credenciais para login real)
