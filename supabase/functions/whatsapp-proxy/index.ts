@@ -45,6 +45,24 @@ async function readResponseBody(response: Response) {
   }
 }
 
+// UPIXEL_WA_TYPE=openwa habilita os endpoints do servidor OpenWA (Totum SDR)
+// no lugar da Evolution API. Só cobre criar/conectar/status/enviar/apagar —
+// mensagens RECEBIDAS ainda não chegam ao CRM: o whatsapp-webhook (função
+// separada) só entende o payload da Evolution. Ver tmp/OPENWA_INTEGRATION_PENDING.md.
+const isOpenWA = (Deno.env.get("UPIXEL_WA_TYPE") || "").toLowerCase() === "openwa";
+
+// OpenWA fica atrás de Basic Auth (Traefik) além da própria API key — Evolution
+// só usa o header `apikey`. UPIXEL_WA_BASIC_USER/PASS são opcionais (só
+// necessárias se o servidor OpenWA estiver atrás desse proxy).
+function waAuthHeaders(apiKey: string): Record<string, string> {
+  if (!isOpenWA) return { apikey: apiKey };
+  const headers: Record<string, string> = { "X-API-Key": apiKey };
+  const basicUser = Deno.env.get("UPIXEL_WA_BASIC_USER");
+  const basicPass = Deno.env.get("UPIXEL_WA_BASIC_PASS");
+  if (basicUser && basicPass) headers["Authorization"] = `Basic ${btoa(`${basicUser}:${basicPass}`)}`;
+  return headers;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -138,15 +156,85 @@ Deno.serve(async (req) => {
 
     // ── create-managed-instance: creates instance using shared server credentials ──
     if (action === "create-managed-instance") {
-      const managedUrl = (Deno.env.get("UPIXEL_EVOLUTION_URL") || "").trim().replace(/\/+$/, "");
-      const managedKey = Deno.env.get("UPIXEL_EVOLUTION_KEY") || "";
+      const managedUrl = (
+        Deno.env.get("UPIXEL_WA_URL") ||
+        Deno.env.get("UPIXEL_OPENWA_URL") ||
+        Deno.env.get("UPIXEL_EVOLUTION_URL") ||
+        ""
+      ).trim().replace(/\/+$/, "");
+      const managedKey = (
+        Deno.env.get("UPIXEL_WA_KEY") ||
+        Deno.env.get("UPIXEL_OPENWA_KEY") ||
+        Deno.env.get("UPIXEL_EVOLUTION_KEY") ||
+        ""
+      );
 
       if (!managedUrl || !managedKey) {
-        return jsonResponse({ error: "Servidor Evolution gerenciado não configurado. Use o modo avançado." }, 503);
+        return jsonResponse({ error: "Servidor WhatsApp gerenciado não configurado. Use o modo avançado." }, 503);
       }
 
       const body = await req.json().catch(() => ({}));
       const friendlyName = (body.name || "").trim().slice(0, 30) || "WhatsApp";
+
+      // ── OpenWA: cria + inicia sessão, servidor devolve um id (UUID) que
+      // vira o instance_name salvo — todas as outras ações usam esse id nas URLs. ──
+      if (isOpenWA) {
+        const createRes = await fetch(`${managedUrl}/api/sessions`, {
+          method: "POST",
+          headers: { ...waAuthHeaders(managedKey), "Content-Type": "application/json" },
+          body: JSON.stringify({ name: friendlyName }),
+        });
+        const createData = await readResponseBody(createRes);
+        if (!createRes.ok) {
+          console.error("OpenWA create failed:", createRes.status, createData);
+          return jsonResponse({ error: `Falha ao criar sessão no servidor WhatsApp (HTTP ${createRes.status}).`, details: createData }, 502);
+        }
+        const sessionId = (createData as any)?.id;
+        if (!sessionId) {
+          return jsonResponse({ error: "Servidor WhatsApp não retornou o id da sessão criada.", details: createData }, 502);
+        }
+
+        // Inicia a sessão — dispara a geração do QR code no servidor.
+        await fetch(`${managedUrl}/api/sessions/${sessionId}/start`, {
+          method: "POST",
+          headers: waAuthHeaders(managedKey),
+        }).catch((e) => console.error("OpenWA start failed:", e));
+
+        const newConfig = {
+          api_url: managedUrl,
+          instance_name: sessionId,
+          api_key: managedKey,
+          friendly_name: friendlyName,
+          managed: true,
+        };
+        const { data: inserted, error: insertErr } = await adminClient
+          .from("integrations")
+          .insert({ client_id: clientId, tenant_id: tenantId, provider: "whatsapp", status: "connecting", config: newConfig })
+          .select("id")
+          .single();
+        if (insertErr) {
+          console.error("DB insert error:", insertErr);
+          return jsonResponse({ error: "Erro ao salvar instância no banco de dados." }, 500);
+        }
+
+        // QR code (best effort — pode ainda não estar pronto logo após o start;
+        // o app já faz polling de "status"/reconecta o modal se vier vazio).
+        const qrRes = await fetch(`${managedUrl}/api/sessions/${sessionId}/qr`, { headers: waAuthHeaders(managedKey) });
+        const qrData = await readResponseBody(qrRes);
+        const qrCode = qrRes.ok && typeof qrData === "object" && qrData !== null
+          ? (qrData as any).qr || (qrData as any).qrCode || (qrData as any).base64 || null
+          : null;
+
+        return jsonResponse({
+          success: true,
+          instance_id: inserted?.id,
+          instance_name: sessionId,
+          friendly_name: friendlyName,
+          qr_code: qrCode,
+          status: "connecting",
+        });
+      }
+
       // ASCII-only slug for Evolution instance name: NFD decompose, strip non-ASCII (accents/emojis), then non-alphanumeric.
       // eslint-disable-next-line no-control-regex
       const slug = friendlyName.toLowerCase().normalize("NFD").replace(/[^\x00-\x7F]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "wa";
@@ -442,15 +530,22 @@ Deno.serve(async (req) => {
     // ── delete-instance: logout + delete from Evolution API + remove DB row ──
     if (action === "delete-instance") {
       try {
-        await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
-          method: "DELETE",
-          headers: { apikey: config.api_key },
-        });
-        await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
-          method: "DELETE",
-          headers: { apikey: config.api_key },
-        });
-      } catch { /* ignore Evolution API errors */ }
+        if (isOpenWA) {
+          await fetch(`${config.api_url}/api/sessions/${instancePath}`, {
+            method: "DELETE",
+            headers: waAuthHeaders(config.api_key),
+          });
+        } else {
+          await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
+            method: "DELETE",
+            headers: { apikey: config.api_key },
+          });
+          await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
+            method: "DELETE",
+            headers: { apikey: config.api_key },
+          });
+        }
+      } catch { /* ignore WhatsApp server errors — a linha some do banco de qualquer forma */ }
 
       await adminClient.from("integrations").delete().eq("id", integration.id);
       return jsonResponse({ success: true });
@@ -458,6 +553,74 @@ Deno.serve(async (req) => {
 
     if (action === "connect") {
       const fallbackStatus = getFallbackStatus(integration?.status, type, config);
+
+      // ── OpenWA: sem conceito de "oficial" (Cloud API) — só o fluxo QR normal. ──
+      if (isOpenWA) {
+        if (type === "official") {
+          return jsonResponse({ connected: false, reachable: false, error: "WhatsApp Oficial (Cloud API) não é suportado pelo servidor OpenWA. Use o modo normal." }, 400);
+        }
+        try {
+          let sessionId = config.instance_name;
+          const checkRes = await fetch(`${config.api_url}/api/sessions/${instancePath}`, { headers: waAuthHeaders(config.api_key) });
+
+          if (checkRes.status === 404) {
+            // Sessão não existe mais no servidor — recria (mesmo padrão da Evolution: 404 → create).
+            const createRes = await fetch(`${config.api_url}/api/sessions`, {
+              method: "POST",
+              headers: { ...waAuthHeaders(config.api_key), "Content-Type": "application/json" },
+              body: JSON.stringify({ name: config.instance_name }),
+            });
+            const createData = await readResponseBody(createRes);
+            if (!createRes.ok || !(createData as any)?.id) {
+              await updateIntegration({ status: fallbackStatus });
+              return jsonResponse({
+                connected: false, instance: { state: fallbackStatus }, status: fallbackStatus, reachable: false,
+                error: `Falha ao recriar sessão no servidor WhatsApp (HTTP ${createRes.status}).`, details: createData,
+              });
+            }
+            sessionId = (createData as any).id;
+            await updateIntegration({ config: { ...config, instance_name: sessionId } });
+          } else {
+            await checkRes.text();
+          }
+
+          const sessionPath = encodeURIComponent(sessionId);
+          await fetch(`${config.api_url}/api/sessions/${sessionPath}/start`, {
+            method: "POST",
+            headers: waAuthHeaders(config.api_key),
+          }).catch((e) => console.error("OpenWA start failed:", e));
+
+          const statusRes = await fetch(`${config.api_url}/api/sessions/${sessionPath}`, { headers: waAuthHeaders(config.api_key) });
+          const statusData = await readResponseBody(statusRes);
+          const waStatus = (statusData as any)?.status;
+
+          if (waStatus === "ready") {
+            await updateIntegration({
+              status: "connected",
+              config: { ...config, instance_name: sessionId, connected_number: (statusData as any)?.phone || (config as any).connected_number },
+            });
+            return jsonResponse({ instance: { state: "open", owner: (statusData as any)?.phone }, status: "connected" });
+          }
+
+          const qrRes = await fetch(`${config.api_url}/api/sessions/${sessionPath}/qr`, { headers: waAuthHeaders(config.api_key) });
+          const qrData = await readResponseBody(qrRes);
+          const qrCode = qrRes.ok && typeof qrData === "object" && qrData !== null
+            ? (qrData as any).qr || (qrData as any).qrCode || (qrData as any).base64 || null
+            : null;
+
+          await updateIntegration({ status: "connecting", config: { ...config, instance_name: sessionId } });
+          return jsonResponse({ base64: qrCode, instance: { state: "connecting" }, status: "connecting" });
+        } catch (err) {
+          if (isConnectionTimeout(err)) {
+            await updateIntegration({ status: fallbackStatus });
+            return jsonResponse({
+              connected: false, instance: { state: fallbackStatus }, status: fallbackStatus, reachable: false,
+              error: "Servidor WhatsApp indisponível ou não respondeu ao conectar.",
+            });
+          }
+          throw err;
+        }
+      }
 
       try {
         // ── Official (Cloud API) flow ──
@@ -600,6 +763,42 @@ Deno.serve(async (req) => {
     if (action === "status") {
       const fallbackStatus = getFallbackStatus(integration?.status, type, config);
 
+      if (isOpenWA) {
+        try {
+          const res = await fetch(`${config.api_url}/api/sessions/${instancePath}`, { headers: waAuthHeaders(config.api_key) });
+          const data = await readResponseBody(res);
+
+          if (!res.ok) {
+            return jsonResponse({
+              instance: { state: fallbackStatus }, status: fallbackStatus, reachable: false,
+              error: (data as any)?.message || "Não foi possível consultar o status no servidor WhatsApp.",
+            });
+          }
+
+          const waStatus = (data as any)?.status;
+          const newStatus = waStatus === "ready" ? "connected" : waStatus === "disconnected" ? "disconnected" : "connecting";
+
+          await updateIntegration({
+            status: newStatus,
+            config: { ...config, ...((data as any)?.phone ? { connected_number: (data as any).phone } : {}) },
+          });
+
+          return jsonResponse({
+            instance: { state: newStatus === "connected" ? "open" : newStatus, owner: (data as any)?.phone },
+            status: newStatus,
+            reachable: true,
+          });
+        } catch (err) {
+          if (isConnectionTimeout(err)) {
+            return jsonResponse({
+              instance: { state: fallbackStatus }, status: fallbackStatus, reachable: false,
+              error: "Servidor WhatsApp indisponível ou não respondeu ao checar status.",
+            });
+          }
+          throw err;
+        }
+      }
+
       try {
         const res = await fetch(`${config.api_url}/instance/connectionState/${instancePath}`, {
           headers: { apikey: config.api_key },
@@ -661,15 +860,22 @@ Deno.serve(async (req) => {
 
     if (action === "disconnect") {
       try {
-        const logoutRes = await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
-          method: "DELETE",
-          headers: { apikey: config.api_key },
-        });
-        if (!logoutRes.ok) {
-          await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
+        if (isOpenWA) {
+          await fetch(`${config.api_url}/api/sessions/${instancePath}`, {
+            method: "DELETE",
+            headers: waAuthHeaders(config.api_key),
+          });
+        } else {
+          const logoutRes = await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
             method: "DELETE",
             headers: { apikey: config.api_key },
           });
+          if (!logoutRes.ok) {
+            await fetch(`${config.api_url}/instance/delete/${instancePath}`, {
+              method: "DELETE",
+              headers: { apikey: config.api_key },
+            });
+          }
         }
       } catch (err) {
         console.error("Error during disconnect:", err);
@@ -708,17 +914,23 @@ Deno.serve(async (req) => {
 
       let res: Response;
       try {
-        res = await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
-          method: "POST",
-          headers: { apikey: config.api_key, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            number: formattedPhone,
-            text: message,
-          }),
-        });
+        res = isOpenWA
+          ? await fetch(`${config.api_url}/api/sessions/${instancePath}/messages/send-text`, {
+              method: "POST",
+              headers: { ...waAuthHeaders(config.api_key), "Content-Type": "application/json" },
+              body: JSON.stringify({ to: formattedPhone, text: message }),
+            })
+          : await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
+              method: "POST",
+              headers: { apikey: config.api_key, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                number: formattedPhone,
+                text: message,
+              }),
+            });
       } catch (fetchErr) {
         return jsonResponse({
-          error: `Não foi possível alcançar o servidor WhatsApp (${config.instance_name}). Verifique se a Evolution API está online.`,
+          error: `Não foi possível alcançar o servidor WhatsApp (${config.instance_name}). Verifique se o servidor está online.`,
           code: "EVOLUTION_UNREACHABLE",
           detail: getErrorMessage(fetchErr),
           instance: config.instance_name,
@@ -817,6 +1029,12 @@ Deno.serve(async (req) => {
     }
 
     if (action === "send-media") {
+      if (isOpenWA) {
+        // Endpoint de envio de mídia do servidor OpenWA não foi confirmado —
+        // ver tmp/OPENWA_INTEGRATION_PENDING.md. Erro explícito em vez de adivinhar.
+        return jsonResponse({ error: "Envio de mídia ainda não está disponível para o servidor WhatsApp atual (OpenWA). Use apenas texto por enquanto.", code: "NOT_SUPPORTED" }, 501);
+      }
+
       const body = await req.json();
       const { phone, mediaUrl, mediaType, fileName, caption, mimetype } = body;
       if (!phone || !mediaUrl) {

@@ -52,3 +52,34 @@ Branch `claude/orquestrar-totum-api-key-49413e` enviada para `origin` (deploy au
 ### Pendente
 - [ ] Ajustar JWT Expiry no painel Supabase (config manual, fora do código) — ver `tmp/SUPABASE_SESSION_CONFIG.md`
 - [ ] Testar em produção após deploy (não tenho credenciais para login real)
+
+---
+
+# Fix 03: WhatsApp — migrar de Evolution API para OpenWA
+
+## Status: parcial e documentado — conectar/enviar prontos, receber mensagens pendente
+
+### Diagnóstico corrigido em relação ao anexo original
+- O anexo dizia que só o "Modo Gerenciado" tinha endpoints Evolution hardcoded e que o "Modo Avançado" já era genérico. **Não é verdade**: todas as ações (`connect`, `status`, `disconnect`, `send-message`, `send-media`) chamam endpoints específicos da Evolution, nos dois modos. Confirmado lendo o arquivo inteiro.
+- Servidor real identificado com a ajuda do usuário: OpenWA / "Totum SDR" (`https://zap.grupototum.com`), atrás de Basic Auth (Traefik) + header `X-API-Key`. Endpoints confirmados ao vivo (GET, sem efeito colateral): `GET /api/sessions`, `GET /api/sessions/{id}`, `GET /api/sessions/{id}/qr` (existe), `GET /api/webhooks`.
+- **Bloqueio real do "não consegue conectar":** não é só formato de endpoint — é que `supabase/functions/whatsapp-webhook/index.ts` (fora do escopo autorizado, área crítica) só entende o payload da Evolution (`body.event === "messages.upsert"`). O OpenWA manda `message.received`/`session.status`/`session.disconnected`. Detalhe completo em [`tmp/OPENWA_INTEGRATION_PENDING.md`](tmp/OPENWA_INTEGRATION_PENDING.md).
+
+### Feito (aprovado explicitamente pelo usuário via pergunta em chat, escopo "conectar+enviar agora, webhook pendente")
+- [x] T1 — placeholders/labels "Evolution API" trocados por genéricos em [`WhatsAppManagement.tsx`](src/components/whatsapp/WhatsAppManagement.tsx) (mantive os rótulos "Evolution" em `BroadcastConfigModal`/`MasterIntegrationsPage`/landing pages — são nome de produto/rota, não placeholder de bug; fora de escopo)
+- [x] T2 — formato do `save-config` já cobre o necessário (api_url/instance_name/api_key) — instance_name passa a guardar o `id` (UUID) da sessão OpenWA quando `UPIXEL_WA_TYPE=openwa`
+- [x] T3 — [`whatsapp-proxy/index.ts`](supabase/functions/whatsapp-proxy/index.ts) aceita `UPIXEL_WA_URL`/`UPIXEL_WA_KEY`/`UPIXEL_WA_TYPE`, cai para `UPIXEL_EVOLUTION_*` como legado — zero mudança de comportamento pra quem ainda usa Evolution
+- [x] T4 — implementado para OpenWA: criar sessão, iniciar, QR, status, conectar, desconectar/apagar, enviar texto. `send-media` retorna erro explícito "não suportado" (endpoint real não confirmado, evitei adivinhar)
+- [x] T5 — [`tmp/WHATSAPP_OPENWA_CONFIG.md`](tmp/WHATSAPP_OPENWA_CONFIG.md) criado
+- [x] `npm run build` — passa (não valida o edge function Deno — sem `deno` CLI neste ambiente para typecheck; revisei o arquivo inteiro manualmente após as edições)
+
+### Credenciais reais usadas só para teste transitório
+Recebi no chat URL + API key + Basic Auth do servidor OpenWA em texto puro. Usei só
+para `curl` de investigação (GET, endpoints confirmados acima) — **não persisti em
+nenhum arquivo do repo** (conferido com grep antes de commitar). Os valores reais
+devem ir só nas Secrets do Supabase, conforme `tmp/WHATSAPP_OPENWA_CONFIG.md`.
+
+### Pendente — bloqueia "receber mensagens no CRM"
+- [ ] Adaptar `whatsapp-webhook/index.ts` pro formato OpenWA (fora do escopo autorizado desta tarefa — precisa aprovação explícita separada)
+- [ ] Registrar o webhook da sessão apontando pro CRM (formato do `POST /api/webhooks` não confirmado)
+- [ ] Testar T4 de ponta a ponta com um número real de teste antes de anunciar como resolvido — `POST /api/sessions`, `/start` e `/messages/send-text` foram implementados pelo formato informado, não testados ao vivo (evitei POST em servidor de produção)
+- [ ] Ver [`tmp/OPENWA_INTEGRATION_PENDING.md`](tmp/OPENWA_INTEGRATION_PENDING.md) para a lista completa de endpoints confirmados vs. inferidos
