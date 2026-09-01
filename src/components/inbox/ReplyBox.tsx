@@ -478,7 +478,7 @@ export function ReplyBox({
             Dica: Digite <span className="font-bold text-primary">/</span> para usar respostas rápidas.
           </p>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-accent hover:text-accent hover:bg-accent/10 font-bold" onClick={() => toast.info("IA analisando histórico...")}>
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-[hsl(var(--orange))] hover:text-[hsl(var(--orange))] hover:bg-[hsl(var(--orange))]/10 font-bold" onClick={() => toast.info("IA analisando histórico...")}>
               <Sparkles className="h-3 w-3" /> USAR IA
             </Button>
           </div>
