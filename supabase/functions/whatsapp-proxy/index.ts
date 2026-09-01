@@ -138,6 +138,94 @@ Deno.serve(async (req) => {
 
     // ── create-managed-instance: creates instance using shared server credentials ──
     if (action === "create-managed-instance") {
+      const waType = (Deno.env.get("UPIXEL_WA_TYPE") || "evolution").toLowerCase();
+      const isOpenWA = waType === "openwa";
+
+      // ── OpenWA branch ──
+      if (isOpenWA) {
+        const openwaUrl = (Deno.env.get("UPIXEL_WA_URL") || "").trim().replace(/\/+$/, "");
+        const openwaKey = Deno.env.get("UPIXEL_WA_KEY") || "";
+        const openwaBasicAuth = Deno.env.get("UPIXEL_WA_BASIC_AUTH") || "";
+
+        if (!openwaUrl || !openwaKey) {
+          return jsonResponse({ error: "Servidor OpenWA não configurado. Verifique UPIXEL_WA_URL e UPIXEL_WA_KEY." }, 503);
+        }
+
+        const body = await req.json().catch(() => ({}));
+        const friendlyName = (body.name || "").trim().slice(0, 30) || "WhatsApp";
+        const sessionName = `c${clientId.slice(0, 8)}-${Math.random().toString(36).slice(2, 8)}`;
+
+        const openwaHeaders: Record<string, string> = {
+          "X-Api-Key": openwaKey,
+          "Content-Type": "application/json",
+        };
+        if (openwaBasicAuth) {
+          openwaHeaders["Authorization"] = `Basic ${btoa(openwaBasicAuth)}`;
+        }
+
+        // Create session
+        const createRes = await fetch(`${openwaUrl}/api/sessions`, {
+          method: "POST",
+          headers: openwaHeaders,
+          body: JSON.stringify({ name: sessionName }),
+        });
+
+        if (!createRes.ok) {
+          const errBody = await createRes.text().catch(() => "");
+          return jsonResponse({ error: `Falha ao criar sessão OpenWA (HTTP ${createRes.status}): ${errBody}` }, 502);
+        }
+
+        const createData = await createRes.json().catch(() => ({}));
+        const sessionId = createData.id || createData.sessionId || sessionName;
+
+        // Save integration
+        const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`;
+        const newConfig = {
+          api_url: openwaUrl,
+          api_key: openwaKey,
+          session_id: sessionId,
+          session_name: sessionName,
+          friendly_name: friendlyName,
+          managed: true,
+          wa_type: "openwa",
+        };
+
+        const { data: inserted, error: insertErr } = await adminClient
+          .from("integrations")
+          .insert({ client_id: clientId, tenant_id: tenantId, provider: "whatsapp", status: "connecting", config: newConfig })
+          .select("id").single();
+
+        if (insertErr) {
+          console.error("DB insert error:", insertErr);
+          return jsonResponse({ error: "Erro ao salvar sessão no banco de dados." }, 500);
+        }
+
+        // Register webhook (best effort)
+        const taggedWebhookUrl = `${webhookUrl}?integration_id=${inserted?.id ?? ""}`;
+        fetch(`${openwaUrl}/api/webhooks`, {
+          method: "POST",
+          headers: openwaHeaders,
+          body: JSON.stringify({ url: taggedWebhookUrl, events: ["message.received", "session.status", "session.disconnected"] }),
+        }).catch((e) => console.error("OpenWA webhook register failed:", e));
+
+        // Start session and get QR
+        const startRes = await fetch(`${openwaUrl}/api/sessions/${sessionId}/start`, {
+          method: "POST",
+          headers: openwaHeaders,
+        });
+        const startData = await startRes.json().catch(() => ({}));
+        const qrCode = startData.qr || startData.base64 || null;
+
+        return jsonResponse({
+          success: true,
+          instance_id: inserted?.id,
+          instance_name: sessionId,
+          friendly_name: friendlyName,
+          qr_code: qrCode,
+          status: "connecting",
+        });
+      }
+
       const managedUrl = (Deno.env.get("UPIXEL_EVOLUTION_URL") || "").trim().replace(/\/+$/, "");
       const managedKey = Deno.env.get("UPIXEL_EVOLUTION_KEY") || "";
 
@@ -705,6 +793,27 @@ Deno.serve(async (req) => {
 
       const cleanPhone = phone.replace(/\D/g, "");
       const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+
+      // OpenWA send path
+      if ((config as any).wa_type === "openwa" || (config as any).session_id) {
+        const sessionId = (config as any).session_id || (config as any).instance_name;
+        const openwaBasicAuth = Deno.env.get("UPIXEL_WA_BASIC_AUTH") || "";
+        const sendHeaders: Record<string, string> = { "X-Api-Key": config.api_key, "Content-Type": "application/json" };
+        if (openwaBasicAuth) sendHeaders["Authorization"] = `Basic ${btoa(openwaBasicAuth)}`;
+        let res: Response;
+        try {
+          res = await fetch(`${config.api_url}/api/sessions/${sessionId}/messages/send-text`, {
+            method: "POST",
+            headers: sendHeaders,
+            body: JSON.stringify({ chatId: `${formattedPhone}@c.us`, text: message }),
+          });
+        } catch (fetchErr) {
+          return jsonResponse({ error: "Não foi possível alcançar o servidor OpenWA." }, 503);
+        }
+        const resData = await res.json().catch(() => ({}));
+        if (!res.ok) return jsonResponse({ error: `OpenWA send failed (${res.status})`, details: resData }, 502);
+        return jsonResponse({ success: true, message_id: (resData as any).id });
+      }
 
       let res: Response;
       try {
