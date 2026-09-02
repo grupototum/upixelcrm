@@ -6,7 +6,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { extractEdgeError } from "@/lib/edge-error";
 import { invokeEdge } from "@/lib/edge-invoke";
-import { resolveClientId } from "@/lib/tenant-utils";
+import { resolveClientId, tenantIdField } from "@/lib/tenant-utils";
 import { untypedFrom } from "@/lib/supabase-untyped";
 import { notifyMentions } from "@/lib/mentions";
 
@@ -367,8 +367,10 @@ export function useInbox(onLeadCreated?: () => void) {
         queryString = `?action=send-message${instanceName ? `&instance_name=${encodeURIComponent(instanceName)}` : ""}`;
       }
 
+      // tenant_id explícito: master logado num subdomínio tem profile.tenant_id = Master,
+      // e sem isso o proxy envia/grava pelo tenant errado.
       const { error } = await invokeEdge(`${functionName}${queryString}`, {
-        body: { phone, message: text },
+        body: { phone, message: text, tenant_id: clientId },
       });
 
       if (error) {
@@ -389,7 +391,16 @@ export function useInbox(onLeadCreated?: () => void) {
       );
       toast.error(`Erro ao enviar: ${err.message}`);
     }
-  }, [conversations]);
+  }, [conversations, clientId]);
+
+  // Reenvia uma mensagem otimista marcada como `failed`: remove a cópia local
+  // e dispara o envio de novo (que cria uma nova otimista).
+  const retryMessage = useCallback(async (messageId: string) => {
+    const failed = messages.find(m => m.id === messageId);
+    if (!failed || !selectedLeadId) return;
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    await sendWhatsAppMessage(selectedLeadId, failed.content, failed.conversation_id);
+  }, [messages, selectedLeadId, sendWhatsAppMessage]);
 
   // Send message with media (unified - WhatsApp, Instagram, or fallback for other channels)
   const sendWhatsAppMedia = useCallback(async (leadId: string, file: File, targetConversationId?: string) => {
@@ -440,6 +451,7 @@ export function useInbox(onLeadCreated?: () => void) {
         const { error } = await invokeEdge("whatsapp-proxy?action=send-media", {
           body: {
             phone,
+            tenant_id: clientId,
             mediaUrl: url,
             mediaType,
             mimetype: file.type,
@@ -472,6 +484,8 @@ export function useInbox(onLeadCreated?: () => void) {
         // Para email, idealmente usaríamos anexo via Gmail API, mas isso requer extensão futura.
         const { error: msgError } = await supabase.from("messages").insert({
           conversation_id: target.id,
+          client_id: clientId ?? undefined,
+          ...tenantIdField(clientId),
           content: url,
           type: mediaType === "video" || mediaType === "document" ? "file" : mediaType,
           direction: "outbound",
@@ -499,7 +513,7 @@ export function useInbox(onLeadCreated?: () => void) {
       toast.error(`Erro ao enviar mídia: ${err.message}`);
       throw err;
     }
-  }, [conversations]);
+  }, [conversations, clientId]);
 
   // Send email via Gmail
   const sendEmail = useCallback(async (leadId: string, text: string, targetConversationId?: string) => {
@@ -535,6 +549,8 @@ export function useInbox(onLeadCreated?: () => void) {
 
       await supabase.from("messages").insert({
         conversation_id: target.id,
+        client_id: clientId ?? undefined,
+        ...tenantIdField(clientId),
         content: text,
         type: "email",
         direction: "outbound",
@@ -552,7 +568,7 @@ export function useInbox(onLeadCreated?: () => void) {
     } catch (err: any) {
       toast.error(`Erro ao enviar e-mail: ${err.message}`);
     }
-  }, [conversations, loadMessages, loadConversations]);
+  }, [conversations, loadMessages, loadConversations, clientId]);
 
   // Unified send
   const sendMessage = useCallback(async (text: string, targetConversationId?: string, isPrivate: boolean = false) => {
@@ -567,8 +583,12 @@ export function useInbox(onLeadCreated?: () => void) {
     if (!target) return;
 
     if (isPrivate) {
+      // client_id/tenant_id explícitos: sem eles a linha fica com tenant_id NULL,
+      // que a policy "Tenant isolation" hoje deixa visível para qualquer tenant.
       await supabase.from("messages").insert({
         conversation_id: target.id,
+        client_id: clientId ?? undefined,
+        ...tenantIdField(clientId),
         content: text,
         type: "text",
         direction: "outbound",
@@ -599,6 +619,8 @@ export function useInbox(onLeadCreated?: () => void) {
       // então não chamamos loadMessages aqui.
       await supabase.from("messages").insert({
         conversation_id: target.id,
+        client_id: clientId ?? undefined,
+        ...tenantIdField(clientId),
         content: text,
         type: "text",
         direction: "outbound",
@@ -755,6 +777,7 @@ export function useInbox(onLeadCreated?: () => void) {
     const { data: newLead, error } = await supabase
       .from("leads").insert({
         client_id: clientId,
+        ...tenantIdField(clientId),
         name: leadName,
         phone: canonicalPhone || null,
         email: email || null,
@@ -787,6 +810,7 @@ export function useInbox(onLeadCreated?: () => void) {
       lead_id: resolvedLeadId,
       status: "open",
       client_id: clientId,
+      ...tenantIdField(clientId),
       metadata: { phone, email, lead_name: leadName },
     }).select("id").single();
 
@@ -1013,7 +1037,7 @@ export function useInbox(onLeadCreated?: () => void) {
 
   return {
     conversations, messages, selectedLeadId, loading,
-    selectLead, sendMessage, createConversation,
+    selectLead, sendMessage, retryMessage, createConversation,
     updateStatus, updatePriority, assignToAgent, updateLabels,
     snoozeConversation,
     transcribeAudio, sendWhatsAppMedia, deleteLead, mergeLeads,

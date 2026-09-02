@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
+import { resolveClientId } from "@/lib/tenant-utils";
 
 export interface WaInstance {
   id: string;
@@ -16,17 +19,25 @@ export interface WaInstance {
   business_id: string;
   has_access_token: boolean;
   connected_number: string;
+  health_status?: string | null;
+  consecutive_failures?: number | null;
 }
 
 export function useWhatsAppInstances() {
   const [instances, setInstances] = useState<WaInstance[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { tenant } = useTenant();
+  // Tenant do subdomínio atual. Sem isso o proxy usa profile.tenant_id — para o
+  // master isso é o tenant "Master", e o número conectado cai no tenant errado.
+  const tenantId = resolveClientId(tenant?.id, user?.client_id);
 
   const loadInstances = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke(
-        "whatsapp-proxy?action=list-instances"
+        "whatsapp-proxy?action=list-instances",
+        { body: { tenant_id: tenantId } }
       );
       if (error) {
         logger.error("Proxy error:", error);
@@ -39,7 +50,7 @@ export function useWhatsAppInstances() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     loadInstances();
@@ -60,6 +71,7 @@ export function useWhatsAppInstances() {
         `whatsapp-proxy?action=save-config&type=${typeParam}`,
         {
           body: {
+            tenant_id: tenantId,
             api_url: params.api_url,
             instance_name: params.instance_name,
             api_key: params.api_key,
@@ -72,14 +84,15 @@ export function useWhatsAppInstances() {
       if (error) throw new Error(error.message);
       await loadInstances();
     },
-    [loadInstances]
+    [loadInstances, tenantId]
   );
 
   const deleteInstance = useCallback(
     async (instance: WaInstance) => {
       const typeParam = instance.provider === "whatsapp_official" ? "official" : "normal";
       const { error } = await supabase.functions.invoke(
-        `whatsapp-proxy?action=delete-instance&type=${typeParam}&instance_name=${encodeURIComponent(instance.instance_name)}`
+        `whatsapp-proxy?action=delete-instance&type=${typeParam}&instance_name=${encodeURIComponent(instance.instance_name)}`,
+        { body: { tenant_id: tenantId } }
       );
       if (error) {
         toast.error("Erro ao remover instância: " + error.message);
@@ -88,7 +101,7 @@ export function useWhatsAppInstances() {
       toast.success("Instância removida.");
       await loadInstances();
     },
-    [loadInstances]
+    [loadInstances, tenantId]
   );
 
   return {
