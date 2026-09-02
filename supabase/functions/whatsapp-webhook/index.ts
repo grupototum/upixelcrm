@@ -331,6 +331,14 @@ async function downloadOfficialMedia(
 }
 
 // ─── Find or create lead ───
+// tenant_id == client_id para tenants UUID (integrations, profiles e leads seguem
+// essa convenção). Linhas inbound sem tenant_id ficavam NULL e a policy
+// "Tenant isolation" as expunha a todos os tenants — 76 leads em produção em 2026-09-01.
+// client_id legado não-UUID ("c1") não entra em coluna uuid, por isso o guard.
+const TENANT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const tenantField = (clientId: string): Record<string, string> =>
+  TENANT_UUID_RE.test(clientId) ? { tenant_id: clientId } : {};
+
 async function findOrCreateLead(
   adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>
 ): Promise<string | null> {
@@ -403,11 +411,11 @@ async function findOrCreateLead(
     // Cria pipeline padrão automaticamente para clients que ainda não configuraram
     console.log("No pipeline columns — creating default for client:", clientId);
     const defaultCols = [
-      { client_id: clientId, name: "Novo", order: 0, color: "#3b82f6" },
-      { client_id: clientId, name: "Em Atendimento", order: 1, color: "#f59e0b" },
-      { client_id: clientId, name: "Negociação", order: 2, color: "#8b5cf6" },
-      { client_id: clientId, name: "Ganho", order: 3, color: "#10b981" },
-      { client_id: clientId, name: "Perdido", order: 4, color: "#ef4444" },
+      { client_id: clientId, ...tenantField(clientId), name: "Novo", order: 0, color: "#3b82f6" },
+      { client_id: clientId, ...tenantField(clientId), name: "Em Atendimento", order: 1, color: "#f59e0b" },
+      { client_id: clientId, ...tenantField(clientId), name: "Negociação", order: 2, color: "#8b5cf6" },
+      { client_id: clientId, ...tenantField(clientId), name: "Ganho", order: 3, color: "#10b981" },
+      { client_id: clientId, ...tenantField(clientId), name: "Perdido", order: 4, color: "#ef4444" },
     ];
     const { data: created, error: colErr } = await adminClient.from("pipeline_columns")
       .insert(defaultCols).select("id").order("order", { ascending: true });
@@ -419,7 +427,7 @@ async function findOrCreateLead(
   }
 
   const { data: newLead, error: leadError } = await adminClient.from("leads").insert({
-    client_id: clientId, name: senderName, phone, column_id: targetColId,
+    client_id: clientId, ...tenantField(clientId), name: senderName, phone, column_id: targetColId,
     tags: ["whatsapp-auto"], origin: "whatsapp",
   }).select("id").single();
   if (leadError) { console.error("Error creating lead:", leadError); return null; }
@@ -873,7 +881,7 @@ async function upsertConversationAndMessage(
   } else {
     const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config);
     const insertPayload = {
-      client_id: clientId, lead_id: leadId, channel, status: "open",
+      client_id: clientId, ...tenantField(clientId), lead_id: leadId, channel, status: "open",
       last_message: displayText, last_message_at: new Date().toISOString(), unread_count: 1,
       integration_id: integrationId ?? null,
       metadata: { phone, lead_name: senderName, priority: "medium", instance_name: config?.instance_name ?? null },
@@ -884,7 +892,7 @@ async function upsertConversationAndMessage(
   }
 
   const msgPayload = {
-    client_id: clientId, conversation_id: convId, content: finalContent, type: msgType,
+    client_id: clientId, ...tenantField(clientId), conversation_id: convId, content: finalContent, type: msgType,
     direction, sender_name: senderName,
     metadata: { whatsapp_message_id: messageId, ...msgMeta },
   };
