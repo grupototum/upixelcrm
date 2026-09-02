@@ -81,8 +81,15 @@ Deno.serve(async (req) => {
       email_confirm: true, // Auto-confirm email since master is creating it
       user_metadata: {
         name: name,
-        role: role,
         organization_id: organization_id || null,
+      },
+      // Canal confiável: só service role escreve app_metadata. handle_new_user
+      // lê role/approval/tenant daqui; user_metadata (editável pelo próprio
+      // usuário) nunca mais concede role ou aprovação.
+      app_metadata: {
+        role: role,
+        approval_status: "approved",
+        tenant_id: profile.tenant_id ?? null,
       },
     });
 
