@@ -14,11 +14,11 @@ export async function isSubdomainTaken(subdomain: string): Promise<boolean> {
   return Boolean(tenantMatch || orgMatch);
 }
 
-/** Reserva o tenant e retorna o id. */
-export async function createTenant(name: string, subdomain: string): Promise<string> {
+/** Cria o tenant já com dono (RLS exige owner_id = auth.uid()) e retorna o id. */
+export async function createTenant(name: string, subdomain: string, ownerId: string): Promise<string> {
   const { data, error } = await supabase
     .from("tenants")
-    .insert({ name, subdomain })
+    .insert({ name, subdomain, owner_id: ownerId })
     .select("id")
     .single();
   if (error) throw error;
@@ -32,6 +32,7 @@ export async function createTenantOrganization(row: {
   slug: string;
   subdomain: string;
   tenant_id: string;
+  owner_id: string;
 }): Promise<string> {
   const { data, error } = await supabase.from("organizations").insert(row).select("id").single();
   if (error) throw error;
@@ -41,16 +42,6 @@ export async function createTenantOrganization(row: {
 
 export async function deleteTenant(id: string): Promise<void> {
   const { error } = await supabase.from("tenants").delete().eq("id", id);
-  if (error) throw error;
-}
-
-export async function setTenantOwner(tenantId: string, ownerId: string): Promise<void> {
-  const { error } = await supabase.from("tenants").update({ owner_id: ownerId }).eq("id", tenantId);
-  if (error) throw error;
-}
-
-export async function setOrganizationOwner(orgId: string, ownerId: string): Promise<void> {
-  const { error } = await supabase.from("organizations").update({ owner_id: ownerId }).eq("id", orgId);
   if (error) throw error;
 }
 
