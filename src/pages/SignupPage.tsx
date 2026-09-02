@@ -104,52 +104,53 @@ export default function SignupPage() {
     let orgId: string | null    = null;
 
     try {
+      // 1. Conta primeiro. RLS só permite INSERT em tenants/organizations para
+      // usuário autenticado e com owner_id = auth.uid() — não existe mais a
+      // janela "tenant sem dono" que qualquer usuário podia reivindicar.
+      // Role/aprovação NÃO vão em metadata: o trigger on_tenant_owner_set
+      // promove o dono a supervisor aprovado quando o tenant é criado.
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { name: name.trim() } },
+      });
+
+      if (authError || !authData.user) {
+        setError(authError?.message ?? "Erro ao criar conta.");
+        setLoading(false);
+        return;
+      }
+      const userId = authData.user.id;
+
+      // 2. Tenant já com dono. (Se falhar, a conta auth permanece — custo aceito.)
       try {
-        tenantId = await signupRepo.createTenant(companyName.trim(), `t-${subdomain}`);
+        tenantId = await signupRepo.createTenant(companyName.trim(), `t-${subdomain}`, userId);
       } catch (tenantError) {
         setError((tenantError as { message?: string })?.message ?? "Erro ao reservar subdomínio.");
         setLoading(false);
         return;
       }
 
+      // 3. Organização do tenant, também já com dono.
       try {
         orgId = await signupRepo.createTenantOrganization({
           name: companyName.trim(),
           slug: subdomain,
           subdomain,
           tenant_id: tenantId,
+          owner_id: userId,
         });
       } catch (orgError) {
-        // Rollback do tenant (erro ignorado como no original)
         await signupRepo.deleteTenant(tenantId).catch(() => {});
         setError((orgError as { message?: string })?.message ?? "Erro ao criar organização.");
         setLoading(false);
         return;
       }
 
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: { name: name.trim(), tenant_id: tenantId, role: "supervisor" },
-        },
-      });
-
-      if (authError || !authData.user) {
-        await deleteOrganization(orgId).catch(() => {});
-        await signupRepo.deleteTenant(tenantId).catch(() => {});
-        setError(authError?.message ?? "Erro ao criar conta.");
-        setLoading(false);
-        return;
-      }
-
-      // Falha aqui deixava o signup terminar em "sucesso" com tenant sem dono.
-      // Agora é fatal: faz rollback de org+tenant e mostra erro. (A conta auth
-      // criada permanece — custo aceito para não ter tenant órfão.)
+      // 4. Vincula organization_id no profile (o trigger on_org_owner_set já
+      // faz isso server-side; aqui é no-op idempotente e cobre banco antigo).
       try {
-        await signupRepo.setTenantOwner(tenantId, authData.user.id);
-        await signupRepo.setOrganizationOwner(orgId, authData.user.id);
-        await setProfileOrganization(authData.user.id, orgId);
+        await setProfileOrganization(userId, orgId);
       } catch (ownerErr) {
         logger.error("signup owner-set failed, rolling back:", ownerErr);
         await deleteOrganization(orgId).catch(() => {});

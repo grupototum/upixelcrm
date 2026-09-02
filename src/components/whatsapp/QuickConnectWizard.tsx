@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { extractEdgeError } from "@/lib/edge-error";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
+import { resolveClientId } from "@/lib/tenant-utils";
 
 type WizardStep = "name" | "qr" | "success";
 
@@ -259,6 +262,9 @@ export function QuickConnectWizard({
   onComplete: () => void;
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { tenant } = useTenant();
+  const tenantId = resolveClientId(tenant?.id, user?.client_id);
   const [step, setStep] = useState<WizardStep>("name");
   const [creating, setCreating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -307,7 +313,8 @@ export function QuickConnectWizard({
     try {
       const { data: res, error } = await supabase.functions.invoke(
         "whatsapp-proxy?action=create-managed-instance",
-        { body: { name: name || "WhatsApp" } }
+        // tenant_id do subdomínio atual: sem ele o master cria o número no tenant "Master".
+        { body: { name: name || "WhatsApp", tenant_id: tenantId } }
       );
       if (error) {
         // supabase.functions.invoke não expõe o corpo JSON do erro em error.message

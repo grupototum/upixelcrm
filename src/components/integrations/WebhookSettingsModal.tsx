@@ -71,6 +71,7 @@ export function WebhookSettingsModal({ open, onOpenChange }: { open: boolean; on
   };
 
   const handleSave = async () => {
+    if (!editingId) return;
     if (!isStrictWebhookUrl(url)) {
       toast.error("A URL do Webhook deve ser HTTPS pública (sem localhost ou IPs internos).");
       return;

@@ -19,6 +19,8 @@ function slugify(text: string): string {
 export function useCustomFields() {
   const [definitions, setDefinitions] = useState<CustomFieldDefinition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createFieldError, setCreateFieldError] = useState<string | null>(null);
+  const clearCreateFieldError = useCallback(() => setCreateFieldError(null), []);
 
   const { tenant } = useTenant();
   const { user } = useAuth();
@@ -71,9 +73,11 @@ export function useCustomFields() {
         .single();
 
       if (error) {
+        setCreateFieldError(error.message);
         toast.error("Erro ao criar campo: " + error.message);
         return null;
       }
+      setCreateFieldError(null);
       toast.success(`Campo "${params.name}" criado!`);
       setDefinitions((prev) => [...prev, data as unknown as CustomFieldDefinition]);
       return data;
@@ -120,6 +124,8 @@ export function useCustomFields() {
     loading,
     fetchDefinitions,
     createField,
+    createFieldError,
+    clearCreateFieldError,
     updateField,
     deleteField,
   };

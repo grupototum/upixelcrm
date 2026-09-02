@@ -4,9 +4,30 @@
 - Criar sessão, conectar (QR), checar status, desconectar/apagar, enviar mensagem de texto.
 - Ativado via `UPIXEL_WA_TYPE=openwa` (ver `tmp/WHATSAPP_OPENWA_CONFIG.md`).
 
-## NÃO funciona ainda — bloqueio real
+## Atualização 2026-09-01 (auditoria + correção)
 
-**Mensagens recebidas do cliente não chegam ao CRM.**
+Causa raiz confirmada em produção: a `whatsapp-proxy` publicada registrava o webhook
+em `POST /api/webhooks` (endpoint inexistente, erro engolido) e o `whatsapp-webhook`
+publicado nunca recebeu uma chamada do OpenWA (0 hits em 24h). Corrigido no repo:
+- proxy: `ensureOpenWAWebhook` → `GET/POST /api/sessions/{id}/webhooks` (idempotente,
+  resultado gravado em `config.webhook_registered` / `webhook_error`), chamado no
+  create e em todo `connect`; protocolo decidido por linha (`wa_type`/`session_id`),
+  `send-text` com `{ chatId: "<fone>@c.us", text }`, echo suprimido por `waMessageId`.
+- webhook: rota OpenWA (`message.received`, `session.status`, `session.disconnected`)
+  trazida do commit 5dbb11f (branch feat/metas-v2, que era o código em produção) e
+  compatível com linhas gravadas só com `session_id`.
+- frontend: `tenant_id` do subdomínio atual em todas as chamadas ao proxy (master
+  logado em `totum.upixel.app` criava o número no tenant "Master").
+
+Pendências fora do repo: (1) `SSRF_ALLOWED_HOSTS` do OpenWA (`/opt/OpenWA/.env`)
+precisa incluir `xusdhzwfkzufupjwbebt.supabase.co`, senão o registro devolve
+"Destination address is not allowed" — agora isso aparece em `webhook_error`;
+(2) reconectar a sessão "Claudia" (integration `dbfe8ad7…`) no tenant certo;
+(3) envio de mídia via OpenWA continua não implementado.
+
+## Histórico — o que estava quebrado antes da correção acima
+
+**Mensagens recebidas do cliente não chegavam ao CRM.**
 
 `supabase/functions/whatsapp-webhook/index.ts` só entende o payload da Evolution API
 (`body.event === "messages.upsert"`, `body.instance`, `body.data`). O servidor

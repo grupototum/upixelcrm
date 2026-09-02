@@ -117,6 +117,75 @@ function extractMessageContent(messageData: any): MediaInfo {
   if (msg.contactMessage) {
     return { content: `👤 Contato: ${msg.contactMessage.displayName || ""}`, type: "text", metadata: { vcard: msg.contactMessage.vcard, is_contact: true } };
   }
+  if (msg.contactsArrayMessage) {
+    const names = (msg.contactsArrayMessage.contacts || []).map((c: any) => c.displayName || "").filter(Boolean).join(", ");
+    return { content: `👤 Contatos: ${names || ""}`, type: "text", metadata: { is_contact: true, count: msg.contactsArrayMessage.contacts?.length } };
+  }
+  // Reaction (emoji reaction to a message)
+  if (msg.reactionMessage) {
+    const emoji = msg.reactionMessage.text || "👍";
+    return { content: `Reagiu com ${emoji}`, type: "text", metadata: { is_reaction: true, emoji, reaction_to: msg.reactionMessage.key?.id } };
+  }
+  // Revoked/deleted message
+  if (msg.protocolMessage?.type === 0) {
+    return { content: "🗑️ Mensagem apagada", type: "text", metadata: { is_deleted: true, deleted_id: msg.protocolMessage.key?.id } };
+  }
+  // Poll creation
+  if (msg.pollCreationMessage || msg.pollCreationMessageV3) {
+    const poll = msg.pollCreationMessage || msg.pollCreationMessageV3;
+    const question = poll.name || "";
+    const options = (poll.options || []).map((o: any) => o.optionName).join(", ");
+    return { content: `📊 Enquete: ${question} (${options})`, type: "text", metadata: { is_poll: true, question, options: poll.options?.map((o: any) => o.optionName) } };
+  }
+  // Poll vote
+  if (msg.pollUpdateMessage) {
+    return { content: "📊 Votou em enquete", type: "text", metadata: { is_poll_vote: true } };
+  }
+  // View once media (image/video that disappears after viewing)
+  if (msg.viewOnceMessage?.message || msg.viewOnceMessageV2?.message) {
+    const inner = (msg.viewOnceMessage || msg.viewOnceMessageV2).message;
+    const url = mediaUrl || "";
+    if (inner.imageMessage) return { content: url || "[Foto visualizar uma vez]", type: "image", metadata: { is_view_once: true, media_url: url, mimetype: inner.imageMessage.mimetype } };
+    if (inner.videoMessage) return { content: url || "[Vídeo visualizar uma vez]", type: "video", metadata: { is_view_once: true, media_url: url, mimetype: inner.videoMessage.mimetype } };
+    return { content: "[Mídia visualizar uma vez]", type: "image", metadata: { is_view_once: true } };
+  }
+  // Button reply
+  if (msg.buttonsResponseMessage) {
+    const text = msg.buttonsResponseMessage.selectedDisplayText || msg.buttonsResponseMessage.selectedButtonId || "";
+    return { content: text, type: "text", metadata: { is_button_reply: true, button_id: msg.buttonsResponseMessage.selectedButtonId } };
+  }
+  // List reply
+  if (msg.listResponseMessage) {
+    const title = msg.listResponseMessage.title || "";
+    const desc = msg.listResponseMessage.description || "";
+    return { content: title || desc, type: "text", metadata: { is_list_reply: true, description: desc } };
+  }
+  // Template button reply
+  if (msg.templateButtonReplyMessage) {
+    const text = msg.templateButtonReplyMessage.selectedDisplayText || msg.templateButtonReplyMessage.selectedId || "";
+    return { content: text, type: "text", metadata: { is_template_reply: true } };
+  }
+  // Interactive response (newer Baileys)
+  if (msg.interactiveResponseMessage) {
+    const body = msg.interactiveResponseMessage.nativeFlowResponseMessage?.paramsJson || "";
+    return { content: body || "[Resposta interativa]", type: "text", metadata: { is_interactive: true } };
+  }
+  // Ephemeral (disappearing message wrapper — extract inner)
+  if (msg.ephemeralMessage?.message) {
+    const inner = { message: msg.ephemeralMessage.message, mediaUrl };
+    return extractMessageContent(inner);
+  }
+  // Group invite
+  if (msg.groupInviteMessage) {
+    const name = msg.groupInviteMessage.groupName || "";
+    return { content: `👥 Convite para grupo: ${name}`, type: "text", metadata: { is_group_invite: true, group_name: name, invite_code: msg.groupInviteMessage.inviteCode } };
+  }
+  // Live location
+  if (msg.liveLocationMessage) {
+    const lat = msg.liveLocationMessage.degreesLatitude;
+    const lng = msg.liveLocationMessage.degreesLongitude;
+    return { content: `📍 Localização ao vivo: ${lat}, ${lng}`, type: "text", metadata: { latitude: lat, longitude: lng, is_live_location: true } };
+  }
   return { content: "[Mensagem não suportada]", type: "text", metadata: {} };
 }
 
@@ -150,6 +219,59 @@ function extractOfficialMessageContent(msg: any): MediaInfo {
     return { content: `👤 Contato: ${name}`, type: "text", metadata: { is_contact: true } };
   }
   return { content: "[Mensagem não suportada]", type: "text", metadata: {} };
+}
+
+// ─── OpenWA message extraction ───
+function extractOpenWAMessageContent(data: any): MediaInfo {
+  const msgType = (data.type as string) || "text";
+  const body = (data.body as string) || "";
+
+  if (msgType === "text" || msgType === "chat") {
+    return { content: body || "[Mensagem vazia]", type: "text", metadata: {} };
+  }
+  if (msgType === "image") {
+    return { content: data.mediaPath || "[Imagem]", type: "image", metadata: { mimetype: data.mediaMimetype, media_url: data.mediaPath, caption: body || "" } };
+  }
+  if (msgType === "audio" || msgType === "ptt") {
+    return { content: data.mediaPath || "[Áudio]", type: "audio", metadata: { mimetype: data.mediaMimetype, media_url: data.mediaPath } };
+  }
+  if (msgType === "video") {
+    return { content: data.mediaPath || "[Vídeo]", type: "video", metadata: { caption: body || "", mimetype: data.mediaMimetype, media_url: data.mediaPath } };
+  }
+  if (msgType === "document") {
+    return { content: data.mediaPath || "[Arquivo]", type: "file", metadata: { mimetype: data.mediaMimetype, media_url: data.mediaPath, filename: data.filename || "" } };
+  }
+  if (msgType === "sticker") {
+    return { content: data.mediaPath || "[Sticker]", type: "image", metadata: { is_sticker: true, mimetype: data.mediaMimetype, media_url: data.mediaPath } };
+  }
+  if (msgType === "location") {
+    const lat = data.location?.latitude ?? data.lat ?? "";
+    const lng = data.location?.longitude ?? data.lng ?? "";
+    return { content: `📍 Localização: ${lat}, ${lng}`, type: "text", metadata: { latitude: lat, longitude: lng, is_location: true } };
+  }
+  if (msgType === "reaction") {
+    const emoji = data.reaction || body || "👍";
+    return { content: `Reagiu com ${emoji}`, type: "text", metadata: { is_reaction: true, emoji, reaction_to: data.reactionTo } };
+  }
+  if (msgType === "revoked" || msgType === "deleted") {
+    return { content: "🗑️ Mensagem apagada", type: "text", metadata: { is_deleted: true } };
+  }
+  if (msgType === "contact" || msgType === "vcard") {
+    const name = data.contactName || data.vcard?.name || body || "";
+    return { content: `👤 Contato: ${name}`, type: "text", metadata: { is_contact: true, vcard: data.vcard } };
+  }
+  if (msgType === "poll") {
+    const question = data.pollName || data.title || body || "";
+    const options = (data.options || []).join(", ");
+    return { content: `📊 Enquete: ${question}${options ? ` (${options})` : ""}`, type: "text", metadata: { is_poll: true, question, options: data.options } };
+  }
+  if (msgType === "list" || msgType === "list_reply") {
+    return { content: data.selectedTitle || data.title || body || "[Lista]", type: "text", metadata: { is_list_reply: true } };
+  }
+  if (msgType === "button" || msgType === "button_reply" || msgType === "template") {
+    return { content: data.selectedButtonText || data.title || body || "[Botão]", type: "text", metadata: { is_button_reply: true } };
+  }
+  return { content: body || "[Mensagem não suportada]", type: "text", metadata: {} };
 }
 
 // ─── Download media from Evolution API and upload to Storage ───
@@ -209,6 +331,14 @@ async function downloadOfficialMedia(
 }
 
 // ─── Find or create lead ───
+// tenant_id == client_id para tenants UUID (integrations, profiles e leads seguem
+// essa convenção). Linhas inbound sem tenant_id ficavam NULL e a policy
+// "Tenant isolation" as expunha a todos os tenants — 76 leads em produção em 2026-09-01.
+// client_id legado não-UUID ("c1") não entra em coluna uuid, por isso o guard.
+const TENANT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const tenantField = (clientId: string): Record<string, string> =>
+  TENANT_UUID_RE.test(clientId) ? { tenant_id: clientId } : {};
+
 async function findOrCreateLead(
   adminClient: any, clientId: string, phone: string, senderName: string, config: Record<string, any>
 ): Promise<string | null> {
@@ -281,11 +411,11 @@ async function findOrCreateLead(
     // Cria pipeline padrão automaticamente para clients que ainda não configuraram
     console.log("No pipeline columns — creating default for client:", clientId);
     const defaultCols = [
-      { client_id: clientId, name: "Novo", order: 0, color: "#3b82f6" },
-      { client_id: clientId, name: "Em Atendimento", order: 1, color: "#f59e0b" },
-      { client_id: clientId, name: "Negociação", order: 2, color: "#8b5cf6" },
-      { client_id: clientId, name: "Ganho", order: 3, color: "#10b981" },
-      { client_id: clientId, name: "Perdido", order: 4, color: "#ef4444" },
+      { client_id: clientId, ...tenantField(clientId), name: "Novo", order: 0, color: "#3b82f6" },
+      { client_id: clientId, ...tenantField(clientId), name: "Em Atendimento", order: 1, color: "#f59e0b" },
+      { client_id: clientId, ...tenantField(clientId), name: "Negociação", order: 2, color: "#8b5cf6" },
+      { client_id: clientId, ...tenantField(clientId), name: "Ganho", order: 3, color: "#10b981" },
+      { client_id: clientId, ...tenantField(clientId), name: "Perdido", order: 4, color: "#ef4444" },
     ];
     const { data: created, error: colErr } = await adminClient.from("pipeline_columns")
       .insert(defaultCols).select("id").order("order", { ascending: true });
@@ -297,7 +427,7 @@ async function findOrCreateLead(
   }
 
   const { data: newLead, error: leadError } = await adminClient.from("leads").insert({
-    client_id: clientId, name: senderName, phone, column_id: targetColId,
+    client_id: clientId, ...tenantField(clientId), name: senderName, phone, column_id: targetColId,
     tags: ["whatsapp-auto"], origin: "whatsapp",
   }).select("id").single();
   if (leadError) { console.error("Error creating lead:", leadError); return null; }
@@ -751,7 +881,7 @@ async function upsertConversationAndMessage(
   } else {
     const leadId = await findOrCreateLead(adminClient, clientId, phone, senderName, config);
     const insertPayload = {
-      client_id: clientId, lead_id: leadId, channel, status: "open",
+      client_id: clientId, ...tenantField(clientId), lead_id: leadId, channel, status: "open",
       last_message: displayText, last_message_at: new Date().toISOString(), unread_count: 1,
       integration_id: integrationId ?? null,
       metadata: { phone, lead_name: senderName, priority: "medium", instance_name: config?.instance_name ?? null },
@@ -762,7 +892,7 @@ async function upsertConversationAndMessage(
   }
 
   const msgPayload = {
-    client_id: clientId, conversation_id: convId, content: finalContent, type: msgType,
+    client_id: clientId, ...tenantField(clientId), conversation_id: convId, content: finalContent, type: msgType,
     direction, sender_name: senderName,
     metadata: { whatsapp_message_id: messageId, ...msgMeta },
   };
@@ -1072,6 +1202,135 @@ async function handleOfficialWebhook(body: any, adminClient: any) {
   return results.length > 0 ? results[0] : { ok: true, skipped: "no_messages" };
 }
 
+// ─── Handle OpenWA webhook ───
+async function handleOpenWAWebhook(body: any, adminClient: any, integrationIdFromUrl: string | null) {
+  const event = body.event as string;
+  const sessionId = body.sessionId as string;
+  const data = body.data;
+
+  if (!sessionId) return { ok: true, skipped: "no_sessionId" };
+
+  // Session status events — update integration status
+  if (event === "session.status" || event === "session.disconnected") {
+    // Estados do OpenWA: ready = pareado; qr/starting/connecting = aguardando;
+    // disconnected/failed/logged_out = caiu. Só "ready" vira connected.
+    const waStatus = String(data?.status ?? "").toLowerCase();
+    const status = event === "session.disconnected" || ["disconnected", "failed", "logged_out", "stopped"].includes(waStatus)
+      ? "disconnected"
+      : waStatus === "ready" ? "connected" : "connecting";
+
+    const baseUpdate = adminClient.from("integrations").update({ status }).eq("provider", "whatsapp");
+    if (integrationIdFromUrl) {
+      await baseUpdate.eq("id", integrationIdFromUrl);
+    } else {
+      // Linhas novas gravam session_id e instance_name; as da versão anterior só session_id.
+      await baseUpdate.or(`config->>session_id.eq.${sessionId},config->>instance_name.eq.${sessionId}`);
+    }
+    console.log(`OpenWA session ${sessionId} status: ${status}`);
+    return { ok: true };
+  }
+
+  if (event !== "message.received") {
+    return { ok: true, skipped: `unknown_event:${event}` };
+  }
+
+  if (!data) return { ok: true, skipped: "empty_data" };
+
+  // Mensagens enviadas pelo próprio celular chegam como outgoing/fromMe — entram
+  // como outbound no inbox (mesmo comportamento da rota Evolution), sem disparar bot.
+  const isFromMe = data.direction === "outgoing" || data.fromMe === true;
+  const chatId = (data.chatId as string) || (data.from as string) || "";
+  const isGroup = chatId.endsWith("@g.us");
+
+  // Find matching integration
+  let match: IntegrationRow | null = null;
+
+  if (integrationIdFromUrl) {
+    const { data: row } = await adminClient.from("integrations")
+      .select("id, client_id, status, config")
+      .eq("id", integrationIdFromUrl).eq("provider", "whatsapp").maybeSingle();
+    match = (row as IntegrationRow | null) ?? null;
+  }
+
+  if (!match) {
+    const { data: row } = await adminClient.from("integrations")
+      .select("id, client_id, status, config")
+      .eq("provider", "whatsapp")
+      .or(`config->>session_id.eq.${sessionId},config->>instance_name.eq.${sessionId}`)
+      .limit(1).maybeSingle();
+    match = (row as IntegrationRow | null) ?? null;
+  }
+
+  if (!match) {
+    console.log("No matching integration for OpenWA sessionId:", sessionId);
+    return { ok: true, skipped: "no_match" };
+  }
+
+  if (match.status === "paused") return { ok: true, skipped: "paused" };
+
+  // Group allowlist
+  if (isGroup) {
+    const { data: allow } = await adminClient.from("whatsapp_group_allowlist")
+      .select("id").eq("client_id", match.client_id).eq("group_jid", chatId).eq("enabled", true).maybeSingle();
+    if (!allow) return { ok: true, skipped: "group_not_in_allowlist", group_jid: chatId };
+  }
+
+  // Idempotência
+  const dedupeId = data.waMessageId || data.id;
+  if (dedupeId && await isDuplicateMessage(adminClient, "whatsapp_message_id", dedupeId)) {
+    console.log("Duplicate OpenWA message ignored:", dedupeId);
+    return { ok: true, skipped: "duplicate" };
+  }
+
+  const clientId = match.client_id;
+  const matchConfig = (match.config || {}) as Record<string, any>;
+
+  const rawPhone = isGroup
+    ? (data.author as string || "").replace(/[@:].*/g, "")
+    : (data.from as string || "").replace("@s.whatsapp.net", "").replace("@c.us", "");
+  const phone = rawPhone.replace(/\D/g, "");
+  const senderName = isFromMe ? "Você" : ((data.chatName as string) || phone);
+
+  const { content, type: msgType, metadata: msgMeta } = extractOpenWAMessageContent(data);
+
+  const convId = await upsertConversationAndMessage(
+    adminClient, clientId, phone, senderName, content, msgType, msgMeta,
+    "whatsapp", matchConfig, dedupeId, match.id as string,
+    isFromMe ? "outbound" : "inbound"
+  );
+
+  if (isFromMe) return { ok: true, convId, direction: "outbound" };
+
+  if (convId) {
+    const { data: conv } = await adminClient.from("conversations").select("lead_id").eq("id", convId).maybeSingle();
+    if (conv?.lead_id) {
+      runInBackground(
+        triggerAutomations(adminClient, clientId, "new_message", conv.lead_id, { message: content, message_type: msgType, channel: "whatsapp" }),
+        "triggerAutomations:openwa",
+      );
+      if (msgType === "text") {
+        runInBackground(
+          runBotEngine(adminClient, clientId, conv.lead_id, phone, matchConfig, content, senderName),
+          "runBotEngine:openwa",
+        );
+      }
+      const { data: lead } = await adminClient.from("leads").select("responsible_id").eq("id", conv.lead_id).maybeSingle();
+      if (lead?.responsible_id) {
+        runInBackground(sendPushNotification(adminClient, {
+          title: `💬 ${senderName}`,
+          body: buildDisplayText(msgType, content, msgMeta).slice(0, 100),
+          tag: `msg-${convId}`,
+          type: "new_message",
+          target_user_id: lead.responsible_id,
+          lead_id: conv.lead_id,
+        }), "push:new_message_openwa");
+      }
+    }
+  }
+
+  return { ok: true, conversation_id: convId };
+}
+
 // ─── Main handler ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -1151,10 +1410,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Evolution API format
+    // OpenWA format: event is "message.received", "session.status", or "session.disconnected"
     const event = body.event;
+    if (event === "message.received" || event === "session.status" || event === "session.disconnected") {
+      const result = await handleOpenWAWebhook(body, adminClient, integrationIdFromUrl);
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Handle message events
+    // Evolution API format — handle message events
     if (event === "messages.upsert") {
       const result = await handleEvolutionWebhook(body, adminClient, integrationIdFromUrl);
       return new Response(JSON.stringify(result), {

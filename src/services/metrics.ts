@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { untypedRpc } from "@/lib/supabase-untyped";
 
 /**
  * RPC criada via migration manual (20260511_dashboard_kpis_rpc.sql).
@@ -23,16 +24,15 @@ export async function getCsatStats(start: Date, end: Date): Promise<unknown> {
   return data;
 }
 
-type RpcCaller = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-
 export async function getSlaMetrics(
   startIso: string | null,
   endIso: string | null
 ): Promise<{ overall: unknown; agents: unknown }> {
-  const rpc = supabase.rpc as unknown as RpcCaller;
+  // sla_metrics* ainda fora dos tipos gerados. Não desestruturar `supabase.rpc`:
+  // perde o `this` e quebra em runtime ("reading 'rest'").
   const [overall, agents] = await Promise.all([
-    rpc("sla_metrics", { p_start: startIso, p_end: endIso }),
-    rpc("sla_metrics_by_agent", { p_start: startIso, p_end: endIso }),
+    untypedRpc("sla_metrics", { p_start: startIso, p_end: endIso }),
+    untypedRpc("sla_metrics_by_agent", { p_start: startIso, p_end: endIso }),
   ]);
 
   if (overall.error) throw overall.error;

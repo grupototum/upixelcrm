@@ -11,7 +11,7 @@ import {
   MapPin, UserSquare2, ChevronLeft, ChevronRight, PlayCircle, VideoOff, Shield,
   Instagram, Merge, Trash2, AlertCircle,
   PanelRightClose, PanelRightOpen, ArrowLeft, List, MessageSquareDot,
-  RefreshCw, ChevronUp,
+  RefreshCw,
 } from "lucide-react";
 import { MergeLeadsModal } from "@/components/crm/MergeLeadsModal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -769,22 +769,6 @@ function InboxPageInner() { // force HMR reset
                   </div>
                 ) : (
                   <>
-                    {inbox.hasMoreMessages && (
-                      <div className="flex justify-center pb-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-[11px] gap-1.5"
-                          onClick={() => inbox.loadOlderMessages()}
-                          disabled={inbox.loadingOlder}
-                        >
-                          {inbox.loadingOlder
-                            ? <Loader2 className="h-3 w-3 animate-spin" />
-                            : <ChevronUp className="h-3 w-3" />}
-                          Carregar mensagens anteriores
-                        </Button>
-                      </div>
-                    )}
                     {inbox.messages.map((msg, i) => {
                       const isOutbound = msg.direction === "outbound";
                       const prevMsg = i > 0 ? inbox.messages[i - 1] : null;
