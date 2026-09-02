@@ -60,7 +60,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
   if (orgId) {
     try {
       const orgData = await usersRepo.getOrganizationById(orgId);
-      if (orgData) organization = orgData as AuthOrganization;
+      if (orgData) organization = orgData;
     } catch {
       // preserva comportamento original: erro ao buscar organization não bloqueia o login
     }

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { extractEdgeError } from "@/lib/edge-error";
 import { invokeMetaAds, listAdCampaigns } from "@/services/integrations";
 
-export interface MetaAdsCreds {
+export type MetaAdsCreds = {
   access_token: string;
   ad_account_id: string;
 }

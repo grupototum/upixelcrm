@@ -243,7 +243,7 @@ export function FacebookPageEmbeddedSignup({ onConnected }: Props) {
             onClick={() => {
               setPhase("idle");
               setPageOptions([]);
-              setPendingUserToken(null);
+              setPendingSessionId(null);
               setSelected(new Set());
               sessionStorage.removeItem(FB_OAUTH_SESSION_KEY);
               sessionStorage.removeItem(FB_OAUTH_PAGES_KEY);

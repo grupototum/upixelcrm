@@ -194,7 +194,7 @@ function CRMPageInner() {
   const { user } = useAuth();
   const { data: agents = [] } = useQuery({
     queryKey: ["crm-board-agents", user?.client_id],
-    queryFn: () => listActiveAgents(user!.client_id).catch(() => []),
+    queryFn: () => listActiveAgents(user?.client_id ?? "").catch(() => []),
     enabled: !!user?.client_id,
     staleTime: 60_000,
   });

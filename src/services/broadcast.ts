@@ -11,7 +11,7 @@ export interface WhatsAppTemplateRow {
   name: string;
   category: string;
   content: string;
-  status: string;
+  status: string | null;
 }
 
 export async function listWhatsAppTemplates(clientId: string): Promise<WhatsAppTemplateRow[]> {

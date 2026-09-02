@@ -222,7 +222,7 @@ export async function getProfileOrganizationId(userId: string): Promise<string |
   return data?.organization_id ?? null;
 }
 
-export async function getOrganizationById(orgId: string): Promise<Record<string, unknown> | null> {
+export async function getOrganizationById(orgId: string): Promise<Tables<"organizations"> | null> {
   const { data, error } = await supabase.from("organizations").select("*").eq("id", orgId).single();
   if (error) throw error;
   return data ?? null;

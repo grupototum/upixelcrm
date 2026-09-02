@@ -542,7 +542,7 @@ export default function CampaignsPage() {
 
           {/* ─── Ranking ─── */}
           <TabsContent value="ranking" className="mt-5">
-            {filtered.length > 0 ? <CampaignRanking campaigns={filtered} sortBy="roi" /> : (
+            {filtered.length > 0 ? <CampaignRanking campaigns={filtered} /> : (
               <div className="flex flex-col items-center justify-center h-36 border border-dashed border-border rounded-xl text-muted-foreground text-sm gap-2">
                 <Trophy className="h-8 w-8 opacity-20" /><p>Nenhuma campanha para rankear.</p>
               </div>

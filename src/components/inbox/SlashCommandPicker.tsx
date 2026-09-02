@@ -25,7 +25,7 @@ interface WaTemplate {
   name: string;
   content: string;
   category: string;
-  status: string;
+  status: string | null;
 }
 
 export function SlashCommandPicker({

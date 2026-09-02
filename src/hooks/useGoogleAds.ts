@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { AdCampaign } from "./useMetaAds";
 import { invokeGoogleAds, listAdCampaigns } from "@/services/integrations";
 
-export interface GoogleAdsCreds {
+export type GoogleAdsCreds = {
   developer_token: string;
   customer_id: string;
 }

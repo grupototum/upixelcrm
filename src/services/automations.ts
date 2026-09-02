@@ -200,7 +200,7 @@ export async function listBots(clientId: string): Promise<BotRow[]> {
   return (data ?? []) as BotRow[];
 }
 
-export async function createBot(row: Record<string, unknown>): Promise<{ id: string }> {
+export async function createBot(row: TablesInsert<"bots">): Promise<{ id: string }> {
   const { data, error } = await supabase.from("bots").insert(row).select("id").single();
   if (error) throw error;
   return data;
