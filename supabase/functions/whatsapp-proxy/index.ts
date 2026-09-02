@@ -45,22 +45,76 @@ async function readResponseBody(response: Response) {
   }
 }
 
-// UPIXEL_WA_TYPE=openwa habilita os endpoints do servidor OpenWA (Totum SDR)
-// no lugar da Evolution API. Só cobre criar/conectar/status/enviar/apagar —
-// mensagens RECEBIDAS ainda não chegam ao CRM: o whatsapp-webhook (função
-// separada) só entende o payload da Evolution. Ver tmp/OPENWA_INTEGRATION_PENDING.md.
-const isOpenWA = (Deno.env.get("UPIXEL_WA_TYPE") || "").toLowerCase() === "openwa";
+// UPIXEL_WA_TYPE=openwa faz o servidor GERENCIADO (botão "Conectar número") ser
+// um OpenWA (rmyndharis/OpenWA, Totum SDR) em vez de Evolution. Para linhas já
+// salvas, o protocolo é decidido por linha (`rowIsOpenWA`) — Evolution e OpenWA
+// convivem no mesmo tenant. Inbound chega pelo whatsapp-webhook (eventos
+// `message.received` / `session.status`), registrado por sessão em
+// `POST /api/sessions/{id}/webhooks` — ver ensureOpenWAWebhook.
+const envIsOpenWA = (Deno.env.get("UPIXEL_WA_TYPE") || "").toLowerCase() === "openwa";
+
+// Linhas OpenWA carregam `wa_type: "openwa"` e/ou `session_id` (versão publicada
+// em 2026-09-01 gravava só session_id, sem instance_name — por isso o fallback).
+function rowIsOpenWA(config: Record<string, any> | null | undefined): boolean {
+  if (!config) return envIsOpenWA;
+  if (config.wa_type === "openwa" || config.session_id) return true;
+  if (config.wa_type === "evolution") return false;
+  return envIsOpenWA && !!config.managed;
+}
+
+// Id da sessão no OpenWA. Linhas novas gravam o mesmo valor em instance_name e
+// session_id; linhas da versão anterior só têm session_id.
+const openwaSessionId = (config: Record<string, any>): string =>
+  String(config.session_id || config.instance_name || "");
 
 // OpenWA fica atrás de Basic Auth (Traefik) além da própria API key — Evolution
-// só usa o header `apikey`. UPIXEL_WA_BASIC_USER/PASS são opcionais (só
-// necessárias se o servidor OpenWA estiver atrás desse proxy).
-function waAuthHeaders(apiKey: string): Record<string, string> {
-  if (!isOpenWA) return { apikey: apiKey };
+// só usa o header `apikey`. Aceita UPIXEL_WA_BASIC_AUTH ("user:senha", formato da
+// versão publicada) ou UPIXEL_WA_BASIC_USER/PASS.
+function waAuthHeaders(apiKey: string, openwa = envIsOpenWA): Record<string, string> {
+  if (!openwa) return { apikey: apiKey };
   const headers: Record<string, string> = { "X-API-Key": apiKey };
+  const basicAuth = Deno.env.get("UPIXEL_WA_BASIC_AUTH");
   const basicUser = Deno.env.get("UPIXEL_WA_BASIC_USER");
   const basicPass = Deno.env.get("UPIXEL_WA_BASIC_PASS");
-  if (basicUser && basicPass) headers["Authorization"] = `Basic ${btoa(`${basicUser}:${basicPass}`)}`;
+  if (basicAuth) headers["Authorization"] = `Basic ${btoa(basicAuth)}`;
+  else if (basicUser && basicPass) headers["Authorization"] = `Basic ${btoa(`${basicUser}:${basicPass}`)}`;
   return headers;
+}
+
+const OPENWA_WEBHOOK_EVENTS = ["message.received", "session.status", "session.disconnected"];
+
+// Garante que a sessão OpenWA tem um webhook apontando para o whatsapp-webhook
+// desta instância Supabase. Contrato (Swagger do OpenWA, confirmado no motor SDR):
+// GET/POST /api/sessions/{id}/webhooks, body { url, events }. Idempotente: se já
+// existe webhook com a mesma URL, não duplica. Nunca lança — devolve o resultado
+// para ser gravado em config.webhook_registered / webhook_error e logado.
+async function ensureOpenWAWebhook(
+  apiUrl: string, apiKey: string, sessionId: string, webhookUrl: string,
+): Promise<{ registered: boolean; error?: string }> {
+  const headers = { ...waAuthHeaders(apiKey, true), "Content-Type": "application/json" };
+  const base = `${apiUrl}/api/sessions/${encodeURIComponent(sessionId)}/webhooks`;
+  try {
+    const listRes = await fetch(base, { headers });
+    if (listRes.ok) {
+      const list = await readResponseBody(listRes);
+      const items: any[] = Array.isArray(list) ? list : Array.isArray((list as any)?.data) ? (list as any).data : [];
+      if (items.some((w) => w?.url === webhookUrl)) return { registered: true };
+    }
+    const res = await fetch(base, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ url: webhookUrl, events: OPENWA_WEBHOOK_EVENTS }),
+    });
+    if (res.ok) return { registered: true };
+    const body = await readResponseBody(res);
+    const error = `HTTP ${res.status}: ${typeof body === "string" ? body : JSON.stringify(body)}`.slice(0, 300);
+    console.error(`OpenWA webhook register failed for session ${sessionId}:`, error);
+    return { registered: false, error };
+  } catch (e) {
+    const error = getErrorMessage(e);
+    console.error(`OpenWA webhook register error for session ${sessionId}:`, error);
+    return { registered: false, error };
+  }
 }
 
 Deno.serve(async (req) => {
@@ -178,7 +232,7 @@ Deno.serve(async (req) => {
 
       // ── OpenWA: cria + inicia sessão, servidor devolve um id (UUID) que
       // vira o instance_name salvo — todas as outras ações usam esse id nas URLs. ──
-      if (isOpenWA) {
+      if (envIsOpenWA) {
         const createRes = await fetch(`${managedUrl}/api/sessions`, {
           method: "POST",
           headers: { ...waAuthHeaders(managedKey), "Content-Type": "application/json" },
@@ -200,9 +254,11 @@ Deno.serve(async (req) => {
           headers: waAuthHeaders(managedKey),
         }).catch((e) => console.error("OpenWA start failed:", e));
 
-        const newConfig = {
+        const newConfig: Record<string, unknown> = {
           api_url: managedUrl,
           instance_name: sessionId,
+          session_id: sessionId,
+          wa_type: "openwa",
           api_key: managedKey,
           friendly_name: friendlyName,
           managed: true,
@@ -216,6 +272,15 @@ Deno.serve(async (req) => {
           console.error("DB insert error:", insertErr);
           return jsonResponse({ error: "Erro ao salvar instância no banco de dados." }, 500);
         }
+
+        // Webhook de inbound — sem isso nenhuma mensagem recebida (nem as enviadas
+        // pelo celular) chega ao CRM. Resultado gravado na config para o painel
+        // e o diagnóstico verem se falhou (antes era fire-and-forget no endpoint errado).
+        const taggedWebhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook?integration_id=${inserted?.id ?? ""}`;
+        const wh = await ensureOpenWAWebhook(managedUrl, managedKey, sessionId, taggedWebhookUrl);
+        await adminClient.from("integrations")
+          .update({ config: { ...newConfig, webhook_url: taggedWebhookUrl, webhook_registered: wh.registered, webhook_error: wh.error ?? null } })
+          .eq("id", inserted?.id);
 
         // QR code (best effort — pode ainda não estar pronto logo após o start;
         // o app já faz polling de "status"/reconecta o modal se vier vazio).
@@ -355,7 +420,11 @@ Deno.serve(async (req) => {
         (integrations || []).map((row: any) => ({
           id: row.id,
           provider: row.provider,
-          instance_name: (row.config as any)?.instance_name || "",
+          // Linhas OpenWA da versão anterior só têm session_id — o painel usa este
+          // valor como chave nas ações (status/connect/delete).
+          instance_name: (row.config as any)?.instance_name || (row.config as any)?.session_id || "",
+          wa_type: (row.config as any)?.wa_type || ((row.config as any)?.session_id ? "openwa" : "evolution"),
+          webhook_registered: (row.config as any)?.webhook_registered ?? null,
           friendly_name: (row.config as any)?.friendly_name || (row.config as any)?.instance_name || "",
           managed: !!(row.config as any)?.managed,
           status: row.status || "disconnected",
@@ -471,7 +540,11 @@ Deno.serve(async (req) => {
 
     let integration: Record<string, any> | null = null;
     if (instanceNameParam) {
-      const { data } = await instanceQuery.filter("config->>instance_name", "eq", instanceNameParam).maybeSingle();
+      // Linhas OpenWA da versão anterior só têm session_id — aceita os dois.
+      const { data } = await instanceQuery
+        .or(`config->>instance_name.eq.${instanceNameParam},config->>session_id.eq.${instanceNameParam}`)
+        .limit(1)
+        .maybeSingle();
       integration = data;
     } else {
       // Prefer connected/configured instances (most recently updated); fall back to any
@@ -518,8 +591,11 @@ Deno.serve(async (req) => {
       return u;
     })();
     const config = { ...rawConfig, api_url: normalizedUrl };
-    // URL-safe instance name (for paths only; JSON bodies must use raw config.instance_name)
-    const instancePath = encodeURIComponent(config.instance_name || "");
+    // Protocolo desta linha (Evolution × OpenWA) — decidido por linha, não por env.
+    const isOpenWA = rowIsOpenWA(config);
+    // URL-safe instance name (for paths only; JSON bodies must use raw config.instance_name).
+    // No OpenWA o path é o id da sessão (session_id, com fallback em instance_name).
+    const instancePath = encodeURIComponent(isOpenWA ? openwaSessionId(config) : (config.instance_name || ""));
     // URL do webhook com integration_id para roteamento determinístico cross-tenant.
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook?integration_id=${integration.id}`;
 
@@ -533,7 +609,7 @@ Deno.serve(async (req) => {
         if (isOpenWA) {
           await fetch(`${config.api_url}/api/sessions/${instancePath}`, {
             method: "DELETE",
-            headers: waAuthHeaders(config.api_key),
+            headers: waAuthHeaders(config.api_key, true),
           });
         } else {
           await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
@@ -560,14 +636,14 @@ Deno.serve(async (req) => {
           return jsonResponse({ connected: false, reachable: false, error: "WhatsApp Oficial (Cloud API) não é suportado pelo servidor OpenWA. Use o modo normal." }, 400);
         }
         try {
-          let sessionId = config.instance_name;
-          const checkRes = await fetch(`${config.api_url}/api/sessions/${instancePath}`, { headers: waAuthHeaders(config.api_key) });
+          let sessionId = openwaSessionId(config);
+          const checkRes = await fetch(`${config.api_url}/api/sessions/${instancePath}`, { headers: waAuthHeaders(config.api_key, true) });
 
           if (checkRes.status === 404) {
             // Sessão não existe mais no servidor — recria (mesmo padrão da Evolution: 404 → create).
             const createRes = await fetch(`${config.api_url}/api/sessions`, {
               method: "POST",
-              headers: { ...waAuthHeaders(config.api_key), "Content-Type": "application/json" },
+              headers: { ...waAuthHeaders(config.api_key, true), "Content-Type": "application/json" },
               body: JSON.stringify({ name: config.instance_name }),
             });
             const createData = await readResponseBody(createRes);
@@ -579,18 +655,23 @@ Deno.serve(async (req) => {
               });
             }
             sessionId = (createData as any).id;
-            await updateIntegration({ config: { ...config, instance_name: sessionId } });
+            await updateIntegration({ config: { ...config, instance_name: sessionId, session_id: sessionId, wa_type: "openwa" } });
           } else {
             await checkRes.text();
           }
 
+          // (Re)garante o webhook de inbound a cada connect — cobre sessões criadas
+          // pela versão anterior, que registrava no endpoint errado.
+          const wh = await ensureOpenWAWebhook(config.api_url, config.api_key, sessionId, webhookUrl);
+          Object.assign(config, { session_id: sessionId, wa_type: "openwa", webhook_url: webhookUrl, webhook_registered: wh.registered, webhook_error: wh.error ?? null });
+
           const sessionPath = encodeURIComponent(sessionId);
           await fetch(`${config.api_url}/api/sessions/${sessionPath}/start`, {
             method: "POST",
-            headers: waAuthHeaders(config.api_key),
+            headers: waAuthHeaders(config.api_key, true),
           }).catch((e) => console.error("OpenWA start failed:", e));
 
-          const statusRes = await fetch(`${config.api_url}/api/sessions/${sessionPath}`, { headers: waAuthHeaders(config.api_key) });
+          const statusRes = await fetch(`${config.api_url}/api/sessions/${sessionPath}`, { headers: waAuthHeaders(config.api_key, true) });
           const statusData = await readResponseBody(statusRes);
           const waStatus = (statusData as any)?.status;
 
@@ -602,7 +683,7 @@ Deno.serve(async (req) => {
             return jsonResponse({ instance: { state: "open", owner: (statusData as any)?.phone }, status: "connected" });
           }
 
-          const qrRes = await fetch(`${config.api_url}/api/sessions/${sessionPath}/qr`, { headers: waAuthHeaders(config.api_key) });
+          const qrRes = await fetch(`${config.api_url}/api/sessions/${sessionPath}/qr`, { headers: waAuthHeaders(config.api_key, true) });
           const qrData = await readResponseBody(qrRes);
           const qrCode = qrRes.ok && typeof qrData === "object" && qrData !== null
             ? (qrData as any).qr || (qrData as any).qrCode || (qrData as any).base64 || null
@@ -765,7 +846,7 @@ Deno.serve(async (req) => {
 
       if (isOpenWA) {
         try {
-          const res = await fetch(`${config.api_url}/api/sessions/${instancePath}`, { headers: waAuthHeaders(config.api_key) });
+          const res = await fetch(`${config.api_url}/api/sessions/${instancePath}`, { headers: waAuthHeaders(config.api_key, true) });
           const data = await readResponseBody(res);
 
           if (!res.ok) {
@@ -863,7 +944,7 @@ Deno.serve(async (req) => {
         if (isOpenWA) {
           await fetch(`${config.api_url}/api/sessions/${instancePath}`, {
             method: "DELETE",
-            headers: waAuthHeaders(config.api_key),
+            headers: waAuthHeaders(config.api_key, true),
           });
         } else {
           const logoutRes = await fetch(`${config.api_url}/instance/logout/${instancePath}`, {
@@ -914,11 +995,12 @@ Deno.serve(async (req) => {
 
       let res: Response;
       try {
+        // Contrato OpenWA (Swagger): body { chatId: "<telefone>@c.us", text } — não `to`.
         res = isOpenWA
           ? await fetch(`${config.api_url}/api/sessions/${instancePath}/messages/send-text`, {
               method: "POST",
-              headers: { ...waAuthHeaders(config.api_key), "Content-Type": "application/json" },
-              body: JSON.stringify({ to: formattedPhone, text: message }),
+              headers: { ...waAuthHeaders(config.api_key, true), "Content-Type": "application/json" },
+              body: JSON.stringify({ chatId: `${formattedPhone}@c.us`, text: message }),
             })
           : await fetch(`${config.api_url}/message/sendText/${instancePath}`, {
               method: "POST",
@@ -1006,9 +1088,11 @@ Deno.serve(async (req) => {
         // Grava o id devolvido pela Evolution. É o que permite ao
         // whatsapp-webhook descartar o eco `fromMe` desta mesma mensagem —
         // sem isso, tudo que o CRM envia aparecia duas vezes no inbox.
-        const sentMessageId = (data as any)?.key?.id ?? null;
+        // Evolution devolve key.id; OpenWA devolve waMessageId (ou id interno).
+        const sentMessageId = (data as any)?.key?.id ?? (data as any)?.waMessageId ?? (data as any)?.id ?? null;
         await adminClient.from("messages").insert({
           client_id: clientId,
+          tenant_id: tenantId,
           conversation_id: convId,
           content: message,
           type: "text",
